@@ -63,10 +63,17 @@ function hoverParticipations(
       tooltip.style("visibility", "hidden");
     })
     .on("mousemove", function (event: MouseEvent, d: any) {
-      tooltip
-        .style("top", event.pageY + 20 + "px")
-        .style("left", event.pageX + "px")
-        .html(participationTooltip(d));
+      tooltip.html(participationTooltip(d));
+      if (event.pageX < window.innerWidth / 2) {
+        tooltip
+          .style("top", event.pageY + 20 + "px")
+          .style("left", event.pageX + "px");
+      } else {
+        const ttWidth = tooltip?.node().getBoundingClientRect().width;
+        tooltip
+          .style("top", event.pageY + 20 + "px")
+          .style("left", event.pageX - ttWidth + "px");
+      }
     });
 }
 

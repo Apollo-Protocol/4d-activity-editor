@@ -1,4 +1,4 @@
-import { useState, useRef, MutableRefObject } from "react";
+import { useState, useRef } from "react";
 import { config } from "@/diagram/config";
 import SetIndividual from "@/components/SetIndividual";
 import SetActivity from "@/components/SetActivity";
@@ -31,7 +31,7 @@ export default function ActivityDiagramWrap() {
   const [showConfigModal, setShowConfigModal] = useState(false);
   const [showSortIndividuals, setShowSortIndividuals] = useState(false);
 
-  const svgRef: MutableRefObject<any> = useRef();
+  const svgRef = useRef<SVGSVGElement>(null);
 
   const deleteIndividual = (id: string) => {
     const d = dataset.clone();
@@ -58,7 +58,7 @@ export default function ActivityDiagramWrap() {
     setSelectedIndividual(i);
     setShowIndividual(true);
   };
-  const clickActivity = (a: any) => {
+  const clickActivity = (a: Activity) => {
     setSelectedActivity(a);
     setShowActivity(true);
   };
@@ -70,6 +70,9 @@ export default function ActivityDiagramWrap() {
 
   const individualsArray: Individual[] = [];
   dataset.individuals.forEach((i: Individual) => individualsArray.push(i));
+
+  const activitiesArray: Activity[] = [];
+  dataset.activities.forEach((a: Activity) => activitiesArray.push(a));
 
   return (
     <>
@@ -97,13 +100,13 @@ export default function ActivityDiagramWrap() {
               setShowSortIndividuals={setShowSortIndividuals}
             />
             <SetActivity
-              deleteActivity={deleteActivity}
-              setDataset={setActivity}
               show={showActivity}
               setShow={setShowActivity}
               selectedActivity={selectedActivity}
               setSelectedActivity={setSelectedActivity}
               individuals={individualsArray}
+              dataset={dataset}
+              setDataset={setDataset}
             />
             <SetIndividual
               deleteIndividual={deleteIndividual}
@@ -112,6 +115,7 @@ export default function ActivityDiagramWrap() {
               setShow={setShowIndividual}
               selectedIndividual={selectedIndividual}
               setSelectedIndividual={setSelectedIndividual}
+              dataset={dataset}
             />
             <SetParticipation
               setDataset={setActivity}

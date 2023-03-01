@@ -34,7 +34,7 @@ export interface Plot {
 export function drawActivityDiagram(
   dataset: Model,
   configData: any,
-  svgRef: any,
+  svgRef: SVGSVGElement,
   clickIndividual: any,
   clickActivity: any,
   clickParticipation: any
@@ -50,11 +50,12 @@ export function drawActivityDiagram(
   const svgElement = clearDiagram(svgRef);
   const height = calculateViewportHeight(configData, dataset.individuals);
   const tooltip = createTooltip();
-  drawIndividuals(configData, svgElement, individualsArray);
+
+  drawIndividuals(configData, svgElement, individualsArray, activitiesArray);
   hoverIndividuals(configData, svgElement, tooltip);
   labelIndividuals(configData, svgElement, individualsArray);
   clickIndividuals(configData, svgElement, individualsArray, clickIndividual);
-  drawActivities(configData, svgElement, activitiesArray);
+  drawActivities(configData, svgElement, activitiesArray, individualsArray);
   hoverActivities(configData, svgElement, tooltip);
   clickActivities(svgElement, activitiesArray, clickActivity);
   drawParticipations(configData, svgElement, activitiesArray, tooltip);

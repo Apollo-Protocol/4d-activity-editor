@@ -1,5 +1,6 @@
 import { Individual } from "amrc-activity-lib";
 import * as d3 from "d3";
+import { ConfigData } from "./config";
 
 export interface Label {
   x: number;
@@ -9,7 +10,7 @@ export interface Label {
 }
 
 export function calculateViewportHeight(
-  config: any,
+  config: ConfigData,
   individualsMap: Map<string, Individual>
 ) {
   let viewPortHeight = 0;
@@ -51,7 +52,6 @@ export function removeLabelIfItOverlaps(
   labels: Label[],
   node: SVGGraphicsElement
 ) {
-  console.log("labels", labels);
   if (labels.length === 0) {
     return;
   }
@@ -63,4 +63,18 @@ export function removeLabelIfItOverlaps(
       }
     }
   });
+}
+
+export function keepIndividualLabels(individuals: Individual[]) {
+  if (!individuals) {
+    return true;
+  }
+  const individualsStartingBeforeTime = individuals.filter(
+    (i) => i.beginning == -1
+  );
+  if (individuals.length > 0 && individualsStartingBeforeTime.length < 1) {
+    return false;
+  } else {
+    return true;
+  }
 }

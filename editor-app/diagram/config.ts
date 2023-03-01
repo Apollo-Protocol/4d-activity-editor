@@ -1,4 +1,69 @@
-export const config = {
+export interface ConfigData {
+  viewPort: {
+    zoom: number;
+    x: number;
+  };
+  layout: {
+    individual: {
+      topMargin: number;
+      bottomMargin: number;
+      height: number;
+      gap: number;
+      xMargin: number;
+      temporalMargin: number;
+      textLength: number;
+    };
+  };
+  presentation: {
+    individual: {
+      strokeWidth: string;
+      stroke: string;
+      fill: string;
+      fillHover: string;
+    };
+    activity: {
+      strokeWidth: string;
+      stroke: string;
+      strokeDasharray: string;
+      fill: string;
+      opacity: string;
+      opacityHover: string;
+    };
+    participation: {
+      strokeWidth: string;
+      stroke: string;
+      strokeDasharray: string;
+      fill: string;
+      opacity: string;
+      opacityHover: string;
+    };
+    axis: {
+      colour: string;
+      width: number;
+      margin: number;
+      textOffsetX: number;
+      textOffsetY: number;
+      endMargin: number;
+    };
+  };
+  labels: {
+    individual: {
+      enabled: boolean;
+      leftMargin: number;
+      topMargin: number;
+      color: string;
+      fontSize: string;
+    };
+    activity: {
+      enabled: boolean;
+      topMargin: number;
+      color: string;
+      fontSize: string;
+    };
+  };
+}
+
+export const config: ConfigData = {
   viewPort: {
     zoom: 1,
     x: 1000, //Sets the viewport. All other values are relative to this. The Y dimension is caculated from the objects to draw.

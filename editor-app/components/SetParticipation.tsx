@@ -1,16 +1,15 @@
-import React, { Dispatch, SetStateAction, useState } from "react";
+import React, { Dispatch, SetStateAction } from "react";
 import Button from "react-bootstrap/Button";
 import Modal from "react-bootstrap/Modal";
 import Form from "react-bootstrap/Form";
-import { Activity, Individual, Participation } from "amrc-activity-lib";
-import { v4 as uuidv4 } from "uuid";
+import { Activity, Participation } from "amrc-activity-lib";
 
 interface Props {
   setDataset: (activity: Activity) => void;
   show: boolean;
   setShow: Dispatch<SetStateAction<boolean>>;
   selectedActivity: Activity | undefined;
-  setSelectedActivity: any;
+  setSelectedActivity: Dispatch<SetStateAction<Activity | undefined>>;
   selectedParticipation: Participation | undefined;
   setSelectedParticipation: any;
 }
@@ -29,6 +28,7 @@ const SetParticipation = (props: Props) => {
   const handleClose = () => {
     setShow(false);
     setSelectedParticipation(undefined);
+    setSelectedActivity(undefined);
   };
   const handleShow = () => {};
   const handleAdd = (event: any) => {
@@ -70,16 +70,6 @@ const SetParticipation = (props: Props) => {
                 type="text"
                 name="role"
                 value={selectedParticipation?.role}
-                onChange={handleChange}
-                className="form-control"
-              />
-            </Form.Group>
-            <Form.Group className="mb-3" controlId="formParticipationType">
-              <Form.Label>Type</Form.Label>
-              <Form.Control
-                type="text"
-                name="type"
-                value={selectedParticipation?.type}
                 onChange={handleChange}
                 className="form-control"
               />

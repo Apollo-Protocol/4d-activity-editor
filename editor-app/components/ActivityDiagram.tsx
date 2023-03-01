@@ -1,7 +1,18 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, MutableRefObject } from "react";
 import { drawActivityDiagram } from "@/diagram/DrawActivityDiagram";
+import { Activity, Individual, Model, Participation } from "amrc-activity-lib";
+import { ConfigData } from "@/diagram/config";
 
-const ActivityDiagram = (props: any) => {
+interface Props {
+  dataset: Model;
+  configData: ConfigData;
+  clickIndividual: (i: Individual) => void;
+  clickActivity: (a: Activity) => void;
+  clickParticipation: (a: Activity, p: Participation) => void;
+  svgRef: MutableRefObject<any>;
+}
+
+const ActivityDiagram = (props: Props) => {
   const {
     dataset,
     configData,

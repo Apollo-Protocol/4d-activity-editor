@@ -1,14 +1,47 @@
 import { MouseEvent } from "react";
-import { Individual } from "amrc-activity-lib";
-import { Label, removeLabelIfItOverlaps } from "./DrawHelpers";
+import { Activity, Individual, Model } from "amrc-activity-lib";
+import {
+  keepIndividualLabels,
+  Label,
+  removeLabelIfItOverlaps,
+} from "./DrawHelpers";
+import { ConfigData } from "./config";
 
 let mouseOverElement: any | null = null;
 
 export function drawIndividuals(
-  config: any,
+  config: ConfigData,
   svgElement: any,
-  individuals: Individual[]
+  individuals: Individual[],
+  activities: Activity[]
 ) {
+  let startOfTime = Math.min(...activities.map((a) => a.beginning));
+  let endOfTime = Math.max(...activities.map((a) => a.ending));
+  let duration = endOfTime - startOfTime;
+  let totalLeftMargin =
+    config.viewPort.x * config.viewPort.zoom -
+    config.layout.individual.xMargin * 2;
+  totalLeftMargin -= config.layout.individual.temporalMargin;
+
+  const individualLabelsEnabled =
+    config.labels.individual.enabled && keepIndividualLabels(individuals);
+  if (individualLabelsEnabled) {
+    totalLeftMargin -= config.layout.individual.textLength;
+  }
+
+  let timeInterval = totalLeftMargin / duration;
+
+  let x = config.layout.individual.xMargin;
+  x += config.layout.individual.temporalMargin;
+  if (individualLabelsEnabled) {
+    x += config.layout.individual.textLength;
+  }
+
+  const fullWidth =
+    config.viewPort.x * config.viewPort.zoom +
+    config.layout.individual.temporalMargin -
+    config.layout.individual.xMargin * 2;
+
   let y = config.layout.individual.topMargin + config.layout.individual.gap;
 
   svgElement
@@ -17,18 +50,38 @@ export function drawIndividuals(
     .join("rect")
     .attr("class", "individual")
     .attr("id", (d: Individual) => "i" + d["id"])
-    .attr("x", config.layout.individual.xMargin)
+    .attr("x", (i: Individual) => {
+      if (i.beginning < 0) {
+        return config.layout.individual.xMargin;
+      }
+      return x + timeInterval * (i.beginning - startOfTime);
+    })
     .attr("y", () => {
       const oldY = y;
       y = y + config.layout.individual.height + config.layout.individual.gap;
       return oldY;
     })
-    .attr(
-      "width",
-      config.viewPort.x * config.viewPort.zoom +
-        config.layout.individual.temporalMargin -
-        config.layout.individual.xMargin * 2
-    )
+    .attr("width", (i: Individual) => {
+      if (i.beginning < 0 && i.ending == Model.END_OF_TIME) {
+        return fullWidth;
+      }
+      if (i.beginning >= 0 && i.ending == Model.END_OF_TIME) {
+        return (
+          (endOfTime - i.beginning) * timeInterval +
+          config.layout.individual.temporalMargin
+        );
+      }
+      if (i.beginning < 0 && i.ending < Model.END_OF_TIME) {
+        return (
+          fullWidth -
+          (endOfTime - i.ending) * timeInterval -
+          config.layout.individual.temporalMargin
+        );
+      }
+      if (i.beginning >= 0 && i.ending < Model.END_OF_TIME) {
+        return (i.ending - i.beginning) * timeInterval;
+      }
+    })
     .attr("height", config.layout.individual.height)
     .attr("stroke", config.presentation.individual.stroke)
     .attr("stroke-width", config.presentation.individual.strokeWidth)
@@ -37,7 +90,11 @@ export function drawIndividuals(
   return svgElement;
 }
 
-export function hoverIndividuals(config: any, svgElement: any, tooltip: any) {
+export function hoverIndividuals(
+  config: ConfigData,
+  svgElement: any,
+  tooltip: any
+) {
   svgElement
     .selectAll(".individual")
     .on("mouseover", function (event: MouseEvent) {
@@ -70,7 +127,7 @@ function individualTooltip(individual: Individual) {
 }
 
 export function clickIndividuals(
-  config: any,
+  config: ConfigData,
   svgElement: any,
   individuals: Individual[],
   clickIndividual: any
@@ -83,7 +140,7 @@ export function clickIndividuals(
 }
 
 export function labelIndividuals(
-  config: any,
+  config: ConfigData,
   svgElement: any,
   individuals: Individual[]
 ) {
@@ -120,5 +177,8 @@ export function labelIndividuals(
     .each((d: Individual, i: number, nodes: SVGGraphicsElement[]) => {
       removeLabelIfItOverlaps(labels, nodes[i]);
       labels.push(nodes[i].getBBox());
+      if (d.beginning >= 0) {
+        nodes[i].remove();
+      }
     });
 }

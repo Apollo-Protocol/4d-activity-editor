@@ -8,27 +8,27 @@ import Row from "react-bootstrap/Row";
 import Col from "react-bootstrap/Col";
 import { v4 as uuidv4 } from "uuid";
 import Select from "react-select";
-import { Individual, Activity, Participation } from "amrc-activity-lib";
+import { Model, Individual, Activity, Participation } from "amrc-activity-lib";
 
 interface Props {
-  deleteActivity: any;
-  setDataset: (activity: Activity) => void;
   show: boolean;
   setShow: Dispatch<SetStateAction<boolean>>;
   selectedActivity: Activity | undefined;
-  setSelectedActivity: any;
+  setSelectedActivity: Dispatch<SetStateAction<Activity | undefined>>;
   individuals: Individual[];
+  dataset: Model;
+  setDataset: Dispatch<SetStateAction<Model>>;
 }
 
 const SetActivity = (props: Props) => {
   const {
-    deleteActivity,
-    setDataset,
     show,
     setShow,
     selectedActivity,
     setSelectedActivity,
     individuals,
+    dataset,
+    setDataset,
   } = props;
   let defaultActivity: Activity = {
     id: "",
@@ -36,12 +36,26 @@ const SetActivity = (props: Props) => {
     type: "",
     description: "",
     beginning: 0,
-    ending: 0,
+    ending: 1,
     participations: new Map<string, Participation>(),
   };
 
   const [inputs, setInputs] = useState(defaultActivity);
   const [errors, setErrors] = useState([]);
+
+  function updateIndividuals(d: Model) {
+    d.individuals.forEach((individual) => {
+      const earliestBeginning = d.earliestParticipantBeginning(individual.id);
+      const latestEnding = d.lastParticipantEnding(individual.id);
+      if (individual.beginning >= 0) {
+        individual.beginning = earliestBeginning ? earliestBeginning : -1;
+      }
+      if (individual.ending < Model.END_OF_TIME) {
+        individual.ending = latestEnding;
+      }
+      d.addIndividual(individual);
+    });
+  }
 
   const handleClose = () => {
     setShow(false);
@@ -61,7 +75,10 @@ const SetActivity = (props: Props) => {
     event.preventDefault();
     const isValid = validateInputs();
     if (isValid) {
-      setDataset(inputs);
+      const d = dataset.clone();
+      d.addActivity(inputs);
+      updateIndividuals(d);
+      setDataset(d);
       handleClose();
     }
   };
@@ -72,7 +89,10 @@ const SetActivity = (props: Props) => {
     setInputs(copied);
   };
   const handleDelete = (event: any) => {
-    deleteActivity(inputs.id);
+    const d = dataset.clone();
+    d.removeActivity(inputs.id);
+    updateIndividuals(d);
+    setDataset(d);
     handleClose();
   };
 
@@ -89,7 +109,6 @@ const SetActivity = (props: Props) => {
     e.forEach((i: Individual) => {
       let participation: Participation = {
         individualId: i.id,
-        type: "",
         role: "",
       };
       participations.set(i.id, participation);
@@ -129,6 +148,9 @@ const SetActivity = (props: Props) => {
     }
     if (inputs.ending % 1 != 0) {
       runningErrors.push("Ending must be a whole number");
+    }
+    if (inputs.ending >= Model.END_OF_TIME) {
+      runningErrors.push("Ending cannot be greater than " + Model.END_OF_TIME);
     }
     //Participant count
     if (
@@ -202,6 +224,9 @@ const SetActivity = (props: Props) => {
                 name="beginning"
                 value={inputs.beginning}
                 onChange={handleChangeNumeric}
+                step="1"
+                min="0"
+                max={Model.END_OF_TIME - 2}
                 className="form-control"
               />
             </Form.Group>
@@ -210,6 +235,9 @@ const SetActivity = (props: Props) => {
               <Form.Control
                 type="number"
                 name="ending"
+                step="1"
+                min="1"
+                max={Model.END_OF_TIME - 1}
                 value={inputs.ending}
                 onChange={handleChangeNumeric}
                 className="form-control"

@@ -1,5 +1,7 @@
+import { ConfigData } from "./config";
+
 export function drawAxisArrows(
-  config: any,
+  config: ConfigData,
   svgElement: any,
   viewPortHeight: number
 ) {

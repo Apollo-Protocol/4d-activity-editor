@@ -13,7 +13,6 @@ const SortIndividuals = (props: any) => {
   useEffect(() => {
     dataset.individuals.forEach((i: Individual) => individualsArray.push(i));
     setItems(individualsArray);
-    console.log("items", items);
   }, [dataset]);
 
   const handleClose = () => {

@@ -1,13 +1,19 @@
 import { MouseEvent } from "react";
-import { Activity, Participation } from "amrc-activity-lib";
-import { Label, removeLabelIfItOverlaps } from "./DrawHelpers";
+import { Activity, Individual, Participation } from "amrc-activity-lib";
+import {
+  Label,
+  removeLabelIfItOverlaps,
+  keepIndividualLabels,
+} from "./DrawHelpers";
+import { ConfigData } from "./config";
 
 let mouseOverElement: any | null = null;
 
 export function drawActivities(
-  config: any,
+  config: ConfigData,
   svgElement: any,
-  activities: Activity[]
+  activities: Activity[],
+  individuals: Individual[]
 ) {
   let startOfTime = Math.min(...activities.map((a) => a.beginning));
   let endOfTime = Math.max(...activities.map((a) => a.ending));
@@ -16,7 +22,10 @@ export function drawActivities(
     config.viewPort.x * config.viewPort.zoom -
     config.layout.individual.xMargin * 2;
   totalLeftMargin -= config.layout.individual.temporalMargin;
-  if (config.labels.individual.enabled) {
+
+  const individualLabelsEnabled =
+    config.labels.individual.enabled && keepIndividualLabels(individuals);
+  if (individualLabelsEnabled) {
     totalLeftMargin -= config.layout.individual.textLength;
   }
 
@@ -24,7 +33,7 @@ export function drawActivities(
 
   let x = config.layout.individual.xMargin;
   x += config.layout.individual.temporalMargin;
-  if (config.labels.individual.enabled) {
+  if (individualLabelsEnabled) {
     x += config.layout.individual.textLength;
   }
 
@@ -67,7 +76,7 @@ export function drawActivities(
 }
 
 function labelActivities(
-  config: any,
+  config: ConfigData,
   svgElement: any,
   activities: Activity[],
   startingPosition: number,
@@ -121,7 +130,11 @@ function labelActivities(
     });
 }
 
-export function hoverActivities(config: any, svgElement: any, tooltip: any) {
+export function hoverActivities(
+  config: ConfigData,
+  svgElement: any,
+  tooltip: any
+) {
   svgElement
     .selectAll(".activity")
     .on("mouseover", function (event: MouseEvent) {

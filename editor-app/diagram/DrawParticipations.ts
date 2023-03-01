@@ -1,10 +1,11 @@
 import { MouseEvent } from "react";
 import { Activity, Participation } from "amrc-activity-lib";
+import { ConfigData } from "./config";
 
 let mouseOverElement: any | null = null;
 
 export function drawParticipations(
-  config: any,
+  config: ConfigData,
   svgElement: any,
   activities: Activity[],
   tooltip: any
@@ -40,7 +41,11 @@ export function drawParticipations(
   hoverParticipations(config, svgElement, tooltip);
 }
 
-function hoverParticipations(config: any, svgElement: any, tooltip: any) {
+function hoverParticipations(
+  config: ConfigData,
+  svgElement: any,
+  tooltip: any
+) {
   svgElement
     .selectAll(".participation")
     .on("mouseover", function (event: MouseEvent) {

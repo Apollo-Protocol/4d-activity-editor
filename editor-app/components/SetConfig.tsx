@@ -4,11 +4,12 @@ import Modal from "react-bootstrap/Modal";
 import Form from "react-bootstrap/Form";
 import Row from "react-bootstrap/Row";
 import Col from "react-bootstrap/Col";
+import { ConfigData } from "@/diagram/config";
 const _ = require("lodash");
 
 interface Props {
-  configData: any;
-  setConfigData: any;
+  configData: ConfigData;
+  setConfigData: Dispatch<SetStateAction<ConfigData>>;
   showConfigModal: boolean;
   setShowConfigModal: Dispatch<SetStateAction<boolean>>;
 }
@@ -44,7 +45,6 @@ const SetConfig = (props: Props) => {
   };
 
   const handleChangeBoolean = (e: any) => {
-    console.log(e);
     let localInputs = { ...inputs };
     _.set(localInputs, e.target.name, e.target.checked);
     setInputs(localInputs);

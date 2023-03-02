@@ -38,7 +38,7 @@ export function createTooltip() {
     .append("div")
     .attr("id", "tooltip")
     .style("position", "absolute")
-    .style("visibility", "hidden")
+    .style("display", "none")
     .style("background", "white")
     .style("color", "black")
     .style("padding", "5px")

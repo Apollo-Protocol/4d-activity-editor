@@ -100,14 +100,14 @@ export function hoverIndividuals(
     .on("mouseover", function (event: MouseEvent) {
       mouseOverElement = event.target as HTMLElement;
       mouseOverElement.style.fill = config.presentation.individual.fillHover;
-      tooltip.style("visibility", "visible");
+      tooltip.style("display", "block");
     })
     .on("mouseout", function (event: MouseEvent) {
       if (mouseOverElement) {
         mouseOverElement.style.fill = config.presentation.individual.fill;
         mouseOverElement = null;
       }
-      tooltip.style("visibility", "hidden");
+      tooltip.style("display", "none");
     })
     .on("mousemove", function (event: MouseEvent, d: any) {
       tooltip.html(individualTooltip(d));

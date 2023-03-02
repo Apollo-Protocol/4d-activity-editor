@@ -52,7 +52,7 @@ function hoverParticipations(
       mouseOverElement = event.target as HTMLElement;
       mouseOverElement.style.opacity =
         config.presentation.participation.opacityHover;
-      tooltip.style("visibility", "visible");
+      tooltip.style("display", "block");
     })
     .on("mouseout", function (event: MouseEvent) {
       if (mouseOverElement) {
@@ -60,7 +60,7 @@ function hoverParticipations(
           config.presentation.participation.opacity;
         mouseOverElement = null;
       }
-      tooltip.style("visibility", "hidden");
+      tooltip.style("display", "none");
     })
     .on("mousemove", function (event: MouseEvent, d: any) {
       tooltip.html(participationTooltip(d));

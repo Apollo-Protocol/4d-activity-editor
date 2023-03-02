@@ -149,14 +149,14 @@ export function hoverActivities(
       mouseOverElement = event.target as HTMLElement;
       mouseOverElement.style.opacity =
         config.presentation.activity.opacityHover;
-      tooltip.style("visibility", "visible");
+      tooltip.style("display", "block");
     })
     .on("mouseout", function (event: MouseEvent) {
       if (mouseOverElement) {
         mouseOverElement.style.opacity = config.presentation.activity.opacity;
         mouseOverElement = null;
       }
-      tooltip.style("visibility", "hidden");
+      tooltip.style("display", "none");
     })
     .on("mousemove", function (event: MouseEvent, d: any) {
       tooltip.html(activityTooltip(d));

@@ -53,12 +53,14 @@ export interface ConfigData {
       topMargin: number;
       color: string;
       fontSize: string;
+      maxChars: number;
     };
     activity: {
       enabled: boolean;
       topMargin: number;
       color: string;
       fontSize: string;
+      maxChars: number;
     };
   };
 }
@@ -118,12 +120,14 @@ export const config: ConfigData = {
       topMargin: 5, //The margin applied to the top of the individual label to center it on the rectangle.
       color: "black", //Individual label color
       fontSize: "0.8em", //Individual label font size
+      maxChars: 24,
     },
     activity: {
       enabled: true,
       topMargin: 5, //The margin applied to the top of the activity label to support correct placement
       color: "#441d62",
       fontSize: "0.8em", //Activity label font size
+      maxChars: 14,
     },
   },
 };

@@ -74,7 +74,7 @@ const SetConfig = (props: Props) => {
             <Row>
               <Col xs={6} lg={3}>
                 <h4>Activities</h4>
-                <Form.Group className="mb-3" controlId="formActivityFill">
+                <Form.Group className="mb-2" controlId="formActivityFill">
                   <Form.Label>Fill Colour</Form.Label>
                   <Form.Control
                     type="text"
@@ -84,7 +84,7 @@ const SetConfig = (props: Props) => {
                     className="form-control"
                   />
                 </Form.Group>
-                <Form.Group className="mb-3" controlId="formActivityOpacity">
+                <Form.Group className="mb-2" controlId="formActivityOpacity">
                   <Form.Label>Opacity</Form.Label>
                   <Form.Control
                     type="text"
@@ -95,7 +95,7 @@ const SetConfig = (props: Props) => {
                   />
                 </Form.Group>
                 <Form.Group
-                  className="mb-3"
+                  className="mb-2"
                   controlId="formActivityOpacityHover"
                 >
                   <Form.Label>Opacity on Hover</Form.Label>
@@ -107,7 +107,7 @@ const SetConfig = (props: Props) => {
                     className="form-control"
                   />
                 </Form.Group>
-                <Form.Group className="mb-3" controlId="formActivityStroke">
+                <Form.Group className="mb-2" controlId="formActivityStroke">
                   <Form.Label>Border Colour</Form.Label>
                   <Form.Control
                     type="text"
@@ -118,7 +118,7 @@ const SetConfig = (props: Props) => {
                   />
                 </Form.Group>
                 <Form.Group
-                  className="mb-3"
+                  className="mb-2"
                   controlId="formActivityStrokeWidth"
                 >
                   <Form.Label>Border Width</Form.Label>
@@ -131,7 +131,7 @@ const SetConfig = (props: Props) => {
                   />
                 </Form.Group>
                 <Form.Group
-                  className="mb-3"
+                  className="mb-2"
                   controlId="formActivityStrokeDasharray"
                 >
                   <Form.Label>Border DashArray</Form.Label>
@@ -144,7 +144,7 @@ const SetConfig = (props: Props) => {
                   />
                 </Form.Group>
                 <Form.Group
-                  className="mb-3"
+                  className="mb-2"
                   controlId="formLabelsActivityFontsize"
                 >
                   <Form.Label>Font Size</Form.Label>
@@ -156,10 +156,23 @@ const SetConfig = (props: Props) => {
                     className="form-control"
                   />
                 </Form.Group>
+                <Form.Group
+                  className="mb-2"
+                  controlId="formLabelsActivityMaxChars"
+                >
+                  <Form.Label>Max Label Characters</Form.Label>
+                  <Form.Control
+                    type="text"
+                    name="labels.activity.maxChars"
+                    value={inputs?.labels?.activity?.maxChars}
+                    onChange={handleChangeString}
+                    className="form-control"
+                  />
+                </Form.Group>
               </Col>
               <Col xs={6} lg={3}>
                 <h4>Participations</h4>
-                <Form.Group className="mb-3" controlId="formParticipationsFill">
+                <Form.Group className="mb-2" controlId="formParticipationsFill">
                   <Form.Label>Fill Colour</Form.Label>
                   <Form.Control
                     type="text"
@@ -170,7 +183,7 @@ const SetConfig = (props: Props) => {
                   />
                 </Form.Group>
                 <Form.Group
-                  className="mb-3"
+                  className="mb-2"
                   controlId="formParticipationsOpacity"
                 >
                   <Form.Label>Opacity</Form.Label>
@@ -183,7 +196,7 @@ const SetConfig = (props: Props) => {
                   />
                 </Form.Group>
                 <Form.Group
-                  className="mb-3"
+                  className="mb-2"
                   controlId="formParticipationsOpacityHover"
                 >
                   <Form.Label>Opacity on Hover</Form.Label>
@@ -196,7 +209,7 @@ const SetConfig = (props: Props) => {
                   />
                 </Form.Group>
                 <Form.Group
-                  className="mb-3"
+                  className="mb-2"
                   controlId="formParticipationsStroke"
                 >
                   <Form.Label>Border Colour</Form.Label>
@@ -209,7 +222,7 @@ const SetConfig = (props: Props) => {
                   />
                 </Form.Group>
                 <Form.Group
-                  className="mb-3"
+                  className="mb-2"
                   controlId="formParticipationsStrokeWidth"
                 >
                   <Form.Label>Border Width</Form.Label>
@@ -222,7 +235,7 @@ const SetConfig = (props: Props) => {
                   />
                 </Form.Group>
                 <Form.Group
-                  className="mb-3"
+                  className="mb-2"
                   controlId="formParticipationsStrokeDasharray"
                 >
                   <Form.Label>Border DashArray</Form.Label>
@@ -237,7 +250,7 @@ const SetConfig = (props: Props) => {
               </Col>
               <Col xs={6} lg={3}>
                 <h4>Individuals</h4>
-                <Form.Group className="mb-3" controlId="formIndividualFill">
+                <Form.Group className="mb-2" controlId="formIndividualFill">
                   <Form.Label>Fill Colour</Form.Label>
                   <Form.Control
                     type="text"
@@ -247,7 +260,7 @@ const SetConfig = (props: Props) => {
                     className="form-control"
                   />
                 </Form.Group>
-                <Form.Group className="mb-3" controlId="formIndividualFill">
+                <Form.Group className="mb-2" controlId="formIndividualFill">
                   <Form.Label>Fill Hover Colour</Form.Label>
                   <Form.Control
                     type="text"
@@ -257,7 +270,7 @@ const SetConfig = (props: Props) => {
                     className="form-control"
                   />
                 </Form.Group>
-                <Form.Group className="mb-3" controlId="formIndividualStroke">
+                <Form.Group className="mb-2" controlId="formIndividualStroke">
                   <Form.Label>Border Colour</Form.Label>
                   <Form.Control
                     type="text"
@@ -268,7 +281,7 @@ const SetConfig = (props: Props) => {
                   />
                 </Form.Group>
                 <Form.Group
-                  className="mb-3"
+                  className="mb-2"
                   controlId="formIndividualStrokeWidth"
                 >
                   <Form.Label>Border Width</Form.Label>
@@ -281,7 +294,7 @@ const SetConfig = (props: Props) => {
                   />
                 </Form.Group>
                 <Form.Group
-                  className="mb-3"
+                  className="mb-2"
                   controlId="formLabelsIndividualFontsize"
                 >
                   <Form.Label>Font Size</Form.Label>
@@ -293,11 +306,24 @@ const SetConfig = (props: Props) => {
                     className="form-control"
                   />
                 </Form.Group>
+                <Form.Group
+                  className="mb-2"
+                  controlId="formLabelsIndividualMaxChars"
+                >
+                  <Form.Label>Max Label Characters</Form.Label>
+                  <Form.Control
+                    type="text"
+                    name="labels.individual.maxChars"
+                    value={inputs?.labels?.individual?.maxChars}
+                    onChange={handleChangeString}
+                    className="form-control"
+                  />
+                </Form.Group>
               </Col>
               <Col xs={6} lg={3}>
                 <h4>Labels</h4>
                 <Form.Group
-                  className="mb-3"
+                  className="mb-2"
                   controlId="formIndividualLabelsSwitch"
                 >
                   <Form.Label>Enable for</Form.Label>
@@ -326,7 +352,7 @@ const SetConfig = (props: Props) => {
                 </Form.Group>
                 <hr />
                 <h4>Zoom</h4>
-                <Form.Group className="mb-3" controlId="formViewPortZoom">
+                <Form.Group className="mb-2" controlId="formViewPortZoom">
                   <Form.Label>Time Axis</Form.Label>
                   <Form.Control
                     type="number"
@@ -342,7 +368,7 @@ const SetConfig = (props: Props) => {
                 <hr />
                 <h4>Individual Layout</h4>
                 <Form.Group
-                  className="mb-3"
+                  className="mb-2"
                   controlId="formLayoutIndividualHeight"
                 >
                   <Form.Label>Height</Form.Label>
@@ -355,7 +381,7 @@ const SetConfig = (props: Props) => {
                   />
                 </Form.Group>
                 <Form.Group
-                  className="mb-3"
+                  className="mb-2"
                   controlId="formLayoutIndividualHeight"
                 >
                   <Form.Label>Gap</Form.Label>
@@ -368,7 +394,7 @@ const SetConfig = (props: Props) => {
                   />
                 </Form.Group>
                 <Form.Group
-                  className="mb-3"
+                  className="mb-2"
                   controlId="formLayoutIndividualHeight"
                 >
                   <Form.Label>Text Area</Form.Label>

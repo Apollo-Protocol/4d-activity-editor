@@ -180,7 +180,14 @@ export function labelIndividuals(
     .attr("text-anchor", "start")
     .attr("font-family", "Roboto, Arial, sans-serif")
     .attr("font-size", config.labels.individual.fontSize)
-    .text((d: Individual) => d["name"])
+    .text((d: Individual) => {
+      let label = d["name"];
+      if (label.length > config.labels.individual.maxChars) {
+        label = label.substring(0, config.labels.individual.maxChars);
+        label += "...";
+      }
+      return label;
+    })
     .each((d: Individual, i: number, nodes: SVGGraphicsElement[]) => {
       removeLabelIfItOverlaps(labels, nodes[i]);
       labels.push(nodes[i].getBBox());

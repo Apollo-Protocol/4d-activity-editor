@@ -123,7 +123,15 @@ function labelActivities(
     .attr("font-family", "Roboto, Arial, sans-serif")
     .attr("font-size", config.labels.activity.fontSize)
     .attr("fill", config.labels.activity.color)
-    .text((d: Activity) => d["name"])
+    .text((d: Activity) => {
+      let label = d["name"];
+      if (label.length > config.labels.activity.maxChars) {
+        label = label.substring(0, config.labels.activity.maxChars);
+        label += "...";
+      }
+      return label;
+    })
+
     .each((d: Activity, i: number, nodes: SVGGraphicsElement[]) => {
       removeLabelIfItOverlaps(labels, nodes[i]);
       labels.push(nodes[i].getBBox());

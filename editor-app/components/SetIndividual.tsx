@@ -7,10 +7,13 @@ import React, {
 } from "react";
 import Button from "react-bootstrap/Button";
 import Modal from "react-bootstrap/Modal";
+import Row from "react-bootstrap/Row";
+import Col from "react-bootstrap/Col";
 import Form from "react-bootstrap/Form";
+import Container from "react-bootstrap/Container";
 import { Model, Individual } from "amrc-activity-lib";
 import { v4 as uuidv4 } from "uuid";
-import { InputGroup } from "react-bootstrap";
+import { Alert, InputGroup } from "react-bootstrap";
 
 interface Props {
   deleteIndividual: (id: string) => void;
@@ -46,6 +49,7 @@ const SetIndividual = (props: Props) => {
   };
 
   const newType = useRef<any>(null);
+  const [errors, setErrors] = useState([]);
   const [inputs, setInputs] = useState(
     selectedIndividual ? selectedIndividual : defaultIndividual
   );
@@ -78,6 +82,7 @@ const SetIndividual = (props: Props) => {
     setShow(false);
     setInputs(defaultIndividual);
     setSelectedIndividual(undefined);
+    setErrors([]);
   };
   const handleShow = () => {
     if (selectedIndividual) {
@@ -89,8 +94,11 @@ const SetIndividual = (props: Props) => {
   };
   const handleAdd = (event: any) => {
     event.preventDefault();
-    setIndividual(inputs);
-    handleClose();
+    const isValid = validateInputs();
+    if (isValid) {
+      setIndividual(inputs);
+      handleClose();
+    }
   };
   const handleDelete = (event: any) => {
     deleteIndividual(inputs.id);
@@ -145,6 +153,25 @@ const SetIndividual = (props: Props) => {
         ...inputs,
         ending: Number.MAX_VALUE,
       });
+    }
+  };
+
+  const validateInputs = () => {
+    let runningErrors = [];
+    //Name
+    if (!inputs.name) {
+      runningErrors.push("Name field is required");
+    }
+    //Type
+    if (!inputs.type) {
+      runningErrors.push("Type field is required");
+    }
+    if (runningErrors.length == 0) {
+      return true;
+    } else {
+      // @ts-ignore
+      setErrors(runningErrors);
+      return false;
     }
   };
 
@@ -253,19 +280,42 @@ const SetIndividual = (props: Props) => {
           </Form>
         </Modal.Body>
         <Modal.Footer>
-          <Button
-            variant="danger"
-            onClick={handleDelete}
-            className={selectedIndividual ? "d-block" : "d-none"}
-          >
-            Delete
-          </Button>
-          <Button variant="secondary" onClick={handleClose}>
-            Close
-          </Button>
-          <Button variant="primary" onClick={handleAdd}>
-            Save
-          </Button>
+          <Container>
+            <Row>
+              <Col style={{ display: "flex", justifyContent: "right" }}>
+                <Button
+                  variant="danger"
+                  onClick={handleDelete}
+                  className={selectedIndividual ? "d-block mx-1" : "d-none"}
+                >
+                  Delete
+                </Button>
+                <Button
+                  variant="secondary"
+                  onClick={handleClose}
+                  className="mx-1"
+                >
+                  Close
+                </Button>
+                <Button variant="primary" onClick={handleAdd}>
+                  Save
+                </Button>
+              </Col>
+            </Row>
+            <Row className="mt-2">
+              <Col>
+                {errors.length > 0 && (
+                  <Alert variant={"danger"} className="p-2 m-0">
+                    {errors.map((error, i) => (
+                      <p key={i} className="mb-1">
+                        {error}
+                      </p>
+                    ))}
+                  </Alert>
+                )}
+              </Col>
+            </Row>
+          </Container>
         </Modal.Footer>
       </Modal>
     </>

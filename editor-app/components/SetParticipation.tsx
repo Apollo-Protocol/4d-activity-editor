@@ -1,29 +1,37 @@
-import React, { Dispatch, SetStateAction } from "react";
+import React, { Dispatch, SetStateAction, useRef } from "react";
 import Button from "react-bootstrap/Button";
 import Modal from "react-bootstrap/Modal";
 import Form from "react-bootstrap/Form";
-import { Activity, Participation } from "amrc-activity-lib";
+import { Model, Activity, Participation } from "amrc-activity-lib";
+import { InputGroup } from "react-bootstrap";
+import { v4 as uuidv4 } from "uuid";
 
 interface Props {
-  setDataset: (activity: Activity) => void;
+  setActivity: (activity: Activity) => void;
   show: boolean;
   setShow: Dispatch<SetStateAction<boolean>>;
   selectedActivity: Activity | undefined;
   setSelectedActivity: Dispatch<SetStateAction<Activity | undefined>>;
   selectedParticipation: Participation | undefined;
   setSelectedParticipation: any;
+  dataset: Model;
+  setDataset: Dispatch<SetStateAction<Model>>;
 }
 
 const SetParticipation = (props: Props) => {
   const {
-    setDataset,
+    setActivity,
     show,
     setShow,
     selectedActivity,
     setSelectedActivity,
     selectedParticipation,
     setSelectedParticipation,
+    dataset,
+    setDataset,
   } = props;
+
+  const newRole = useRef<any>(null);
 
   const handleClose = () => {
     setShow(false);
@@ -44,16 +52,29 @@ const SetParticipation = (props: Props) => {
         selectedParticipation.individualId,
         selectedParticipation
       );
-      setDataset(localActivity);
+      setActivity(localActivity);
     }
     handleClose();
   };
 
-  const handleChange = (e: any) => {
-    setSelectedParticipation({
-      ...selectedParticipation,
-      [e.target.name]: e.target.value,
+  const handleTypeChange = (e: any) => {
+    dataset.roles.forEach((role) => {
+      if (e.target.value == role.id) {
+        setSelectedParticipation({
+          ...selectedParticipation,
+          [e.target.name]: role,
+        });
+      }
     });
+  };
+
+  const addRole = (e: any) => {
+    if (newRole.current && newRole.current.value) {
+      const d = dataset.clone();
+      d.addRoleType(uuidv4(), newRole.current.value);
+      setDataset(d);
+      newRole.current.value = null;
+    }
   };
 
   return (
@@ -66,14 +87,37 @@ const SetParticipation = (props: Props) => {
           <Form onSubmit={handleAdd}>
             <Form.Group className="mb-3" controlId="formParticipationRole">
               <Form.Label>Role</Form.Label>
-              <Form.Control
-                type="text"
+              <Form.Select
                 name="role"
-                value={selectedParticipation?.role}
-                onChange={handleChange}
+                value={selectedParticipation?.role?.id}
+                onChange={handleTypeChange}
                 className="form-control"
-              />
+              >
+                {selectedParticipation?.role == undefined && (
+                  <option value={undefined}>Choose role</option>
+                )}
+                {dataset.roles.map((role) => (
+                  <option key={role.id} value={role.id}>
+                    {role.name}
+                  </option>
+                ))}
+              </Form.Select>
             </Form.Group>
+            <InputGroup className="mb-3" size="sm">
+              <InputGroup.Text id="basic-addon1">Add option</InputGroup.Text>
+              <Form.Control
+                placeholder="New Role"
+                aria-label="New Role"
+                ref={newRole}
+              />
+              <Button
+                variant="outline-secondary"
+                id="button-addon2"
+                onClick={addRole}
+              >
+                Add Type
+              </Button>
+            </InputGroup>
           </Form>
         </Modal.Body>
         <Modal.Footer>

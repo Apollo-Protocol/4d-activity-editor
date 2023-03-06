@@ -95,8 +95,8 @@ export function clickParticipations(
 
 function participationTooltip(part: any) {
   let tip = "<strong>Participant</strong>";
-  if (part.participation.role) tip += "<br/> Role: " + part.participation.role;
-  if (part.participation.type) tip += "<br/> Type: " + part.participation.type;
+  if (part.participation.role)
+    tip += "<br/> Role: " + part.participation.role.name;
   return tip;
 }
 

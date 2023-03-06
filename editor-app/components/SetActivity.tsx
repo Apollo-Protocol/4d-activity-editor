@@ -1,4 +1,4 @@
-import React, { Dispatch, SetStateAction, useState } from "react";
+import React, { Dispatch, SetStateAction, useRef, useState } from "react";
 import Button from "react-bootstrap/Button";
 import Modal from "react-bootstrap/Modal";
 import Form from "react-bootstrap/Form";
@@ -9,6 +9,7 @@ import Col from "react-bootstrap/Col";
 import { v4 as uuidv4 } from "uuid";
 import Select from "react-select";
 import { Model, Individual, Activity, Participation } from "amrc-activity-lib";
+import { InputGroup } from "react-bootstrap";
 
 interface Props {
   show: boolean;
@@ -33,13 +34,14 @@ const SetActivity = (props: Props) => {
   let defaultActivity: Activity = {
     id: "",
     name: "",
-    type: "",
+    type: undefined,
     description: "",
     beginning: 0,
     ending: 1,
     participations: new Map<string, Participation>(),
   };
 
+  const newType = useRef<any>(null);
   const [inputs, setInputs] = useState(defaultActivity);
   const [errors, setErrors] = useState([]);
 
@@ -100,6 +102,14 @@ const SetActivity = (props: Props) => {
     setInputs({ ...inputs, [e.target.name]: e.target.value });
   };
 
+  const handleTypeChange = (e: any) => {
+    dataset.activityTypes.forEach((type) => {
+      if (e.target.value == type.id) {
+        setInputs({ ...inputs, [e.target.name]: type });
+      }
+    });
+  };
+
   const handleChangeNumeric = (e: any) => {
     setInputs({ ...inputs, [e.target.name]: e.target.valueAsNumber });
   };
@@ -109,7 +119,7 @@ const SetActivity = (props: Props) => {
     e.forEach((i: Individual) => {
       let participation: Participation = {
         individualId: i.id,
-        role: "",
+        role: undefined,
       };
       participations.set(i.id, participation);
     });
@@ -139,6 +149,10 @@ const SetActivity = (props: Props) => {
     if (!inputs.name) {
       runningErrors.push("Name field is required");
     }
+    //Type
+    if (!inputs.type) {
+      runningErrors.push("Type field is required");
+    }
     //Ending and beginning
     if (inputs.ending - inputs.beginning <= 0) {
       runningErrors.push("Ending must be after beginning");
@@ -166,6 +180,15 @@ const SetActivity = (props: Props) => {
       // @ts-ignore
       setErrors(runningErrors);
       return false;
+    }
+  };
+
+  const addType = (e: any) => {
+    if (newType.current && newType.current.value) {
+      const d = dataset.clone();
+      d.addActivityType(uuidv4(), newType.current.value);
+      setDataset(d);
+      newType.current.value = null;
     }
   };
 
@@ -199,14 +222,37 @@ const SetActivity = (props: Props) => {
             </Form.Group>
             <Form.Group className="mb-3" controlId="formIndividualType">
               <Form.Label>Type</Form.Label>
-              <Form.Control
-                type="text"
+              <Form.Select
                 name="type"
-                value={inputs.type}
-                onChange={handleChange}
+                value={inputs?.type?.name}
+                onChange={handleTypeChange}
                 className="form-control"
-              />
+              >
+                {inputs.type == undefined && (
+                  <option value={undefined}>Choose type</option>
+                )}
+                {dataset.activityTypes.map((type) => (
+                  <option key={type.id} value={type.id}>
+                    {type.name}
+                  </option>
+                ))}
+              </Form.Select>
             </Form.Group>
+            <InputGroup className="mb-3" size="sm">
+              <InputGroup.Text id="basic-addon1">Add option</InputGroup.Text>
+              <Form.Control
+                placeholder="New type"
+                aria-label="New Type"
+                ref={newType}
+              />
+              <Button
+                variant="outline-secondary"
+                id="button-addon2"
+                onClick={addType}
+              >
+                Add Type
+              </Button>
+            </InputGroup>
             <Form.Group className="mb-3" controlId="formIndividualDescription">
               <Form.Label>Description</Form.Label>
               <Form.Control

@@ -127,7 +127,7 @@ export function hoverIndividuals(
 function individualTooltip(individual: Individual) {
   let tip = "<strong>Individual</strong>";
   if (individual.name) tip += "<br/> Name: " + individual.name;
-  if (individual.type) tip += "<br/> Type: " + individual.type;
+  if (individual.type) tip += "<br/> Type: " + individual.type.name;
   if (individual.description)
     tip += "<br/> Description: " + individual.description;
   return tip;

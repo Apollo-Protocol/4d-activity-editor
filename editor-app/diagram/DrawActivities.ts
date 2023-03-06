@@ -176,7 +176,7 @@ export function hoverActivities(
 function activityTooltip(activity: Activity) {
   let tip = "<strong>Activity</strong>";
   if (activity.name) tip += "<br/> Name: " + activity.name;
-  if (activity.type) tip += "<br/> Type: " + activity.type;
+  if (activity.type) tip += "<br/> Type: " + activity.type.name;
   if (activity.description) tip += "<br/> Description: " + activity.description;
   if (activity.beginning !== undefined)
     tip += "<br/> Beginning: " + activity.beginning;

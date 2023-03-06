@@ -110,21 +110,24 @@ export default function ActivityDiagramWrap() {
             />
             <SetIndividual
               deleteIndividual={deleteIndividual}
-              setDataset={setIndividual}
+              setIndividual={setIndividual}
               show={showIndividual}
               setShow={setShowIndividual}
               selectedIndividual={selectedIndividual}
               setSelectedIndividual={setSelectedIndividual}
               dataset={dataset}
+              setDataset={setDataset}
             />
             <SetParticipation
-              setDataset={setActivity}
+              setActivity={setActivity}
               show={showParticipation}
               setShow={setShowParticipation}
               selectedActivity={selectedActivity}
               setSelectedActivity={setSelectedActivity}
               selectedParticipation={selectedParticipation}
               setSelectedParticipation={setSelectedParticipation}
+              dataset={dataset}
+              setDataset={setDataset}
             />
           </Col>
         </Row>

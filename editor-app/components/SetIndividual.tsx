@@ -1,34 +1,43 @@
-import React, { Dispatch, SetStateAction, useEffect, useState } from "react";
+import React, {
+  Dispatch,
+  SetStateAction,
+  useEffect,
+  useRef,
+  useState,
+} from "react";
 import Button from "react-bootstrap/Button";
 import Modal from "react-bootstrap/Modal";
 import Form from "react-bootstrap/Form";
 import { Model, Individual } from "amrc-activity-lib";
 import { v4 as uuidv4 } from "uuid";
+import { InputGroup } from "react-bootstrap";
 
 interface Props {
   deleteIndividual: (id: string) => void;
-  setDataset: (individual: Individual) => void;
+  setIndividual: (individual: Individual) => void;
   show: boolean;
   setShow: Dispatch<SetStateAction<boolean>>;
   selectedIndividual: Individual | undefined;
   setSelectedIndividual: Dispatch<SetStateAction<Individual | undefined>>;
   dataset: Model;
+  setDataset: Dispatch<SetStateAction<Model>>;
 }
 
 const SetIndividual = (props: Props) => {
   const {
     deleteIndividual,
-    setDataset,
+    setIndividual,
     show,
     setShow,
     selectedIndividual,
     setSelectedIndividual,
     dataset,
+    setDataset,
   } = props;
   let defaultIndividual: Individual = {
     id: "",
     name: "",
-    type: "",
+    type: undefined,
     description: "",
     beginning: -1,
     ending: Model.END_OF_TIME,
@@ -36,6 +45,7 @@ const SetIndividual = (props: Props) => {
     endsWithParticipant: false,
   };
 
+  const newType = useRef<any>(null);
   const [inputs, setInputs] = useState(
     selectedIndividual ? selectedIndividual : defaultIndividual
   );
@@ -79,7 +89,7 @@ const SetIndividual = (props: Props) => {
   };
   const handleAdd = (event: any) => {
     event.preventDefault();
-    setDataset(inputs);
+    setIndividual(inputs);
     handleClose();
   };
   const handleDelete = (event: any) => {
@@ -89,6 +99,14 @@ const SetIndividual = (props: Props) => {
 
   const handleChange = (e: any) => {
     setInputs({ ...inputs, [e.target.name]: e.target.value });
+  };
+
+  const handleTypeChange = (e: any) => {
+    dataset.individualTypes.forEach((type) => {
+      if (e.target.value == type.id) {
+        setInputs({ ...inputs, [e.target.name]: type });
+      }
+    });
   };
 
   const handleBeginsWithParticipant = (e: any) => {
@@ -129,6 +147,15 @@ const SetIndividual = (props: Props) => {
     }
   };
 
+  const addType = (e: any) => {
+    if (newType.current && newType.current.value) {
+      const d = dataset.clone();
+      d.addIndividualType(uuidv4(), newType.current.value);
+      setDataset(d);
+      newType.current.value = null;
+    }
+  };
+
   return (
     <>
       <Button variant="primary" onClick={() => setShow(true)} className="mx-1">
@@ -155,14 +182,37 @@ const SetIndividual = (props: Props) => {
             </Form.Group>
             <Form.Group className="mb-3" controlId="formIndividualType">
               <Form.Label>Type</Form.Label>
-              <Form.Control
-                type="text"
+              <Form.Select
                 name="type"
-                value={inputs?.type}
-                onChange={handleChange}
+                value={inputs?.type?.name}
+                onChange={handleTypeChange}
                 className="form-control"
-              />
+              >
+                {inputs.type == undefined && (
+                  <option value={undefined}>Choose type</option>
+                )}
+                {dataset.individualTypes.map((type) => (
+                  <option key={type.id} value={type.id}>
+                    {type.name}
+                  </option>
+                ))}
+              </Form.Select>
             </Form.Group>
+            <InputGroup className="mb-3" size="sm">
+              <InputGroup.Text id="basic-addon1">Add option</InputGroup.Text>
+              <Form.Control
+                placeholder="New type"
+                aria-label="New Type"
+                ref={newType}
+              />
+              <Button
+                variant="outline-secondary"
+                id="button-addon2"
+                onClick={addType}
+              >
+                Add Type
+              </Button>
+            </InputGroup>
             <Form.Group className="mb-3" controlId="formIndividualDescription">
               <Form.Label>Description</Form.Label>
               <Form.Control

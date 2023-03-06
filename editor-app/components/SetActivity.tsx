@@ -224,7 +224,7 @@ const SetActivity = (props: Props) => {
               <Form.Label>Type</Form.Label>
               <Form.Select
                 name="type"
-                value={inputs?.type?.name}
+                value={inputs?.type?.id}
                 onChange={handleTypeChange}
                 className="form-control"
               >

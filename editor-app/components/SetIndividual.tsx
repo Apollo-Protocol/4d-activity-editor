@@ -104,6 +104,7 @@ const SetIndividual = (props: Props) => {
   const handleTypeChange = (e: any) => {
     dataset.individualTypes.forEach((type) => {
       if (e.target.value == type.id) {
+        console.log(inputs);
         setInputs({ ...inputs, [e.target.name]: type });
       }
     });
@@ -184,7 +185,7 @@ const SetIndividual = (props: Props) => {
               <Form.Label>Type</Form.Label>
               <Form.Select
                 name="type"
-                value={inputs?.type?.name}
+                value={inputs?.type?.id}
                 onChange={handleTypeChange}
                 className="form-control"
               >

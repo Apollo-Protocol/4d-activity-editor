@@ -137,6 +137,8 @@ export default function ActivityDiagramWrap() {
               dataset={dataset}
               setDataset={setDataset}
               svgRef={svgRef}
+              configData={configData}
+              setConfigData={setConfigData}
             />
           </Col>
         </Row>

@@ -1,19 +1,34 @@
 import { useState } from "react";
 import { Button, Form } from "react-bootstrap";
-import { save, load } from "amrc-activity-lib";
+import {
+  save,
+  load,
+  saveRefDataAsTTL,
+  loadRefDataFromTTL,
+} from "amrc-activity-lib";
 
 const DiagramPersistence = (props: any) => {
   const { dataset, setDataset, svgRef } = props;
   const [uploadText, setUploadText] = useState("Select a file to upload");
+  const [refDataOnly, setRefDataOnly] = useState(false);
 
   function downloadttl() {
     let pom = document.createElement("a");
-    pom.setAttribute(
-      "href",
-      "data:text/pldownloadain;charset=utf-8," +
-        encodeURIComponent(save(dataset))
-    );
-    pom.setAttribute("download", "activity_diagram.ttl");
+    if (refDataOnly) {
+      pom.setAttribute(
+        "href",
+        "data:text/pldownloadain;charset=utf-8," +
+          encodeURIComponent(saveRefDataAsTTL(dataset))
+      );
+      pom.setAttribute("download", "activity_diagram_ref_data.ttl");
+    } else {
+      pom.setAttribute(
+        "href",
+        "data:text/pldownloadain;charset=utf-8," +
+          encodeURIComponent(save(dataset))
+      );
+      pom.setAttribute("download", "activity_diagram.ttl");
+    }
 
     if (document.createEvent) {
       let event = document.createEvent("MouseEvents");
@@ -30,8 +45,13 @@ const DiagramPersistence = (props: any) => {
         .item(0)
         .text()
         .then((r: any) => {
-          const loadedModel = load(r);
-          setDataset(loadedModel);
+          if (refDataOnly) {
+            const loadedModel = loadRefDataFromTTL(r);
+            setDataset(loadedModel);
+          } else {
+            const loadedModel = load(r);
+            setDataset(loadedModel);
+          }
           setUploadText("Select a file to upload");
         })
         .catch((e: any) => {
@@ -66,6 +86,12 @@ const DiagramPersistence = (props: any) => {
   return (
     <>
       <Form.Group controlId="formFile">
+        <Form.Check
+          type="switch"
+          label="Reference Types only"
+          checked={refDataOnly}
+          onChange={() => setRefDataOnly(!refDataOnly)}
+        />
         <Form.Control type="file" onChange={onload} />
         <Form.Text className="text-muted">{uploadText}</Form.Text>
       </Form.Group>

@@ -132,7 +132,7 @@ export default function ActivityDiagramWrap() {
           </Col>
         </Row>
         <Row className="mt-3">
-          <Col className="d-flex justify-content-center">
+          <Col className="d-flex justify-content-center align-items-center">
             <DiagramPersistence
               dataset={dataset}
               setDataset={setDataset}

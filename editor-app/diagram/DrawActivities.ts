@@ -6,6 +6,7 @@ import {
   keepIndividualLabels,
 } from "./DrawHelpers";
 import { ConfigData } from "./config";
+import { activity } from "amrc-activity-lib/dist/HQDM";
 
 let mouseOverElement: any | null = null;
 
@@ -64,10 +65,18 @@ export function drawActivities(
             config.layout.individual.height
         : 0;
     })
-    .attr("stroke", config.presentation.activity.stroke)
+    .attr("stroke", (a: Activity, i: number) => {
+      return config.presentation.activity.stroke[
+        i % config.presentation.activity.stroke.length
+      ];
+    })
     .attr("stroke-dasharray", config.presentation.activity.strokeDasharray)
     .attr("stroke-width", config.presentation.activity.strokeWidth)
-    .attr("fill", config.presentation.activity.fill)
+    .attr("fill", (a: Activity, i: number) => {
+      return config.presentation.activity.fill[
+        i % config.presentation.activity.fill.length
+      ];
+    })
     .attr("opacity", config.presentation.activity.opacity);
 
   labelActivities(config, svgElement, activities, x, timeInterval, startOfTime);

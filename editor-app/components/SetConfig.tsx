@@ -38,6 +38,13 @@ const SetConfig = (props: Props) => {
     setInputs(localInputs);
   };
 
+  const handleChangeArray = (e: any) => {
+    let localInputs = { ...inputs };
+    _.set(localInputs, e.target.name, _.split(e.target.value, ","));
+    console.log(localInputs);
+    setInputs(localInputs);
+  };
+
   const handleChangeNumber = (e: any) => {
     let localInputs = { ...inputs };
     _.set(localInputs, e.target.name, Number(e.target.value));
@@ -75,12 +82,12 @@ const SetConfig = (props: Props) => {
               <Col xs={6} lg={3}>
                 <h4>Activities</h4>
                 <Form.Group className="mb-2" controlId="formActivityFill">
-                  <Form.Label>Fill Colour</Form.Label>
+                  <Form.Label>Fill Colour List</Form.Label>
                   <Form.Control
                     type="text"
                     name="presentation.activity.fill"
                     value={inputs?.presentation?.activity?.fill}
-                    onChange={handleChangeString}
+                    onChange={handleChangeArray}
                     className="form-control"
                   />
                 </Form.Group>
@@ -108,12 +115,12 @@ const SetConfig = (props: Props) => {
                   />
                 </Form.Group>
                 <Form.Group className="mb-2" controlId="formActivityStroke">
-                  <Form.Label>Border Colour</Form.Label>
+                  <Form.Label>Border Colour List</Form.Label>
                   <Form.Control
                     type="text"
                     name="presentation.activity.stroke"
                     value={inputs?.presentation?.activity?.stroke}
-                    onChange={handleChangeString}
+                    onChange={handleChangeArray}
                     className="form-control"
                   />
                 </Form.Group>

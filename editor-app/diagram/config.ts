@@ -23,9 +23,9 @@ export interface ConfigData {
     };
     activity: {
       strokeWidth: string;
-      stroke: string;
+      stroke: string[];
       strokeDasharray: string;
-      fill: string;
+      fill: string[];
       opacity: string;
       opacityHover: string;
     };
@@ -90,9 +90,9 @@ export const config: ConfigData = {
     },
     activity: {
       strokeWidth: "2px", // Activity border width
-      stroke: "#29123b", //Activity stroke colour
+      stroke: ["#29123b"], //Activity stroke colour
       strokeDasharray: "5,3", //The dashed scheme applied to activity borders
-      fill: "#7030A0", //Activity fill colour
+      fill: ["#7030A0"], //Activity fill colour
       opacity: "0.5", //Opacity of activity fill
       opacityHover: "0.7", //Opacity of activity fill
     },

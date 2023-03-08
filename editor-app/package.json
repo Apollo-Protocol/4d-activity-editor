@@ -17,7 +17,7 @@
     "@types/node": "18.11.18",
     "@types/react": "18.0.27",
     "@types/react-dom": "18.0.10",
-    "amrc-activity-lib": "https://github.com/twalmsley/amrc-activity-lib.git",
+    "@apollo-protocol/hqdm-lib": "https://github.com/twalmsley/hqdm-lib.git",
     "bootstrap": "^5.2.3",
     "d3": "^7.8.2",
     "eslint": "8.33.0",

@@ -8,8 +8,9 @@ import Row from "react-bootstrap/Row";
 import Col from "react-bootstrap/Col";
 import { v4 as uuidv4 } from "uuid";
 import Select from "react-select";
-import { Model, Individual, Activity, Participation } from "amrc-activity-lib";
+import { Individual, Activity, Participation } from "lib/Schema";
 import { InputGroup } from "react-bootstrap";
+import { Model } from "@/lib/Model";
 
 interface Props {
   show: boolean;
@@ -77,7 +78,7 @@ const SetActivity = (props: Props) => {
     event.preventDefault();
     const isValid = validateInputs();
     if (isValid) {
-      updateDataset(d => { 
+      updateDataset((d) => {
         d.addActivity(inputs);
         updateIndividuals(d);
       });
@@ -91,7 +92,7 @@ const SetActivity = (props: Props) => {
     setInputs(copied);
   };
   const handleDelete = (event: any) => {
-    updateDataset(d => {
+    updateDataset((d) => {
       d.removeActivity(inputs.id);
       updateIndividuals(d);
     });
@@ -185,8 +186,7 @@ const SetActivity = (props: Props) => {
 
   const addType = (e: any) => {
     if (newType.current && newType.current.value) {
-      updateDataset(d =>
-        d.addActivityType(uuidv4(), newType.current.value));
+      updateDataset((d) => d.addActivityType(uuidv4(), newType.current.value));
       newType.current.value = null;
     }
   };

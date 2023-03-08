@@ -1,7 +1,8 @@
 import { useState, useEffect, MutableRefObject } from "react";
 import { drawActivityDiagram } from "@/diagram/DrawActivityDiagram";
-import { Activity, Individual, Model, Participation } from "amrc-activity-lib";
 import { ConfigData } from "@/diagram/config";
+import { Model } from "@/lib/Model";
+import { Activity, Individual, Participation } from "@/lib/Schema";
 
 interface Props {
   dataset: Model;

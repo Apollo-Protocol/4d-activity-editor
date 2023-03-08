@@ -11,7 +11,8 @@ import Row from "react-bootstrap/Row";
 import Col from "react-bootstrap/Col";
 import Form from "react-bootstrap/Form";
 import Container from "react-bootstrap/Container";
-import { Model, Individual } from "amrc-activity-lib";
+import { Individual } from "lib/Schema";
+import { Model } from "lib/Model";
 import { v4 as uuidv4 } from "uuid";
 import { Alert, InputGroup } from "react-bootstrap";
 
@@ -177,8 +178,9 @@ const SetIndividual = (props: Props) => {
 
   const addType = (e: any) => {
     if (newType.current && newType.current.value) {
-      updateDataset(d =>
-          d.addIndividualType(uuidv4(), newType.current.value));
+      updateDataset((d) =>
+        d.addIndividualType(uuidv4(), newType.current.value)
+      );
       newType.current.value = null;
     }
   };

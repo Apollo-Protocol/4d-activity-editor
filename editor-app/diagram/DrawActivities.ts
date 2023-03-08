@@ -1,12 +1,12 @@
 import { MouseEvent } from "react";
-import { Activity, Individual, Participation } from "amrc-activity-lib";
+import { Activity, Individual, Participation } from "lib/Schema";
 import {
   Label,
   removeLabelIfItOverlaps,
   keepIndividualLabels,
 } from "./DrawHelpers";
 import { ConfigData } from "./config";
-import { activity } from "amrc-activity-lib/dist/HQDM";
+import { activity } from "@apollo-protocol/hqdm-lib";
 
 let mouseOverElement: any | null = null;
 

@@ -2,9 +2,10 @@ import React, { Dispatch, SetStateAction, useRef } from "react";
 import Button from "react-bootstrap/Button";
 import Modal from "react-bootstrap/Modal";
 import Form from "react-bootstrap/Form";
-import { Model, Activity, Participation } from "amrc-activity-lib";
+import { Activity, Participation } from "lib/Schema";
 import { InputGroup } from "react-bootstrap";
 import { v4 as uuidv4 } from "uuid";
+import { Model } from "@/lib/Model";
 
 interface Props {
   setActivity: (activity: Activity) => void;
@@ -70,8 +71,7 @@ const SetParticipation = (props: Props) => {
 
   const addRole = (e: any) => {
     if (newRole.current && newRole.current.value) {
-      updateDataset(d =>
-        d.addRoleType(uuidv4(), newRole.current.value));
+      updateDataset((d) => d.addRoleType(uuidv4(), newRole.current.value));
       newRole.current.value = null;
     }
   };

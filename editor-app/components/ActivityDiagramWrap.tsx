@@ -7,11 +7,12 @@ import ActivityDiagram from "@/components/ActivityDiagram";
 import Row from "react-bootstrap/Row";
 import Col from "react-bootstrap/Col";
 import Container from "react-bootstrap/Container";
-import { Model, Individual, Activity, Participation } from "amrc-activity-lib";
 import DiagramPersistence from "@/components/DiagramPersistence";
 import SortIndividuals from "./SortIndividuals";
 import SetParticipation from "./SetParticipation";
 import Undo from "./Undo";
+import { Model } from "@/lib/Model";
+import { Activity, Individual, Participation } from "@/lib/Schema";
 
 export default function ActivityDiagramWrap() {
   const model = new Model();
@@ -52,16 +53,16 @@ export default function ActivityDiagramWrap() {
   const svgRef = useRef<SVGSVGElement>(null);
 
   const deleteIndividual = (id: string) => {
-    updateDataset(d => d.removeIndividual(id));
+    updateDataset((d) => d.removeIndividual(id));
   };
   const setIndividual = (individual: Individual) => {
-    updateDataset(d => d.addIndividual(individual));
+    updateDataset((d) => d.addIndividual(individual));
   };
   const deleteActivity = (id: string) => {
-    updateDataset(d => d.removeActivity(id));
+    updateDataset((d) => d.removeActivity(id));
   };
   const setActivity = (activity: Activity) => {
-    updateDataset(d => d.addActivity(activity));
+    updateDataset((d) => d.addActivity(activity));
   };
 
   const clickIndividual = (i: Individual) => {
@@ -139,10 +140,7 @@ export default function ActivityDiagramWrap() {
               dataset={dataset}
               updateDataset={updateDataset}
             />
-            <Undo
-              hasUndo={undoHistory.length > 0}
-              undo={undo}
-            />
+            <Undo hasUndo={undoHistory.length > 0} undo={undo} />
           </Col>
         </Row>
         <Row className="mt-3">

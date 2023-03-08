@@ -1,4 +1,4 @@
-import { Individual } from "amrc-activity-lib";
+import { Individual } from "lib/Schema";
 import * as d3 from "d3";
 import { ConfigData } from "./config";
 

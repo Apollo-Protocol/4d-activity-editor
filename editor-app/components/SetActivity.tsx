@@ -18,7 +18,7 @@ interface Props {
   setSelectedActivity: Dispatch<SetStateAction<Activity | undefined>>;
   individuals: Individual[];
   dataset: Model;
-  setDataset: Dispatch<SetStateAction<Model>>;
+  updateDataset: Dispatch<Dispatch<Model>>;
 }
 
 const SetActivity = (props: Props) => {
@@ -29,7 +29,7 @@ const SetActivity = (props: Props) => {
     setSelectedActivity,
     individuals,
     dataset,
-    setDataset,
+    updateDataset,
   } = props;
   let defaultActivity: Activity = {
     id: "",
@@ -77,10 +77,10 @@ const SetActivity = (props: Props) => {
     event.preventDefault();
     const isValid = validateInputs();
     if (isValid) {
-      const d = dataset.clone();
-      d.addActivity(inputs);
-      updateIndividuals(d);
-      setDataset(d);
+      updateDataset(d => { 
+        d.addActivity(inputs);
+        updateIndividuals(d);
+      });
       handleClose();
     }
   };
@@ -91,10 +91,10 @@ const SetActivity = (props: Props) => {
     setInputs(copied);
   };
   const handleDelete = (event: any) => {
-    const d = dataset.clone();
-    d.removeActivity(inputs.id);
-    updateIndividuals(d);
-    setDataset(d);
+    updateDataset(d => {
+      d.removeActivity(inputs.id);
+      updateIndividuals(d);
+    });
     handleClose();
   };
 
@@ -185,9 +185,8 @@ const SetActivity = (props: Props) => {
 
   const addType = (e: any) => {
     if (newType.current && newType.current.value) {
-      const d = dataset.clone();
-      d.addActivityType(uuidv4(), newType.current.value);
-      setDataset(d);
+      updateDataset(d =>
+        d.addActivityType(uuidv4(), newType.current.value));
       newType.current.value = null;
     }
   };

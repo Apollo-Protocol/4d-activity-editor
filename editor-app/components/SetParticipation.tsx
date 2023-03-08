@@ -15,7 +15,7 @@ interface Props {
   selectedParticipation: Participation | undefined;
   setSelectedParticipation: any;
   dataset: Model;
-  setDataset: Dispatch<SetStateAction<Model>>;
+  updateDataset: Dispatch<Dispatch<Model>>;
 }
 
 const SetParticipation = (props: Props) => {
@@ -28,7 +28,7 @@ const SetParticipation = (props: Props) => {
     selectedParticipation,
     setSelectedParticipation,
     dataset,
-    setDataset,
+    updateDataset,
   } = props;
 
   const newRole = useRef<any>(null);
@@ -70,9 +70,8 @@ const SetParticipation = (props: Props) => {
 
   const addRole = (e: any) => {
     if (newRole.current && newRole.current.value) {
-      const d = dataset.clone();
-      d.addRoleType(uuidv4(), newRole.current.value);
-      setDataset(d);
+      updateDataset(d =>
+        d.addRoleType(uuidv4(), newRole.current.value));
       newRole.current.value = null;
     }
   };

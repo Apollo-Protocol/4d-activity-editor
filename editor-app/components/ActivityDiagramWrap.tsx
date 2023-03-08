@@ -31,27 +31,25 @@ export default function ActivityDiagramWrap() {
   const [showConfigModal, setShowConfigModal] = useState(false);
   const [showSortIndividuals, setShowSortIndividuals] = useState(false);
 
+  const updateDataset = (updater: Dispatch<Model>) => {
+    const d = dataset.clone();
+    updater(d);
+    setDataset(d);
+  };
+
   const svgRef = useRef<SVGSVGElement>(null);
 
   const deleteIndividual = (id: string) => {
-    const d = dataset.clone();
-    d.removeIndividual(id);
-    setDataset(d);
+    updateDataset(d => d.removeIndividual(id));
   };
   const setIndividual = (individual: Individual) => {
-    const d = dataset.clone();
-    d.addIndividual(individual);
-    setDataset(d);
+    updateDataset(d => d.addIndividual(individual));
   };
   const deleteActivity = (id: string) => {
-    const d = dataset.clone();
-    d.removeActivity(id);
-    setDataset(d);
+    updateDataset(d => d.removeActivity(id));
   };
   const setActivity = (activity: Activity) => {
-    const d = dataset.clone();
-    d.addActivity(activity);
-    setDataset(d);
+    updateDataset(d => d.addActivity(activity));
   };
 
   const clickIndividual = (i: Individual) => {
@@ -95,7 +93,7 @@ export default function ActivityDiagramWrap() {
             />
             <SortIndividuals
               dataset={dataset}
-              setDataset={setDataset}
+              updateDataset={updateDataset}
               showSortIndividuals={showSortIndividuals}
               setShowSortIndividuals={setShowSortIndividuals}
             />
@@ -106,7 +104,7 @@ export default function ActivityDiagramWrap() {
               setSelectedActivity={setSelectedActivity}
               individuals={individualsArray}
               dataset={dataset}
-              setDataset={setDataset}
+              updateDataset={updateDataset}
             />
             <SetIndividual
               deleteIndividual={deleteIndividual}
@@ -116,7 +114,7 @@ export default function ActivityDiagramWrap() {
               selectedIndividual={selectedIndividual}
               setSelectedIndividual={setSelectedIndividual}
               dataset={dataset}
-              setDataset={setDataset}
+              updateDataset={updateDataset}
             />
             <SetParticipation
               setActivity={setActivity}
@@ -127,7 +125,7 @@ export default function ActivityDiagramWrap() {
               selectedParticipation={selectedParticipation}
               setSelectedParticipation={setSelectedParticipation}
               dataset={dataset}
-              setDataset={setDataset}
+              updateDataset={updateDataset}
             />
           </Col>
         </Row>

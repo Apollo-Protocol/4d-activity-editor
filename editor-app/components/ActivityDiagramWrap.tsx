@@ -39,6 +39,10 @@ export default function ActivityDiagramWrap() {
     updater(d);
     setDataset(d);
   };
+  const replaceDataset = (d: Model) => {
+    setUndoHistory([]);
+    setDataset(d);
+  };
   const undo = () => {
     if (undoHistory.length == 0) return;
     setDataset(undoHistory[0]);
@@ -145,7 +149,7 @@ export default function ActivityDiagramWrap() {
           <Col className="d-flex justify-content-center align-items-center">
             <DiagramPersistence
               dataset={dataset}
-              setDataset={setDataset}
+              setDataset={replaceDataset}
               svgRef={svgRef}
               configData={configData}
               setConfigData={setConfigData}

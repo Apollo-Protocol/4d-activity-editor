@@ -1,12 +1,16 @@
-import { Individual } from "amrc-activity-lib";
+import { Individual, Model } from "amrc-activity-lib";
 import React, { useState, useEffect } from "react";
 import { SortableList } from "@/components/SortableList/SortableList";
 import Button from "react-bootstrap/Button";
 import Modal from "react-bootstrap/Modal";
 
 const SortIndividuals = (props: any) => {
-  const { dataset, updateDataset, showSortIndividuals, setShowSortIndividuals } =
-    props;
+  const {
+    dataset,
+    updateDataset,
+    showSortIndividuals,
+    setShowSortIndividuals,
+  } = props;
   const individualsArray: Individual[] = [];
   const [items, setItems] = useState(individualsArray);
 
@@ -24,7 +28,7 @@ const SortIndividuals = (props: any) => {
     items.forEach((i) => {
       individualsMap.set(i.id, i);
     });
-    updateDataset(d => d.individuals = individualsMap);
+    updateDataset((d: any) => (d.individuals = individualsMap));
   };
 
   const handleSaveAndClose = () => {

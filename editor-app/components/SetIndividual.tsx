@@ -76,7 +76,7 @@ const SetIndividual = (props: Props) => {
     } else {
       setEndsWithParticipant(false);
     }
-  }, [selectedIndividual]);
+  }, [selectedIndividual, dataset]);
 
   const handleClose = () => {
     setShow(false);
@@ -177,8 +177,9 @@ const SetIndividual = (props: Props) => {
 
   const addType = (e: any) => {
     if (newType.current && newType.current.value) {
-      updateDataset(d =>
-          d.addIndividualType(uuidv4(), newType.current.value));
+      updateDataset((d) =>
+        d.addIndividualType(uuidv4(), newType.current.value)
+      );
       newType.current.value = null;
     }
   };

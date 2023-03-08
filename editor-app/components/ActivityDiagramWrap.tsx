@@ -16,7 +16,7 @@ import Undo from "./Undo";
 export default function ActivityDiagramWrap() {
   const model = new Model();
   const [dataset, setDataset] = useState(model);
-  const [undoHistory, setUndoHistory] = useState([]);
+  const [undoHistory, setUndoHistory] = useState<Model[]>([]);
   const [showIndividual, setShowIndividual] = useState(false);
   const [selectedIndividual, setSelectedIndividual] = useState<
     Individual | undefined
@@ -52,16 +52,16 @@ export default function ActivityDiagramWrap() {
   const svgRef = useRef<SVGSVGElement>(null);
 
   const deleteIndividual = (id: string) => {
-    updateDataset((d) => d.removeIndividual(id));
+    updateDataset((d: Model) => d.removeIndividual(id));
   };
   const setIndividual = (individual: Individual) => {
-    updateDataset((d) => d.addIndividual(individual));
+    updateDataset((d: Model) => d.addIndividual(individual));
   };
   const deleteActivity = (id: string) => {
-    updateDataset((d) => d.removeActivity(id));
+    updateDataset((d: Model) => d.removeActivity(id));
   };
   const setActivity = (activity: Activity) => {
-    updateDataset((d) => d.addActivity(activity));
+    updateDataset((d: Model) => d.addActivity(activity));
   };
 
   const clickIndividual = (i: Individual) => {

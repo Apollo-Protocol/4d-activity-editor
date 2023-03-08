@@ -47,7 +47,17 @@ const ActivityDiagram = (props: Props) => {
         rightClickParticipation
       )
     );
-  }, [dataset, configData]);
+  }, [
+    dataset,
+    configData,
+    svgRef,
+    clickIndividual,
+    clickActivity,
+    clickParticipation,
+    rightClickIndividual,
+    rightClickActivity,
+    rightClickParticipation,
+  ]);
 
   return (
     <div id="activity-diagram-scrollable-div" style={{ overflowX: "auto" }}>

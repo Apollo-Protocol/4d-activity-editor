@@ -137,12 +137,19 @@ export function clickIndividuals(
   config: ConfigData,
   svgElement: any,
   individuals: Individual[],
-  clickIndividual: any
+  clickIndividual: any,
+  rightClickIndividual: any
 ) {
   individuals.forEach((i) => {
     svgElement.select("#i" + i.id).on("click", function (event: MouseEvent) {
       clickIndividual(i);
     });
+    svgElement
+      .select("#i" + i.id)
+      .on("contextmenu", function (event: MouseEvent) {
+        event.preventDefault();
+        rightClickIndividual(i);
+      });
   });
 }
 

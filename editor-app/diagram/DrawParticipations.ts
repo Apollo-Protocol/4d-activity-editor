@@ -80,7 +80,8 @@ function hoverParticipations(
 export function clickParticipations(
   svgElement: any,
   activities: Activity[],
-  clickParticipation: any
+  clickParticipation: any,
+  rightClickParticipation: any
 ) {
   activities.forEach((a) => {
     a.participations.forEach((p) => {
@@ -88,6 +89,12 @@ export function clickParticipations(
         .select("#p" + a.id + p.individualId)
         .on("click", function (event: MouseEvent) {
           clickParticipation(a, p);
+        });
+      svgElement
+        .select("#p" + a.id + p.individualId)
+        .on("contextmenu", function (event: MouseEvent) {
+          event.preventDefault();
+          rightClickParticipation(a, p);
         });
     });
   });

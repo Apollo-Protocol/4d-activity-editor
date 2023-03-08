@@ -1,4 +1,4 @@
-import { Individual, Activity, Model } from "amrc-activity-lib";
+import { Individual, Activity, Model, Participation } from "amrc-activity-lib";
 import {
   calculateViewportHeight,
   clearDiagram,
@@ -35,9 +35,12 @@ export function drawActivityDiagram(
   dataset: Model,
   configData: any,
   svgRef: SVGSVGElement,
-  clickIndividual: any,
-  clickActivity: any,
-  clickParticipation: any
+  clickIndividual: (i: Individual) => void,
+  clickActivity: (a: Activity) => void,
+  clickParticipation: (a: Activity, p: Participation) => void,
+  rightClickIndividual: (i: Individual) => void,
+  rightClickActivity: (a: Activity) => void,
+  rightClickParticipation: (a: Activity, p: Participation) => void
 ) {
   //Prepare Model data into arrays
   const individualsArray: Individual[] = [];
@@ -54,12 +57,28 @@ export function drawActivityDiagram(
   drawIndividuals(configData, svgElement, individualsArray, activitiesArray);
   hoverIndividuals(configData, svgElement, tooltip);
   labelIndividuals(configData, svgElement, individualsArray);
-  clickIndividuals(configData, svgElement, individualsArray, clickIndividual);
+  clickIndividuals(
+    configData,
+    svgElement,
+    individualsArray,
+    clickIndividual,
+    rightClickIndividual
+  );
   drawActivities(configData, svgElement, activitiesArray, individualsArray);
   hoverActivities(configData, svgElement, tooltip);
-  clickActivities(svgElement, activitiesArray, clickActivity);
+  clickActivities(
+    svgElement,
+    activitiesArray,
+    clickActivity,
+    rightClickActivity
+  );
   drawParticipations(configData, svgElement, activitiesArray, tooltip);
-  clickParticipations(svgElement, activitiesArray, clickParticipation);
+  clickParticipations(
+    svgElement,
+    activitiesArray,
+    clickParticipation,
+    rightClickParticipation
+  );
   drawAxisArrows(configData, svgElement, height);
   let plot: Plot = {
     width: configData.viewPort.x * configData.viewPort.zoom,

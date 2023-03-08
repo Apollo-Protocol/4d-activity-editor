@@ -11,10 +11,12 @@ import { Model, Individual, Activity, Participation } from "amrc-activity-lib";
 import DiagramPersistence from "@/components/DiagramPersistence";
 import SortIndividuals from "./SortIndividuals";
 import SetParticipation from "./SetParticipation";
+import Undo from "./Undo";
 
 export default function ActivityDiagramWrap() {
   const model = new Model();
   const [dataset, setDataset] = useState(model);
+  const [undoHistory, setUndoHistory] = useState([]);
   const [showIndividual, setShowIndividual] = useState(false);
   const [selectedIndividual, setSelectedIndividual] = useState<
     Individual | undefined
@@ -31,27 +33,35 @@ export default function ActivityDiagramWrap() {
   const [showConfigModal, setShowConfigModal] = useState(false);
   const [showSortIndividuals, setShowSortIndividuals] = useState(false);
 
+  const updateDataset = (updater: Dispatch<Model>) => {
+    setUndoHistory([dataset, ...undoHistory.slice(0, 5)]);
+    const d = dataset.clone();
+    updater(d);
+    setDataset(d);
+  };
+  const replaceDataset = (d: Model) => {
+    setUndoHistory([]);
+    setDataset(d);
+  };
+  const undo = () => {
+    if (undoHistory.length == 0) return;
+    setDataset(undoHistory[0]);
+    setUndoHistory(undoHistory.slice(1));
+  };
+
   const svgRef = useRef<SVGSVGElement>(null);
 
   const deleteIndividual = (id: string) => {
-    const d = dataset.clone();
-    d.removeIndividual(id);
-    setDataset(d);
+    updateDataset(d => d.removeIndividual(id));
   };
   const setIndividual = (individual: Individual) => {
-    const d = dataset.clone();
-    d.addIndividual(individual);
-    setDataset(d);
+    updateDataset(d => d.addIndividual(individual));
   };
   const deleteActivity = (id: string) => {
-    const d = dataset.clone();
-    d.removeActivity(id);
-    setDataset(d);
+    updateDataset(d => d.removeActivity(id));
   };
   const setActivity = (activity: Activity) => {
-    const d = dataset.clone();
-    d.addActivity(activity);
-    setDataset(d);
+    updateDataset(d => d.addActivity(activity));
   };
 
   const clickIndividual = (i: Individual) => {
@@ -95,7 +105,7 @@ export default function ActivityDiagramWrap() {
             />
             <SortIndividuals
               dataset={dataset}
-              setDataset={setDataset}
+              updateDataset={updateDataset}
               showSortIndividuals={showSortIndividuals}
               setShowSortIndividuals={setShowSortIndividuals}
             />
@@ -106,7 +116,7 @@ export default function ActivityDiagramWrap() {
               setSelectedActivity={setSelectedActivity}
               individuals={individualsArray}
               dataset={dataset}
-              setDataset={setDataset}
+              updateDataset={updateDataset}
             />
             <SetIndividual
               deleteIndividual={deleteIndividual}
@@ -116,7 +126,7 @@ export default function ActivityDiagramWrap() {
               selectedIndividual={selectedIndividual}
               setSelectedIndividual={setSelectedIndividual}
               dataset={dataset}
-              setDataset={setDataset}
+              updateDataset={updateDataset}
             />
             <SetParticipation
               setActivity={setActivity}
@@ -127,7 +137,11 @@ export default function ActivityDiagramWrap() {
               selectedParticipation={selectedParticipation}
               setSelectedParticipation={setSelectedParticipation}
               dataset={dataset}
-              setDataset={setDataset}
+              updateDataset={updateDataset}
+            />
+            <Undo
+              hasUndo={undoHistory.length > 0}
+              undo={undo}
             />
           </Col>
         </Row>
@@ -135,7 +149,7 @@ export default function ActivityDiagramWrap() {
           <Col className="d-flex justify-content-center align-items-center">
             <DiagramPersistence
               dataset={dataset}
-              setDataset={setDataset}
+              setDataset={replaceDataset}
               svgRef={svgRef}
               configData={configData}
               setConfigData={setConfigData}

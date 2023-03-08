@@ -5,7 +5,7 @@ import Button from "react-bootstrap/Button";
 import Modal from "react-bootstrap/Modal";
 
 const SortIndividuals = (props: any) => {
-  const { dataset, setDataset, showSortIndividuals, setShowSortIndividuals } =
+  const { dataset, updateDataset, showSortIndividuals, setShowSortIndividuals } =
     props;
   const individualsArray: Individual[] = [];
   const [items, setItems] = useState(individualsArray);
@@ -24,9 +24,7 @@ const SortIndividuals = (props: any) => {
     items.forEach((i) => {
       individualsMap.set(i.id, i);
     });
-    const d = dataset.clone();
-    d.individuals = individualsMap;
-    setDataset(d);
+    updateDataset(d => d.individuals = individualsMap);
   };
 
   const handleSaveAndClose = () => {

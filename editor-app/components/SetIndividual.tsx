@@ -23,7 +23,7 @@ interface Props {
   selectedIndividual: Individual | undefined;
   setSelectedIndividual: Dispatch<SetStateAction<Individual | undefined>>;
   dataset: Model;
-  setDataset: Dispatch<SetStateAction<Model>>;
+  updateDataset: Dispatch<Dispatch<Model>>;
 }
 
 const SetIndividual = (props: Props) => {
@@ -35,7 +35,7 @@ const SetIndividual = (props: Props) => {
     selectedIndividual,
     setSelectedIndividual,
     dataset,
-    setDataset,
+    updateDataset,
   } = props;
   let defaultIndividual: Individual = {
     id: "",
@@ -177,9 +177,8 @@ const SetIndividual = (props: Props) => {
 
   const addType = (e: any) => {
     if (newType.current && newType.current.value) {
-      const d = dataset.clone();
-      d.addIndividualType(uuidv4(), newType.current.value);
-      setDataset(d);
+      updateDataset(d =>
+          d.addIndividualType(uuidv4(), newType.current.value));
       newType.current.value = null;
     }
   };

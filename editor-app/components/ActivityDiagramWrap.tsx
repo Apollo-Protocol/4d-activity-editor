@@ -11,10 +11,12 @@ import { Model, Individual, Activity, Participation } from "amrc-activity-lib";
 import DiagramPersistence from "@/components/DiagramPersistence";
 import SortIndividuals from "./SortIndividuals";
 import SetParticipation from "./SetParticipation";
+import Undo from "./Undo";
 
 export default function ActivityDiagramWrap() {
   const model = new Model();
   const [dataset, setDataset] = useState(model);
+  const [undoHistory, setUndoHistory] = useState([]);
   const [showIndividual, setShowIndividual] = useState(false);
   const [selectedIndividual, setSelectedIndividual] = useState<
     Individual | undefined
@@ -32,9 +34,15 @@ export default function ActivityDiagramWrap() {
   const [showSortIndividuals, setShowSortIndividuals] = useState(false);
 
   const updateDataset = (updater: Dispatch<Model>) => {
+    setUndoHistory([dataset, ...undoHistory.slice(0, 5)]);
     const d = dataset.clone();
     updater(d);
     setDataset(d);
+  };
+  const undo = () => {
+    if (undoHistory.length == 0) return;
+    setDataset(undoHistory[0]);
+    setUndoHistory(undoHistory.slice(1));
   };
 
   const svgRef = useRef<SVGSVGElement>(null);
@@ -126,6 +134,10 @@ export default function ActivityDiagramWrap() {
               setSelectedParticipation={setSelectedParticipation}
               dataset={dataset}
               updateDataset={updateDataset}
+            />
+            <Undo
+              hasUndo={undoHistory.length > 0}
+              undo={undo}
             />
           </Col>
         </Row>

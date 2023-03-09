@@ -104,35 +104,26 @@ const DiagramPersistence = (props: any) => {
     }
   }
 
-  function serializeNode(node: any) {
-    var svgxml = new XMLSerializer().serializeToString(node);
-    return svgxml;
-  }
-
-  function downloadsvg(event: any) {
-    let pom = document.createElement("a");
-    pom.setAttribute(
-      "href",
-      "data:image/svg+xml;base64," + btoa(serializeNode(svgRef.current))
-    );
-    pom.setAttribute("download", "activity_diagram.svg");
-
-    if (document.createEvent) {
-      let event = document.createEvent("MouseEvents");
-      event.initEvent("click", true, true);
-      pom.dispatchEvent(event);
-    } else {
-      pom.click();
-    }
-  }
-
   return (
     <Container>
-      <Row className="mt-2">
+      <Row>
         <Col
           md={12}
           lg={6}
-          className="d-flex justify-content-center align-items-start"
+          className="mt-2 d-flex align-items-start justify-content-center justify-content-lg-start"
+        >
+          <Form.Group controlId="formFile">
+            <Form.Control type="file" onChange={onloadSettings} />
+            <Form.Text className="text-muted">{uploadSettingText}</Form.Text>
+          </Form.Group>
+          <Button variant="primary" onClick={downloadConfig} className={"mx-1"}>
+            Save&nbsp;Settings
+          </Button>
+        </Col>
+        <Col
+          md={12}
+          lg={6}
+          className="mt-2 d-flex align-items-start justify-content-center justify-content-lg-end"
         >
           <Form.Group controlId="formFile">
             <Form.Control type="file" onChange={onload} />
@@ -144,25 +135,8 @@ const DiagramPersistence = (props: any) => {
               onChange={() => setRefDataOnly(!refDataOnly)}
             />
           </Form.Group>
-
           <Button variant="primary" onClick={downloadttl} className={"mx-1"}>
-            Save TTL
-          </Button>
-          <Button variant="primary" onClick={downloadsvg} className={"mx-1"}>
-            Export SVG
-          </Button>
-        </Col>
-        <Col
-          md={12}
-          lg={6}
-          className="d-flex justify-content-center align-items-start"
-        >
-          <Form.Group controlId="formFile">
-            <Form.Control type="file" onChange={onloadSettings} />
-            <Form.Text className="text-muted">{uploadSettingText}</Form.Text>
-          </Form.Group>
-          <Button variant="primary" onClick={downloadConfig} className={"mx-1"}>
-            Save Settings
+            Save&nbsp;TTL
           </Button>
         </Col>
       </Row>

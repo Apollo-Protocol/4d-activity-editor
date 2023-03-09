@@ -13,6 +13,8 @@ import SetParticipation from "./SetParticipation";
 import Undo from "./Undo";
 import { Model } from "@/lib/Model";
 import { Activity, Individual, Participation } from "@/lib/Schema";
+import ExportJson from "./ExportJson";
+import ExportSvg from "./ExportSvg";
 
 export default function ActivityDiagramWrap() {
   const model = new Model();
@@ -113,6 +115,8 @@ export default function ActivityDiagramWrap() {
         />
         <Row className="mt-3">
           <Col className="d-flex justify-content-center">
+            <ExportSvg dataset={dataset} svgRef={svgRef} />
+            <ExportJson dataset={dataset} />
             <SetConfig
               configData={configData}
               setConfigData={setConfigData}

@@ -77,7 +77,7 @@ const SetIndividual = (props: Props) => {
     } else {
       setEndsWithParticipant(false);
     }
-  }, [selectedIndividual]);
+  }, [selectedIndividual, dataset]);
 
   const handleClose = () => {
     setShow(false);

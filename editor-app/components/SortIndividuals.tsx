@@ -1,4 +1,5 @@
 import { Individual } from "lib/Schema";
+import { Model } from "lib/Model";
 import React, { useState, useEffect } from "react";
 import { SortableList } from "@/components/SortableList/SortableList";
 import Button from "react-bootstrap/Button";
@@ -28,7 +29,7 @@ const SortIndividuals = (props: any) => {
     items.forEach((i) => {
       individualsMap.set(i.id, i);
     });
-    updateDataset((d) => (d.individuals = individualsMap));
+    updateDataset((d: any) => (d.individuals = individualsMap));
   };
 
   const handleSaveAndClose = () => {

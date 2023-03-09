@@ -1,4 +1,4 @@
-import { useState, useRef } from "react";
+import { useState, useRef, Dispatch } from "react";
 import { config } from "@/diagram/config";
 import SetIndividual from "@/components/SetIndividual";
 import SetActivity from "@/components/SetActivity";
@@ -17,7 +17,7 @@ import { Activity, Individual, Participation } from "@/lib/Schema";
 export default function ActivityDiagramWrap() {
   const model = new Model();
   const [dataset, setDataset] = useState(model);
-  const [undoHistory, setUndoHistory] = useState([]);
+  const [undoHistory, setUndoHistory] = useState<Model[]>([]);
   const [showIndividual, setShowIndividual] = useState(false);
   const [selectedIndividual, setSelectedIndividual] = useState<
     Individual | undefined
@@ -53,16 +53,16 @@ export default function ActivityDiagramWrap() {
   const svgRef = useRef<SVGSVGElement>(null);
 
   const deleteIndividual = (id: string) => {
-    updateDataset((d) => d.removeIndividual(id));
+    updateDataset((d: Model) => d.removeIndividual(id));
   };
   const setIndividual = (individual: Individual) => {
-    updateDataset((d) => d.addIndividual(individual));
+    updateDataset((d: Model) => d.addIndividual(individual));
   };
   const deleteActivity = (id: string) => {
-    updateDataset((d) => d.removeActivity(id));
+    updateDataset((d: Model) => d.removeActivity(id));
   };
   const setActivity = (activity: Activity) => {
-    updateDataset((d) => d.addActivity(activity));
+    updateDataset((d: Model) => d.addActivity(activity));
   };
 
   const clickIndividual = (i: Individual) => {
@@ -77,6 +77,18 @@ export default function ActivityDiagramWrap() {
     setSelectedActivity(a);
     setSelectedParticipation(p);
     setShowParticipation(true);
+  };
+
+  const rightClickIndividual = (i: Individual) => {
+    console.log("Individual right clicked. Functionality can be added here.");
+  };
+  const rightClickActivity = (a: Activity) => {
+    console.log("Activity right clicked. Functionality can be added here.");
+  };
+  const rightClickParticipation = (a: Activity, p: Participation) => {
+    console.log(
+      "Participation right clicked. Functionality can be added here."
+    );
   };
 
   const individualsArray: Individual[] = [];
@@ -94,6 +106,9 @@ export default function ActivityDiagramWrap() {
           clickIndividual={clickIndividual}
           clickActivity={clickActivity}
           clickParticipation={clickParticipation}
+          rightClickIndividual={rightClickIndividual}
+          rightClickActivity={rightClickActivity}
+          rightClickParticipation={rightClickParticipation}
           svgRef={svgRef}
         />
         <Row className="mt-3">

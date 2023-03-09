@@ -10,6 +10,9 @@ interface Props {
   clickIndividual: (i: Individual) => void;
   clickActivity: (a: Activity) => void;
   clickParticipation: (a: Activity, p: Participation) => void;
+  rightClickIndividual: (i: Individual) => void;
+  rightClickActivity: (a: Activity) => void;
+  rightClickParticipation: (a: Activity, p: Participation) => void;
   svgRef: MutableRefObject<any>;
 }
 
@@ -20,6 +23,9 @@ const ActivityDiagram = (props: Props) => {
     clickIndividual,
     clickActivity,
     clickParticipation,
+    rightClickIndividual,
+    rightClickActivity,
+    rightClickParticipation,
     svgRef,
   } = props;
 
@@ -36,10 +42,23 @@ const ActivityDiagram = (props: Props) => {
         svgRef.current,
         clickIndividual,
         clickActivity,
-        clickParticipation
+        clickParticipation,
+        rightClickIndividual,
+        rightClickActivity,
+        rightClickParticipation
       )
     );
-  }, [dataset, configData]);
+  }, [
+    dataset,
+    configData,
+    svgRef,
+    clickIndividual,
+    clickActivity,
+    clickParticipation,
+    rightClickIndividual,
+    rightClickActivity,
+    rightClickParticipation,
+  ]);
 
   return (
     <div id="activity-diagram-scrollable-div" style={{ overflowX: "auto" }}>

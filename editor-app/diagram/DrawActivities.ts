@@ -196,12 +196,19 @@ function activityTooltip(activity: Activity) {
 export function clickActivities(
   svgElement: any,
   activities: Activity[],
-  clickActivity: any
+  clickActivity: any,
+  rightClickActivity: any
 ) {
   activities.forEach((a) => {
     svgElement.select("#a" + a.id).on("click", function (event: MouseEvent) {
       clickActivity(a);
     });
+    svgElement
+      .select("#a" + a.id)
+      .on("contextmenu", function (event: MouseEvent) {
+        event.preventDefault();
+        rightClickActivity(a);
+      });
   });
 }
 

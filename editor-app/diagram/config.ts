@@ -75,7 +75,7 @@ export const config: ConfigData = {
       topMargin: 25, //Margin above the first/highest individual.
       bottomMargin: 30, //Margin below the last/lowest individual.
       height: 40, //Height of each individual
-      gap: 20, //Gap between each individual.
+      gap: 25, //Gap between each individual.
       xMargin: 40, //The margin on either side of all individuals.
       temporalMargin: 10, //an area at each end of an individual which activities cannot enter
       textLength: 100, //An area given to the individual text. Could be calulated from the labels, perhaps with a max value applied.

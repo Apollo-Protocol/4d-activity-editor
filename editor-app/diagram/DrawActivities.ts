@@ -50,7 +50,7 @@ export function drawActivities(
     .attr("y", (a: Activity) => {
       return (
         calculateTopPositionOfNewActivity(svgElement, a) -
-        config.layout.individual.gap / 2
+        config.layout.individual.gap * 0.3
       );
     })
     .attr("width", (a: Activity) => {
@@ -61,7 +61,7 @@ export function drawActivities(
       return height
         ? height -
             calculateTopPositionOfNewActivity(svgElement, a) +
-            config.layout.individual.gap +
+            config.layout.individual.gap * 0.6 +
             config.layout.individual.height
         : 0;
     })
@@ -113,10 +113,15 @@ function labelActivities(
         config.layout.individual.height + config.layout.individual.gap;
       let position = box.y;
       if (d.participations?.size === 1) {
-        position = box.y - config.labels.activity.topMargin;
+        position = box.y - config.labels.activity.topMargin / 1.5;
         return position;
       }
-      if ((box.height / individualBoxHeight) % 2 == 0) {
+      if (
+        ((box.height + config.layout.individual.gap * 0.4) /
+          individualBoxHeight) %
+          2 ==
+        0
+      ) {
         position = box.y + box.height / 2;
       } else {
         position =

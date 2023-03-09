@@ -8,7 +8,7 @@ import Row from "react-bootstrap/Row";
 import Col from "react-bootstrap/Col";
 import { v4 as uuidv4 } from "uuid";
 import Select from "react-select";
-import { Individual, Activity, Participation } from "lib/Schema";
+import { Individual, Activity, Participation } from "@/lib/Schema";
 import { InputGroup } from "react-bootstrap";
 import { Model } from "@/lib/Model";
 

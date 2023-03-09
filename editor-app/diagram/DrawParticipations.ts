@@ -1,5 +1,5 @@
 import { MouseEvent } from "react";
-import { Activity, Participation } from "lib/Schema";
+import { Activity } from "@/lib/Schema";
 import { ConfigData } from "./config";
 
 let mouseOverElement: any | null = null;

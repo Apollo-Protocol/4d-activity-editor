@@ -1,5 +1,4 @@
-import { Individual, Activity, Participation } from "lib/Schema";
-import { Model } from "lib/Model";
+import { Individual, Activity, Participation } from "@/lib/Schema";
 import {
   calculateViewportHeight,
   clearDiagram,

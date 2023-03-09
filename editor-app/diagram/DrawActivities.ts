@@ -1,5 +1,5 @@
 import { MouseEvent } from "react";
-import { Activity, Individual, Participation } from "lib/Schema";
+import { Activity, Individual, Participation } from "@/lib/Schema";
 import {
   Label,
   removeLabelIfItOverlaps,

@@ -1,6 +1,6 @@
 import { MouseEvent } from "react";
-import { Activity, Individual } from "lib/Schema";
-import { Model } from "lib/Model";
+import { Activity, Individual } from "@/lib/Schema";
+import { Model } from "@/lib/Model";
 import {
   keepIndividualLabels,
   Label,

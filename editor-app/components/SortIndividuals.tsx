@@ -1,4 +1,5 @@
-import { Individual, Model } from "amrc-activity-lib";
+import { Individual } from "lib/Schema";
+import { Model } from "lib/Model";
 import React, { useState, useEffect } from "react";
 import { SortableList } from "@/components/SortableList/SortableList";
 import Button from "react-bootstrap/Button";

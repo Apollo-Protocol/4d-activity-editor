@@ -1,4 +1,5 @@
-import { Individual, Activity, Model, Participation } from "amrc-activity-lib";
+import { Individual, Activity, Participation } from "lib/Schema";
+import { Model } from "lib/Model";
 import {
   calculateViewportHeight,
   clearDiagram,
@@ -18,6 +19,7 @@ import {
 } from "./DrawActivities";
 import { clickParticipations, drawParticipations } from "./DrawParticipations";
 import * as d3 from "d3";
+import { Model } from "@/lib/Model";
 
 export interface Plot {
   width: number;

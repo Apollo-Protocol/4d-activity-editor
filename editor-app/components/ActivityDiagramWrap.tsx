@@ -7,11 +7,12 @@ import ActivityDiagram from "@/components/ActivityDiagram";
 import Row from "react-bootstrap/Row";
 import Col from "react-bootstrap/Col";
 import Container from "react-bootstrap/Container";
-import { Model, Individual, Activity, Participation } from "amrc-activity-lib";
 import DiagramPersistence from "@/components/DiagramPersistence";
 import SortIndividuals from "./SortIndividuals";
 import SetParticipation from "./SetParticipation";
 import Undo from "./Undo";
+import { Model } from "@/lib/Model";
+import { Activity, Individual, Participation } from "@/lib/Schema";
 
 export default function ActivityDiagramWrap() {
   const model = new Model();

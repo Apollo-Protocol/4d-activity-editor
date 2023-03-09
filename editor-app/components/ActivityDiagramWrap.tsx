@@ -12,13 +12,14 @@ import SortIndividuals from "./SortIndividuals";
 import SetParticipation from "./SetParticipation";
 import Undo from "./Undo";
 import { Model } from "@/lib/Model";
-import { Activity, Individual, Participation } from "@/lib/Schema";
+import { Activity, Individual, MaybeId, Participation } from "@/lib/Schema";
 import ExportJson from "./ExportJson";
 import ExportSvg from "./ExportSvg";
 
 export default function ActivityDiagramWrap() {
   const model = new Model();
   const [dataset, setDataset] = useState(model);
+  const [activityContext, setActivityContext] = useState<MaybeId>(undefined);
   const [undoHistory, setUndoHistory] = useState<Model[]>([]);
   const [showIndividual, setShowIndividual] = useState(false);
   const [selectedIndividual, setSelectedIndividual] = useState<
@@ -105,6 +106,8 @@ export default function ActivityDiagramWrap() {
         <ActivityDiagram
           dataset={dataset}
           configData={configData}
+          activityContext={activityContext}
+          setActivityContext={setActivityContext}
           clickIndividual={clickIndividual}
           clickActivity={clickActivity}
           clickParticipation={clickParticipation}
@@ -137,6 +140,8 @@ export default function ActivityDiagramWrap() {
               individuals={individualsArray}
               dataset={dataset}
               updateDataset={updateDataset}
+              activityContext={activityContext}
+              setActivityContext={setActivityContext}
             />
             <SetIndividual
               deleteIndividual={deleteIndividual}

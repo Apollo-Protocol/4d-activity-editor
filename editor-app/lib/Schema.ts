@@ -5,6 +5,11 @@
 import type { Kind } from './Model';
 
 /**
+ * An optional object ID.
+ */
+export type MaybeId = string | undefined;
+
+/**
  * An activity is a thing that happens over time.
  */
 export interface Activity {
@@ -15,6 +20,7 @@ export interface Activity {
   beginning: number;
   ending: number;
   participations: Map<string, Participation>;
+  partOf: MaybeId;
 }
 
 /**

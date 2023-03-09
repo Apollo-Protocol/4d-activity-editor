@@ -1,12 +1,17 @@
 import { useState, useEffect, MutableRefObject } from "react";
+import Breadcrumb from "react-bootstrap/Breadcrumb";
+import Row from "react-bootstrap/Row";
+import Col from "react-bootstrap/Col";
 import { drawActivityDiagram } from "@/diagram/DrawActivityDiagram";
 import { ConfigData } from "@/diagram/config";
 import { Model } from "@/lib/Model";
-import { Activity, Individual, Participation } from "@/lib/Schema";
+import { Activity, Individual, MaybeId, Participation } from "@/lib/Schema";
 
 interface Props {
   dataset: Model;
   configData: ConfigData;
+  activityContext: MaybeId;
+  setActivityContext: (c: MaybeId) => void;
   clickIndividual: (i: Individual) => void;
   clickActivity: (a: Activity) => void;
   clickParticipation: (a: Activity, p: Participation) => void;
@@ -20,6 +25,8 @@ const ActivityDiagram = (props: Props) => {
   const {
     dataset,
     configData,
+    activityContext,
+    setActivityContext,
     clickIndividual,
     clickActivity,
     clickParticipation,
@@ -39,6 +46,7 @@ const ActivityDiagram = (props: Props) => {
       drawActivityDiagram(
         dataset,
         configData,
+        activityContext,
         svgRef.current,
         clickIndividual,
         clickActivity,
@@ -60,14 +68,38 @@ const ActivityDiagram = (props: Props) => {
     rightClickParticipation,
   ]);
 
+  const buildCrumbs = () => {
+    const context = [];
+    let id: string | undefined = activityContext;
+    while (true) {
+      const link = id;
+      const act = id ? dataset.activities.get(id) : null;
+      const text = act ? act.name : <i>{dataset.name ?? "Top"}</i>;
+      context.push(
+        <Breadcrumb.Item
+          active={ id == activityContext }
+          linkProps={{ onClick: () => setActivityContext(link) }}
+          key={id ?? "."}
+        >{text}</Breadcrumb.Item>);
+      if (id == undefined)
+        break;
+      id = act!.partOf;
+    }
+    return context.reverse();
+  };
+  const crumbs: JSX.Element[] = buildCrumbs();
+
   return (
-    <div id="activity-diagram-scrollable-div" style={{ overflowX: "auto" }}>
-      <svg
-        viewBox={`0 0 ${plot.width} ${plot.height}`}
-        ref={svgRef}
-        style={{ minWidth: configData.viewPort.zoom * 100 + "%" }}
-      />
-    </div>
+    <>
+      <Breadcrumb>{crumbs}</Breadcrumb>
+      <div id="activity-diagram-scrollable-div" style={{ overflowX: "auto" }}>
+        <svg
+          viewBox={`0 0 ${plot.width} ${plot.height}`}
+          ref={svgRef}
+          style={{ minWidth: configData.viewPort.zoom * 100 + "%" }}
+        />
+      </div>
+    </>
   );
 };
 

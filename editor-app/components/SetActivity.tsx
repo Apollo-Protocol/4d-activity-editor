@@ -8,7 +8,7 @@ import Row from "react-bootstrap/Row";
 import Col from "react-bootstrap/Col";
 import { v4 as uuidv4 } from "uuid";
 import Select from "react-select";
-import { Individual, Activity, Participation } from "@/lib/Schema";
+import { Individual, Activity, MaybeId, Participation } from "@/lib/Schema";
 import { InputGroup } from "react-bootstrap";
 import { Model } from "@/lib/Model";
 
@@ -20,6 +20,8 @@ interface Props {
   individuals: Individual[];
   dataset: Model;
   updateDataset: Dispatch<Dispatch<Model>>;
+  activityContext: MaybeId;
+  setActivityContext: Dispatch<MaybeId>;
 }
 
 const SetActivity = (props: Props) => {
@@ -31,6 +33,8 @@ const SetActivity = (props: Props) => {
     individuals,
     dataset,
     updateDataset,
+    activityContext,
+    setActivityContext,
   } = props;
   let defaultActivity: Activity = {
     id: "",
@@ -40,6 +44,7 @@ const SetActivity = (props: Props) => {
     beginning: 0,
     ending: 1,
     participations: new Map<string, Participation>(),
+    partOf: activityContext,
   };
 
   const newType = useRef<any>(null);
@@ -97,6 +102,10 @@ const SetActivity = (props: Props) => {
       updateIndividuals(d);
     });
     handleClose();
+  };
+  const handleContext = (event: any) => {
+    handleAdd(event);
+    setActivityContext(inputs.id);
   };
 
   const handleChange = (e: any) => {
@@ -320,6 +329,13 @@ const SetActivity = (props: Props) => {
                   onClick={handleClose}
                 >
                   Close
+                </Button>
+                <Button
+                  className="mx-1"
+                  variant="primary"
+                  onClick={handleContext}
+                >
+                  Open sub-tasks
                 </Button>
                 <Button
                   className={selectedActivity ? "d-block mx-1" : "d-none mx-1"}

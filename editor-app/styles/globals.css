@@ -10,3 +10,12 @@
 #helloGlobal {
   color: green;
 }
+
+.amrc-text {
+  /* Limit text columns to a readable width. */
+  max-width: 50rem;
+}
+
+.amrc-fixme {
+  color: red;
+}

@@ -45,6 +45,7 @@ export default function ActivityDiagramWrap() {
   };
   const replaceDataset = (d: Model) => {
     setUndoHistory([]);
+    setActivityContext(undefined);
     setDataset(d);
   };
   const undo = () => {

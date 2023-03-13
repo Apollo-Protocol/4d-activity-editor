@@ -82,6 +82,13 @@ export const saveJSONLD = (
 };
 
 /**
+ * Return a Model id for an HQDM Thing.
+ */
+const getModelId = (t: Thing | undefined): string => {
+  return t?.id?.replace(BASE, "");
+}
+
+/**
  * Converts an HQDMModel to a UI Model.
  */
 export const toModel = (hqdm: HQDMModel): Model => {
@@ -100,7 +107,7 @@ export const toModel = (hqdm: HQDMModel): Model => {
    * TODO: It may be necessary in future to filter the ordinary_physical_objects to remove any that are not part of the model.
    */
   hqdm.findByType(ordinary_physical_object).forEach((i) => {
-    const id = i.id.replace(BASE, ""); // The UI Model doesn't use IRIs, so remove the base.
+    const id = getModelId(i); // The UI Model doesn't use IRIs, so remove the base.
 
     // Find the name signs recognised by the community for this individual.
     const identification = hqdm.getIdentifications(i, communityName).first();
@@ -115,7 +122,7 @@ export const toModel = (hqdm: HQDMModel): Model => {
     let kindOfIndividual;
     if (kind) {
       kindOfIndividual = kind
-        ? new Kind(kind.id.replace(BASE, ""), hqdm.getEntityName(kind), false)
+        ? new Kind(getModelId(kind), hqdm.getEntityName(kind), false)
         : new Kind("dummyId", "Unknown Individual Type", false);
     } else {
       kindOfIndividual = new Kind(
@@ -151,7 +158,7 @@ export const toModel = (hqdm: HQDMModel): Model => {
   });
 
   hqdm.findByType(person).forEach((i) => {
-    const id = i.id.replace(BASE, ""); // The UI Model doesn't use IRIs, so remove the base.
+    const id = getModelId(i); // The UI Model doesn't use IRIs, so remove the base.
 
     // Find the name signs recognised by the community for this individual.
     const identifications = hqdm.getIdentifications(i, communityName);
@@ -185,7 +192,7 @@ export const toModel = (hqdm: HQDMModel): Model => {
   });
 
   hqdm.findByType(organization).forEach((i) => {
-    const id = i.id.replace(BASE, ""); // The UI Model doesn't use IRIs, so remove the base.
+    const id = getModelId(i); // The UI Model doesn't use IRIs, so remove the base.
 
     // Find the name signs recognised by the community for this individual.
     const identifications = hqdm.getIdentifications(i, communityName);
@@ -222,7 +229,7 @@ export const toModel = (hqdm: HQDMModel): Model => {
   // Add each Activity to the model.
   //
   hqdm.findByType(activity).forEach((a) => {
-    const id = a.id.replace(BASE, "");
+    const id = getModelId(a);
 
     // Get the activity name.
     const identifications = hqdm.getIdentifications(a, communityName);
@@ -234,7 +241,7 @@ export const toModel = (hqdm: HQDMModel): Model => {
       .filter((x) => hqdm.isKindOf(x, kind_of_activity));
     const kind = kinds.first((x) => (x ? true : false)); // Matches every element, so returns the first
     const kindOfActivity = kind
-      ? new Kind(kind.id.replace(BASE, ""), hqdm.getEntityName(kind), false)
+      ? new Kind(getModelId(kind), hqdm.getEntityName(kind), false)
       : new Kind("dummyId", "Unknown Activity Type", false);
 
     // Get the temporal extent of the activity with defaults, although the defaults should never be needed.
@@ -271,7 +278,7 @@ export const toModel = (hqdm: HQDMModel): Model => {
       const participantRole = hqdm.getRole(p).first();
       const roleType = participantRole
         ? new Kind(
-            participantRole.id.replace(BASE, ""),
+            getModelId(participantRole),
             hqdm.getEntityName(participantRole),
             false
           )
@@ -282,7 +289,7 @@ export const toModel = (hqdm: HQDMModel): Model => {
 
       // Get the individual from the model or create a dummy individual if the participant is not in the model.
       const indiv = participantThing
-        ? m.individuals.get(participantThing.id.replace(BASE, ""))
+        ? m.individuals.get(getModelId(participantThing))
         : new IndividualImpl(
             "BAD ID",
             "Unknown Individual",
@@ -307,19 +314,19 @@ export const toModel = (hqdm: HQDMModel): Model => {
  */
 export const addRefDataToModel = (hqdm: HQDMModel, m: Model): Model => {
   hqdm.findByType(kind_of_ordinary_physical_object).forEach((i) => {
-    const id = i.id.replace(BASE, "");
+    const id = getModelId(i);
     const name = hqdm.getEntityName(i);
     m.addIndividualType(id, name);
   });
 
   hqdm.findByType(kind_of_activity).forEach((i) => {
-    const id = i.id.replace(BASE, "");
+    const id = getModelId(i);
     const name = hqdm.getEntityName(i);
     m.addActivityType(id, name);
   });
 
   hqdm.findByType(role).forEach((i) => {
-    const id = i.id.replace(BASE, "");
+    const id = getModelId(i);
     const name = hqdm.getEntityName(i);
     m.addRoleType(id, name);
   });

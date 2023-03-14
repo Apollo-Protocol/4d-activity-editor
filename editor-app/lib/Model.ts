@@ -1,7 +1,7 @@
 /* eslint-disable max-classes-per-file */
 import { HQDM_NS } from "@apollo-protocol/hqdm-lib";
-import type { Maybe } from "@apollo-protocol/hqdm-lib";
-import type { Activity, Id, Individual } from "./Schema.js";
+import type { Activity, Id, Individual, Maybe } from "./Schema.js";
+import { EPOCH_END } from "./ActivityLib";
 
 /**
  * A class used to list the types needed for drop-downs in the UI.
@@ -43,7 +43,7 @@ export class Model {
     ];
   }
 
-  static END_OF_TIME = 9999999999999;
+  static END_OF_TIME = EPOCH_END;
 
   /**
    * Returns a copy of the model.

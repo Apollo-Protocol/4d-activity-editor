@@ -2,8 +2,10 @@ import { v4 as uuidv4 } from "uuid";
 import { ActivityImpl } from "./ActivityImpl";
 import {
   activity,
+  class_of_event,
   CONSISTS_OF_BY_CLASS,
   ENTITY_NAME,
+  event,
   HQDMModel,
   HQDM_NS,
   kind_of_activity,
@@ -44,6 +46,13 @@ export const EPOCH_START = 0;
 export const EPOCH_START_STR = EPOCH_START.toString();
 export const EPOCH_END = 9999999999999;
 export const EPOCH_END_STR = EPOCH_END.toString();
+
+// Private HQDMModel for our classes and kinds
+const diagramModel = new HQDMModel();
+
+const diagramTimeUuid = "c9ecb65e-4b1f-4633-ac5c-f765e36586f2";
+const diagramTimeIri = BASE + diagramTimeUuid;
+const diagramTimeClass = diagramModel.createThing(class_of_event, diagramTimeIri);
 
 /**
  * Attempts to load a model from a string containing a TTL representation of the model.
@@ -87,8 +96,8 @@ export const saveJSONLD = (
 /**
  * Return a Model id for an HQDM Thing.
  */
-const getModelId = (t: Thing | undefined): string => {
-  return t?.id?.replace(BASE, "");
+const getModelId = (t: Thing): string => {
+  return t.id.replace(BASE, "");
 };
 
 /**
@@ -96,8 +105,25 @@ const getModelId = (t: Thing | undefined): string => {
  * Only knows how to decode the utcMillisecondsClass.
  */
 const getTimeValue = (hqdm: HQDMModel, t: Thing): number => {
-  if (hqdm.memberOf(t, utcMillisecondsClass))
-    return Number.parseInt(hqdm.getEntityName(t));
+  const name = hqdm.getEntityName(t);
+
+  if (hqdm.isMemberOf(t, utcMillisecondsClass))
+    return Number.parseInt(name, 10);
+
+  /* For now translate +-Inf to the hardcoded epoch start and end values
+   * above. This is a hack because the UI code makes assumptions about
+   * these values; properly that code should be reworked. (Individuals
+   * with no known beginning need their beginning set to -1, not to
+   * EPOCH_START == 0.) If we attempt to load a file with out-of-epoch
+   * times we will simply lose that information in the diagram. */
+  if (hqdm.isMemberOf(t, diagramTimeClass)) {
+    const n = Number.parseFloat(name);
+    return n < EPOCH_START  ? -1
+      : n >= EPOCH_END      ? EPOCH_END
+      : n;
+  }
+
+  console.log("getTimeValue: unknown class for %s", t.id);
   return Number.NaN;
 };
 
@@ -105,10 +131,17 @@ const getTimeValue = (hqdm: HQDMModel, t: Thing): number => {
  * Creates an HQDM point_in_time.
  */
 const createTimeValue = (hqdm: HQDMModel, modelWorld: Thing, time: number): Thing => {
-  const iri = utcPointInTimeIri(time);
-  const thing = hqdm.createThing(point_in_time, iri);
-  hqdm.addMemberOf(thing, utcMillisecondsClass);
-  hqdm.relate(ENTITY_NAME, thing, new Thing(time.toString()));
+  const iri = BASE + uuidv4();
+  const thing = hqdm.createThing(event, iri);
+  hqdm.addMemberOf(thing, diagramTimeClass);
+
+  /* Map the epoch start and end to +-Inf for output to the file. This
+   * is cleaner than leaving magic numbers in the output. Possibly we
+   * should simply omit the attribute altogether instead? */
+  const f = time < EPOCH_START  ? Number.NEGATIVE_INFINITY
+    : time >= EPOCH_END         ? Number.POSITIVE_INFINITY
+    : time;
+  hqdm.relate(ENTITY_NAME, thing, new Thing(f.toString()));
   hqdm.addToPossibleWorld(thing, modelWorld);
   return thing;
 };
@@ -294,7 +327,7 @@ export const toModel = (hqdm: HQDMModel): Model => {
       beginning,
       ending,
       description,
-      getModelId(partOf),
+      partOf ? getModelId(partOf) : undefined,
     );
     m.addActivity(newA);
 

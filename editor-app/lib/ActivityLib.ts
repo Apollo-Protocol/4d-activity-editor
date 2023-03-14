@@ -408,6 +408,9 @@ export const toHQDM = (model: Model): HQDMModel => {
   // Create the HQDM Model and create some necssary HQDM things.
   const hqdm = new HQDMModel();
 
+  // Normalise child activities to sit temporally within their parents.
+  model.normalizeActivityBounds();
+
   // Save the kinds to the model.
   model.activityTypes.forEach((a) => {
     const kind = hqdm.createThing(kind_of_activity, BASE + a.id);

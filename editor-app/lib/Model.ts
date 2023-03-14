@@ -1,6 +1,6 @@
 /* eslint-disable max-classes-per-file */
 import { HQDM_NS } from "@apollo-protocol/hqdm-lib";
-import type { Activity, Individual } from "./Schema.js";
+import type { Activity, Individual, MaybeId } from "./Schema.js";
 import { EPOCH_END } from "./ActivityLib";
 
 /**
@@ -212,5 +212,52 @@ export class Model {
    */
   addIndividualType(id: string, name: string): void {
     this.individualTypes.push(new Kind(id, name, false));
+  }
+
+  /**
+   * Translate and scale child activity temporal bounds to lie within
+   * their parent activities.
+   */
+  normalizeActivityBounds(): void {
+    console.log("Normalising activity bounds: %o", this.activities);
+
+    const parts = new Map<MaybeId, Array<string>>();
+    this.activities.forEach(a => {
+      if (!parts.has(a.partOf)) {
+        parts.set(a.partOf, []);
+      }
+      parts.get(a.partOf).push(a.id)
+    });
+
+    const to_process = [];
+    const to_check = [undefined];
+    while (to_check.length > 0) {
+      const next = to_check.shift();
+      if (parts.has(next)) {
+        to_process.push(next);
+        to_check.push(...parts.get(next));
+      }
+    }
+
+    for (const id of to_process) {
+      const act = this.activities.get(id);
+      /* We could rescale the top-level activities here to some standard
+       * boundaries (e.g. 0-1000). */
+      if (!act) continue;
+
+      const kids = parts.get(id).map(id => this.activities.get(id));
+      const earliest = Math.min(...kids.map(a => a.beginning));
+      const latest = Math.max(...kids.map(a => a.ending));
+
+      const scale = (act.ending - act.beginning) / (latest - earliest);
+      const offset = act.beginning - earliest;
+
+      for (const kid of kids) {
+        kid.beginning = (kid.beginning + offset) * scale;
+        kid.ending = (kid.ending + offset) * scale;
+      }
+    }
+
+    console.log("Normalised activity bounds: %o", this.activities);
   }
 }

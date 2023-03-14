@@ -167,12 +167,6 @@ const SetActivity = (props: Props) => {
     if (inputs.ending - inputs.beginning <= 0) {
       runningErrors.push("Ending must be after beginning");
     }
-    if (inputs.beginning % 1 != 0) {
-      runningErrors.push("Beginning must be a whole number");
-    }
-    if (inputs.ending % 1 != 0) {
-      runningErrors.push("Ending must be a whole number");
-    }
     if (inputs.ending >= Model.END_OF_TIME) {
       runningErrors.push("Ending cannot be greater than " + Model.END_OF_TIME);
     }

@@ -213,4 +213,53 @@ export class Model {
   addIndividualType(id: string, name: string): void {
     this.individualTypes.push(new Kind(id, name, false));
   }
+
+  /**
+   * Translate and scale child activity temporal bounds to lie within
+   * their parent activities.
+   */
+  normalizeActivityBounds(): void {
+    console.log("Normalising activity bounds: %o", this.activities);
+
+    const parts = new Map<Maybe<Id>, Id[]>();
+    this.activities.forEach(a => {
+      const list = parts.get(a.partOf);
+      if (list)
+        list.push(a.id);
+      else
+        parts.set(a.partOf, [a.id]);
+    });
+
+    const to_process: Id[] = [];
+    const to_check: Maybe<Id>[] = [undefined];
+    while (to_check.length > 0) {
+      const next = to_check.shift();
+      const list = parts.get(next);
+      if (list) {
+        /* This skips the top-level activities. We could instead rescale
+         * to some standard boundaries (e.g. 0-1000). */
+        if (next)
+          to_process.push(next);
+        to_check.push(...list);
+      }
+    }
+
+    for (const id of to_process) {
+      const act = this.activities.get(id)!;
+
+      const kids = parts.get(id)!.map(id => this.activities.get(id)!);
+      const earliest = Math.min(...kids.map(a => a.beginning));
+      const latest = Math.max(...kids.map(a => a.ending));
+
+      const scale = (act.ending - act.beginning) / (latest - earliest);
+      const offset = act.beginning - earliest;
+
+      for (const kid of kids) {
+        kid.beginning = (kid.beginning + offset) * scale;
+        kid.ending = (kid.ending + offset) * scale;
+      }
+    }
+
+    console.log("Normalised activity bounds: %o", this.activities);
+  }
 }

@@ -96,8 +96,8 @@ export const saveJSONLD = (
 /**
  * Return a Model id for an HQDM Thing.
  */
-const getModelId = (t: Thing | undefined): string => {
-  return t?.id?.replace(BASE, "");
+const getModelId = (t: Thing): string => {
+  return t.id.replace(BASE, "");
 };
 
 /**
@@ -327,7 +327,7 @@ export const toModel = (hqdm: HQDMModel): Model => {
       beginning,
       ending,
       description,
-      getModelId(partOf),
+      partOf ? getModelId(partOf) : undefined,
     );
     m.addActivity(newA);
 

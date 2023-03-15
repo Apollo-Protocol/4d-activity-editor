@@ -221,31 +221,33 @@ export class Model {
   normalizeActivityBounds(): void {
     console.log("Normalising activity bounds: %o", this.activities);
 
-    const parts = new Map<MaybeId, Array<string>>();
+    const parts = new Map<MaybeId, string[]>();
     this.activities.forEach(a => {
-      if (!parts.has(a.partOf)) {
-        parts.set(a.partOf, []);
-      }
-      parts.get(a.partOf).push(a.id)
+      const list = parts.get(a.partOf);
+      if (list)
+        list.push(a.id);
+      else
+        parts.set(a.partOf, [a.id]);
     });
 
-    const to_process = [];
-    const to_check = [undefined];
+    const to_process: string[] = [];
+    const to_check: MaybeId[] = [undefined];
     while (to_check.length > 0) {
       const next = to_check.shift();
-      if (parts.has(next)) {
-        to_process.push(next);
-        to_check.push(...parts.get(next));
+      const list = parts.get(next);
+      if (list) {
+        /* This skips the top-level activities. We could instead rescale
+         * to some standard boundaries (e.g. 0-1000). */
+        if (next)
+          to_process.push(next);
+        to_check.push(...list);
       }
     }
 
     for (const id of to_process) {
-      const act = this.activities.get(id);
-      /* We could rescale the top-level activities here to some standard
-       * boundaries (e.g. 0-1000). */
-      if (!act) continue;
+      const act = this.activities.get(id)!;
 
-      const kids = parts.get(id).map(id => this.activities.get(id));
+      const kids = parts.get(id)!.map(id => this.activities.get(id)!);
       const earliest = Math.min(...kids.map(a => a.beginning));
       const latest = Math.max(...kids.map(a => a.ending));
 

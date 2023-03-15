@@ -39,9 +39,6 @@ export const BASE = "https://www.amrc.co.uk/hqdm/activities#";
 // A well-known ENTITY_NAME used to find the AMRC Community entity.
 const AMRC_COMMUNITY = "AMRC Community";
 
-// HQDM relations not exposed by hqdm-lib
-const PART_OF = HQDM_NS + "part_of";
-
 export const EPOCH_START = 0;
 export const EPOCH_START_STR = EPOCH_START.toString();
 export const EPOCH_END = 9999999999999;
@@ -317,7 +314,7 @@ export const toModel = (hqdm: HQDMModel): Model => {
     const description = descriptions.first()?.id; // Assumes just one description
 
     // Get the parent activity, if any.
-    const partOf = hqdm.getRelated(a, PART_OF).first(x => true);
+    const partOf = hqdm.getPartOf(a).first();
 
     // Create the activity and add it to the model.
     const newA = new ActivityImpl(
@@ -569,7 +566,7 @@ export const toHQDM = (model: Model): HQDMModel => {
     hqdm.ending(act, activityTo);
 
     if (a.partOf) {
-      hqdm.relate(PART_OF, act, new Thing(BASE + a.partOf));
+      hqdm.addPartOf(act, new Thing(BASE + a.partOf));
     }
 
     // Add the participations to the model

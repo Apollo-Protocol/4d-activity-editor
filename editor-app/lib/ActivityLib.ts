@@ -89,10 +89,10 @@ export const toModel = (hqdm: HQDMModel): Model => {
   const m = new Model();
 
   // Get the name and description of the model from the possible world
-  const possibleWorld = hqdm.findByType(possible_world).only(); // Assumes just one possible world
+  const possibleWorld = hqdm.findByType(possible_world).first(); // Assumes just one possible world
   if (possibleWorld) {
-    m.name = hqdm.getIdentifications(possibleWorld, communityName).only()?.id;
-    m.description = hqdm.getDescriptions(possibleWorld, communityName).only()?.id;
+    m.name = hqdm.getIdentifications(possibleWorld, communityName).first()?.id;
+    m.description = hqdm.getDescriptions(possibleWorld, communityName).first()?.id;
   }
 
   /**
@@ -103,7 +103,7 @@ export const toModel = (hqdm: HQDMModel): Model => {
     const id = i.id.replace(BASE, ""); // The UI Model doesn't use IRIs, so remove the base.
 
     // Find the name signs recognised by the community for this individual.
-    const identification = hqdm.getIdentifications(i, communityName).only();
+    const identification = hqdm.getIdentifications(i, communityName).first();
     const name = identification?.id ?? "No Name Found: " + i.id; // Assumes just one name
 
     // Find the kind of individual.
@@ -127,7 +127,7 @@ export const toModel = (hqdm: HQDMModel): Model => {
 
     // Get the optional description of the individual.
     const descriptions = hqdm.getDescriptions(i, communityName);
-    const description = descriptions.only()?.id; // Assumes just one description
+    const description = descriptions.first()?.id; // Assumes just one description
 
     const from = hqdm.getBeginning(i);
     const to = hqdm.getEnding(i);
@@ -155,13 +155,13 @@ export const toModel = (hqdm: HQDMModel): Model => {
 
     // Find the name signs recognised by the community for this individual.
     const identifications = hqdm.getIdentifications(i, communityName);
-    const name = identifications.only()?.id ?? "No Name Found: " + i.id; // Assumes just one name
+    const name = identifications.first()?.id ?? "No Name Found: " + i.id; // Assumes just one name
 
     const kindOfIndividual = new Kind(person.id, "Person", true);
 
     // Get the optional description of the individual.
     const descriptions = hqdm.getDescriptions(i, communityName);
-    const description = descriptions.only()?.id; // Assumes just one description
+    const description = descriptions.first()?.id; // Assumes just one description
 
     const from = hqdm.getBeginning(i);
     const to = hqdm.getEnding(i);
@@ -189,13 +189,13 @@ export const toModel = (hqdm: HQDMModel): Model => {
 
     // Find the name signs recognised by the community for this individual.
     const identifications = hqdm.getIdentifications(i, communityName);
-    const name = identifications.only()?.id ?? "No Name Found: " + i.id; // Assumes just one name
+    const name = identifications.first()?.id ?? "No Name Found: " + i.id; // Assumes just one name
 
     const kindOfIndividual = new Kind(organization.id, "Organization", true);
 
     // Get the optional description of the individual.
     const descriptions = hqdm.getDescriptions(i, communityName);
-    const description = descriptions.only()?.id; // Assumes just one description
+    const description = descriptions.first()?.id; // Assumes just one description
 
     const from = hqdm.getBeginning(i);
     const to = hqdm.getEnding(i);
@@ -226,7 +226,7 @@ export const toModel = (hqdm: HQDMModel): Model => {
 
     // Get the activity name.
     const identifications = hqdm.getIdentifications(a, communityName);
-    const name = identifications.only()?.id ?? "No Name Found: " + a.id; // Assumes just one name
+    const name = identifications.first()?.id ?? "No Name Found: " + a.id; // Assumes just one name
 
     // Get the activity type.
     const kinds = hqdm
@@ -249,7 +249,7 @@ export const toModel = (hqdm: HQDMModel): Model => {
 
     // Get the optional description of the activity.
     const descriptions = hqdm.getDescriptions(a, communityName);
-    const description = descriptions.only()?.id; // Assumes just one description
+    const description = descriptions.first()?.id; // Assumes just one description
 
     // Create the activity and add it to the model.
     const newA = new ActivityImpl(
@@ -268,7 +268,7 @@ export const toModel = (hqdm: HQDMModel): Model => {
     const participations = hqdm.getParticipants(a);
     participations.forEach((p) => {
       // Get the role of the participant.
-      const participantRole = hqdm.getRole(p).only();
+      const participantRole = hqdm.getRole(p).first();
       const roleType = participantRole
         ? new Kind(
             participantRole.id.replace(BASE, ""),

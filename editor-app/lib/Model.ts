@@ -1,13 +1,14 @@
 /* eslint-disable max-classes-per-file */
 import { HQDM_NS } from "@apollo-protocol/hqdm-lib";
-import type { Activity, Individual } from "./Schema.js";
+import type { Maybe } from "@apollo-protocol/hqdm-lib";
+import type { Activity, Id, Individual } from "./Schema.js";
 
 /**
  * A class used to list the types needed for drop-downs in the UI.
  */
 export class Kind {
   constructor(
-    readonly id: string,
+    readonly id: Id,
     readonly name: string,
     readonly isCoreHqdm: boolean
   ) {}
@@ -25,8 +26,8 @@ export class Model {
   readonly individualTypes: Array<Kind>;
 
   // Overall information about the model
-  name: string | undefined;
-  description: string | undefined;
+  name: Maybe<string>;
+  description: Maybe<string>;
 
   constructor(name?: string, description?: string) {
     this.name = name;

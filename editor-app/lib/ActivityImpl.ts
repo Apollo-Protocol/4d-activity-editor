@@ -1,11 +1,11 @@
 import type { Kind } from './Model.js';
-import type { Activity, Individual, Participation } from './Schema.js';
+import type { Activity, Id, Individual, Participation } from './Schema.js';
 
 /**
  * An Activity is a period of time during which a set of Individuals are involved in an activity.
  */
 export class ActivityImpl implements Activity {
-  id: string;
+  id: Id;
   name: string;
   type: Kind;
   description?: string;
@@ -14,7 +14,7 @@ export class ActivityImpl implements Activity {
   participations: Map<string, Participation>;
 
   constructor(
-    id: string,
+    id: Id,
     name: string,
     type: Kind,
     beginning: number,

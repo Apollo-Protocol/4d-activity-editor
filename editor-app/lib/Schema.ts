@@ -5,6 +5,7 @@
 import type { Maybe } from '@apollo-protocol/hqdm-lib';
 import type { Kind } from './Model';
 
+export { Maybe };
 export type Id = string;
 
 /**
@@ -18,6 +19,7 @@ export interface Activity {
   beginning: number;
   ending: number;
   participations: Map<string, Participation>;
+  partOf: Maybe<Id>;
 }
 
 /**

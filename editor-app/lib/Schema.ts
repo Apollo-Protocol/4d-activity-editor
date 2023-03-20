@@ -2,15 +2,18 @@
  * This file contains the schema for the data model.
  */
 
+import type { Maybe } from '@apollo-protocol/hqdm-lib';
 import type { Kind } from './Model';
+
+export type Id = string;
 
 /**
  * An activity is a thing that happens over time.
  */
 export interface Activity {
-  id: string;
+  id: Id;
   name: string;
-  type: Kind | undefined;
+  type: Maybe<Kind>;
   description?: string;
   beginning: number;
   ending: number;
@@ -21,9 +24,9 @@ export interface Activity {
  * An individual is a person, place, or thing that participates in an activity.
  */
 export interface Individual {
-  id: string;
+  id: Id;
   name: string;
-  type: Kind | undefined;
+  type: Maybe<Kind>;
   description?: string;
   beginning: number;
   ending: number;
@@ -35,6 +38,6 @@ export interface Individual {
  * A participation is a relationship between an individual and an activity that it particiaptes in.
  */
 export interface Participation {
-  individualId: string;
-  role: Kind | undefined;
+  individualId: Id;
+  role: Maybe<Kind>;
 }

@@ -1,11 +1,11 @@
 import type { Kind } from './Model.js';
-import type { Individual } from './Schema.js';
+import type { Id, Individual } from './Schema.js';
 
 /**
  * A class that implements the Individual interface.
  */
 export class IndividualImpl implements Individual {
-  id: string;
+  id: Id;
   name: string;
   type: Kind;
   description?: string;
@@ -15,7 +15,7 @@ export class IndividualImpl implements Individual {
   endsWithParticipant: boolean;
 
   constructor(
-    id: string,
+    id: Id,
     name: string,
     type: Kind,
     beginning: number,

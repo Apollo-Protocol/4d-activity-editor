@@ -1,10 +1,8 @@
 import { ConfigData } from "./config";
+import { DrawContext } from "./DrawHelpers";
 
-export function drawAxisArrows(
-  config: ConfigData,
-  svgElement: any,
-  viewPortHeight: number
-) {
+export function drawAxisArrows(ctx: DrawContext, viewPortHeight: number) {
+  const { config, svgElement } = ctx;
   //Define arrow head
   svgElement
     .append("svg:defs")

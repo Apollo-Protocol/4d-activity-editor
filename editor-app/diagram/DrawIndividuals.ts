@@ -2,6 +2,7 @@ import { MouseEvent } from "react";
 import { Activity, Individual } from "@/lib/Schema";
 import { Model } from "@/lib/Model";
 import {
+  DrawContext,
   keepIndividualLabels,
   Label,
   removeLabelIfItOverlaps,
@@ -10,12 +11,9 @@ import { ConfigData } from "./config";
 
 let mouseOverElement: any | null = null;
 
-export function drawIndividuals(
-  config: ConfigData,
-  svgElement: any,
-  individuals: Individual[],
-  activities: Activity[]
-) {
+export function drawIndividuals(ctx: DrawContext) {
+  const { config, svgElement, individuals, activities } = ctx;
+
   let startOfTime = Math.min(...activities.map((a) => a.beginning));
   let endOfTime = Math.max(...activities.map((a) => a.ending));
   let duration = endOfTime - startOfTime;
@@ -91,11 +89,8 @@ export function drawIndividuals(
   return svgElement;
 }
 
-export function hoverIndividuals(
-  config: ConfigData,
-  svgElement: any,
-  tooltip: any
-) {
+export function hoverIndividuals(ctx: DrawContext) {
+  const { config, svgElement, tooltip } = ctx;
   svgElement
     .selectAll(".individual")
     .on("mouseover", function (event: MouseEvent) {
@@ -135,12 +130,11 @@ function individualTooltip(individual: Individual) {
 }
 
 export function clickIndividuals(
-  config: ConfigData,
-  svgElement: any,
-  individuals: Individual[],
+  ctx: DrawContext,
   clickIndividual: any,
   rightClickIndividual: any
 ) {
+  const { config, svgElement, individuals } = ctx;
   individuals.forEach((i) => {
     svgElement.select("#i" + i.id).on("click", function (event: MouseEvent) {
       clickIndividual(i);
@@ -154,11 +148,9 @@ export function clickIndividuals(
   });
 }
 
-export function labelIndividuals(
-  config: ConfigData,
-  svgElement: any,
-  individuals: Individual[]
-) {
+export function labelIndividuals(ctx: DrawContext) {
+  const { config, svgElement, individuals } = ctx;
+
   if (config.labels.individual.enabled === false) {
     return;
   }

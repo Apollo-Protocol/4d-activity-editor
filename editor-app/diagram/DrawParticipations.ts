@@ -1,15 +1,13 @@
 import { MouseEvent } from "react";
 import { Activity } from "@/lib/Schema";
 import { ConfigData } from "./config";
+import { DrawContext } from "./DrawHelpers";
 
 let mouseOverElement: any | null = null;
 
-export function drawParticipations(
-  config: ConfigData,
-  svgElement: any,
-  activities: Activity[],
-  tooltip: any
-) {
+export function drawParticipations(ctx: DrawContext) {
+  const { config, svgElement, activities } = ctx;
+
   const parts: any[] = [];
   activities.forEach((a) => {
     a.participations?.forEach((p) => {
@@ -38,14 +36,11 @@ export function drawParticipations(
     .attr("fill", config.presentation.participation.fill)
     .attr("opacity", config.presentation.participation.opacity);
 
-  hoverParticipations(config, svgElement, tooltip);
+  hoverParticipations(ctx);
 }
 
-function hoverParticipations(
-  config: ConfigData,
-  svgElement: any,
-  tooltip: any
-) {
+function hoverParticipations(ctx: DrawContext) {
+  const { config, svgElement, tooltip } = ctx;
   svgElement
     .selectAll(".participation")
     .on("mouseover", function (event: MouseEvent) {
@@ -78,11 +73,12 @@ function hoverParticipations(
 }
 
 export function clickParticipations(
-  svgElement: any,
-  activities: Activity[],
+  ctx: DrawContext,
   clickParticipation: any,
   rightClickParticipation: any
 ) {
+  const { svgElement, activities } = ctx;
+
   activities.forEach((a) => {
     a.participations.forEach((p) => {
       svgElement

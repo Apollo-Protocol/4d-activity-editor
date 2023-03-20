@@ -588,17 +588,14 @@ const addIndividual = (thing: Thing, hqdm: HQDMModel, communityName: Thing, kind
 
   if (from && to) {
     // Create the individual and add it to the model.
-    const indiv = new IndividualImpl(
+    model.addIndividual(new IndividualImpl(
       id,
       name,
       kind,
       getTimeValue(hqdm, from),
       getTimeValue(hqdm, to),
-      description,
-      false,
-      false
-    );
-    model.addIndividual(indiv);
+      description
+    ));
   } else {
     console.error("Individual " + id + " has no temporal extent.");
   }

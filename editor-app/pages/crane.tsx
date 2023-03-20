@@ -14,7 +14,7 @@ export default function Page() {
       </Head>
       <Container>
         <Row className="justify-content-center row-cols-1 row-cols-lg-2">
-          <Col className="amrc-text">
+          <Col>
             <h1>Analysing a crane lift</h1>
             <p>This document walks through the process of analysing the
             data required to perform an industrial activity, in this
@@ -71,28 +71,45 @@ export default function Page() {
             activities, or steps in activities; these are arranged in a
             timeline. Filled in sections where an activity and a
             physical object overlap indicate that the object is directly
-            involved in this step of the activity.</p>
+            involved in this step of the activity.
 
-            <p className="amrc-fixme">This describes my (BM) original
-            editor prototype, not the current interface.</p>
-            <p>The vertical dotted lines indicate events: points in time
-            where a step starts or stops. Ignore the coloured vertical
-            line for now; this represents an event which happens as a
-            consequence of the step being finished. For this step in the
-            process the only consequence is information exchanged
-            between people, which we don&apos;t attempt to represent on the
-            diagram.</p>
+            <br/><img src="/crane/rams-briefing.svg"/></p>
+
+            <p>To create this step on the diagram, first the 'Add
+            Individual' button needs to be used to create the two people
+            involved.
+
+            <br/><img src="/crane/add-individual.png"/>
+
+            <br/>An 'individual' represents any object involved in the
+            activity; in this case we are representing a person, but an
+            individual could also represent a machine or a document or
+            anything else. Each individual has a name and a type, which
+            in this case is 'Person'.</p>
+
+            <p>Next we need to create the activity using the 'Add
+            Activity' button.
+
+            <br/><img src="/crane/add-activity.png"/>
+
+            <br/>An activity also has a name and a type, but there are
+            no pre-defined activity types. Use the 'Add Type' button to
+            create a suitable activity type first. An activity needs a
+            starting and ending time; these are on a nominal scale, the
+            units don't represent real time. An activity also needs
+            participants, which can be selected from the existing
+            individuals.</p>
+
+            <p><img src="/crane/rams-briefing.svg"/></p>
 
             <h3>Adding more steps</h3>
             <p>Continue adding the rest of the steps in the process as
             documented. Create new physical objects as needed and add
-            them to the activity steps they are involved in.</p>
+            them to the activity steps they are involved in.
 
-            <p className="amrc-fixme">This describes my (BM) original
-            editor prototype, not the current interface.</p>
-            <p>Notice that you can indicate that one step leads directly
-            into the next by moving the start event of one to coincide
-            with the stop event of the previous.</p>
+            <br/><img src="/crane/rams-review.svg"/>
+            <br/><img src="/crane/rams-complete.svg"/>
+            </p>
 
             <h3>Break down the individual steps.</h3>
             <p>It is then necessary to further analyse each step,
@@ -103,33 +120,48 @@ export default function Page() {
             you &lsquo;drill down&rsquo; into the detail of the activity.</p>
 
             <p>Here is one of the steps from the lift above, represented
-            on a separate diagram. Looking into the activity at this
-            level of detail has identified more participants in the
-            activity: there are safety inspection tags on the equipment
-            which must be checked, and a quarantine area where unsafe
-            equipment is kept for inspection or disposal.</p>
+            on a separate diagram. 
+    
+            <br/><img src="/crane/sub-inspect-inspect.svg"/>
 
-            <p className="amrc-fixme">This describes my (BM) original
-            editor prototype, not the current interface.</p>
-            <p>The points where decisions are required have been marked.
-            At this point you should start documenting these decision
-            points, and the information that is required for each
-            decision.</p>
+            <br/>Looking into the activity at this level of detail has
+            identified more participants in the activity: there are
+            safety inspection tags on the equipment which must be
+            checked, and a quarantine area where unsafe equipment is
+            kept for inspection or disposal.</p>
 
-            <p className="amrc-fixme">This screenshot only shows the
-            &lsquo;OK&rsquo; case, where the quarantine area isn&apos;t
-            even used. How do we intend to represent multiple potential
-            courses of action? Making the user create hundreds of
-            diagrams is an enormous labour.</p>
+            <p className="amrc-fixme">This screenshot shows activities
+            that may be skipped (the quarantine steps) and entirely
+            omits the loops where we select new equipment and inspect
+            again.</p>
 
-            <p>These additional participants can now be included on the
-            full activity diagram:</p>
-            <p className="amrc-fixme">The editor should really handle
-            this. If this is how an analysis is performed then we really
-            need to be able to drill down in the editor, add
-            sub-activities and additional participants, and then go back
-            up and have the new participants appear as part of the
-            original diagram.</p>
+            <p>To create a sub-task breakdown like this, start by
+            clicking on an activity in the top-level diagram and
+            choosing 'Open sub-tasks'. This will open a new diagram view
+            showing sub-tasks of the chosen task. The navigation at the
+            top shows which activity you are breaking down at the moment
+            and allows you to go back up the tree.
+
+            <br/><img src="/crane/sub-task-nav.png"/>
+
+            <br/>Now start creating activities as before. 
+            
+            <br/><img src="/crane/sub-inspect-first.svg"/>
+
+            <br/>Create new individuals as needed; these will also show
+            up on the top-level view.
+
+            <br/><img src="/crane/sub-inspect-quarantine.svg"/>
+
+            <br/><img src="/crane/sub-inspect-inspect.svg"/></p>
+
+            <p>Once the sub-task has been analysed, it is helpful to go
+            back to the top-level view and add the new individuals
+            identified as participants in the top-level activity. <span
+            className="amrc-fixme">Should the editor do this
+            automatically?</span>
+
+            <br/><img src="/crane/sub-inspect-top.svg"/></p>
 
             <h2>Identifying information required for decisions</h2>
             <p>Having identified the decision points in the activity, we

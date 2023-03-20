@@ -64,6 +64,7 @@ export function drawActivityDiagram(
     config: configData,
     svgElement,
     tooltip,
+    dataset,
     activities: activitiesArray,
     individuals: individualsArray,
   };

@@ -185,6 +185,19 @@ export class Model {
   }
 
   /**
+   * Given an activity ID, finds if the activity has any parts.
+   */
+  hasParts(activityId: string) {
+    const it = this.activities.values();
+    for (let res = it.next(); !res.done; res = it.next()) {
+      if (res.value.partOf == activityId) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  /**
    * Add a new role type to the model.
    *
    * @param id The id of the role type.

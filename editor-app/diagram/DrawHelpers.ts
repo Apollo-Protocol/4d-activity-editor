@@ -10,6 +10,7 @@ export interface DrawContext {
   svgElement: any;
   tooltip: any;
 
+  dataset: Model;
   activities: Activity[];
   individuals: Individual[];
 }

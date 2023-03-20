@@ -169,7 +169,7 @@ export function hoverActivities(ctx: DrawContext) {
       tooltip.style("display", "none");
     })
     .on("mousemove", function (event: MouseEvent, d: any) {
-      tooltip.html(activityTooltip(d));
+      tooltip.html(activityTooltip(ctx, d));
       if (event.pageX < window.innerWidth / 2) {
         tooltip
           .style("top", event.pageY + 20 + "px")
@@ -183,7 +183,7 @@ export function hoverActivities(ctx: DrawContext) {
     });
 }
 
-function activityTooltip(activity: Activity) {
+function activityTooltip(ctx: DrawContext, activity: Activity) {
   let tip = "<strong>Activity</strong>";
   if (activity.name) tip += "<br/> Name: " + activity.name;
   if (activity.type) tip += "<br/> Type: " + activity.type.name;
@@ -191,6 +191,8 @@ function activityTooltip(activity: Activity) {
   if (activity.beginning !== undefined)
     tip += "<br/> Beginning: " + activity.beginning;
   if (activity.ending) tip += "<br/> Ending: " + activity.ending;
+  if (ctx.dataset.hasParts(activity.id))
+    tip += "<br/> Has sub-tasks";
   return tip;
 }
 

@@ -13,7 +13,7 @@ import {
 import { saveFile, loadFile } from "./save_load.ts";
 
 const DiagramPersistence = (props: any) => {
-  const { dataset, setDataset, svgRef } = props;
+  const { dataset, setDataset, svgRef, setDirty } = props;
   const [uploadText, setUploadText] = useState("");
   const [refDataOnly, setRefDataOnly] = useState(false);
 
@@ -24,6 +24,7 @@ const DiagramPersistence = (props: any) => {
     }
     else {
       saveFile(save(dataset), "activity_diagram.ttl", "text/turtle");
+      setDirty(false);
     }
   }
 
@@ -38,6 +39,7 @@ const DiagramPersistence = (props: any) => {
           const loadedModel = load(ttl);
           setDataset(loadedModel);
         }
+        setDirty(false);
         setUploadText("");
       })
       .catch((e: any) => {

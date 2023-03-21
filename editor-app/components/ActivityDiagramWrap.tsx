@@ -1,4 +1,4 @@
-import { useState, useRef, Dispatch } from "react";
+import { useEffect, useState, useRef, Dispatch } from "react";
 import { config } from "@/diagram/config";
 import SetIndividual from "@/components/SetIndividual";
 import SetActivity from "@/components/SetActivity";
@@ -16,9 +16,16 @@ import { Activity, Id, Individual, Maybe, Participation } from "@/lib/Schema";
 import ExportJson from "./ExportJson";
 import ExportSvg from "./ExportSvg";
 
+const beforeUnloadHandler = (ev) => {
+  ev.returnValue = "";
+  ev.preventDefault();
+  return;
+};
+
 export default function ActivityDiagramWrap() {
   const model = new Model();
   const [dataset, setDataset] = useState(model);
+  const [dirty, setDirty] = useState(false);
   const [activityContext, setActivityContext] = useState<Maybe<Id>>(undefined);
   const [undoHistory, setUndoHistory] = useState<Model[]>([]);
   const [showIndividual, setShowIndividual] = useState(false);
@@ -37,12 +44,21 @@ export default function ActivityDiagramWrap() {
   const [showConfigModal, setShowConfigModal] = useState(false);
   const [showSortIndividuals, setShowSortIndividuals] = useState(false);
 
+  useEffect(() => {
+    if (dirty)
+      window.addEventListener("beforeunload", beforeUnloadHandler);
+    else
+      window.removeEventListener("beforeunload", beforeUnloadHandler);
+  }, [dirty]);
+
   const updateDataset = (updater: Dispatch<Model>) => {
     setUndoHistory([dataset, ...undoHistory.slice(0, 5)]);
     const d = dataset.clone();
     updater(d);
     setDataset(d);
+    setDirty(true);
   };
+  /* Callers of this function must also handle the dirty flag. */
   const replaceDataset = (d: Model) => {
     setUndoHistory([]);
     setActivityContext(undefined);
@@ -174,6 +190,7 @@ export default function ActivityDiagramWrap() {
               dataset={dataset}
               setDataset={replaceDataset}
               svgRef={svgRef}
+              setDirty={setDirty}
             />
           </Col>
         </Row>

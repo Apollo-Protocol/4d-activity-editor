@@ -2,8 +2,10 @@ import { v4 as uuidv4 } from "uuid";
 import { ActivityImpl } from "./ActivityImpl";
 import {
   activity,
+  class_of_event,
   CONSISTS_OF_BY_CLASS,
   ENTITY_NAME,
+  event,
   HQDMModel,
   HQDM_NS,
   kind_of_activity,
@@ -41,6 +43,13 @@ export const EPOCH_START = 0;
 export const EPOCH_START_STR = EPOCH_START.toString();
 export const EPOCH_END = 9999999999999;
 export const EPOCH_END_STR = EPOCH_END.toString();
+
+// Private HQDMModel for our classes and kinds
+const diagramModel = new HQDMModel();
+
+const diagramTimeUuid = "c9ecb65e-4b1f-4633-ac5c-f765e36586f2";
+const diagramTimeIri = BASE + diagramTimeUuid;
+const diagramTimeClass = diagramModel.createThing(class_of_event, diagramTimeIri);
 
 /**
  * Attempts to load a model from a string containing a TTL representation of the model.
@@ -82,6 +91,59 @@ export const saveJSONLD = (
 };
 
 /**
+ * Return a Model id for an HQDM Thing.
+ */
+const getModelId = (t: Thing): string => {
+  return t.id.replace(BASE, "");
+};
+
+/**
+ * Returns a time value from an HQDM Thing.
+ * Only knows how to decode the utcMillisecondsClass.
+ */
+const getTimeValue = (hqdm: HQDMModel, t: Thing): number => {
+  const name = hqdm.getEntityName(t);
+
+  if (hqdm.isMemberOf(t, utcMillisecondsClass))
+    return Number.parseInt(name, 10);
+
+  /* For now translate +-Inf to the hardcoded epoch start and end values
+   * above. This is a hack because the UI code makes assumptions about
+   * these values; properly that code should be reworked. (Individuals
+   * with no known beginning need their beginning set to -1, not to
+   * EPOCH_START == 0.) If we attempt to load a file with out-of-epoch
+   * times we will simply lose that information in the diagram. */
+  if (hqdm.isMemberOf(t, diagramTimeClass)) {
+    const n = Number.parseFloat(name);
+    return n < EPOCH_START  ? -1
+      : n >= EPOCH_END      ? EPOCH_END
+      : n;
+  }
+
+  console.log("getTimeValue: unknown class for %s", t.id);
+  return Number.NaN;
+};
+
+/**
+ * Creates an HQDM point_in_time.
+ */
+const createTimeValue = (hqdm: HQDMModel, modelWorld: Thing, time: number): Thing => {
+  const iri = BASE + uuidv4();
+  const thing = hqdm.createThing(event, iri);
+  hqdm.addMemberOf(thing, diagramTimeClass);
+
+  /* Map the epoch start and end to +-Inf for output to the file. This
+   * is cleaner than leaving magic numbers in the output. Possibly we
+   * should simply omit the attribute altogether instead? */
+  const f = time < EPOCH_START  ? Number.NEGATIVE_INFINITY
+    : time >= EPOCH_END         ? Number.POSITIVE_INFINITY
+    : time;
+  hqdm.relate(ENTITY_NAME, thing, new Thing(f.toString()));
+  hqdm.addToPossibleWorld(thing, modelWorld);
+  return thing;
+};
+
+/**
  * Converts an HQDMModel to a UI Model.
  */
 export const toModel = (hqdm: HQDMModel): Model => {
@@ -100,7 +162,7 @@ export const toModel = (hqdm: HQDMModel): Model => {
    * TODO: It may be necessary in future to filter the ordinary_physical_objects to remove any that are not part of the model.
    */
   hqdm.findByType(ordinary_physical_object).forEach((i) => {
-    const id = i.id.replace(BASE, ""); // The UI Model doesn't use IRIs, so remove the base.
+    const id = getModelId(i); // The UI Model doesn't use IRIs, so remove the base.
 
     // Find the name signs recognised by the community for this individual.
     const identification = hqdm.getIdentifications(i, communityName).first();
@@ -115,7 +177,7 @@ export const toModel = (hqdm: HQDMModel): Model => {
     let kindOfIndividual;
     if (kind) {
       kindOfIndividual = kind
-        ? new Kind(kind.id.replace(BASE, ""), hqdm.getEntityName(kind), false)
+        ? new Kind(getModelId(kind), hqdm.getEntityName(kind), false)
         : new Kind("dummyId", "Unknown Individual Type", false);
     } else {
       kindOfIndividual = new Kind(
@@ -138,8 +200,8 @@ export const toModel = (hqdm: HQDMModel): Model => {
         id,
         name,
         kindOfIndividual,
-        Number.parseInt(hqdm.getEntityName(from), 10),
-        Number.parseInt(hqdm.getEntityName(to), 10),
+        getTimeValue(hqdm, from),
+        getTimeValue(hqdm, to),
         description,
         false,
         false
@@ -151,7 +213,7 @@ export const toModel = (hqdm: HQDMModel): Model => {
   });
 
   hqdm.findByType(person).forEach((i) => {
-    const id = i.id.replace(BASE, ""); // The UI Model doesn't use IRIs, so remove the base.
+    const id = getModelId(i); // The UI Model doesn't use IRIs, so remove the base.
 
     // Find the name signs recognised by the community for this individual.
     const identifications = hqdm.getIdentifications(i, communityName);
@@ -172,8 +234,8 @@ export const toModel = (hqdm: HQDMModel): Model => {
         id,
         name,
         kindOfIndividual,
-        Number.parseInt(hqdm.getEntityName(from), 10),
-        Number.parseInt(hqdm.getEntityName(to), 10),
+        getTimeValue(hqdm, from),
+        getTimeValue(hqdm, to),
         description,
         false,
         false
@@ -185,7 +247,7 @@ export const toModel = (hqdm: HQDMModel): Model => {
   });
 
   hqdm.findByType(organization).forEach((i) => {
-    const id = i.id.replace(BASE, ""); // The UI Model doesn't use IRIs, so remove the base.
+    const id = getModelId(i); // The UI Model doesn't use IRIs, so remove the base.
 
     // Find the name signs recognised by the community for this individual.
     const identifications = hqdm.getIdentifications(i, communityName);
@@ -206,8 +268,8 @@ export const toModel = (hqdm: HQDMModel): Model => {
         id,
         name,
         kindOfIndividual,
-        Number.parseInt(hqdm.getEntityName(from), 10),
-        Number.parseInt(hqdm.getEntityName(to), 10),
+        getTimeValue(hqdm, from),
+        getTimeValue(hqdm, to),
         description,
         false,
         false
@@ -222,7 +284,7 @@ export const toModel = (hqdm: HQDMModel): Model => {
   // Add each Activity to the model.
   //
   hqdm.findByType(activity).forEach((a) => {
-    const id = a.id.replace(BASE, "");
+    const id = getModelId(a);
 
     // Get the activity name.
     const identifications = hqdm.getIdentifications(a, communityName);
@@ -234,22 +296,25 @@ export const toModel = (hqdm: HQDMModel): Model => {
       .filter((x) => hqdm.isKindOf(x, kind_of_activity));
     const kind = kinds.first((x) => (x ? true : false)); // Matches every element, so returns the first
     const kindOfActivity = kind
-      ? new Kind(kind.id.replace(BASE, ""), hqdm.getEntityName(kind), false)
+      ? new Kind(getModelId(kind), hqdm.getEntityName(kind), false)
       : new Kind("dummyId", "Unknown Activity Type", false);
 
     // Get the temporal extent of the activity with defaults, although the defaults should never be needed.
     const activityFromEvent = hqdm.getBeginning(a);
     const activityToEvent = hqdm.getEnding(a);
     const beginning = activityFromEvent
-      ? Number.parseInt(hqdm.getEntityName(activityFromEvent), 10)
+      ? getTimeValue(hqdm, activityFromEvent)
       : 0;
     const ending = activityToEvent
-      ? Number.parseInt(hqdm.getEntityName(activityToEvent), 10)
+      ? getTimeValue(hqdm, activityToEvent)
       : EPOCH_END;
 
     // Get the optional description of the activity.
     const descriptions = hqdm.getDescriptions(a, communityName);
     const description = descriptions.first()?.id; // Assumes just one description
+
+    // Get the parent activity, if any.
+    const partOf = hqdm.getPartOf(a).first();
 
     // Create the activity and add it to the model.
     const newA = new ActivityImpl(
@@ -258,7 +323,8 @@ export const toModel = (hqdm: HQDMModel): Model => {
       kindOfActivity,
       beginning,
       ending,
-      description
+      description,
+      partOf ? getModelId(partOf) : undefined,
     );
     m.addActivity(newA);
 
@@ -271,7 +337,7 @@ export const toModel = (hqdm: HQDMModel): Model => {
       const participantRole = hqdm.getRole(p).first();
       const roleType = participantRole
         ? new Kind(
-            participantRole.id.replace(BASE, ""),
+            getModelId(participantRole),
             hqdm.getEntityName(participantRole),
             false
           )
@@ -282,7 +348,7 @@ export const toModel = (hqdm: HQDMModel): Model => {
 
       // Get the individual from the model or create a dummy individual if the participant is not in the model.
       const indiv = participantThing
-        ? m.individuals.get(participantThing.id.replace(BASE, ""))
+        ? m.individuals.get(getModelId(participantThing))
         : new IndividualImpl(
             "BAD ID",
             "Unknown Individual",
@@ -307,19 +373,19 @@ export const toModel = (hqdm: HQDMModel): Model => {
  */
 export const addRefDataToModel = (hqdm: HQDMModel, m: Model): Model => {
   hqdm.findByType(kind_of_ordinary_physical_object).forEach((i) => {
-    const id = i.id.replace(BASE, "");
+    const id = getModelId(i);
     const name = hqdm.getEntityName(i);
     m.addIndividualType(id, name);
   });
 
   hqdm.findByType(kind_of_activity).forEach((i) => {
-    const id = i.id.replace(BASE, "");
+    const id = getModelId(i);
     const name = hqdm.getEntityName(i);
     m.addActivityType(id, name);
   });
 
   hqdm.findByType(role).forEach((i) => {
-    const id = i.id.replace(BASE, "");
+    const id = getModelId(i);
     const name = hqdm.getEntityName(i);
     m.addRoleType(id, name);
   });
@@ -336,6 +402,9 @@ export const addRefDataToModel = (hqdm: HQDMModel, m: Model): Model => {
 export const toHQDM = (model: Model): HQDMModel => {
   // Create the HQDM Model and create some necssary HQDM things.
   const hqdm = new HQDMModel();
+
+  // Normalise child activities to sit temporally within their parents.
+  model.normalizeActivityBounds();
 
   // Save the kinds to the model.
   model.activityTypes.forEach((a) => {
@@ -357,21 +426,15 @@ export const toHQDM = (model: Model): HQDMModel => {
   });
 
   const communityName = new Thing(AMRC_COMMUNITY);
-  const epochStart = hqdm.createThing(
-    point_in_time,
-    utcPointInTimeIri(EPOCH_START)
-  );
-  const epochEnd = hqdm.createThing(
-    point_in_time,
-    utcPointInTimeIri(EPOCH_END)
-  );
-  hqdm.addMemberOf(epochStart, utcMillisecondsClass);
-  hqdm.addMemberOf(epochEnd, utcMillisecondsClass);
-  hqdm.relate(ENTITY_NAME, epochStart, new Thing(EPOCH_START_STR));
-  hqdm.relate(ENTITY_NAME, epochEnd, new Thing(EPOCH_END_STR));
 
   // Create a Possible World for the Model
   const modelWorld = hqdm.createThing(possible_world, BASE + uuidv4());
+
+  // The possible world is a part of itself and the epoch start and end are also part of it.
+  hqdm.addToPossibleWorld(modelWorld, modelWorld);
+
+  const epochStart = createTimeValue(hqdm, modelWorld, EPOCH_START);
+  const epochEnd = createTimeValue(hqdm, modelWorld, EPOCH_END);
 
   // Add the name and description of the model to the model world.
   if (model.name) {
@@ -398,10 +461,6 @@ export const toHQDM = (model: Model): HQDMModel => {
     );
   }
 
-  // The possible world is a part of itself and the epoch start and end are also part of it.
-  hqdm.addToPossibleWorld(modelWorld, modelWorld);
-  hqdm.addToPossibleWorld(epochStart, modelWorld);
-  hqdm.addToPossibleWorld(epochEnd, modelWorld);
 
   // Add the individuals to the model
   model.individuals.forEach((i) => {
@@ -420,25 +479,8 @@ export const toHQDM = (model: Model): HQDMModel => {
     const player = hqdm.createThing(playerEntityType, BASE + i.id);
     hqdm.addToPossibleWorld(player, modelWorld);
 
-    const individualStart = hqdm.createThing(
-      point_in_time,
-      utcPointInTimeIri(i.beginning)
-    );
-
-    const individualEnd = hqdm.createThing(
-      point_in_time,
-      utcPointInTimeIri(i.ending)
-    );
-    hqdm.addMemberOf(individualStart, utcMillisecondsClass);
-    hqdm.addMemberOf(individualEnd, utcMillisecondsClass);
-    hqdm.relate(
-      ENTITY_NAME,
-      individualStart,
-      new Thing(i.beginning.toString())
-    );
-    hqdm.relate(ENTITY_NAME, individualEnd, new Thing(i.ending.toString()));
-    hqdm.addToPossibleWorld(individualStart, modelWorld);
-    hqdm.addToPossibleWorld(individualEnd, modelWorld);
+    const individualStart = createTimeValue(hqdm, modelWorld, i.beginning);
+    const individualEnd = createTimeValue(hqdm, modelWorld, i.ending);
 
     hqdm.beginning(player, individualStart);
     hqdm.ending(player, individualEnd);
@@ -484,21 +526,8 @@ export const toHQDM = (model: Model): HQDMModel => {
   // Add the activities to the model
   model.activities.forEach((a) => {
     // Create the temporal bounds for the activity.
-    const activityFrom = hqdm.createThing(
-      point_in_time,
-      utcPointInTimeIri(a.beginning)
-    );
-    const activityTo = hqdm.createThing(
-      point_in_time,
-      utcPointInTimeIri(a.ending)
-    );
-    hqdm.addMemberOf(activityFrom, utcMillisecondsClass);
-    hqdm.addMemberOf(activityTo, utcMillisecondsClass);
-    hqdm.relate(ENTITY_NAME, activityFrom, new Thing(a.beginning.toString()));
-    hqdm.relate(ENTITY_NAME, activityTo, new Thing(a.ending.toString()));
-
-    hqdm.addToPossibleWorld(activityFrom, modelWorld);
-    hqdm.addToPossibleWorld(activityTo, modelWorld);
+    const activityFrom = createTimeValue(hqdm, modelWorld, a.beginning);
+    const activityTo = createTimeValue(hqdm, modelWorld, a.ending);
 
     // Find or create the kind of activity and add the activity to the kind.
     const actKindId = a.type ? BASE + a.type.id : "INVALID";
@@ -535,6 +564,10 @@ export const toHQDM = (model: Model): HQDMModel => {
     hqdm.addMemberOfKind(act, actKind);
     hqdm.beginning(act, activityFrom);
     hqdm.ending(act, activityTo);
+
+    if (a.partOf) {
+      hqdm.addPartOf(act, new Thing(BASE + a.partOf));
+    }
 
     // Add the participations to the model
     a.participations.forEach((p) => {

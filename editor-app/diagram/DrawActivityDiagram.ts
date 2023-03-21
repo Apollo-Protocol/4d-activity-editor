@@ -1,4 +1,4 @@
-import { Individual, Activity, Participation } from "@/lib/Schema";
+import { Id, Individual, Activity, Maybe, Participation } from "@/lib/Schema";
 import {
   calculateViewportHeight,
   clearDiagram,
@@ -35,6 +35,7 @@ export interface Plot {
 export function drawActivityDiagram(
   dataset: Model,
   configData: any,
+  activityContext: Maybe<Id>,
   svgRef: SVGSVGElement,
   clickIndividual: (i: Individual) => void,
   clickActivity: (a: Activity) => void,
@@ -48,7 +49,10 @@ export function drawActivityDiagram(
   const activitiesArray: Activity[] = [];
   const { individuals, activities } = dataset;
   individuals.forEach((i: Individual) => individualsArray.push(i));
-  activities.forEach((a: Activity) => activitiesArray.push(a));
+  activities.forEach((a: Activity) => {
+    if (a.partOf === activityContext)
+      activitiesArray.push(a);
+  });
 
   //Draw Diagram parts
   const svgElement = clearDiagram(svgRef);

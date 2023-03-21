@@ -11,6 +11,13 @@ import { ConfigData } from "./config";
 
 let mouseOverElement: any | null = null;
 
+interface Layout {
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+}
+
 export function drawIndividuals(ctx: DrawContext) {
   const { config, svgElement, individuals, activities } = ctx;
 
@@ -30,10 +37,10 @@ export function drawIndividuals(ctx: DrawContext) {
 
   let timeInterval = totalLeftMargin / duration;
 
-  let x = config.layout.individual.xMargin;
-  x += config.layout.individual.temporalMargin;
+  let lhs_x = config.layout.individual.xMargin;
+  lhs_x += config.layout.individual.temporalMargin;
   if (individualLabelsEnabled) {
-    x += config.layout.individual.textLength;
+    lhs_x += config.layout.individual.textLength;
   }
 
   const fullWidth =
@@ -41,7 +48,40 @@ export function drawIndividuals(ctx: DrawContext) {
     config.layout.individual.temporalMargin -
     config.layout.individual.xMargin * 2;
 
-  let y = config.layout.individual.topMargin + config.layout.individual.gap;
+  const layout = new Map<string, Layout>();
+
+  /* yuck */
+  let next_y = config.layout.individual.topMargin + config.layout.individual.gap;
+  for (const i of individuals) {
+    const x = i.beginning < 0
+      ? config.layout.individual.xMargin
+      : lhs_x + timeInterval * (i.beginning - startOfTime);
+
+    const y = next_y;
+    next_y = y + config.layout.individual.height + config.layout.individual.gap;
+
+    const w = 
+        (i.beginning < 0 && i.ending == Model.END_OF_TIME)
+          ? fullWidth
+        : (i.beginning >= 0 && i.ending == Model.END_OF_TIME)
+          ? (
+            (endOfTime - i.beginning) * timeInterval +
+            config.layout.individual.temporalMargin
+          )
+      : (i.beginning < 0 && i.ending < Model.END_OF_TIME)
+        ? (
+          fullWidth -
+          (endOfTime - i.ending) * timeInterval -
+          config.layout.individual.temporalMargin
+        )
+      : (i.beginning >= 0 && i.ending < Model.END_OF_TIME)
+        ? (i.ending - i.beginning) * timeInterval
+      : 0;
+
+    const h = config.layout.individual.height;
+
+    layout.set(i.id, { x, y, w, h });
+  };
 
   svgElement
     .selectAll(".individual")
@@ -49,39 +89,10 @@ export function drawIndividuals(ctx: DrawContext) {
     .join("rect")
     .attr("class", "individual")
     .attr("id", (d: Individual) => "i" + d["id"])
-    .attr("x", (i: Individual) => {
-      if (i.beginning < 0) {
-        return config.layout.individual.xMargin;
-      }
-      return x + timeInterval * (i.beginning - startOfTime);
-    })
-    .attr("y", () => {
-      const oldY = y;
-      y = y + config.layout.individual.height + config.layout.individual.gap;
-      return oldY;
-    })
-    .attr("width", (i: Individual) => {
-      if (i.beginning < 0 && i.ending == Model.END_OF_TIME) {
-        return fullWidth;
-      }
-      if (i.beginning >= 0 && i.ending == Model.END_OF_TIME) {
-        return (
-          (endOfTime - i.beginning) * timeInterval +
-          config.layout.individual.temporalMargin
-        );
-      }
-      if (i.beginning < 0 && i.ending < Model.END_OF_TIME) {
-        return (
-          fullWidth -
-          (endOfTime - i.ending) * timeInterval -
-          config.layout.individual.temporalMargin
-        );
-      }
-      if (i.beginning >= 0 && i.ending < Model.END_OF_TIME) {
-        return (i.ending - i.beginning) * timeInterval;
-      }
-    })
-    .attr("height", config.layout.individual.height)
+    .attr("x", (i: Individual) => layout.get(i.id)!.x)
+    .attr("y", (i: Individual) => layout.get(i.id)!.y)
+    .attr("width", (i: Individual) => layout.get(i.id)!.w)
+    .attr("height", (i: Individual) => layout.get(i.id)!.h)
     .attr("stroke", config.presentation.individual.stroke)
     .attr("stroke-width", config.presentation.individual.strokeWidth)
     .attr("fill", config.presentation.individual.fill);

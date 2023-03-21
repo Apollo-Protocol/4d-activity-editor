@@ -15,13 +15,11 @@ import {
   participant,
   PART_OF_BY_CLASS,
   person,
-  point_in_time,
   possible_world,
   role,
   state_of_ordinary_physical_object,
   Thing,
   utcMillisecondsClass,
-  utcPointInTimeIri,
 } from "@apollo-protocol/hqdm-lib";
 import { IndividualImpl } from "./IndividualImpl";
 import { Kind, Model } from "./Model";
@@ -82,6 +80,11 @@ export const save = (model: Model): string => {
   return hqdm.save(n3Options);
 };
 
+/**
+ * Save a UI Model to a JSON-LD representation of the model.
+ *
+ * The callback is called with the JSON-LD string.
+ */
 export const saveJSONLD = (
   model: Model,
   callback: (...args: any[]) => void
@@ -147,8 +150,14 @@ const createTimeValue = (hqdm: HQDMModel, modelWorld: Thing, time: number): Thin
  * Converts an HQDMModel to a UI Model.
  */
 export const toModel = (hqdm: HQDMModel): Model => {
+  // Kinds are immutable so it's fine to use constant objects.
+  const ordPhysObjKind = new Kind(ordinary_physical_object.id, "Resource", true);
+  const organizationKind = new Kind(organization.id, "Organization", true);
+  const personKind = new Kind(person.id, "Person", true);
+
   const communityName = new Thing(AMRC_COMMUNITY);
   const m = new Model();
+  const isKindOfOrdinaryPhysicalObject = (x: Thing): boolean => hqdm.isKindOf(x, kind_of_ordinary_physical_object);
 
   // Get the name and description of the model from the possible world
   const possibleWorld = hqdm.findByType(possible_world).first(); // Assumes just one possible world
@@ -158,126 +167,30 @@ export const toModel = (hqdm: HQDMModel): Model => {
   }
 
   /**
-   * Add the individuals to the model by finding all the ordinary physical objects and converting them to Individuals.
    * TODO: It may be necessary in future to filter the ordinary_physical_objects to remove any that are not part of the model.
+   *
+   * Custom kinds of individuals are modelled as ordinary_physical_objects that are members of a kind_of_ordinary_physical_object,
+   * so we need to find those and add them to the model. There is also a default kind for Resources that is simple an ordinary_physical_object.
    */
-  hqdm.findByType(ordinary_physical_object).forEach((i) => {
-    const id = getModelId(i); // The UI Model doesn't use IRIs, so remove the base.
-
-    // Find the name signs recognised by the community for this individual.
-    const identification = hqdm.getIdentifications(i, communityName).first();
-    const name = identification?.id ?? "No Name Found: " + i.id; // Assumes just one name
-
+  hqdm.findByType(ordinary_physical_object).forEach((obj) => {
     // Find the kind of individual.
-    const kinds = hqdm
-      .memberOfKind(i)
-      .filter((x) => hqdm.isKindOf(x, kind_of_ordinary_physical_object));
-    const kind = kinds.first((x) => (x ? true : false)); // Matches every element, so returns the first
+    const kind = hqdm
+      .memberOfKind(obj)
+      .filter(isKindOfOrdinaryPhysicalObject)
+      .first(); // Matches every element, so returns the first
 
-    let kindOfIndividual;
-    if (kind) {
-      kindOfIndividual = kind
-        ? new Kind(getModelId(kind), hqdm.getEntityName(kind), false)
-        : new Kind("dummyId", "Unknown Individual Type", false);
-    } else {
-      kindOfIndividual = new Kind(
-        ordinary_physical_object.id,
-        "Resource",
-        true
-      );
-    }
+    const kindOfIndividual = (kind) ? new Kind(getModelId(kind), hqdm.getEntityName(kind), false) : ordPhysObjKind;
 
-    // Get the optional description of the individual.
-    const descriptions = hqdm.getDescriptions(i, communityName);
-    const description = descriptions.first()?.id; // Assumes just one description
-
-    const from = hqdm.getBeginning(i);
-    const to = hqdm.getEnding(i);
-
-    if (from && to) {
-      // Create the individual and add it to the model.
-      const indiv = new IndividualImpl(
-        id,
-        name,
-        kindOfIndividual,
-        getTimeValue(hqdm, from),
-        getTimeValue(hqdm, to),
-        description,
-        false,
-        false
-      );
-      m.addIndividual(indiv);
-    } else {
-      console.error("Individual " + id + " has no temporal extent.");
-    }
+    addIndividual(obj, hqdm, communityName, kindOfIndividual, m);
   });
 
-  hqdm.findByType(person).forEach((i) => {
-    const id = getModelId(i); // The UI Model doesn't use IRIs, so remove the base.
-
-    // Find the name signs recognised by the community for this individual.
-    const identifications = hqdm.getIdentifications(i, communityName);
-    const name = identifications.first()?.id ?? "No Name Found: " + i.id; // Assumes just one name
-
-    const kindOfIndividual = new Kind(person.id, "Person", true);
-
-    // Get the optional description of the individual.
-    const descriptions = hqdm.getDescriptions(i, communityName);
-    const description = descriptions.first()?.id; // Assumes just one description
-
-    const from = hqdm.getBeginning(i);
-    const to = hqdm.getEnding(i);
-
-    if (from && to) {
-      // Create the individual and add it to the model.
-      const indiv = new IndividualImpl(
-        id,
-        name,
-        kindOfIndividual,
-        getTimeValue(hqdm, from),
-        getTimeValue(hqdm, to),
-        description,
-        false,
-        false
-      );
-      m.addIndividual(indiv);
-    } else {
-      console.error("Individual " + id + " has no temporal extent.");
-    }
+  // Handle person and organization kinds.
+  hqdm.findByType(person).forEach((persona) => {
+    addIndividual(persona, hqdm, communityName, personKind, m);
   });
 
-  hqdm.findByType(organization).forEach((i) => {
-    const id = getModelId(i); // The UI Model doesn't use IRIs, so remove the base.
-
-    // Find the name signs recognised by the community for this individual.
-    const identifications = hqdm.getIdentifications(i, communityName);
-    const name = identifications.first()?.id ?? "No Name Found: " + i.id; // Assumes just one name
-
-    const kindOfIndividual = new Kind(organization.id, "Organization", true);
-
-    // Get the optional description of the individual.
-    const descriptions = hqdm.getDescriptions(i, communityName);
-    const description = descriptions.first()?.id; // Assumes just one description
-
-    const from = hqdm.getBeginning(i);
-    const to = hqdm.getEnding(i);
-
-    if (from && to) {
-      // Create the individual and add it to the model.
-      const indiv = new IndividualImpl(
-        id,
-        name,
-        kindOfIndividual,
-        getTimeValue(hqdm, from),
-        getTimeValue(hqdm, to),
-        description,
-        false,
-        false
-      );
-      m.addIndividual(indiv);
-    } else {
-      console.error("Individual " + id + " has no temporal extent.");
-    }
+  hqdm.findByType(organization).forEach((org) => {
+    addIndividual(org, hqdm, communityName, organizationKind, m);
   });
 
   //
@@ -648,3 +561,43 @@ export const loadRefDataFromTTL = (ttl: string): Model | Error => {
     ? hqdmModelOrErrors
     : addRefDataToModel(hqdmModelOrErrors, new Model());
 };
+
+/**
+ * Add an Individual to the model.
+ *
+ * @param thing The HQDM Individual to add to the model.
+ * @param hqdm The HQDMModel containing the Individual.
+ * @param communityName The name of the community that recognises the Individual.
+ * @param kind The kind of Individual.
+ * @param model The model to add the Individual to.
+ * @returns void
+ */
+const addIndividual = (thing: Thing, hqdm: HQDMModel, communityName: Thing, kind: Kind, model: Model):void => {
+  const id = getModelId(thing); // The UI Model doesn't use IRIs, so remove the base.
+
+  // Find the name signs recognised by the community for this individual.
+  const identification = hqdm.getIdentifications(thing, communityName).first();
+  const name = identification?.id ?? "No Name Found: " + thing.id; // Assumes just one name
+
+  // Get the optional description of the individual.
+  const descriptions = hqdm.getDescriptions(thing, communityName);
+  const description = descriptions.first()?.id; // Assumes just one description
+
+  const from = hqdm.getBeginning(thing);
+  const to = hqdm.getEnding(thing);
+
+  if (from && to) {
+    // Create the individual and add it to the model.
+    model.addIndividual(new IndividualImpl(
+      id,
+      name,
+      kind,
+      getTimeValue(hqdm, from),
+      getTimeValue(hqdm, to),
+      description
+    ));
+  } else {
+    console.error("Individual " + id + " has no temporal extent.");
+  }
+};
+

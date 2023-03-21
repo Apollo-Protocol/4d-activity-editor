@@ -13,9 +13,8 @@ import {
 import { saveFile, loadFile } from "./save_load.ts";
 
 const DiagramPersistence = (props: any) => {
-  const { dataset, setDataset, svgRef, configData, setConfigData } = props;
+  const { dataset, setDataset, svgRef } = props;
   const [uploadText, setUploadText] = useState("");
-  const [uploadSettingText, setUploadSettingText] = useState("");
   const [refDataOnly, setRefDataOnly] = useState(false);
 
   function downloadTtl() {
@@ -26,11 +25,6 @@ const DiagramPersistence = (props: any) => {
     else {
       saveFile(save(dataset), "activity_diagram.ttl", "text/turtle");
     }
-  }
-
-  function downloadConfig() {
-    saveFile(JSON.stringify(configData),
-      "activity_diagram_settings.json", "application/json");
   }
 
   function uploadTtl() {
@@ -52,22 +46,6 @@ const DiagramPersistence = (props: any) => {
       });
   }
 
-  function uploadConfig() {
-    loadFile("application/json,.json")
-      .then((f: File) => f.text())
-      .then((json: string) => {
-        const loadedConfig = JSON.parse(json);
-        setConfigData(loadedConfig);
-        setUploadSettingText("");
-      })
-      .catch((e: any) => {
-        setUploadSettingText(
-          "Failed to upload. Choose another file to try again."
-        );
-        console.error(e);
-      });
-  }
-
   return (
     <Container>
       <Row>
@@ -76,13 +54,6 @@ const DiagramPersistence = (props: any) => {
           lg={6}
           className="mt-2 d-flex align-items-start justify-content-center justify-content-lg-start"
         >
-          <Form.Group controlId="formFile">
-            <Button variant="primary" onClick={uploadConfig}>Load Settings</Button>
-            <Form.Text className="text-muted">{uploadSettingText}</Form.Text>
-          </Form.Group>
-          <Button variant="primary" onClick={downloadConfig} className={"mx-1"}>
-            Save&nbsp;Settings
-          </Button>
         </Col>
         <Col
           md={12}

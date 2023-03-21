@@ -191,8 +191,5 @@ export function labelIndividuals(ctx: DrawContext) {
     .each((d: Individual, i: number, nodes: SVGGraphicsElement[]) => {
       removeLabelIfItOverlaps(labels, nodes[i]);
       labels.push(nodes[i].getBBox());
-      if (d.beginning >= 0) {
-        nodes[i].remove();
-      }
     });
 }

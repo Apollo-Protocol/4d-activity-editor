@@ -15,7 +15,7 @@ export async function loadFile (accept: string): Promise<File> {
     dialog.accept = accept;
 
     return await new Promise((resolve, reject) => {
-        dialog.onchange = (ev) => {
+        dialog.onchange = (ev: any) => {
             const file = ev.target.files[0];
             if (file == null)
                 reject("No file selected");

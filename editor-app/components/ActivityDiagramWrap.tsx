@@ -16,7 +16,7 @@ import { Activity, Id, Individual, Maybe, Participation } from "@/lib/Schema";
 import ExportJson from "./ExportJson";
 import ExportSvg from "./ExportSvg";
 
-const beforeUnloadHandler = (ev) => {
+const beforeUnloadHandler = (ev: BeforeUnloadEvent) => {
   ev.returnValue = "";
   ev.preventDefault();
   return;

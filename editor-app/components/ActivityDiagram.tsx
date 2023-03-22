@@ -59,6 +59,7 @@ const ActivityDiagram = (props: Props) => {
   }, [
     dataset,
     configData,
+    activityContext,
     svgRef,
     clickIndividual,
     clickActivity,

@@ -10,7 +10,7 @@ import {
   loadRefDataFromTTL,
 } from "lib/ActivityLib";
 
-import { saveFile, loadFile } from "./save_load.ts";
+import { saveFile, loadFile } from "./save_load";
 
 const DiagramPersistence = (props: any) => {
   const { dataset, setDataset, svgRef, setDirty } = props;

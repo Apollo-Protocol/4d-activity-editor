@@ -7,7 +7,7 @@ import Col from "react-bootstrap/Col";
 
 import { ConfigData } from "@/diagram/config";
 
-import { saveFile, loadFile } from "./save_load.ts";
+import { saveFile, loadFile } from "./save_load";
 
 const _ = require("lodash");
 

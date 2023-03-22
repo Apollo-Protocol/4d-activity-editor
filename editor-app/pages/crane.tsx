@@ -75,28 +75,28 @@ export default function Page() {
 
             <br/><img src="/crane/rams-briefing.svg"/></p>
 
-            <p>To create this step on the diagram, first the 'Add
-            Individual' button needs to be used to create the two people
-            involved.
+            <p>To create this step on the diagram, first the &lsquo;Add
+            Individual&rsquo; button needs to be used to create the two
+            people involved.
 
             <br/><img src="/crane/add-individual.png"/>
 
-            <br/>An 'individual' represents any object involved in the
-            activity; in this case we are representing a person, but an
-            individual could also represent a machine or a document or
-            anything else. Each individual has a name and a type, which
-            in this case is 'Person'.</p>
+            <br/>An &lsquo;individual&rsquo; represents any object
+            involved in the activity; in this case we are representing a
+            person, but an individual could also represent a machine or
+            a document or anything else. Each individual has a name and
+            a type, which in this case is &lsquo;Person&rsquo;.</p>
 
-            <p>Next we need to create the activity using the 'Add
-            Activity' button.
+            <p>Next we need to create the activity using the &lsquo;Add
+            Activity&rsquo; button.
 
             <br/><img src="/crane/add-activity.png"/>
 
             <br/>An activity also has a name and a type, but there are
-            no pre-defined activity types. Use the 'Add Type' button to
+            no pre-defined activity types. Use the &lsquo;Add Type&rsquo; button to
             create a suitable activity type first. An activity needs a
             starting and ending time; these are on a nominal scale, the
-            units don't represent real time. An activity also needs
+            units don&apos;t represent real time. An activity also needs
             participants, which can be selected from the existing
             individuals.</p>
 
@@ -137,10 +137,10 @@ export default function Page() {
 
             <p>To create a sub-task breakdown like this, start by
             clicking on an activity in the top-level diagram and
-            choosing 'Open sub-tasks'. This will open a new diagram view
-            showing sub-tasks of the chosen task. The navigation at the
-            top shows which activity you are breaking down at the moment
-            and allows you to go back up the tree.
+            choosing &lsquo;Open sub-tasks&rsquo;. This will open a new
+            diagram view showing sub-tasks of the chosen task. The
+            navigation at the top shows which activity you are breaking
+            down at the moment and allows you to go back up the tree.
 
             <br/><img src="/crane/sub-task-nav.png"/>
 

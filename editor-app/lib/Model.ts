@@ -25,6 +25,9 @@ export class Model {
   readonly activityTypes: Array<Kind>;
   readonly individualTypes: Array<Kind>;
 
+  readonly defaultActivityType: Kind;
+  readonly defaultIndividualType: Kind;
+
   // Overall information about the model
   name: Maybe<string>;
   description: Maybe<string>;
@@ -35,12 +38,16 @@ export class Model {
     this.activities = new Map<string, Activity>();
     this.individuals = new Map<string, Individual>();
     this.roles = [];
-    this.activityTypes = [];
+    this.activityTypes = [
+        new Kind(HQDM_NS + "activity", "Task", true),
+    ];
+    this.defaultActivityType = this.activityTypes[0];
     this.individualTypes = [
       new Kind(HQDM_NS + "person", "Person", true),
       new Kind(HQDM_NS + "organization", "Organization", true),
       new Kind(HQDM_NS + "ordinary_physical_object", "Resource", true),
     ];
+    this.defaultIndividualType = this.individualTypes[2];
   }
 
   static END_OF_TIME = EPOCH_END;
@@ -59,9 +66,11 @@ export class Model {
     this.roles.forEach((r) => {
       newModel.roles.push(r);
     });
-    this.activityTypes.forEach((a) => {
-      newModel.activityTypes.push(a);
-    });
+    this.activityTypes
+        .filter((a) => !a.isCoreHqdm)
+        .forEach((a) => {
+          newModel.activityTypes.push(a);
+        });
     this.individualTypes
       .filter((i) => !i.isCoreHqdm)
       .forEach((i) => {

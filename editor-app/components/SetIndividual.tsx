@@ -41,7 +41,7 @@ const SetIndividual = (props: Props) => {
   let defaultIndividual: Individual = {
     id: "",
     name: "",
-    type: undefined,
+    type: dataset.defaultIndividualType,
     description: "",
     beginning: -1,
     ending: Model.END_OF_TIME,

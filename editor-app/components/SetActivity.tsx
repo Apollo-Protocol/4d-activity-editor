@@ -39,7 +39,7 @@ const SetActivity = (props: Props) => {
   let defaultActivity: Activity = {
     id: "",
     name: "",
-    type: undefined,
+    type: dataset.defaultActivityType,
     description: "",
     beginning: 0,
     ending: 1,

@@ -318,37 +318,41 @@ const SetActivity = (props: Props) => {
         </Modal.Body>
         <Modal.Footer>
           <Container>
-            <Row>
-              <Col style={{ display: "flex", justifyContent: "right" }}>
+            <Row className="justify-content-between">
+              <Col xs="auto">
                 <Button
-                  className={selectedActivity ? "d-block mx-1" : "d-none mx-1"}
+                  className={selectedActivity ? "mx-1" : "d-none mx-1"}
                   variant="danger"
                   onClick={handleDelete}
                 >
                   Delete
                 </Button>
                 <Button
-                  className="mx-1"
-                  variant="secondary"
-                  onClick={handleClose}
-                >
-                  Close
-                </Button>
-                <Button
-                  className="mx-1"
-                  variant="primary"
-                  onClick={handleContext}
-                >
-                  Open sub-tasks
-                </Button>
-                <Button
-                  className={selectedActivity ? "d-block mx-1" : "d-none mx-1"}
+                  className={selectedActivity ? "mx-1" : "d-none mx-1"}
                   variant="primary"
                   onClick={handleCopy}
                 >
                   Copy
                 </Button>
-                <Button variant="primary" onClick={handleAdd} disabled={!dirty}>
+                <Button
+                  className={selectedActivity ? "mx-1" : "d-none mx-1"}
+                  variant="secondary"
+                  onClick={handleContext}
+                >
+                  Sub-tasks
+                </Button>
+              </Col>
+              <Col xs="auto">
+                <Button
+                  className="mx-1" variant="secondary"
+                  onClick={handleClose}
+                >
+                  Close
+                </Button>
+                <Button 
+                  className="mx-1" variant="primary" 
+                  onClick={handleAdd} disabled={!dirty}
+                >
                   Save
                 </Button>
               </Col>

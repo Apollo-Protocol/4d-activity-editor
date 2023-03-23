@@ -275,9 +275,9 @@ const SetIndividual = (props: Props) => {
           </Form>
         </Modal.Body>
         <Modal.Footer>
-          <Container>
-            <Row>
-              <Col style={{ display: "flex", justifyContent: "right" }}>
+          <Container fluid>
+            <Row className="justify-content-between">
+              <Col xs="auto">
                 <Button
                   variant="danger"
                   onClick={handleDelete}
@@ -285,6 +285,8 @@ const SetIndividual = (props: Props) => {
                 >
                   Delete
                 </Button>
+              </Col>
+              <Col xs="auto">
                 <Button
                   variant="secondary"
                   onClick={handleClose}

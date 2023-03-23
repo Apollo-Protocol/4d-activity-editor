@@ -380,21 +380,21 @@ export const toHQDM = (model: Model): HQDMModel => {
   }
 
   // Find or create the kind of individual and add the individual to the kind.
-  const createKind = (uiSt: STExtent, hqdmSt: Thing, superkind: Thing) => {
-    if (uiSt.type?.isCoreHqdm) {
-      const stKind = new Thing(uiSt.type.id);
+  const createKind = (hqdmSt: Thing, uiKind: Maybe<Kind>, superkind: Thing) => {
+    if (uiKind?.isCoreHqdm) {
+      const stKind = new Thing(uiKind.id);
       hqdm.addMemberOfKind(hqdmSt, stKind);
       return stKind;
     } 
 
     // The type is not actually optional - it's only optional because the UI model allows it to be undefined.
-    const stKindId = uiSt.type ? BASE + uiSt.type.id : "INVALID";
+    const stKindId = uiKind ? BASE + uiKind.id : "INVALID";
     const stKind = hqdm.exists(stKindId)
       ? new Thing(stKindId)
       : hqdm.createThing(superkind, stKindId);
 
-    if (uiSt.type) {
-      hqdm.relate(ENTITY_NAME, stKind, new Thing(uiSt.type.name)); // Set the entity name in case it was created
+    if (uiKind) {
+      hqdm.relate(ENTITY_NAME, stKind, new Thing(uiKind.name)); // Set the entity name in case it was created
     }
     hqdm.addMemberOfKind(hqdmSt, stKind);
     return stKind;
@@ -444,7 +444,7 @@ export const toHQDM = (model: Model): HQDMModel => {
       );
     }
 
-    createKind(i, player, kind_of_ordinary_physical_object);
+    createKind(player, i.type, kind_of_ordinary_physical_object);
   });
 
   // Add the activities to the model
@@ -476,7 +476,7 @@ export const toHQDM = (model: Model): HQDMModel => {
         activityTo
       );
     }
-    const actKind = createKind(a, act, kind_of_activity);
+    const actKind = createKind(act, a.type, kind_of_activity);
     hqdm.beginning(act, activityFrom);
     hqdm.ending(act, activityTo);
 
@@ -493,22 +493,13 @@ export const toHQDM = (model: Model): HQDMModel => {
       );
       hqdm.addToPossibleWorld(participation, modelWorld);
 
-      // Find or create the role.
-      const roleId = p.role ? BASE + p.role.id : "INVALID";
-      const pRole = hqdm.exists(roleId)
-        ? new Thing(roleId)
-        : hqdm.createThing(role, roleId);
+      // Find or create the role (a role is a kind_of_participant).
+      const pRole = createKind(participation, p.role, role);
+      hqdm.addMemberOfKind(participation, participant);
 
       // The kind_of_activity needs to define the roles it consists of, and the reverse relationship.
       hqdm.relate(PART_OF_BY_CLASS, pRole, actKind);
       hqdm.relate(CONSISTS_OF_BY_CLASS, actKind, pRole);
-
-      // Name the role and add the participant to the role.
-      if (p.role) {
-        hqdm.relate(ENTITY_NAME, pRole, new Thing(p.role.name));
-      }
-      hqdm.addMemberOfKind(participation, pRole);
-      hqdm.addMemberOfKind(participation, participant);
 
       // Add the participant as a temporal part of the individual.
       hqdm.addAsTemporalPartOf(participation, new Thing(BASE + p.individualId));

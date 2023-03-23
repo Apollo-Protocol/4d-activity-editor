@@ -25,6 +25,7 @@ export class Model {
   readonly activityTypes: Array<Kind>;
   readonly individualTypes: Array<Kind>;
 
+  readonly defaultRole: Kind;
   readonly defaultActivityType: Kind;
   readonly defaultIndividualType: Kind;
 
@@ -37,10 +38,14 @@ export class Model {
     this.description = description;
     this.activities = new Map<string, Activity>();
     this.individuals = new Map<string, Individual>();
-    this.roles = [];
+
     /* XXX There is an inconsistency here. Most objects in the UI model
      * have their id set to a plain UUID, i.e. not to an IRI. These core
      * HQDM objects are created with their id set to an IRI. */
+    this.roles = [
+      new Kind(HQDM_NS + "role", "Participant", true),
+    ];
+    this.defaultRole = this.roles[0];
     this.activityTypes = [
         new Kind(HQDM_NS + "activity", "Task", true),
     ];
@@ -66,9 +71,11 @@ export class Model {
     this.individuals.forEach((i) => {
       newModel.addIndividual(i);
     });
-    this.roles.forEach((r) => {
-      newModel.roles.push(r);
-    });
+    this.roles
+      .filter((r) => !r.isCoreHqdm)
+      .forEach((r) => {
+        newModel.roles.push(r);
+      });
     this.activityTypes
         .filter((a) => !a.isCoreHqdm)
         .forEach((a) => {

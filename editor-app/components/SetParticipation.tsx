@@ -1,4 +1,4 @@
-import React, { Dispatch, SetStateAction, useRef } from "react";
+import React, { Dispatch, SetStateAction, useRef, useState } from "react";
 import Button from "react-bootstrap/Button";
 import Modal from "react-bootstrap/Modal";
 import Form from "react-bootstrap/Form";
@@ -34,15 +34,19 @@ const SetParticipation = (props: Props) => {
 
   const newRole = useRef<any>(null);
 
+  const [dirty, setDirty] = useState(false); 
+
   const handleClose = () => {
     setShow(false);
     setSelectedParticipation(undefined);
     setSelectedActivity(undefined);
+    setDirty(false);
   };
   const handleShow = () => {};
   const handleAdd = (event: any) => {
     event.preventDefault();
     if (
+      dirty &&
       selectedActivity &&
       selectedActivity.participations &&
       selectedParticipation &&
@@ -67,6 +71,7 @@ const SetParticipation = (props: Props) => {
         });
       }
     });
+    setDirty(true);
   };
 
   const addRole = (e: any) => {
@@ -123,7 +128,7 @@ const SetParticipation = (props: Props) => {
           <Button variant="secondary" onClick={handleClose}>
             Close
           </Button>
-          <Button variant="primary" onClick={handleAdd}>
+          <Button variant="primary" onClick={handleAdd} disabled={!dirty}>
             Save
           </Button>
         </Modal.Footer>

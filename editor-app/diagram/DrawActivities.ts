@@ -1,6 +1,7 @@
 import { MouseEvent } from "react";
 import { Activity, Individual, Participation } from "@/lib/Schema";
 import {
+  DrawContext,
   Label,
   removeLabelIfItOverlaps,
   keepIndividualLabels,
@@ -10,12 +11,9 @@ import { activity } from "@apollo-protocol/hqdm-lib";
 
 let mouseOverElement: any | null = null;
 
-export function drawActivities(
-  config: ConfigData,
-  svgElement: any,
-  activities: Activity[],
-  individuals: Individual[]
-) {
+export function drawActivities(ctx: DrawContext) {
+  const { config, svgElement, activities, individuals } = ctx;
+
   let startOfTime = Math.min(...activities.map((a) => a.beginning));
   let endOfTime = Math.max(...activities.map((a) => a.ending));
   let duration = endOfTime - startOfTime;
@@ -79,19 +77,19 @@ export function drawActivities(
     })
     .attr("opacity", config.presentation.activity.opacity);
 
-  labelActivities(config, svgElement, activities, x, timeInterval, startOfTime);
+  labelActivities(ctx, x, timeInterval, startOfTime);
 
   return svgElement;
 }
 
 function labelActivities(
-  config: ConfigData,
-  svgElement: any,
-  activities: Activity[],
+  ctx: DrawContext,
   startingPosition: number,
   timeInterval: number,
   startOfTime: number
 ) {
+  const { config, svgElement, activities } = ctx;
+
   if (config.labels.activity.enabled === false) {
     return;
   }
@@ -152,11 +150,9 @@ function labelActivities(
     });
 }
 
-export function hoverActivities(
-  config: ConfigData,
-  svgElement: any,
-  tooltip: any
-) {
+export function hoverActivities(ctx: DrawContext) {
+  const { config, svgElement, tooltip } = ctx;
+
   svgElement
     .selectAll(".activity")
     .on("mouseover", function (event: MouseEvent) {
@@ -173,7 +169,7 @@ export function hoverActivities(
       tooltip.style("display", "none");
     })
     .on("mousemove", function (event: MouseEvent, d: any) {
-      tooltip.html(activityTooltip(d));
+      tooltip.html(activityTooltip(ctx, d));
       if (event.pageX < window.innerWidth / 2) {
         tooltip
           .style("top", event.pageY + 20 + "px")
@@ -187,7 +183,7 @@ export function hoverActivities(
     });
 }
 
-function activityTooltip(activity: Activity) {
+function activityTooltip(ctx: DrawContext, activity: Activity) {
   let tip = "<strong>Activity</strong>";
   if (activity.name) tip += "<br/> Name: " + activity.name;
   if (activity.type) tip += "<br/> Type: " + activity.type.name;
@@ -195,15 +191,17 @@ function activityTooltip(activity: Activity) {
   if (activity.beginning !== undefined)
     tip += "<br/> Beginning: " + activity.beginning;
   if (activity.ending) tip += "<br/> Ending: " + activity.ending;
+  if (ctx.dataset.hasParts(activity.id))
+    tip += "<br/> Has sub-tasks";
   return tip;
 }
 
 export function clickActivities(
-  svgElement: any,
-  activities: Activity[],
+  ctx: DrawContext,
   clickActivity: any,
   rightClickActivity: any
 ) {
+  const { svgElement, activities } = ctx;
   activities.forEach((a) => {
     svgElement.select("#a" + a.id).on("click", function (event: MouseEvent) {
       clickActivity(a);

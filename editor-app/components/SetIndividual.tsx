@@ -41,7 +41,7 @@ const SetIndividual = (props: Props) => {
   let defaultIndividual: Individual = {
     id: "",
     name: "",
-    type: undefined,
+    type: dataset.defaultIndividualType,
     description: "",
     beginning: -1,
     ending: Model.END_OF_TIME,
@@ -54,6 +54,7 @@ const SetIndividual = (props: Props) => {
   const [inputs, setInputs] = useState(
     selectedIndividual ? selectedIndividual : defaultIndividual
   );
+  const [dirty, setDirty] = useState(false);
   const [beginsWithParticipant, setBeginsWithParticipant] = useState(false);
   const [endsWithParticipant, setEndsWithParticipant] = useState(false);
   const [individualHasParticipants, setIndividualHasParticipants] =
@@ -84,6 +85,7 @@ const SetIndividual = (props: Props) => {
     setInputs(defaultIndividual);
     setSelectedIndividual(undefined);
     setErrors([]);
+    setDirty(false);
   };
   const handleShow = () => {
     if (selectedIndividual) {
@@ -95,6 +97,8 @@ const SetIndividual = (props: Props) => {
   };
   const handleAdd = (event: any) => {
     event.preventDefault();
+    if (!dirty)
+      return handleClose();
     const isValid = validateInputs();
     if (isValid) {
       setIndividual(inputs);
@@ -106,15 +110,19 @@ const SetIndividual = (props: Props) => {
     handleClose();
   };
 
+  const updateInputs = (key: string, value: any) => {
+    setInputs({ ...inputs, [key]: value });
+    setDirty(true);
+  };
+
   const handleChange = (e: any) => {
-    setInputs({ ...inputs, [e.target.name]: e.target.value });
+    updateInputs(e.target.name, e.target.value);
   };
 
   const handleTypeChange = (e: any) => {
     dataset.individualTypes.forEach((type) => {
       if (e.target.value == type.id) {
-        console.log(inputs);
-        setInputs({ ...inputs, [e.target.name]: type });
+        updateInputs(e.target.name, type);
       }
     });
   };
@@ -126,35 +134,21 @@ const SetIndividual = (props: Props) => {
       : 0;
     setBeginsWithParticipant(checked);
     if (checked) {
-      setInputs({
-        ...inputs,
-        beginning: earliestBeginning ? earliestBeginning : 0,
-      });
+      updateInputs("beginning", earliestBeginning ? earliestBeginning : 0);
     } else {
-      setInputs({
-        ...inputs,
-        beginning: -1,
-      });
+      updateInputs("beginning", -1);
     }
   };
 
+  /* XXX Why does this use Number.MAX_VALUE rather than
+   * Model.END_OF_TIME? */
   const handleEndsWithParticipant = (e: any) => {
     const checked = e.target.checked;
     const lastEnding = selectedIndividual
       ? dataset.lastParticipantEnding(selectedIndividual.id)
       : Number.MAX_VALUE;
     setEndsWithParticipant(checked);
-    if (checked) {
-      setInputs({
-        ...inputs,
-        ending: lastEnding,
-      });
-    } else {
-      setInputs({
-        ...inputs,
-        ending: Number.MAX_VALUE,
-      });
-    }
+    updateInputs("ending", checked ? lastEnding : Number.MAX_VALUE);
   };
 
   const validateInputs = () => {
@@ -281,9 +275,9 @@ const SetIndividual = (props: Props) => {
           </Form>
         </Modal.Body>
         <Modal.Footer>
-          <Container>
-            <Row>
-              <Col style={{ display: "flex", justifyContent: "right" }}>
+          <Container fluid>
+            <Row className="justify-content-between">
+              <Col xs="auto">
                 <Button
                   variant="danger"
                   onClick={handleDelete}
@@ -291,6 +285,8 @@ const SetIndividual = (props: Props) => {
                 >
                   Delete
                 </Button>
+              </Col>
+              <Col xs="auto">
                 <Button
                   variant="secondary"
                   onClick={handleClose}
@@ -298,7 +294,7 @@ const SetIndividual = (props: Props) => {
                 >
                   Close
                 </Button>
-                <Button variant="primary" onClick={handleAdd}>
+                <Button variant="primary" onClick={handleAdd} disabled={!dirty}>
                   Save
                 </Button>
               </Col>

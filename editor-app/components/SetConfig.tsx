@@ -4,7 +4,11 @@ import Modal from "react-bootstrap/Modal";
 import Form from "react-bootstrap/Form";
 import Row from "react-bootstrap/Row";
 import Col from "react-bootstrap/Col";
+
 import { ConfigData } from "@/diagram/config";
+
+import { saveFile, loadFile } from "./save_load";
+
 const _ = require("lodash");
 
 interface Props {
@@ -19,6 +23,28 @@ const SetConfig = (props: Props) => {
     props;
 
   const [inputs, setInputs] = useState(configData);
+  const [uploadError, setUploadError] = useState("");
+
+  function downloadConfig() {
+    saveFile(JSON.stringify(inputs),
+      "activity_diagram_settings.json", "application/json");
+  }
+
+  function uploadConfig() {
+    loadFile("application/json,.json")
+      .then((f: File) => f.text())
+      .then((json: string) => {
+        const loadedConfig = JSON.parse(json);
+        setInputs(loadedConfig);
+        setUploadError("");
+      })
+      .catch((e: any) => {
+        setUploadError(
+          "Failed to upload. Choose another file to try again."
+        );
+        console.error(e);
+      });
+  }
 
   const handleClose = () => {
     setShowConfigModal(false);
@@ -418,6 +444,13 @@ const SetConfig = (props: Props) => {
           </Form>
         </Modal.Body>
         <Modal.Footer>
+          {uploadError}
+          <Button variant="primary" onClick={uploadConfig}>
+            Load Settings
+          </Button>
+          <Button variant="primary" onClick={downloadConfig}>
+            Save Settings
+          </Button>
           <Button variant="secondary" onClick={handleClose}>
             Close
           </Button>

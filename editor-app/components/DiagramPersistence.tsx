@@ -1,107 +1,51 @@
 import { useState } from "react";
 import { Button, Container, Form } from "react-bootstrap";
+import Row from "react-bootstrap/Row";
+import Col from "react-bootstrap/Col";
+
 import {
   save,
   load,
   saveRefDataAsTTL,
   loadRefDataFromTTL,
 } from "lib/ActivityLib";
-import Row from "react-bootstrap/Row";
-import Col from "react-bootstrap/Col";
+
+import { saveFile, loadFile } from "./save_load";
 
 const DiagramPersistence = (props: any) => {
-  const { dataset, setDataset, svgRef, configData, setConfigData } = props;
-  const [uploadText, setUploadText] = useState("Select a file to upload");
-  const [uploadSettingText, setUploadSettingText] = useState(
-    "Select a settings file to upload"
-  );
+  const { dataset, setDataset, svgRef, setDirty } = props;
+  const [uploadText, setUploadText] = useState("");
   const [refDataOnly, setRefDataOnly] = useState(false);
 
-  function downloadttl() {
-    let pom = document.createElement("a");
+  function downloadTtl() {
     if (refDataOnly) {
-      pom.setAttribute(
-        "href",
-        "data:text/pldownloadain;charset=utf-8," +
-          encodeURIComponent(saveRefDataAsTTL(dataset))
-      );
-      pom.setAttribute("download", "activity_diagram_ref_data.ttl");
-    } else {
-      pom.setAttribute(
-        "href",
-        "data:text/pldownloadain;charset=utf-8," +
-          encodeURIComponent(save(dataset))
-      );
-      pom.setAttribute("download", "activity_diagram.ttl");
+      saveFile(saveRefDataAsTTL(dataset), 
+        "activity_diagram_ref_data.ttl", "text/turtle");
     }
-
-    if (document.createEvent) {
-      let event = document.createEvent("MouseEvents");
-      event.initEvent("click", true, true);
-      pom.dispatchEvent(event);
-    } else {
-      pom.click();
+    else {
+      saveFile(save(dataset), "activity_diagram.ttl", "text/turtle");
+      setDirty(false);
     }
   }
 
-  function downloadConfig() {
-    let pom = document.createElement("a");
-
-    pom.setAttribute(
-      "href",
-      "data:text/pldownloadain;charset=utf-8," +
-        encodeURIComponent(JSON.stringify(configData))
-    );
-    pom.setAttribute("download", "activity_diagram_settings.json");
-
-    if (document.createEvent) {
-      let event = document.createEvent("MouseEvents");
-      event.initEvent("click", true, true);
-      pom.dispatchEvent(event);
-    } else {
-      pom.click();
-    }
-  }
-
-  function onload(event: any) {
-    if (event.target.files.length > 0) {
-      event.target.files
-        .item(0)
-        .text()
-        .then((r: any) => {
-          if (refDataOnly) {
-            const loadedModel = loadRefDataFromTTL(r);
-            setDataset(loadedModel);
-          } else {
-            const loadedModel = load(r);
-            setDataset(loadedModel);
-          }
-          setUploadText("Select a file to upload");
-        })
-        .catch((e: any) => {
-          setUploadText("Failed to upload. Choose another file to try again.");
-          console.error(e);
-        });
-    }
-  }
-
-  function onloadSettings(event: any) {
-    if (event.target.files.length > 0) {
-      event.target.files
-        .item(0)
-        .text()
-        .then((r: any) => {
-          const loadedConfig = JSON.parse(r);
-          setConfigData(loadedConfig);
-          setUploadSettingText("Select a settings file to upload");
-        })
-        .catch((e: any) => {
-          setUploadSettingText(
-            "Failed to upload. Choose another file to try again."
-          );
-          console.error(e);
-        });
-    }
+  function uploadTtl() {
+    loadFile("text/turtle,.ttl")
+      .then((f: File) => f.text())
+      .then((ttl: string) => {
+        if (refDataOnly) {
+          const loadedModel = loadRefDataFromTTL(ttl);
+          setDataset(loadedModel);
+        } else {
+          const loadedModel = load(ttl);
+          setDataset(loadedModel);
+        }
+        setDirty(false);
+        setUploadText("");
+      })
+      .catch((e: any) => {
+        setUploadText("Failed to upload. Choose another file to try again.");
+        console.error(e);
+      });
   }
 
   return (
@@ -112,13 +56,6 @@ const DiagramPersistence = (props: any) => {
           lg={6}
           className="mt-2 d-flex align-items-start justify-content-center justify-content-lg-start"
         >
-          <Form.Group controlId="formFile">
-            <Form.Control type="file" onChange={onloadSettings} />
-            <Form.Text className="text-muted">{uploadSettingText}</Form.Text>
-          </Form.Group>
-          <Button variant="primary" onClick={downloadConfig} className={"mx-1"}>
-            Save&nbsp;Settings
-          </Button>
         </Col>
         <Col
           md={12}
@@ -126,7 +63,7 @@ const DiagramPersistence = (props: any) => {
           className="mt-2 d-flex align-items-start justify-content-center justify-content-lg-end"
         >
           <Form.Group controlId="formFile">
-            <Form.Control type="file" onChange={onload} />
+            <Button variant="primary" onClick={uploadTtl}>Load TTL</Button>
             <Form.Text className="text-muted">{uploadText}</Form.Text>
             <Form.Check
               type="switch"
@@ -135,7 +72,7 @@ const DiagramPersistence = (props: any) => {
               onChange={() => setRefDataOnly(!refDataOnly)}
             />
           </Form.Group>
-          <Button variant="primary" onClick={downloadttl} className={"mx-1"}>
+          <Button variant="primary" onClick={downloadTtl} className={"mx-1"}>
             Save&nbsp;TTL
           </Button>
         </Col>

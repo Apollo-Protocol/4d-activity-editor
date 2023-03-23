@@ -1,5 +1,6 @@
 import { Id, Individual, Activity, Maybe, Participation } from "@/lib/Schema";
 import {
+  DrawContext,
   calculateViewportHeight,
   clearDiagram,
   createTooltip,
@@ -59,32 +60,25 @@ export function drawActivityDiagram(
   const height = calculateViewportHeight(configData, dataset.individuals);
   const tooltip = createTooltip();
 
-  drawIndividuals(configData, svgElement, individualsArray, activitiesArray);
-  hoverIndividuals(configData, svgElement, tooltip);
-  labelIndividuals(configData, svgElement, individualsArray);
-  clickIndividuals(
-    configData,
+  const drawCtx: DrawContext = { 
+    config: configData,
     svgElement,
-    individualsArray,
-    clickIndividual,
-    rightClickIndividual
-  );
-  drawActivities(configData, svgElement, activitiesArray, individualsArray);
-  hoverActivities(configData, svgElement, tooltip);
-  clickActivities(
-    svgElement,
-    activitiesArray,
-    clickActivity,
-    rightClickActivity
-  );
-  drawParticipations(configData, svgElement, activitiesArray, tooltip);
-  clickParticipations(
-    svgElement,
-    activitiesArray,
-    clickParticipation,
-    rightClickParticipation
-  );
-  drawAxisArrows(configData, svgElement, height);
+    tooltip,
+    dataset,
+    activities: activitiesArray,
+    individuals: individualsArray,
+  };
+
+  drawIndividuals(drawCtx);
+  hoverIndividuals(drawCtx);
+  labelIndividuals(drawCtx);
+  clickIndividuals(drawCtx, clickIndividual, rightClickIndividual);
+  drawActivities(drawCtx);
+  hoverActivities(drawCtx);
+  clickActivities(drawCtx, clickActivity, rightClickActivity);
+  drawParticipations(drawCtx);
+  clickParticipations(drawCtx, clickParticipation, rightClickParticipation);
+  drawAxisArrows(drawCtx, height);
   let plot: Plot = {
     width: configData.viewPort.x * configData.viewPort.zoom,
     height: height,

@@ -1,6 +1,19 @@
-import { Individual } from "@/lib/Schema";
 import * as d3 from "d3";
+
+import { Model } from "@/lib/Model";
+import { Activity, Individual } from "@/lib/Schema";
+
 import { ConfigData } from "./config";
+
+export interface DrawContext {
+  config: ConfigData;
+  svgElement: any;
+  tooltip: any;
+
+  dataset: Model;
+  activities: Activity[];
+  individuals: Individual[];
+}
 
 export interface Label {
   x: number;

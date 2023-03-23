@@ -39,7 +39,7 @@ const SetActivity = (props: Props) => {
   let defaultActivity: Activity = {
     id: "",
     name: "",
-    type: undefined,
+    type: dataset.defaultActivityType,
     description: "",
     beginning: 0,
     ending: 1,
@@ -50,6 +50,7 @@ const SetActivity = (props: Props) => {
   const newType = useRef<any>(null);
   const [inputs, setInputs] = useState(defaultActivity);
   const [errors, setErrors] = useState([]);
+  const [dirty, setDirty] = useState(false);
 
   function updateIndividuals(d: Model) {
     d.individuals.forEach((individual) => {
@@ -70,6 +71,7 @@ const SetActivity = (props: Props) => {
     setInputs(defaultActivity);
     setSelectedActivity(undefined);
     setErrors([]);
+    setDirty(false);
   };
   const handleShow = () => {
     if (selectedActivity) {
@@ -81,6 +83,8 @@ const SetActivity = (props: Props) => {
   };
   const handleAdd = (event: any) => {
     event.preventDefault();
+    if (!dirty)
+      return handleClose();
     const isValid = validateInputs();
     if (isValid) {
       updateDataset((d) => {
@@ -108,20 +112,26 @@ const SetActivity = (props: Props) => {
     setActivityContext(inputs.id);
   };
 
+  /* React only calls change handlers if the value has really changed. */
+  const updateInputs = (key: string, value: any) => {
+    setInputs({ ...inputs, [key]: value });
+    setDirty(true);
+  };
+
   const handleChange = (e: any) => {
-    setInputs({ ...inputs, [e.target.name]: e.target.value });
+    updateInputs(e.target.name, e.target.value);
   };
 
   const handleTypeChange = (e: any) => {
     dataset.activityTypes.forEach((type) => {
       if (e.target.value == type.id) {
-        setInputs({ ...inputs, [e.target.name]: type });
+        updateInputs(e.target.name, type)
       }
     });
   };
 
   const handleChangeNumeric = (e: any) => {
-    setInputs({ ...inputs, [e.target.name]: e.target.valueAsNumber });
+    updateInputs(e.target.name, e.target.valueAsNumber);
   };
 
   const handleChangeMultiselect = (e: any) => {
@@ -133,7 +143,7 @@ const SetActivity = (props: Props) => {
       };
       participations.set(i.id, participation);
     });
-    setInputs({ ...inputs, participations: participations });
+    updateInputs("participations", participations);
   };
 
   const getSelectedIndividuals = () => {
@@ -308,37 +318,41 @@ const SetActivity = (props: Props) => {
         </Modal.Body>
         <Modal.Footer>
           <Container>
-            <Row>
-              <Col style={{ display: "flex", justifyContent: "right" }}>
+            <Row className="justify-content-between">
+              <Col xs="auto">
                 <Button
-                  className={selectedActivity ? "d-block mx-1" : "d-none mx-1"}
+                  className={selectedActivity ? "mx-1" : "d-none mx-1"}
                   variant="danger"
                   onClick={handleDelete}
                 >
                   Delete
                 </Button>
                 <Button
-                  className="mx-1"
-                  variant="secondary"
-                  onClick={handleClose}
-                >
-                  Close
-                </Button>
-                <Button
-                  className="mx-1"
-                  variant="primary"
-                  onClick={handleContext}
-                >
-                  Open sub-tasks
-                </Button>
-                <Button
-                  className={selectedActivity ? "d-block mx-1" : "d-none mx-1"}
+                  className={selectedActivity ? "mx-1" : "d-none mx-1"}
                   variant="primary"
                   onClick={handleCopy}
                 >
                   Copy
                 </Button>
-                <Button variant="primary" onClick={handleAdd}>
+                <Button
+                  className={selectedActivity ? "mx-1" : "d-none mx-1"}
+                  variant="secondary"
+                  onClick={handleContext}
+                >
+                  Sub-tasks
+                </Button>
+              </Col>
+              <Col xs="auto">
+                <Button
+                  className="mx-1" variant="secondary"
+                  onClick={handleClose}
+                >
+                  Close
+                </Button>
+                <Button 
+                  className="mx-1" variant="primary" 
+                  onClick={handleAdd} disabled={!dirty}
+                >
                   Save
                 </Button>
               </Col>

@@ -11,10 +11,10 @@ const SortIndividuals = (props: any) => {
     showSortIndividuals,
     setShowSortIndividuals,
   } = props;
-  const individualsArray: Individual[] = [];
-  const [items, setItems] = useState(individualsArray);
+  const [items, setItems] = useState<Individual[]>([]);
 
   useEffect(() => {
+    const individualsArray: Individual[] = [];
     dataset.individuals.forEach((i: Individual) => individualsArray.push(i));
     setItems(individualsArray);
   }, [dataset]);

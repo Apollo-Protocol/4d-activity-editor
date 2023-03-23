@@ -154,6 +154,7 @@ export const toModel = (hqdm: HQDMModel): Model => {
   const ordPhysObjKind = new Kind(ordinary_physical_object.id, "Resource", true);
   const organizationKind = new Kind(organization.id, "Organization", true);
   const personKind = new Kind(person.id, "Person", true);
+  const activityKind = new Kind(activity.id, "Task", true);
 
   const communityName = new Thing(AMRC_COMMUNITY);
   const m = new Model();
@@ -210,7 +211,7 @@ export const toModel = (hqdm: HQDMModel): Model => {
     const kind = kinds.first((x) => (x ? true : false)); // Matches every element, so returns the first
     const kindOfActivity = kind
       ? new Kind(getModelId(kind), hqdm.getEntityName(kind), false)
-      : new Kind("dummyId", "Unknown Activity Type", false);
+      : activityKind;
 
     // Get the temporal extent of the activity with defaults, although the defaults should never be needed.
     const activityFromEvent = hqdm.getBeginning(a);

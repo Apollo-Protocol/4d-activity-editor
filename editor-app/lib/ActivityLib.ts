@@ -10,6 +10,7 @@ import {
   HQDM_NS,
   kind_of_activity,
   kind_of_ordinary_physical_object,
+  Maybe,
   ordinary_physical_object,
   organization,
   participant,
@@ -102,6 +103,16 @@ const getModelId = (t: Thing): string => {
 };
 
 /**
+ * Detect invalid IRIs existing in past save files.
+ */
+const isInvalid = (t: Maybe<Thing>) => {
+  return (
+    !t 
+    || t.id == "INVALID" 
+    || t.id == `${BASE}INVALID`);
+}
+
+/**
  * Returns a time value from an HQDM Thing.
  * Only knows how to decode the utcMillisecondsClass.
  */
@@ -152,14 +163,22 @@ const createTimeValue = (hqdm: HQDMModel, modelWorld: Thing, time: number): Thin
  */
 export const toModel = (hqdm: HQDMModel): Model => {
   // Kinds are immutable so it's fine to use constant objects.
+  // XXX These duplicate the code in lib/Model.ts.
   const ordPhysObjKind = new Kind(ordinary_physical_object.id, "Resource", true);
   const organizationKind = new Kind(organization.id, "Organization", true);
   const personKind = new Kind(person.id, "Person", true);
   const activityKind = new Kind(activity.id, "Task", true);
+  const participantKind = new Kind(participant.id, "Participant", true);
 
   const communityName = new Thing(AMRC_COMMUNITY);
   const m = new Model();
   const isKindOfOrdinaryPhysicalObject = (x: Thing): boolean => hqdm.isKindOf(x, kind_of_ordinary_physical_object);
+
+  const kindOrDefault = (kind: Maybe<Thing>, defKind: Kind) => {
+    if (isInvalid(kind))
+      return defKind;
+    return new Kind(getModelId(kind!), hqdm.getEntityName(kind!), false);
+  };
 
   // Get the name and description of the model from the possible world
   const possibleWorld = hqdm.findByType(possible_world).first(); // Assumes just one possible world
@@ -181,8 +200,7 @@ export const toModel = (hqdm: HQDMModel): Model => {
       .filter(isKindOfOrdinaryPhysicalObject)
       .first(); // Matches every element, so returns the first
 
-    const kindOfIndividual = (kind) ? new Kind(getModelId(kind), hqdm.getEntityName(kind), false) : ordPhysObjKind;
-
+    const kindOfIndividual = kindOrDefault(kind, ordPhysObjKind);
     addIndividual(obj, hqdm, communityName, kindOfIndividual, m);
   });
 
@@ -210,9 +228,7 @@ export const toModel = (hqdm: HQDMModel): Model => {
       .memberOfKind(a)
       .filter((x) => hqdm.isKindOf(x, kind_of_activity));
     const kind = kinds.first((x) => (x ? true : false)); // Matches every element, so returns the first
-    const kindOfActivity = kind
-      ? new Kind(getModelId(kind), hqdm.getEntityName(kind), false)
-      : activityKind;
+    const kindOfActivity = kindOrDefault(kind, activityKind);
 
     // Get the temporal extent of the activity with defaults, although the defaults should never be needed.
     const activityFromEvent = hqdm.getBeginning(a);
@@ -250,13 +266,7 @@ export const toModel = (hqdm: HQDMModel): Model => {
     participations.forEach((p) => {
       // Get the role of the participant.
       const participantRole = hqdm.getRole(p).first();
-      const roleType = participantRole
-        ? new Kind(
-            getModelId(participantRole),
-            hqdm.getEntityName(participantRole),
-            false
-          )
-        : new Kind("dummyId", "Unknown Role Type", false);
+      const roleType = kindOrDefault(participantRole, participantKind);
 
       // Get the participant whole life object for this temporal part.
       const participantThing = hqdm.getTemporalWhole(p);
@@ -265,9 +275,9 @@ export const toModel = (hqdm: HQDMModel): Model => {
       const indiv = participantThing
         ? m.individuals.get(getModelId(participantThing))
         : new IndividualImpl(
-            "BAD ID",
+            uuidv4(),
             "Unknown Individual",
-            new Kind("dummyId", "Unknown Individual Type", false),
+            ordPhysObjKind,
             0,
             EPOCH_END,
             "Unknown Individual",
@@ -288,18 +298,21 @@ export const toModel = (hqdm: HQDMModel): Model => {
  */
 export const addRefDataToModel = (hqdm: HQDMModel, m: Model): Model => {
   hqdm.findByType(kind_of_ordinary_physical_object).forEach((i) => {
+    if (isInvalid(i)) return;
     const id = getModelId(i);
     const name = hqdm.getEntityName(i);
     m.addIndividualType(id, name);
   });
 
   hqdm.findByType(kind_of_activity).forEach((i) => {
+    if (isInvalid(i)) return;
     const id = getModelId(i);
     const name = hqdm.getEntityName(i);
     m.addActivityType(id, name);
   });
 
   hqdm.findByType(role).forEach((i) => {
+    if (isInvalid(i)) return;
     const id = getModelId(i);
     const name = hqdm.getEntityName(i);
     m.addRoleType(id, name);
@@ -325,7 +338,6 @@ export const toHQDM = (model: Model): HQDMModel => {
   model.activityTypes
     .filter((a) => !a.isCoreHqdm)
     .forEach((a) => {
-      console.log("toHQDM: creating kind_of_activity for %o", a);
       const kind = hqdm.createThing(kind_of_activity, BASE + a.id);
       hqdm.relate(ENTITY_NAME, kind, new Thing(a.name));
     });
@@ -338,10 +350,12 @@ export const toHQDM = (model: Model): HQDMModel => {
       );
       hqdm.relate(ENTITY_NAME, kind, new Thing(i.name));
     });
-  model.roles.forEach((r) => {
-    const kind = hqdm.createThing(role, BASE + r.id);
-    hqdm.relate(ENTITY_NAME, kind, new Thing(r.name));
-  });
+  model.roles
+    .filter((r) => !r.isCoreHqdm)
+    .forEach((r) => {
+      const kind = hqdm.createThing(role, BASE + r.id);
+      hqdm.relate(ENTITY_NAME, kind, new Thing(r.name));
+    });
 
   const communityName = new Thing(AMRC_COMMUNITY);
 
@@ -381,14 +395,14 @@ export const toHQDM = (model: Model): HQDMModel => {
 
   // Find or create the kind of individual and add the individual to the kind.
   const createKind = (hqdmSt: Thing, uiKind: Maybe<Kind>, superkind: Thing) => {
-    if (uiKind?.isCoreHqdm) {
-      const stKind = new Thing(uiKind.id);
+    if (!uiKind || uiKind.isCoreHqdm) {
+      const stKind = uiKind ? new Thing(uiKind.id) : superkind;
       hqdm.addMemberOfKind(hqdmSt, stKind);
       return stKind;
     } 
 
     // The type is not actually optional - it's only optional because the UI model allows it to be undefined.
-    const stKindId = uiKind ? BASE + uiKind.id : "INVALID";
+    const stKindId = BASE + uiKind.id;
     const stKind = hqdm.exists(stKindId)
       ? new Thing(stKindId)
       : hqdm.createThing(superkind, stKindId);

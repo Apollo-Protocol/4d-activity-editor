@@ -38,6 +38,9 @@ export class Model {
     this.activities = new Map<string, Activity>();
     this.individuals = new Map<string, Individual>();
     this.roles = [];
+    /* XXX There is an inconsistency here. Most objects in the UI model
+     * have their id set to a plain UUID, i.e. not to an IRI. These core
+     * HQDM objects are created with their id set to an IRI. */
     this.activityTypes = [
         new Kind(HQDM_NS + "activity", "Task", true),
     ];

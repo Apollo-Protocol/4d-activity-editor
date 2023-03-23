@@ -23,6 +23,7 @@ import {
 } from "@apollo-protocol/hqdm-lib";
 import { IndividualImpl } from "./IndividualImpl";
 import { Kind, Model } from "./Model";
+import { STExtent } from "./Schema";
 
 /**
  * ActivityLib
@@ -321,12 +322,15 @@ export const toHQDM = (model: Model): HQDMModel => {
   model.normalizeActivityBounds();
 
   // Save the kinds to the model.
-  model.activityTypes.forEach((a) => {
-    const kind = hqdm.createThing(kind_of_activity, BASE + a.id);
-    hqdm.relate(ENTITY_NAME, kind, new Thing(a.name));
-  });
+  model.activityTypes
+    .filter((a) => !a.isCoreHqdm)
+    .forEach((a) => {
+      console.log("toHQDM: creating kind_of_activity for %o", a);
+      const kind = hqdm.createThing(kind_of_activity, BASE + a.id);
+      hqdm.relate(ENTITY_NAME, kind, new Thing(a.name));
+    });
   model.individualTypes
-    .filter((i) => !i.id.startsWith(HQDM_NS))
+    .filter((i) => !i.isCoreHqdm)
     .forEach((i) => {
       const kind = hqdm.createThing(
         kind_of_ordinary_physical_object,
@@ -375,6 +379,26 @@ export const toHQDM = (model: Model): HQDMModel => {
     );
   }
 
+  // Find or create the kind of individual and add the individual to the kind.
+  const createKind = (uiSt: STExtent, hqdmSt: Thing, superkind: Thing) => {
+    if (uiSt.type?.isCoreHqdm) {
+      const stKind = new Thing(uiSt.type.id);
+      hqdm.addMemberOfKind(hqdmSt, stKind);
+      return stKind;
+    } 
+
+    // The type is not actually optional - it's only optional because the UI model allows it to be undefined.
+    const stKindId = uiSt.type ? BASE + uiSt.type.id : "INVALID";
+    const stKind = hqdm.exists(stKindId)
+      ? new Thing(stKindId)
+      : hqdm.createThing(superkind, stKindId);
+
+    if (uiSt.type) {
+      hqdm.relate(ENTITY_NAME, stKind, new Thing(uiSt.type.name)); // Set the entity name in case it was created
+    }
+    hqdm.addMemberOfKind(hqdmSt, stKind);
+    return stKind;
+  };
 
   // Add the individuals to the model
   model.individuals.forEach((i) => {
@@ -420,21 +444,7 @@ export const toHQDM = (model: Model): HQDMModel => {
       );
     }
 
-    // Find or create the kind of individual and add the individual to the kind.
-    if (i.type?.isCoreHqdm) {
-      hqdm.addMemberOfKind(player, new Thing(i.type.id));
-    } else {
-      // i.type is not actually optional - it's only optional because the UI model allows it to be undefined.
-      const playerKindId = i.type ? BASE + i.type.id : "INVALID";
-      const playerKind = hqdm.exists(playerKindId)
-        ? new Thing(playerKindId)
-        : hqdm.createThing(kind_of_ordinary_physical_object, playerKindId);
-
-      if (i.type) {
-        hqdm.relate(ENTITY_NAME, playerKind, new Thing(i.type.name)); // Set the entity name in case it was created
-      }
-      hqdm.addMemberOfKind(player, playerKind);
-    }
+    createKind(i, player, kind_of_ordinary_physical_object);
   });
 
   // Add the activities to the model
@@ -442,15 +452,6 @@ export const toHQDM = (model: Model): HQDMModel => {
     // Create the temporal bounds for the activity.
     const activityFrom = createTimeValue(hqdm, modelWorld, a.beginning);
     const activityTo = createTimeValue(hqdm, modelWorld, a.ending);
-
-    // Find or create the kind of activity and add the activity to the kind.
-    const actKindId = a.type ? BASE + a.type.id : "INVALID";
-    const actKind = hqdm.exists(actKindId)
-      ? new Thing(actKindId)
-      : hqdm.createThing(kind_of_activity, actKindId);
-    if (a.type) {
-      hqdm.relate(ENTITY_NAME, actKind, new Thing(a.type.name)); // Set the entity name in case it was created
-    }
 
     // Create the activity and add it to the possible world, add the name and description and temporal bounds.
     const act = hqdm.createThing(activity, BASE + a.id);
@@ -475,7 +476,7 @@ export const toHQDM = (model: Model): HQDMModel => {
         activityTo
       );
     }
-    hqdm.addMemberOfKind(act, actKind);
+    const actKind = createKind(a, act, kind_of_activity);
     hqdm.beginning(act, activityFrom);
     hqdm.ending(act, activityTo);
 

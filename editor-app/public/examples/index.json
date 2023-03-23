@@ -1,4 +1,7 @@
 [
+    {   "name": "Boil an egg",
+        "path": "/examples/boil-egg.ttl"
+    },
     {   "name": "Crane lift",
         "path": "/examples/crane.ttl"
     }

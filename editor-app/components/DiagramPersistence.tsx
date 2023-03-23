@@ -88,7 +88,7 @@ const DiagramPersistence = (props: any) => {
         >
           <DropdownButton title="Load example">
             {examples.map(e => 
-              <Dropdown.Item onClick={() => loadExample(e.path)}>
+              <Dropdown.Item key={e.path} onClick={() => loadExample(e.path)}>
                 {e.name}
               </Dropdown.Item>)}
           </DropdownButton>

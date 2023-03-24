@@ -32,10 +32,12 @@ export class Model {
   // Overall information about the model
   name: Maybe<string>;
   description: Maybe<string>;
+  filename: string;
 
   constructor(name?: string, description?: string) {
     this.name = name;
     this.description = description;
+    this.filename = "activity_diagram.ttl";
     this.activities = new Map<string, Activity>();
     this.individuals = new Map<string, Individual>();
 
@@ -65,6 +67,7 @@ export class Model {
    */
   clone(): Model {
     const newModel = new Model(this.name, this.description);
+    newModel.filename = this.filename;
     this.activities.forEach((a) => {
       newModel.addActivity(a);
     });

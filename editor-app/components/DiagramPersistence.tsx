@@ -20,23 +20,25 @@ const DiagramPersistence = (props: any) => {
   function downloadTtl() {
     if (refDataOnly) {
       saveFile(saveRefDataAsTTL(dataset), 
-        "activity_diagram_ref_data.ttl", "text/turtle");
+        dataset.filename.replace(/(\.[^.]*)?$/, "_ref_data$&"),
+        "text/turtle");
     }
     else {
-      saveFile(save(dataset), "activity_diagram.ttl", "text/turtle");
+      saveFile(save(dataset), dataset.filename, "text/turtle");
       setDirty(false);
     }
   }
 
   function uploadTtl() {
     loadFile("text/turtle,.ttl")
-      .then((f: File) => f.text())
-      .then((ttl: string) => {
+      .then((f: File) => Promise.all([f.name, f.text()]))
+      .then(([name, ttl]: [string, string]) => {
         if (refDataOnly) {
           const loadedModel = loadRefDataFromTTL(ttl);
           setDataset(loadedModel);
         } else {
           const loadedModel = load(ttl);
+          loadedModel.filename = name;
           setDataset(loadedModel);
         }
         setDirty(false);

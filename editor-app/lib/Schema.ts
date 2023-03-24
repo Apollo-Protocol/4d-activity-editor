@@ -9,15 +9,22 @@ export { Maybe };
 export type Id = string;
 
 /**
- * An activity is a thing that happens over time.
+ * A spatio-temporal extent is a thing that exists in the world.
  */
-export interface Activity {
+export interface STExtent {
   id: Id;
   name: string;
   type: Maybe<Kind>;
   description?: string;
   beginning: number;
   ending: number;
+}
+  
+
+/**
+ * An activity is a thing that happens over time.
+ */
+export interface Activity extends STExtent {
   participations: Map<string, Participation>;
   partOf: Maybe<Id>;
 }
@@ -25,13 +32,7 @@ export interface Activity {
 /**
  * An individual is a person, place, or thing that participates in an activity.
  */
-export interface Individual {
-  id: Id;
-  name: string;
-  type: Maybe<Kind>;
-  description?: string;
-  beginning: number;
-  ending: number;
+export interface Individual extends STExtent {
   beginsWithParticipant: boolean; //not persisted to HQDM. Indicates that the beginning time should be synchronised to participants.
   endsWithParticipant: boolean; //not persisted to HQDM. Indicates that the ending time should be synchronised to participants.
 }

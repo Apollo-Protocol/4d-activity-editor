@@ -137,9 +137,10 @@ const SetActivity = (props: Props) => {
   const handleChangeMultiselect = (e: any) => {
     const participations = new Map<string, Participation>();
     e.forEach((i: Individual) => {
+      const old = inputs.participations.get(i.id)?.role;
       let participation: Participation = {
         individualId: i.id,
-        role: undefined,
+        role: old ?? dataset.defaultRole,
       };
       participations.set(i.id, participation);
     });

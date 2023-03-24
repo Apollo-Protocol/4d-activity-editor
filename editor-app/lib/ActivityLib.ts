@@ -511,9 +511,13 @@ export const toHQDM = (model: Model): HQDMModel => {
       const pRole = setKindFromUI(participation, p.role, role);
       hqdm.addMemberOfKind(participation, participant);
 
-      // The kind_of_activity needs to define the roles it consists of, and the reverse relationship.
-      hqdm.relate(PART_OF_BY_CLASS, pRole, actKind);
-      hqdm.relate(CONSISTS_OF_BY_CLASS, actKind, pRole);
+      // The kind_of_activity needs to define the roles it consists of,
+      // and the reverse relationship. However, we shouldn't define core
+      // HQDM kinds.
+      if (!p.role.isCoreHqdm) {
+        hqdm.relate(PART_OF_BY_CLASS, pRole, actKind);
+        hqdm.relate(CONSISTS_OF_BY_CLASS, actKind, pRole);
+      }
 
       // Add the participant as a temporal part of the individual.
       hqdm.addAsTemporalPartOf(participation, new Thing(BASE + p.individualId));

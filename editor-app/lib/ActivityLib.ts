@@ -103,16 +103,6 @@ const getModelId = (t: Thing): string => {
 };
 
 /**
- * Detect invalid IRIs existing in past save files.
- */
-const isInvalid = (t: Maybe<Thing>) => {
-  return (
-    !t 
-    || t.id == "INVALID" 
-    || t.id == `${BASE}INVALID`);
-}
-
-/**
  * Returns a time value from an HQDM Thing.
  * Only knows how to decode the utcMillisecondsClass.
  */
@@ -175,7 +165,7 @@ export const toModel = (hqdm: HQDMModel): Model => {
   const isKindOfOrdinaryPhysicalObject = (x: Thing): boolean => hqdm.isKindOf(x, kind_of_ordinary_physical_object);
 
   const kindOrDefault = (kind: Maybe<Thing>, defKind: Kind) => {
-    if (isInvalid(kind))
+    if (!kind)
       return defKind;
     return new Kind(getModelId(kind!), hqdm.getEntityName(kind!), false);
   };
@@ -298,21 +288,18 @@ export const toModel = (hqdm: HQDMModel): Model => {
  */
 export const addRefDataToModel = (hqdm: HQDMModel, m: Model): Model => {
   hqdm.findByType(kind_of_ordinary_physical_object).forEach((i) => {
-    if (isInvalid(i)) return;
     const id = getModelId(i);
     const name = hqdm.getEntityName(i);
     m.addIndividualType(id, name);
   });
 
   hqdm.findByType(kind_of_activity).forEach((i) => {
-    if (isInvalid(i)) return;
     const id = getModelId(i);
     const name = hqdm.getEntityName(i);
     m.addActivityType(id, name);
   });
 
   hqdm.findByType(role).forEach((i) => {
-    if (isInvalid(i)) return;
     const id = getModelId(i);
     const name = hqdm.getEntityName(i);
     m.addRoleType(id, name);

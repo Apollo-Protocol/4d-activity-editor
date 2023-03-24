@@ -152,15 +152,18 @@ export function clickIndividuals(
 ) {
   const { config, svgElement, individuals } = ctx;
   individuals.forEach((i) => {
-    svgElement.select("#i" + i.id).on("click", function (event: MouseEvent) {
-      clickIndividual(i);
-    });
-    svgElement
-      .select("#i" + i.id)
-      .on("contextmenu", function (event: MouseEvent) {
-        event.preventDefault();
-        rightClickIndividual(i);
-      });
+    const lclick = (e: MouseEvent) => clickIndividual(i);
+    const rclick = (e: MouseEvent) => {
+      e.preventDefault();
+      rightClickIndividual(i);
+    };
+
+    svgElement.select("#i" + i.id)
+      .on("click", lclick)
+      .on("contextmenu", rclick);
+    svgElement.select("#il" + i.id)
+      .on("click", lclick)
+      .on("contextmenu", rclick);
   });
 }
 
@@ -184,6 +187,7 @@ export function labelIndividuals(ctx: DrawContext) {
     .data(individuals.values())
     .join("text")
     .attr("class", "individualLabel")
+    .attr("id", (i: Individual) => `il${i.id}`)
     .attr(
       "x",
       config.layout.individual.xMargin + config.labels.individual.leftMargin

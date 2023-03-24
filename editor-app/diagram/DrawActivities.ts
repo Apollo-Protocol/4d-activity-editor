@@ -101,6 +101,7 @@ function labelActivities(
     .data(activities.values())
     .join("text")
     .attr("class", "activityLabel")
+    .attr("id", (d: Activity) => `al${d.id}`)
     .attr("x", (d: Activity) => {
       const box = getBoxOfExistingActivity(svgElement, d);
       return box.x + box.width / 2;
@@ -203,15 +204,18 @@ export function clickActivities(
 ) {
   const { svgElement, activities } = ctx;
   activities.forEach((a) => {
-    svgElement.select("#a" + a.id).on("click", function (event: MouseEvent) {
-      clickActivity(a);
-    });
-    svgElement
-      .select("#a" + a.id)
-      .on("contextmenu", function (event: MouseEvent) {
-        event.preventDefault();
-        rightClickActivity(a);
-      });
+    const lclick = (e: MouseEvent) => clickActivity(a);
+    const rclick = (e: MouseEvent) => {
+      e.preventDefault();
+      rightClickActivity(a);
+    };
+
+    svgElement.select("#a" + a.id)
+      .on("click", lclick)
+      .on("contextmenu", rclick);
+    svgElement.select("#al" + a.id)
+      .on("click", lclick)
+      .on("contextmenu", rclick);
   });
 }
 

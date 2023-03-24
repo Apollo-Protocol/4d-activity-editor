@@ -25,19 +25,32 @@ export class Model {
   readonly activityTypes: Array<Kind>;
   readonly individualTypes: Array<Kind>;
 
+  readonly defaultRole: Kind;
   readonly defaultActivityType: Kind;
   readonly defaultIndividualType: Kind;
 
   // Overall information about the model
   name: Maybe<string>;
   description: Maybe<string>;
+  filename: string;
 
   constructor(name?: string, description?: string) {
     this.name = name;
     this.description = description;
+    this.filename = "activity_diagram.ttl";
     this.activities = new Map<string, Activity>();
     this.individuals = new Map<string, Individual>();
-    this.roles = [];
+
+    /* XXX There is an inconsistency here. Most objects in the UI model
+     * have their id set to a plain UUID, i.e. not to an IRI. These core
+     * HQDM objects are created with their id set to an IRI. */
+
+    /* These default roles created here need to match the equivalents
+     * created in ActivityLib:toModel. */
+    this.roles = [
+      new Kind(HQDM_NS + "participant", "Participant", true),
+    ];
+    this.defaultRole = this.roles[0];
     this.activityTypes = [
         new Kind(HQDM_NS + "activity", "Task", true),
     ];
@@ -57,15 +70,18 @@ export class Model {
    */
   clone(): Model {
     const newModel = new Model(this.name, this.description);
+    newModel.filename = this.filename;
     this.activities.forEach((a) => {
       newModel.addActivity(a);
     });
     this.individuals.forEach((i) => {
       newModel.addIndividual(i);
     });
-    this.roles.forEach((r) => {
-      newModel.roles.push(r);
-    });
+    this.roles
+      .filter((r) => !r.isCoreHqdm)
+      .forEach((r) => {
+        newModel.roles.push(r);
+      });
     this.activityTypes
         .filter((a) => !a.isCoreHqdm)
         .forEach((a) => {

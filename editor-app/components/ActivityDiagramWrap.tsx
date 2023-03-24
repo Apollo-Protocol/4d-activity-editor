@@ -22,6 +22,8 @@ const beforeUnloadHandler = (ev: BeforeUnloadEvent) => {
   return;
 };
 
+/* XXX Most of this component needs refactoring into a Controller class,
+ * leaving the react component as just the View. */
 export default function ActivityDiagramWrap() {
   const model = new Model();
   const [dataset, setDataset] = useState(model);

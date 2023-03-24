@@ -44,8 +44,11 @@ export class Model {
     /* XXX There is an inconsistency here. Most objects in the UI model
      * have their id set to a plain UUID, i.e. not to an IRI. These core
      * HQDM objects are created with their id set to an IRI. */
+
+    /* These default roles created here need to match the equivalents
+     * created in ActivityLib:toModel. */
     this.roles = [
-      new Kind(HQDM_NS + "role", "Participant", true),
+      new Kind(HQDM_NS + "participant", "Participant", true),
     ];
     this.defaultRole = this.roles[0];
     this.activityTypes = [

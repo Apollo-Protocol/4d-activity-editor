@@ -380,10 +380,23 @@ export const toHQDM = (model: Model): HQDMModel => {
     );
   }
 
-  // Find or create the kind of individual and add the individual to the kind.
-  const createKind = (hqdmSt: Thing, uiKind: Maybe<Kind>, superkind: Thing) => {
+  /**
+   * Find or create the kind of individual and add the individual to the kind.
+   *
+   * This will find an HQDM kind corresponding to the UIModel kind,
+   * creating it if necessary. If created this HQDM kind will derive
+   * from the given base kind. Then the HDQM Thing will be made a member
+   * of that kind. If the UIKind is undefined then the base kind will be
+   * used directly.
+   *
+   * @param hqdmSt The Thing to set the kind of.
+   * @param uiKind The UIModel Kind to build an HQDM kind from.
+   * @param baseKind The base kind to derive the HQDM kind from.
+   * @returns the HQDM kind.
+   */
+  const setKindFromUI = (hqdmSt: Thing, uiKind: Maybe<Kind>, baseKind: Thing) => {
     if (!uiKind || uiKind.isCoreHqdm) {
-      const stKind = uiKind ? new Thing(uiKind.id) : superkind;
+      const stKind = uiKind ? new Thing(uiKind.id) : baseKind;
       hqdm.addMemberOfKind(hqdmSt, stKind);
       return stKind;
     } 
@@ -392,7 +405,7 @@ export const toHQDM = (model: Model): HQDMModel => {
     const stKindId = BASE + uiKind.id;
     const stKind = hqdm.exists(stKindId)
       ? new Thing(stKindId)
-      : hqdm.createThing(superkind, stKindId);
+      : hqdm.createThing(baseKind, stKindId);
 
     if (uiKind) {
       hqdm.relate(ENTITY_NAME, stKind, new Thing(uiKind.name)); // Set the entity name in case it was created
@@ -445,7 +458,7 @@ export const toHQDM = (model: Model): HQDMModel => {
       );
     }
 
-    createKind(player, i.type, kind_of_ordinary_physical_object);
+    setKindFromUI(player, i.type, kind_of_ordinary_physical_object);
   });
 
   // Add the activities to the model
@@ -477,7 +490,7 @@ export const toHQDM = (model: Model): HQDMModel => {
         activityTo
       );
     }
-    const actKind = createKind(act, a.type, kind_of_activity);
+    const actKind = setKindFromUI(act, a.type, kind_of_activity);
     hqdm.beginning(act, activityFrom);
     hqdm.ending(act, activityTo);
 
@@ -495,7 +508,7 @@ export const toHQDM = (model: Model): HQDMModel => {
       hqdm.addToPossibleWorld(participation, modelWorld);
 
       // Find or create the role (a role is a kind_of_participant).
-      const pRole = createKind(participation, p.role, role);
+      const pRole = setKindFromUI(participation, p.role, role);
       hqdm.addMemberOfKind(participation, participant);
 
       // The kind_of_activity needs to define the roles it consists of, and the reverse relationship.

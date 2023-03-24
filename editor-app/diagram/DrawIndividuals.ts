@@ -56,8 +56,8 @@ export function drawIndividuals(ctx: DrawContext) {
   /* yuck */
   let next_y = config.layout.individual.topMargin + config.layout.individual.gap;
   for (const i of individuals) {
-    const start = i.beginning >= 0;
-    const stop = i.ending < Model.END_OF_TIME;
+    const start = i.beginning >= startOfTime;
+    const stop = i.ending <= endOfTime;
 
     const x = start
       ? lhs_x + timeInterval * (i.beginning - startOfTime)

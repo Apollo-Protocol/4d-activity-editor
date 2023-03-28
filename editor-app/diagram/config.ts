@@ -66,68 +66,77 @@ export interface ConfigData {
 }
 
 export const config: ConfigData = {
-  viewPort: {
-    zoom: 1,
-    x: 1000, //Sets the viewport. All other values are relative to this. The Y dimension is caculated from the objects to draw.
+  "viewPort": {
+    "zoom": 1,
+    "x": 1000
   },
-  layout: {
-    individual: {
-      topMargin: 25, //Margin above the first/highest individual.
-      bottomMargin: 30, //Margin below the last/lowest individual.
-      height: 40, //Height of each individual
-      gap: 25, //Gap between each individual.
-      xMargin: 40, //The margin on either side of all individuals.
-      temporalMargin: 10, //an area at each end of an individual which activities cannot enter
-      textLength: 100, //An area given to the individual text. Could be calulated from the labels, perhaps with a max value applied.
-    },
+  "layout": {
+    "individual": {
+      "topMargin": 25,
+      "bottomMargin": 30,
+      "height": 20,
+      "gap": 10,
+      "xMargin": 40,
+      "temporalMargin": 10,
+      "textLength": 100
+    }
   },
-  presentation: {
-    individual: {
-      strokeWidth: "1px", //Inidividal border width
-      stroke: "#7F7F7F", //Individual stroke colour
-      fill: "#B1B1B0", //Individual fill colour
-      fillHover: "#8d8d8b", //Individual fill colour
+  "presentation": {
+    "individual": {
+      "strokeWidth": "1px",
+      "stroke": "#7F7F7F",
+      "fill": "#B1B1B0",
+      "fillHover": "#8d8d8b"
     },
-    activity: {
-      strokeWidth: "2px", // Activity border width
-      stroke: ["#29123b"], //Activity stroke colour
-      strokeDasharray: "5,3", //The dashed scheme applied to activity borders
-      fill: ["#7030A0"], //Activity fill colour
-      opacity: "0.5", //Opacity of activity fill
-      opacityHover: "0.7", //Opacity of activity fill
+    "activity": {
+      "strokeWidth": "1px",
+      "stroke": [
+        "#29123b"
+      ],
+      "strokeDasharray": "5,3",
+      "fill": [
+        "#440099",
+        "#e7004c",
+        "#ff9664",
+        "#00bbcc",
+        "#a1ded2",
+        "#981f92"
+      ],
+      "opacity": "0.5",
+      "opacityHover": "0.7"
     },
-    participation: {
-      strokeWidth: "2px", // Activity border width
-      stroke: "#29123b", //Activity stroke colour
-      strokeDasharray: "5,3", //The dashed scheme applied to activity borders
-      fill: "#F2F2F2", //Activity fill colour
-      opacity: "0.5", //Opacity of activity fill
-      opacityHover: "0.9", //Opacity of activity fill
+    "participation": {
+      "strokeWidth": "1px",
+      "stroke": "#29123b",
+      "strokeDasharray": "5,3",
+      "fill": "#F2F2F2",
+      "opacity": "0.5",
+      "opacityHover": "0.9"
     },
-    axis: {
-      colour: "#7F7F7F", //The fill colour of the axis
-      width: 15, //The width of the axis lines
-      margin: 20, //The margin between the diagram edge and the axis lines
-      textOffsetX: 5, //Helps to tweak the X axis text into the correct position
-      textOffsetY: 4, //Helps to tweak the Y axis text into the correct position
-      endMargin: 30, //Margin at the end of the arrows
-    },
+    "axis": {
+      "colour": "#7F7F7F",
+      "width": 15,
+      "margin": 20,
+      "textOffsetX": 5,
+      "textOffsetY": 4,
+      "endMargin": 30
+    }
   },
-  labels: {
-    individual: {
-      enabled: true,
-      leftMargin: 5, //The margin applied to the left of the individual label
-      topMargin: 5, //The margin applied to the top of the individual label to center it on the rectangle.
-      color: "black", //Individual label color
-      fontSize: "0.8em", //Individual label font size
-      maxChars: 24,
+  "labels": {
+    "individual": {
+      "enabled": true,
+      "leftMargin": 5,
+      "topMargin": 5,
+      "color": "black",
+      "fontSize": "0.8em",
+      "maxChars": 24
     },
-    activity: {
-      enabled: true,
-      topMargin: 5, //The margin applied to the top of the activity label to support correct placement
-      color: "#441d62",
-      fontSize: "0.8em", //Activity label font size
-      maxChars: 14,
-    },
-  },
+    "activity": {
+      "enabled": true,
+      "topMargin": 5,
+      "color": "#441d62",
+      "fontSize": "0.7em",
+      "maxChars": "24"
+    }
+  }
 };

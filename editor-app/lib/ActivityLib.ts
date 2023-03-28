@@ -1,6 +1,7 @@
 import { v4 as uuidv4 } from "uuid";
 import { ActivityImpl } from "./ActivityImpl";
 import {
+  APOLLO_NS,
   activity,
   class_of_event,
   CONSISTS_OF_BY_CLASS,
@@ -25,6 +26,7 @@ import {
 import { IndividualImpl } from "./IndividualImpl";
 import { Kind, Model } from "./Model";
 import { STExtent } from "./Schema";
+import { EDITOR_VERSION } from "./version";
 
 /**
  * ActivityLib
@@ -34,7 +36,13 @@ import { STExtent } from "./Schema";
 export const status = (): string => "OK";
 
 // The IRI base for this application.
-export const BASE = "https://www.amrc.co.uk/hqdm/activities#";
+const EDITOR_NS = `${APOLLO_NS}/2023/diagram-editor`;
+const EDITOR_REPR = `${EDITOR_NS}#hqdm-representation`;
+export const BASE = `${EDITOR_NS}/diagram#`;
+
+const AMRC_BASE = "https://www.amrc.co.uk/hqdm/activities#";
+
+const currentReprVersion = "1";
 
 // A well-known ENTITY_NAME used to find the AMRC Community entity.
 const AMRC_COMMUNITY = "AMRC Community";
@@ -69,7 +77,7 @@ export const load = (ttl: string): Model | Error => {
 export const n3Options = {
   prefixes: {
     hqdm: HQDM_NS,
-    amrc: BASE,
+    diag: BASE,
     rdf: "http://www.w3.org/1999/02/22-rdf-syntax-ns#",
   },
 };
@@ -148,10 +156,21 @@ const createTimeValue = (hqdm: HQDMModel, modelWorld: Thing, time: number): Thin
   return thing;
 };
 
+const checkReprVersion = (hqdm: HQDMModel) => {
+  const reprVersion = hqdm.getVersionInfo(EDITOR_REPR);
+  if (reprVersion == undefined) {
+    hqdm.replaceIriPrefix(AMRC_BASE, BASE);
+  }
+  else if (reprVersion != currentReprVersion)
+    throw new Error("Unrecognised data version");
+};
+
 /**
  * Converts an HQDMModel to a UI Model.
  */
 export const toModel = (hqdm: HQDMModel): Model => {
+  checkReprVersion(hqdm);
+
   // Kinds are immutable so it's fine to use constant objects.
   // XXX These duplicate the code in lib/Model.ts.
   const ordPhysObjKind = new Kind(ordinary_physical_object.id, "Resource", true);
@@ -317,6 +336,8 @@ export const addRefDataToModel = (hqdm: HQDMModel, m: Model): Model => {
 export const toHQDM = (model: Model): HQDMModel => {
   // Create the HQDM Model and create some necssary HQDM things.
   const hqdm = new HQDMModel();
+  hqdm.setVersionInfo(EDITOR_REPR, currentReprVersion);
+  hqdm.setVersionInfo(EDITOR_NS, EDITOR_VERSION);
 
   // Normalise child activities to sit temporally within their parents.
   model.normalizeActivityBounds();

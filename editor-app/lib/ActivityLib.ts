@@ -514,7 +514,7 @@ export const toHQDM = (model: Model): HQDMModel => {
       // The kind_of_activity needs to define the roles it consists of,
       // and the reverse relationship. However, we shouldn't define core
       // HQDM kinds.
-      if (!p.role.isCoreHqdm) {
+      if (p.role && !p.role.isCoreHqdm) {
         hqdm.relate(PART_OF_BY_CLASS, pRole, actKind);
         hqdm.relate(CONSISTS_OF_BY_CLASS, actKind, pRole);
       }

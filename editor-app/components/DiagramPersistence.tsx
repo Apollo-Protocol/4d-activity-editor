@@ -60,6 +60,9 @@ const DiagramPersistence = (props: any) => {
           setDataset(loadedModel);
         } else {
           const loadedModel = load(ttl);
+          if (loadedModel instanceof Error) {
+            throw loadedModel;
+          }
           loadedModel.filename = name;
           setDataset(loadedModel);
         }

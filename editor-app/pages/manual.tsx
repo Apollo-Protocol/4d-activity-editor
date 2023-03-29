@@ -30,10 +30,11 @@ export default function Page() {
 
             <p><img src="/manual/boil-egg-basic.svg"/></p>
 
-            <p>The axes of the diagram are labelled 'space' and 'time',
-            but this should be taken rather broadly. The 'time' axis
-            shows activities happening one after another; the 'space'
-            axis shows the resources and individuals involved in the
+            <p>The axes of the diagram are labelled &lsquo;space&rsquo;
+            and &lsquo;time&rsquo;, but this should be taken rather
+            broadly. The &lsquo;time&rsquo; axis shows activities
+            happening one after another; the &lsquo;space&rsquo; axis
+            shows the resources and individuals involved in the
             activities.</p>
 
             <p>The grey horizontal bars indicate the lifetimes of the
@@ -58,21 +59,22 @@ export default function Page() {
             in the activities: people, machines, tools, materials,
             anything which is needed for the activity to be carried out.</p>
 
-            <p>Create a new individual by clicking the 'Add Individual'
-            button.</p>
+            <p>Create a new individual by clicking the &lsquo;Add
+            Individual&rsquo; button.</p>
 
             <p><img src="/manual/add-individual.png"/></p>
 
-            <p>The new individual needs a name, at minimum. The 'Type'
-            field can be used to categorise individuals, to assist with
-            the analysis; there are three built-in types, and more can
-            be added with the 'Add Type' button. To start with there is
-            no harm in leaving all individuals as the default 'Resource'
-            type.</p>
+            <p>The new individual needs a name, at minimum. The
+            &lsquo;Type&rsquo; field can be used to categorise
+            individuals, to assist with the analysis; there are three
+            built-in types, and more can be added with the &lsquo;Add
+            Type&rsquo; button. To start with there is no harm in
+            leaving all individuals as the default
+            &lsquo;Resource&rsquo; type.</p>
 
-            <p>The 'Begins with participant' and 'Ends with participant'
-            switches are used for individuals that are created or
-            destroyed as part of the activity.</p>
+            <p>The &lsquo;Begins with participant&rsquo; and &lsquo;Ends
+            with participant&rsquo; switches are used for individuals
+            that are created or destroyed as part of the activity.</p>
 
             <p><img src="/manual/created-individuals.png"/></p>
 
@@ -80,24 +82,25 @@ export default function Page() {
 
             <p>Now we have some individuals, we can create the
             activities they are involved in. Create a new activity by
-            clicking the 'Add Activity' button.</p>
+            clicking the &lsquo;Add Activity&rsquo; button.</p>
 
             <p><img src="/manual/add-activity.png"/></p>
 
-            <p>An activity again needs a name. The 'Type' field, as with
-            individuals, can be used to categorise activities, or can be
-            left at the default 'Task' type.</p>
+            <p>An activity again needs a name. The &lsquo;Type&rsquo;
+            field, as with individuals, can be used to categorise
+            activities, or can be left at the default &lsquo;Task&rsquo;
+            type.</p>
 
             <p>An activity happens over a particular period of time. The
-            'Beginning' and 'Ending' fields specify when this activity
-            starts and finishes. The time scale doesn't mean anything in
-            particular.</p>
+            &lsquo;Beginning&rsquo; and &lsquo;Ending&rsquo; fields
+            specify when this activity starts and finishes. The time
+            scale doesn&apos;t mean anything in particular.</p>
 
-            <p>The 'Participants' field at the bottom specifies which
-            individuals are involved in this activity. You can only add
-            individuals that already exist; if you need a new
-            individual, save the activity and come back in to it when
-            you've created the individual.</p>
+            <p>The &lsquo;Participants&rsquo; field at the bottom
+            specifies which individuals are involved in this activity.
+            You can only add individuals that already exist; if you need
+            a new individual, save the activity and come back in to it
+            when you&apos;ve created the individual.</p>
 
             <p><img src="/manual/created-activity.png"/></p>
 
@@ -112,42 +115,42 @@ export default function Page() {
             have its beginning or ending changed, as otherwise it will
             entirely overlap the activity it was copied from.</p>
 
-            <p>Clicking on a 'participant', which is the shaded box
-            indicating that an individual participates in an activity,
-            brings up a new box:</p>
+            <p>Clicking on a &lsquo;participant&rsquo;, which is the
+            shaded box indicating that an individual participates in an
+            activity, brings up a new box:</p>
 
             <p><img src="/manual/edit-participant.png"/></p>
 
             <p>This allows you to specify that this individual performs
             a particular role in the activity. So, for example, if Bob
-            is hammering in a nail, then Bob might be 'the person
-            hammering in the nail', and the nail might be 'the nail
-            being hammered in'. For such a simple example this seems
-            silly, but when you are trying to build a specification for
-            the different types of activity you need to model this level
-            of detail becomes more important.</p>
+            is hammering in a nail, then Bob might be &lsquo;the person
+            hammering in the nail&rsquo;, and the nail might be
+            &lsquo;the nail being hammered in&rsquo;. For such a simple
+            example this seems silly, but when you are trying to build a
+            specification for the different types of activity you need
+            to model this level of detail becomes more important.</p>
 
             <h3>Undo, and starting again</h3>
 
-            <p>There is an 'Undo' button on the right-hand side; this
-            will undo the most recent change you have made. The undo
-            history is fairly short; the button disappears when you
-            can't undo any more.</p>
+            <p>There is an &lsquo;Undo&rsquo; button on the right-hand
+            side; this will undo the most recent change you have made.
+            The undo history is fairly short; the button disappears when
+            you can&apos;t undo any more.</p>
 
-            <p>The 'Clear diagram' button will start again with a clean
-            diagram.</p>
+            <p>The &lsquo;Clear diagram&rsquo; button will start again
+            with a clean diagram.</p>
 
             <h3>Changing the display</h3>
 
-            <p>The 'Settings' button lets you change how the diagram is
-            displayed. The options are mostly fairly
+            <p>The &lsquo;Settings&rsquo; button lets you change how the
+            diagram is displayed. The options are mostly fairly
             self-explanatory.</p>
 
-            <p>There are buttons in the 'Settings' dialog to save your
-            settings to a file and to load a settings file in again.
-            Note that if you refresh the page, or go away to a different
-            page and come back, that your settings will reset to the
-            defaults.</p>
+            <p>There are buttons in the &lsquo;Settings&rsquo; dialog to
+            save your settings to a file and to load a settings file in
+            again. Note that if you refresh the page, or go away to a
+            different page and come back, that your settings will reset
+            to the defaults.</p>
 
             <h2>Breaking down activities</h2>
 
@@ -158,8 +161,8 @@ export default function Page() {
             overlooked.</p>
 
             <p>To break an activity down into sub-tasks, click on the
-            activity to bring up the 'Edit Activity' dialog and then
-            click the 'Sub-tasks' button.</p>
+            activity to bring up the &lsquo;Edit Activity&rsquo; dialog
+            and then click the &lsquo;Sub-tasks&rsquo; button.</p>
 
             <p><img src="/manual/sub-tasks.png"/></p>
 
@@ -182,31 +185,31 @@ export default function Page() {
             <h3>Saving and loading Turtle files</h3>
 
             <p>Diagrams can be saved to your local computer in a format
-            called 'Turtle'. (This is a format used by the RDF data
-            modelling community.) The 'Save TTL' and 'Load TTL' buttons
-            can be used for this.</p>
+            called &lsquo;Turtle&rsquo;. (This is a format used by the
+            RDF data modelling community.) The &lsquo;Save TTL&rsquo;
+            and &lsquo;Load TTL&rsquo; buttons can be used for this.</p>
 
             <p><img src="/manual/save-load-ttl.png"/></p>
 
-            <p>The 'Reference Types only' switch arranges for save and
-            load to ignore any individuals or activities present in the
-            diagram or in the file being loaded. Instead, the buttons
-            will just save or load types you have defined (types of
-            individual, activity or participant). This makes it possible
-            to start building up libraries of types which can be reused
-            across diagrams.</p>
+            <p>The &lsquo;Reference Types only&rsquo; switch arranges
+            for save and load to ignore any individuals or activities
+            present in the diagram or in the file being loaded. Instead,
+            the buttons will just save or load types you have defined
+            (types of individual, activity or participant). This makes
+            it possible to start building up libraries of types which
+            can be reused across diagrams.</p>
 
             <h3>Loading an example</h3>
 
             <p>Some examples are provided to make it easier to get
-            started. These can be accessed from the 'Load example'
-            dropdown.</p>
+            started. These can be accessed from the &lsquo;Load
+            example&rsquo; dropdown.</p>
 
             <p><img src="/manual/load-example.png"/></p>
 
-            <p>The 'boil an egg' example is relatively simple, if
+            <p>The &lsquo;boil an egg&rsquo; example is relatively simple, if
             perhaps analysed to a rather excessive level of detail. The
-            'crane lift' example is the full diagram from <Link
+            &lsquo;crane lift&rsquo; example is the full diagram from <Link
             href="/crane">the example analysis</Link>.</p>
 
             <h3>Exporting other file formats</h3>
@@ -219,9 +222,9 @@ export default function Page() {
             <p>The editor will also export the data backing the diagram
             as JSON-LD; this may be easier to process from other tools
             than the Turtle file format. Currently the JSON produced is
-            not very friendly to process with tools that don't
+            not very friendly to process with tools that don&apos;t
             understand RDF; this may be changed in the future. For now
-            don't rely on the JSON schema, but ensure the JSON is
+            don&apos;t rely on the JSON schema, but ensure the JSON is
             processed as JSON-LD.</p>
 
           </Col>

@@ -71,6 +71,7 @@ export default function ActivityDiagramWrap() {
     setDataset(undoHistory[0]);
     setUndoHistory(undoHistory.slice(1));
   };
+  const clearDiagram = () => replaceDataset(new Model());
 
   const svgRef = useRef<SVGSVGElement>(null);
 
@@ -135,21 +136,17 @@ export default function ActivityDiagramWrap() {
           rightClickParticipation={rightClickParticipation}
           svgRef={svgRef}
         />
-        <Row className="mt-3">
-          <Col className="d-flex justify-content-center">
-            <ExportSvg dataset={dataset} svgRef={svgRef} />
-            <ExportJson dataset={dataset} />
-            <SetConfig
-              configData={configData}
-              setConfigData={setConfigData}
-              showConfigModal={showConfigModal}
-              setShowConfigModal={setShowConfigModal}
-            />
-            <SortIndividuals
+        <Row className="mt-3 justify-content-between">
+          <Col className="d-flex justify-content-start">
+            <SetIndividual
+              deleteIndividual={deleteIndividual}
+              setIndividual={setIndividual}
+              show={showIndividual}
+              setShow={setShowIndividual}
+              selectedIndividual={selectedIndividual}
+              setSelectedIndividual={setSelectedIndividual}
               dataset={dataset}
               updateDataset={updateDataset}
-              showSortIndividuals={showSortIndividuals}
-              setShowSortIndividuals={setShowSortIndividuals}
             />
             <SetActivity
               show={showActivity}
@@ -162,16 +159,6 @@ export default function ActivityDiagramWrap() {
               activityContext={activityContext}
               setActivityContext={setActivityContext}
             />
-            <SetIndividual
-              deleteIndividual={deleteIndividual}
-              setIndividual={setIndividual}
-              show={showIndividual}
-              setShow={setShowIndividual}
-              selectedIndividual={selectedIndividual}
-              setSelectedIndividual={setSelectedIndividual}
-              dataset={dataset}
-              updateDataset={updateDataset}
-            />
             <SetParticipation
               setActivity={setActivity}
               show={showParticipation}
@@ -183,7 +170,26 @@ export default function ActivityDiagramWrap() {
               dataset={dataset}
               updateDataset={updateDataset}
             />
-            <Undo hasUndo={undoHistory.length > 0} undo={undo} />
+            <SortIndividuals
+              dataset={dataset}
+              updateDataset={updateDataset}
+              showSortIndividuals={showSortIndividuals}
+              setShowSortIndividuals={setShowSortIndividuals}
+            />
+          </Col>
+          <Col className="d-flex justify-content-end">
+            <Undo 
+              hasUndo={undoHistory.length > 0}
+              undo={undo}
+              clearDiagram={clearDiagram}/>
+            <SetConfig
+              configData={configData}
+              setConfigData={setConfigData}
+              showConfigModal={showConfigModal}
+              setShowConfigModal={setShowConfigModal}
+            />
+            <ExportSvg dataset={dataset} svgRef={svgRef} />
+            <ExportJson dataset={dataset} />
           </Col>
         </Row>
         <Row className="mt-3">

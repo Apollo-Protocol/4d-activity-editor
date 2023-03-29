@@ -15,6 +15,9 @@
 # production
 /build
 
+# generated during build
+lib/version.ts
+
 # misc
 .DS_Store
 *.pem

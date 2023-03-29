@@ -136,7 +136,7 @@ export const config: ConfigData = {
       "topMargin": 5,
       "color": "#441d62",
       "fontSize": "0.7em",
-      "maxChars": "24"
+      "maxChars": 24
     }
   }
 };

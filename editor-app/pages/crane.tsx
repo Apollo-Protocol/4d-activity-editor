@@ -19,13 +19,15 @@ export default function Page() {
             <p>This document walks through the process of analysing the
             data required to perform an industrial activity, in this
             case a lift with an overhead crane. The purpose of this
-            analysis is to illustrate the application of this
-            methodology published by CIS.</p>
+            analysis is to illustrate the application of the
+            activity analysis method.</p>
 
-            <p>This analysis only performs Stage 1 of the methodology,
-            that of identifying all participants involved in the
-            activity in question and identifying the decisions for which
-            we require information.</p>
+            <p>This analysis only performs Stage 1 of the full information
+              requirements methodology, that of identifying all 
+            participants involved in the activity in question and 
+            identifying the decisions for which we require information.</p>
+
+            <p className="text-danger">Do we have a picture of the crane?</p>
 
             <h2>Top-level approach</h2>
             <p>At the top level, the methodology is about identifying
@@ -45,12 +47,17 @@ export default function Page() {
             collecting a lot of data you can&apos;t make any use of.)</p>
 
             <h2>Lifecycle Activity Model</h2>
-            <p className="amrc-fixme">[BM] I am still unclear about what
-            this is and why it is useful. Possibly this crane lift
-            example is too small for this to apply?</p>
-            <p className="amrc-fixme">Does this consist basically of
-            building a class library of activity types? (For the crane
-            lift we only have one activity of each type...)</p>
+            <p> Everything has a lifecycle; comprising at least a start 
+            and an end.  Activities are no different.  If we wish to 
+            support decisions with information throughout the lifecycle 
+            of a set of business activities we need to have some 
+            representation of what these activities are.</p>
+            
+            <p>If done diligently the activity models can be used directly
+            to develop information models that match the intended 
+            activities. As part of a continuous approach to improvement, 
+            the activity models can support busniess performance analysis 
+            and can be updated to better reflect ongoing activities.</p>
 
             <h2>Analysing the activities</h2>
             <p>The first step in analysing a particular activity is to
@@ -59,7 +66,8 @@ export default function Page() {
             Method Statement document specifying how to perform the lift
             and generated a diagram showing the steps involved, the
             objects (human, mechanical and documentary) listed in the
-            RAMS as being involved in the lift, and which steps required
+            RAMS <span className="text-danger">What's RAMS?</span> as 
+            being involved in the lift, and which steps required
             which participants.</p>
 
             <h3>Representing a step on the diagram</h3>
@@ -157,11 +165,10 @@ export default function Page() {
 
             <p>Once the sub-task has been analysed, it is helpful to go
             back to the top-level view and add the new individuals
-            identified as participants in the top-level activity. <span
-            className="amrc-fixme">Should the editor do this
-            automatically?</span>
+            identified as participants in the top-level activity.
 
             <br/><img src="/crane/sub-inspect-top.svg"/></p>
+            <p>This can be loaded as an example in the Editor.</p>
 
             <h2>Identifying information required for decisions</h2>
             <p>Having identified the decision points in the activity, we

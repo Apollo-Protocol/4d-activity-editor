@@ -1,7 +1,10 @@
 import Head from "next/head";
+import Image from "next/image";
 import Link from "next/link";
 import { Col, Container, Row } from "react-bootstrap";
 import styles from "@/styles/Home.module.css";
+
+import sevenCircles from "@/public/7CirclesMedium2.png";
 
 export default function Page() {
   return (
@@ -12,16 +15,27 @@ export default function Page() {
         <link rel="icon" href="/favicon.ico" />
       </Head>
       <Container>
-        <Row className="justify-content-center">
+        <Row className="row-cols-1 row-cols-lg-2">
           <Col className="amrc-text">
             <h1>Integrated information management</h1>
 
-            <p>Running a business of any size means making decisions,
-            all the time, at all levels. For any decision to be made
-            correctly, whether the decision is made by a person or by a
-            machine, information is essential; the correct information
-            must be available at the time it is needed and of a suitable
-            quality to enable the decision to be made properly.</p>
+            <p>Running a business, or other organisation, of any size 
+            means making decisions, all the time, at all levels. For any 
+            decision to be a good decision, whether the it is made 
+            by a person or by a machine, information is essential; the 
+            correct information must be available at the time it is needed
+            and of a suitable quality to enable the decision to be made 
+            properly. <b className="text-danger">Reference Apollo protocol 
+            and Matthew's IMF work.</b></p>
+            <p>This page gives an overview of what's involved in ensuring 
+            that information is fit for the collective decisions in an 
+            integrated and well managed managed eneterprise.</p>
+          </Col>
+          <Col>
+            <Image src={sevenCircles} alt="A layered view of what's needed
+            for integrated information management."/>
+            <p className="amrc-fixme">Elements of integrated information 
+            management</p>
           </Col>
         </Row>
         <Row className="row-cols-1 row-cols-lg-2">
@@ -38,7 +52,10 @@ export default function Page() {
             are also nearly always a large number of human systems and
             processes, often consisting of manually transferring data
             from one of these systems to another, or into or out of
-            unstructured human documents.</p>
+            unstructured human documents. Most organisations don't 
+            realise how reliant they are on unstructured information 
+            and the inherrent knowledge of people with experience of the 
+            activities, no matter how critical.</p>
 
             <p>Without taking an integrated approach to information
             management these translation processes will always continue
@@ -61,13 +78,14 @@ export default function Page() {
             information again or as a result of making bad decisions due
             to unavailable information.</p>
 
-            <p>The path out of this mess is through an integration data
+            <p>The path out of this mess is through a mature approach to
+            information quality management involving an integration data
             model. This is a data model constructed to be fit to
-            represent any and all data required by the business rather
-            than to make any particular business process easier to
-            implement. Ideally the model needs to be fit to represent
-            any data the business may need in the future, too, otherwise
-            the integration modelling will need to be redone (at
+            consistently represent any and all information required by the 
+            business rather than to make any particular business process 
+            easier to implement. Ideally the model needs to be fit to 
+            represent any data the business may need in the future, too, 
+            otherwise the modelling will need to be redone (at
             unnecessary expense); this is a very open-ended requirement
             to meet, and requires a different approach to data modelling
             from that traditionally taken.</p>
@@ -82,16 +100,18 @@ export default function Page() {
             objects and activities in different ways, because each
             system is only looking at the aspect of the situation that
             is useful for that system&apos;s particular purpose.</p>
-            <p className="amrc-fixme">We need an example here of two
-            systems modelling the same object in incompatible ways. The
-            telephone directory example from HQDM doesn&apos;t really seem to
-            fit...</p>
+
+            <p>Inconsistent data is not fit for integrated use and implies
+            ambiguity in what is being represented. Without a way of 
+            addressing the consistency challenge data will be semantically
+            and structurally ambiguous.</p>
 
             <p>The intention of the 4D approach to data modelling is to
             provide an overall framework within which to develop models
-            (technically called a <i>top-level ontology</i>) which
-            matches as closely to the physical reality as possible. The
-            reason for this is that where you have separate systems
+            (technically through the use of a 
+            <i>top-level ontology (TLO)</i>)
+            which matches as closely to the physical reality as possible. 
+            The reason for this is that where you have separate systems
             modelling the same real-world things using different data
             models the only common point of reference between the
             different systems is the real-world things they are
@@ -100,19 +120,27 @@ export default function Page() {
             world, rather than as is convenient for a particular
             business process, then you are effectively guaranteed at the
             start that anything in the real world will be representable
-            in your model.</p>
+            in your model.  Two models created independently for the same 
+            activity should be recognisably similar (this is not the case 
+            without a TLO).</p>
 
             <p>Developing such a framework from scratch is a difficult
             and highly technical process (the real world is a
             complicated place). However, an understanding of the
             technical foundations is not necessary in order to use the
             results. This activity modeller uses a top-level framework
-            called HDQM (High Quality Data Models) developed in the
-            early 2000s by Matthew West.</p>
+            called HDQM (High Quality Data Models) developed by Matthew 
+            West.</p>
 
-            <p className="amrc-fixme">I feel we need a paragraph about
-            the FDM here: &lsquo;a framework is being constructed which you
-            can use when it&apos;s ready&rsquo;...?</p>
+            <p>Recent work to develop an Information Management Framework 
+            comprising a Foundation Data Model that incorporates the 
+            necessary comittments of a TLO was summarised at&nbsp;
+            <a href="https://gateway.newton.ac.uk/event/tgmw80/programme">
+              this</a>&nbsp;event.</p>
+
+            <p>Please get in touch, and contribute to the open source 
+            resources, if you are interested in adopting or getting 
+            involved in this work.</p>
           </Col>
         </Row>
       </Container>

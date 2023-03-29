@@ -3,7 +3,7 @@ function Footer() {
   return (
     <>
       <footer id="footer">
-        <span>@AMRC</span>
+        <span>@AMRC in collaboration with @CIS</span>
       </footer>
     </>
   );

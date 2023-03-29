@@ -108,6 +108,7 @@ export default function Page() {
             them to the activity steps they are involved in.
 
             <br/><img src="/crane/rams-review.svg"/>
+            <br/><img src="/crane/rams-walk-route.svg"/>
             <br/><img src="/crane/rams-complete.svg"/>
             </p>
 

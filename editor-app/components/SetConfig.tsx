@@ -86,7 +86,7 @@ const SetConfig = (props: Props) => {
   return (
     <>
       <Button
-        variant="primary"
+        variant="secondary"
         onClick={() => setShowConfigModal(true)}
         className="mx-1"
       >

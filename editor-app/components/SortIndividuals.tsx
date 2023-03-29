@@ -39,7 +39,7 @@ const SortIndividuals = (props: any) => {
   return (
     <>
       <Button
-        variant="primary"
+        variant="secondary"
         onClick={() => setShowSortIndividuals(true)}
         className={items.length > 1 ? "mx-1 d-block" : "mx-1 d-none"}
       >

@@ -2,7 +2,7 @@ import React, { useState, useEffect } from "react";
 import Button from "react-bootstrap/Button";
 
 const Undo = (props: any) => {
-  const { hasUndo, undo } = props;
+  const { hasUndo, undo, clearDiagram } = props;
 
   return (
     <>
@@ -12,6 +12,13 @@ const Undo = (props: any) => {
         className={hasUndo ? "mx-1 d-block" : "mx-1 d-none"}
       >
         Undo
+      </Button>
+      <Button
+        variant="danger"
+        onClick={clearDiagram}
+        className="mx-1 d-block"
+      >
+        Clear diagram
       </Button>
     </>
   );

@@ -45,29 +45,42 @@ export default function Page() {
             collecting a lot of data you can&apos;t make any use of.)</p>
 
             <h2>Lifecycle Activity Model</h2>
-            <p className="amrc-fixme">[BM] I am still unclear about what
-            this is and why it is useful. Possibly this crane lift
-            example is too small for this to apply?</p>
-            <p className="amrc-fixme">Does this consist basically of
-            building a class library of activity types? (For the crane
-            lift we only have one activity of each type...)</p>
+
+            <p>The first step in the methodology is &lsquo;Adopt or
+            develop a Top-Level activity lifecycle model&rsquo;. Such a
+            model is essentially a collection of definitions of all the
+            different types of activity you care about; what resources
+            they involve, what information they require, and how they
+            are modelled in your data management systems.</p>
+
+            <p>In some industries there will be existing libraries of
+            activity models (or process models) which can be used or
+            adapted for this purpose. However, in most cases these will
+            not exist. In this situation it is probably easier to start
+            by analysing a few of your existing processes, and build up
+            a library of common activity types as you go. The diagram
+            editor option to import and export reference data (activity,
+            resource and participant types) may be helpful here.</p>
 
             <h2>Analysing the activities</h2>
+
             <p>The first step in analysing a particular activity is to
             identify the steps involved and the points where decisions
             are required. In this case we started with an existing
             Method Statement document specifying how to perform the lift
             and generated a diagram showing the steps involved, the
             objects (human, mechanical and documentary) listed in the
-            RAMS as being involved in the lift, and which steps required
-            which participants.</p>
+            Method Statement as being involved in the lift, and which
+            steps required which participants.</p>
 
             <h3>Representing a step on the diagram</h3>
-            <p>Take the first step in the process as documented, and
-            represent it on the diagram. Horizontal boxes represent
-            physical objects involved in the process: people, machines,
-            documents, anything at all in the real world that might
-            affect the outcome of the activity. Vertical boxes represent
+
+            <p>Take the first step in the process as documented, and {}
+            <Link href="/manual#creating-a-diagram">represent it on the
+            diagram</Link>. Horizontal boxes represent physical objects
+            involved in the process: people, machines, documents,
+            anything at all in the real world that might affect the
+            outcome of the activity. Vertical boxes represent
             activities, or steps in activities; these are arranged in a
             timeline. Filled in sections where an activity and a
             physical object overlap indicate that the object is directly
@@ -75,34 +88,17 @@ export default function Page() {
 
             <br/><img src="/crane/rams-briefing.svg"/></p>
 
-            <p>To create this step on the diagram, first the &lsquo;Add
-            Individual&rsquo; button needs to be used to create the two
-            people involved.
-
-            <br/><img src="/crane/add-individual.png"/>
-
-            <br/>An &lsquo;individual&rsquo; represents any object
-            involved in the activity; in this case we are representing a
-            person, but an individual could also represent a machine or
-            a document or anything else. Each individual has a name and
-            a type, which in this case is &lsquo;Person&rsquo;.</p>
-
-            <p>Next we need to create the activity using the &lsquo;Add
-            Activity&rsquo; button.
-
-            <br/><img src="/crane/add-activity.png"/>
-
-            <br/>An activity also has a name and a type, but there are
-            no pre-defined activity types. Use the &lsquo;Add Type&rsquo; button to
-            create a suitable activity type first. An activity needs a
-            starting and ending time; these are on a nominal scale, the
-            units don&apos;t represent real time. An activity also needs
-            participants, which can be selected from the existing
-            individuals.</p>
-
-            <p><img src="/crane/rams-briefing.svg"/></p>
+            <p>There are two people involved in this activity; they have
+            both been give the type &lsquo;Person&rsquo;. The activity
+            itself has been given the type &lsquo;Briefing&rsquo;; if we
+            were carrying our analysis on to further activities it would
+            be useful to be able to identify all the
+            &lsquo;Briefing&rsquo; steps across all analysed activities,
+            for example to require that a suitable record must be
+            kept.</p>
 
             <h3>Adding more steps</h3>
+
             <p>Continue adding the rest of the steps in the process as
             documented. Create new physical objects as needed and add
             them to the activity steps they are involved in.
@@ -112,7 +108,16 @@ export default function Page() {
             <br/><img src="/crane/rams-complete.svg"/>
             </p>
 
+            <p>The analysis at this point is very much following the
+            process documentation as given in the original Method
+            Statement document. This means that we have not yet tried to
+            identify any activity participants not originally part of
+            the process documentation. To do this we need to start
+            breaking down the steps further, and looking in more detail
+            at what each step involves.</p>
+
             <h3>Break down the individual steps.</h3>
+
             <p>It is then necessary to further analyse each step,
             breaking it down further if necessary and identifying the
             decision points. It is important at this stage to also
@@ -131,21 +136,19 @@ export default function Page() {
             checked, and a quarantine area where unsafe equipment is
             kept for inspection or disposal.</p>
 
-            <p className="amrc-fixme">This screenshot shows activities
-            that may be skipped (the quarantine steps) and entirely
-            omits the loops where we select new equipment and inspect
-            again.</p>
+            <p>In this diagram there are steps which may be omitted (if
+            the equpment is safe it will not be quarantined) and steps
+            which may be repeated (if we quarantine unsafe equipment we
+            need to choose another set and re-inspect). There are also
+            situations (an unsafe crane) where the entire activity will
+            need to be abandoned. Currently it is not clear how best to
+            model these situations; work is ongoing.</p>
 
-            <p>To create a sub-task breakdown like this, start by
-            clicking on an activity in the top-level diagram and
-            choosing &lsquo;Open sub-tasks&rsquo;. This will open a new
-            diagram view showing sub-tasks of the chosen task. The
-            navigation at the top shows which activity you are breaking
-            down at the moment and allows you to go back up the tree.
-
-            <br/><img src="/crane/sub-task-nav.png"/>
-
-            <br/>Now start creating activities as before. 
+            <p>To create a sub-task breakdown like this, <Link
+            href="/manual#breaking-down-activities">open the sub-tasks
+            of one of the existing steps</Link>. This will open a new
+            diagram view showing sub-tasks of the chosen task. Now start
+            creating activities as before. 
             
             <br/><img src="/crane/sub-inspect-first.svg"/>
 
@@ -158,25 +161,30 @@ export default function Page() {
 
             <p>Once the sub-task has been analysed, it is helpful to go
             back to the top-level view and add the new individuals
-            identified as participants in the top-level activity. <span
-            className="amrc-fixme">Should the editor do this
-            automatically?</span>
+            identified as participants in the top-level activity.
 
             <br/><img src="/crane/sub-inspect-top.svg"/></p>
 
+            <p>The completed diagram can be loaded into the editor from
+            the examples menu.</p>
+
             <h2>Identifying information required for decisions</h2>
+
             <p>Having identified the decision points in the activity, we
             now need to identify the information required to make these
             decisions, and track the objects involved back in time to
-            find where this information was created. Sometimes this may
-            involve going a long way back. For example, part of deciding
-            whether the crane is safe to use involves checking the
-            safety tag put on by the insurance safety inspector; this
-            means we need to track the history of the crane back at
-            least as far as the last inspection. Deciding whether the
-            crane is capable of performing the lift requires the crane&apos;s
-            working limits, which were supplied to us at the time the
-            crane was bought.</p>
+            find where this information was created.</p>
+
+            <p><img src="/crane/life-crane.svg"/></p>
+
+            <p>Sometimes this may involve going a long way back. For
+            example, part of deciding whether the crane is safe to use
+            involves checking the safety tag put on by the insurance
+            safety inspector; this means we need to track the history of
+            the crane back at least as far as the last inspection.
+            Deciding whether the crane is capable of performing the lift
+            requires the crane&apos;s working limits, which were
+            supplied to us at the time the crane was bought.</p>
 
             <h2>Deciding where to stop</h2>
             <p>One of the important questions to ask here is &lsquo;when

@@ -26,7 +26,7 @@ export default function Page() {
             that would not normally be considered by traditional project
             planning methods.</p>
 
-            <h2>How the diagrams work</h2>
+            <h2 id="how-the-diagrams-work">How the diagrams work</h2>
 
             <p><img src="/manual/boil-egg-basic.svg"/></p>
 
@@ -48,11 +48,11 @@ export default function Page() {
             where an activity overlaps an individual show where an
             individual participates in a particular task.</p>
 
-            <h2>Creating a diagram</h2>
+            <h2 id="creating-a-diagram">Creating a diagram</h2>
 
             <p><img src="/manual/new-diagram.png"/></p>
 
-            <h3>Creating individuals</h3>
+            <h3 id="creating-individuals">Creating individuals</h3>
 
             <p>The first thing to do when creating a new diagram is to
             add some individuals. These represent the resources involved
@@ -78,7 +78,7 @@ export default function Page() {
 
             <p><img src="/manual/created-individuals.png"/></p>
 
-            <h3>Creating activities</h3>
+            <h3 id="creating-activities">Creating activities</h3>
 
             <p>Now we have some individuals, we can create the
             activities they are involved in. Create a new activity by
@@ -104,9 +104,9 @@ export default function Page() {
 
             <p><img src="/manual/created-activity.png"/></p>
 
-            <h2>Changing a diagram</h2>
+            <h2 id="changing-a-diagram">Changing a diagram</h2>
 
-            <h3>Changing properties</h3>
+            <h3 id="changing-properties">Changing properties</h3>
 
             <p>Clicking on an individual or an activity will bring up
             the dialog used to create it so that its properties can be
@@ -152,7 +152,7 @@ export default function Page() {
             different page and come back, that your settings will reset
             to the defaults.</p>
 
-            <h2>Breaking down activities</h2>
+            <h2 id="breaking-down-activities">Breaking down activities</h2>
 
             <p>One of the aims of the methodology this diagram editor is
             intended to support is to break activities down into their
@@ -199,7 +199,7 @@ export default function Page() {
             it possible to start building up libraries of types which
             can be reused across diagrams.</p>
 
-            <h3>Loading an example</h3>
+            <h3 id="loading-an-example">Loading an example</h3>
 
             <p>Some examples are provided to make it easier to get
             started. These can be accessed from the &lsquo;Load

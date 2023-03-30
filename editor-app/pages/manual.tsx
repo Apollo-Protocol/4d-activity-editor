@@ -50,8 +50,8 @@ export default function Page() {
 
     <div className="col text-center"><img className="w-100" src="/manual/boil-egg-basic.svg"/></div>
 
-    <div className="w-100"></div>
-    <div className="col"><h2 className="">Creating A Diagram</h2></div>
+    <div className="w-100 mt-5"></div>
+    <div className="col"><h2 className="text-primary">Creating A Diagram</h2></div>
     <div className="col"></div>
     <div className="w-100"></div>
 
@@ -122,8 +122,8 @@ export default function Page() {
     </div>
     <div className="col text-center"><img className="w-100" src="/manual/created-activity.png"/></div>
 
-    <div className="w-100"></div>
-    <div className="col"><h2 className="">Changing A Diagram</h2></div>
+    <div className="w-100 mt-5"></div>
+    <div className="col"><h2 className="text-primary">Changing A Diagram</h2></div>
     <div className="col"></div>
     <div className="w-100"></div>
 
@@ -185,8 +185,8 @@ export default function Page() {
 
     <div className="col"></div>
 
-    <div className="w-100"></div>
-    <div className="col"><h2 className="">Breaking Down Activites</h2></div>
+    <div className="w-100 mt-5"></div>
+    <div className="col"><h2 className="text-primary">Breaking Down Activites</h2></div>
     <div className="col"></div>
     <div className="w-100"></div>
 
@@ -222,8 +222,8 @@ export default function Page() {
 
     <div className="col text-center"><img className="w-100" src="/manual/sub-activities.png"/></div>
 
-    <div className="w-100"></div>
-    <div className="col"><h2 className="">Saving and Loading Diagrams</h2></div>
+    <div className="w-100 mt-5"></div>
+    <div className="col"><h2 className="text-primary">Saving and Loading Diagrams</h2></div>
     <div className="col"></div>
     <div className="w-100"></div>
 

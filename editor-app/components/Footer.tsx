@@ -21,9 +21,9 @@ function Footer() {
     </div>
     <div className="col-sm">
     <a href="https://www.amrc.co.uk/">
-    <img src="https://www.amrc.co.uk/img/logo-header-2023.svg?1678105026" className="rounded float-left" alt="..."></img>
-    <img src="https://www.amrc.co.uk/img/logo-header-2023.svg?1678105026" className="rounded float-left" alt="..."></img>
+    <img src="https://www.amrc.co.uk/img/logo-header-2023.svg?1678105026" className="rounded w-55" alt="..."></img>
     </a>
+    <img src="Logo_CIS.png" className="float-right rounded w-50 " alt="..."></img>
     </div>
   </div>
 </div>

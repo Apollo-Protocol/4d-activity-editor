@@ -6,6 +6,7 @@ import { ButtonRow, LinkButton } from "@/components/Util";
 import styles from "@/styles/Home.module.css";
 
 import example1 from "@/public/example-diagram1.png";
+import example from "@/public/CraneLift-20230329b.png";
 
 export default function Home() {
   return (
@@ -72,7 +73,15 @@ export default function Home() {
           <a className="btn btn-outline-secondary" href="/management">Find out more</a>
         </div>
     </div>
-    <div className="col">Column</div>
+    <div className="col"><Image src={example} alt="
+              A space-time diagram has two axes, Time horizontally and
+              Space vertically. Resources are displayed as horizontal
+              bars spaced along the Space axis. Activities are displayed
+              as boxes spanning the resources they use and their
+              temporal extent on the Time axis. Where a resource
+              participates in an activity the overlapping area is
+              shaded.
+            " className="img-fluid"/></div>
   </div>
 </div>
 

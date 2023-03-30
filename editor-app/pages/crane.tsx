@@ -71,7 +71,7 @@ export default function Page() {
             editor option to import and export reference data (activity,
             resource and participant types) may be helpful here.</p>
 
-            <h2>Step 2: Analysing the activities</h2>
+            <h2>Step 2: Analysing the Activities</h2>
 
             <p>The first step in analysing a particular activity is to
             identify the steps involved and the points where decisions
@@ -125,7 +125,7 @@ export default function Page() {
             breaking down the steps further, and looking in more detail
             at what each step involves.</p>
 
-            <h3>Break down the individual steps.</h3>
+            <h3>Break down the individual steps</h3>
 
             <p>It is then necessary to further analyse each step,
             breaking it down further if necessary and identifying the
@@ -178,7 +178,7 @@ export default function Page() {
             <p>The completed diagram can be loaded into the editor from
             the examples menu.</p>
 
-            <h2>Step 3: Identifying decisions</h2>
+            <h2>Step 3: Identifying Decisions</h2>
 
             <p>This step has not been carried out in detail, as it is
             out of the scope of the activity diagram editor as such.

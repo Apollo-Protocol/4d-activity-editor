@@ -59,10 +59,10 @@ function CollapsibleExample() {
           <Nav className="me-auto">
             <NavItem href="/editor">Editor</NavItem>
             <NavItem href="/manual">Guide</NavItem>
-            <NavDropdown title="Activity modelling">
+            <NavDropdown title="Activity Modelling">
               <NavDropdown.Item href="/intro">Introduction</NavDropdown.Item>
-              <NavDropdown.Item href="/crane">Example analysis</NavDropdown.Item>
-              <NavDropdown.Item href="/management">Integrated information management</NavDropdown.Item>
+              <NavDropdown.Item href="/crane">Example Analysis</NavDropdown.Item>
+              <NavDropdown.Item href="/management">Integrated Information Management</NavDropdown.Item>
             </NavDropdown>
           </Nav>
         </Navbar.Collapse>

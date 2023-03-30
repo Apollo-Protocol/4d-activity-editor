@@ -19,13 +19,15 @@ export default function Page() {
             <p>This document walks through the process of analysing the
             data required to perform an industrial activity, in this
             case a lift with an overhead crane. The purpose of this
-            analysis is to illustrate the application of this
-            methodology published by CIS.</p>
+            analysis is to illustrate the application of the
+            activity analysis method.</p>
 
-            <p>This analysis only performs Stage 1 of the methodology,
-            that of identifying all participants involved in the
-            activity in question and identifying the decisions for which
-            we require information.</p>
+            <p>This analysis only performs Stage 1 of the full information
+              requirements methodology, that of identifying all 
+            participants involved in the activity in question and 
+            identifying the decisions for which we require information.</p>
+
+            <p className="text-danger">Do we have a picture of the crane?</p>
 
             <h2>Top-level approach</h2>
             <p>At the top level, the methodology is about identifying
@@ -46,12 +48,17 @@ export default function Page() {
 
             <h2>Lifecycle Activity Model</h2>
 
-            <p>The first step in the methodology is &lsquo;Adopt or
-            develop a Top-Level activity lifecycle model&rsquo;. Such a
-            model is essentially a collection of definitions of all the
-            different types of activity you care about; what resources
-            they involve, what information they require, and how they
-            are modelled in your data management systems.</p>
+            <p> Everything has a lifecycle; comprising at least a start 
+            and an end.  Activities are no different.  If we wish to 
+            support decisions with information throughout the lifecycle 
+            of a set of business activities we need to have some 
+            representation of what these activities are.</p>
+            
+            <p>If done diligently the activity models can be used directly
+            to develop information models that match the intended 
+            activities. As part of a continuous approach to improvement, 
+            the activity models can support busniess performance analysis 
+            and can be updated to better reflect ongoing activities.</p>
 
             <p>In some industries there will be existing libraries of
             activity models (or process models) which can be used or
@@ -164,6 +171,7 @@ export default function Page() {
             identified as participants in the top-level activity.
 
             <br/><img src="/crane/sub-inspect-top.svg"/></p>
+            <p>This can be loaded as an example in the Editor.</p>
 
             <p>The completed diagram can be loaded into the editor from
             the examples menu.</p>

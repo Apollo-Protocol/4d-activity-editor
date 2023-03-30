@@ -8,7 +8,11 @@
 }
 
 #helloGlobal {
-  color: green;
+  color: #0053a1;
+}
+
+.amrc-button {
+  color: #0053a1;
 }
 
 .amrc-text {
@@ -17,5 +21,5 @@
 }
 
 .amrc-fixme {
-  color: red;
+  color: black;
 }

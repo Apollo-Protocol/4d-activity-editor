@@ -17,7 +17,7 @@ export default function Page() {
       <Container>
         <Row className="row-cols-1 row-cols-lg-2">
           <Col className="amrc-text">
-            <h1>Integrated information management</h1>
+          <h1 className="display-4 font-weight-normal">Integrated Information Management</h1>
 
             <p>Running a business, or other organisation, of any size 
             means making decisions, all the time, at all levels. For any 

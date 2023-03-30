@@ -10,8 +10,8 @@ import example1 from "@/public/example-diagram1.png";
 export default function Home() {
   return (
     <>
-    <div className="container has-bg-img">
-      <div className="position-relative overflow-hidden p-3 p-md-5 m-md-3 text-center bg-light">
+    <div className="container ">
+      <div className="position-relative overflow-hidden p-3 p-md-5 m-md-3 text-center">
       <div className="col-md-5 p-lg-5 mx-auto my-5">
         <h1 className="display-4 font-weight-normal">Activity Model Development Tool</h1>
         <p className="lead font-weight-normal">Learn and practice planning in a new way. Helping you discover all the information you need for complete decision making and resource planning.</p>
@@ -25,7 +25,7 @@ export default function Home() {
     <div className="container">
   <div className="row">
     <div className="col">
-    <div className="bg-light mr-md-3 pt-3 px-3 pt-md-5 px-md-5 text-center overflow-hidden">
+    <div className="bg-light mr-md-3 pt-3 px-3 pt-md-5 px-md-5 text-center overflow-hidden h-100">
         <div className="my-3 p-3">
           <h2 className="display-5">Why</h2>
           <p className="lead">Knowing what information is needed to support any
@@ -37,7 +37,7 @@ export default function Home() {
       </div>
       </div>
     <div className="col">
-    <div className="bg-light mr-md-3 pt-3 px-3 pt-md-5 px-md-5 text-center overflow-hidden">
+    <div className="bg-light mr-md-3 pt-3 px-3 pt-md-5 px-md-5 text-center overflow-hidden h-100">
         <div className="my-3 p-3">
           <h2 className="display-5">How</h2>
           <p className="lead">By creating 4D activity diagrams, you are provided with the means to document the information
@@ -50,7 +50,28 @@ export default function Home() {
       </div>
       </div>
     <div className="w-100"></div>
-    <div className="col">Column</div>
+
+    <div className="container">
+  <div className="row">
+    <div className="col-sm">
+    </div>
+    <div className="col-6 border-bottom pb-3 mb-3">
+    </div>
+    <div className="col-sm">
+    </div>
+  </div>
+</div>
+
+    <div className="col">
+    <div className="my-3 p-3">
+          <h2 className="display-5">A Tool For The Future</h2>
+          <p className="lead">For those of you who wish to know more. The editor is built upon the principles of 4-Dimensionalism. By design
+          the user interface hides the theory and complexity, whilst providing you the benefits of such a 
+          comprehensive approach.   </p>
+          <p>Methodologies such as these will prove essential for the adoption and use of integrated information management.</p>
+          <a className="btn btn-outline-secondary" href="/management">Find out more</a>
+        </div>
+    </div>
     <div className="col">Column</div>
   </div>
 </div>

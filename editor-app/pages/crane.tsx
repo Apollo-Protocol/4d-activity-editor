@@ -16,18 +16,20 @@ export default function Page() {
         <Row className="justify-content-center row-cols-1 row-cols-lg-2">
           <Col>
             <h1>Analysing a crane lift</h1>
+
+            <p><img src="/crane/crane-lift.jpeg"/></p>
+
             <p>This document walks through the process of analysing the
             data required to perform an industrial activity, in this
             case a lift with an overhead crane. The purpose of this
             analysis is to illustrate the application of the
             activity analysis method.</p>
 
-            <p>This analysis only performs Stage 1 of the full information
-              requirements methodology, that of identifying all 
-            participants involved in the activity in question and 
-            identifying the decisions for which we require information.</p>
-
-            <p className="text-danger">Do we have a picture of the crane?</p>
+            <p>This analysis performs Step 2 of the {}<Link
+            href="/intro">information requirements methodology</Link>,
+            that of identifying all participants involved in the
+            activity in question and breaking down the steps in the
+            activity until decision points can be identified.</p>
 
             <h2>Top-level approach</h2>
             <p>At the top level, the methodology is about identifying
@@ -46,7 +48,7 @@ export default function Page() {
             may also be the case that you find you are currently
             collecting a lot of data you can&apos;t make any use of.)</p>
 
-            <h2>Lifecycle Activity Model</h2>
+            <h2>Step 1: Lifecycle Activity Model</h2>
 
             <p> Everything has a lifecycle; comprising at least a start 
             and an end.  Activities are no different.  If we wish to 
@@ -69,7 +71,7 @@ export default function Page() {
             editor option to import and export reference data (activity,
             resource and participant types) may be helpful here.</p>
 
-            <h2>Analysing the activities</h2>
+            <h2>Step 2: Analysing the activities</h2>
 
             <p>The first step in analysing a particular activity is to
             identify the steps involved and the points where decisions
@@ -176,14 +178,41 @@ export default function Page() {
             <p>The completed diagram can be loaded into the editor from
             the examples menu.</p>
 
-            <h2>Identifying information required for decisions</h2>
+            <h2>Step 3: Identifying decisions</h2>
 
-            <p>Having identified the decision points in the activity, we
-            now need to identify the information required to make these
-            decisions, and track the objects involved back in time to
-            find where this information was created.</p>
+            <p>This step has not been carried out in detail, as it is
+            out of the scope of the activity diagram editor as such.
+            Currently this step would need to be performed manually, by
+            making lists of the activities identified and the decisions
+            involved. Our hope is that in the future tooling can be
+            developed to make this stage of the analysis easier.</p>
 
-            <p><img src="/crane/life-crane.svg"/></p>
+            <h3>Identifying decision points</h3>
+
+            <p>Decisions are normally made at the start or end of
+            activities. A decision in the middle of an activity normally
+            indicates that there are sub-tasks that need further
+            analysis. So, given our breakdown of the steps in the
+            activity, we can look at each step and ask:</p>
+
+            <ul>
+             <li>Do we need to make a decision at the start or end of
+             this task?</li>
+             <li>What information do we require to make those decisions?</li>
+             <li>Where does that information come from?</li>
+            </ul>
+
+            <p>For even a relatively simple process this can result in a
+            lot of information requirements, but without performing the
+            analysis we have no way of knowing whether these
+            requirements can be met consistently.</p>
+
+            <h3>Finding the source of the information</h3>
+
+            <p>Having identified the decision points in the activity,
+            and the information required to make these decisions, we now
+            need to track the objects involved back in time to find
+            where this information was created.</p>
 
             <p>Sometimes this may involve going a long way back. For
             example, part of deciding whether the crane is safe to use
@@ -194,7 +223,10 @@ export default function Page() {
             requires the crane&apos;s working limits, which were
             supplied to us at the time the crane was bought.</p>
 
-            <h2>Deciding where to stop</h2>
+            <p><img src="/crane/life-crane.svg"/></p>
+
+            <h3>Deciding where to stop</h3>
+
             <p>One of the important questions to ask here is &lsquo;when
             do we stop analysing&rsquo;. The answer is &lsquo;when you
             have identified all the information you need for your
@@ -202,12 +234,15 @@ export default function Page() {
             you have identified everything is to go at least one step
             further than you need, so that you can see that the new
             information you are identifying does not bear on the
-            original activity. For the purposes of our analysis, we are
-            going to say that information about the actual inspection
-            represented by the safety tag is out of scope, and the only
-            information required by the safety check step is whether a
-            valid tag is present or not.</p>
+            original activity.</p>
 
+            <p>For the purposes of our analysis, we are going to say
+            that information about the actual inspection represented by
+            the safety tag is out of scope, and the only information
+            required by the safety check step is whether a valid tag is
+            present or not. However, it is important to recognise that
+            information quality management is a process, and we may need
+            to revisit decisions like this later.</p>
           </Col>
         </Row>
       </Container>

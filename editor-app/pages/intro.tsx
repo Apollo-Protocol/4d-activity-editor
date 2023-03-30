@@ -20,7 +20,7 @@ export default function Page() {
       <Container>
         <Row className="justify-content-center row-cols-1 row-cols-lg-2">
           <Col className="amrc-text">
-            <h1>Introduction to Activity Modelling</h1>
+          <h1 className="display-4 font-weight-normal">Introduction to Activity Modelling</h1>
 
             <p>Activity happens all the time: the wind blows, seasons
             pass and the sun&apos;s fusion radiates photons and other

@@ -10,55 +10,44 @@ import example1 from "@/public/example-diagram1.png";
 export default function Home() {
   return (
     <>
-      <Head>
-        <title>Activity Diagram Editor</title>
-        <meta
-          name="description"
-          content="An editor to draw activity diagrams compatible with the HQDM model framework."
-        />
-        <meta name="viewport" content="width=device-width, initial-scale=1" />
-        <link rel="icon" href="/favicon.ico" />
-      </Head>
-      <Container>
-      <h1>Activity Model Development Tool</h1>
-        <Row className="justify-content-center row-cols-1 row-cols-lg-2">
-          <Col className="amrc-text">
-            <p>Knowing what information is needed to support any
-            business activity is not easy.  Engineering activities, like
-            production assembly and test for complex systems, can be
-            hard to optimise and integrate without the right information
-            to support them.  Doing this without the tools and data to
-            enable such integrated operations is limited for all but the
-            simplest of activities.</p>
-            
-            <p>Analysis of these activities to reveal the decisions required,
-            both human and programmed, throughout provides a means to
-            identify the information needed to support them.  Typically this
-            will be at the start and end of an organised activity.</p>
+    <div className="container has-bg-img">
+      <div className="position-relative overflow-hidden p-3 p-md-5 m-md-3 text-center bg-light">
+      <div className="col-md-5 p-lg-5 mx-auto my-5">
+        <h1 className="display-4 font-weight-normal">Activity Model Development Tool</h1>
+        <p className="lead font-weight-normal">Learn and practice planning in a new way. Helping you discover all the information you need for complete decision making and resource planning.</p>
+        <a className="btn btn-outline-secondary" href="/editor">Go To Editor</a>
+      </div>
+      <div className="product-device box-shadow d-none d-md-block"></div>
+      <div className="product-device product-device-2 box-shadow d-none d-md-block"></div>
+    </div>
+    </div>
 
-            <p>The resulting activity models provide a means of
-            documenting the information required (as data) consistently,
-            in a machine-readable manner by using a suitable information 
-            model to support data integration.  The models created using 
-            this application can be exported using such a model.  Well 
-            constructed activity models can aid business process improvement,
-            information quality managemement, performance measurement and 
-            planning.</p>
-          </Col>
-          <Col>
-            <Image src={example1} alt="Screengrab of activity diagram 
-            generated using the activity editor for an engineering application." 
-              className="img-fluid"/>
-            <p className="amrc-fixme">Example activity diagram</p>
-          </Col>
-        </Row>
-        <ButtonRow>
-          <LinkButton href="/crane">See an example</LinkButton>
-          <LinkButton href="/intro">Learn about activity modelling</LinkButton>
-          <LinkButton href="/editor">Go to the editor</LinkButton>
-          <LinkButton href="/management">Build on activity models</LinkButton>
-        </ButtonRow>
-      </Container>
+    <div className="container">
+  <div className="row">
+    <div className="col">
+    <div className="bg-light mr-md-3 pt-3 px-3 pt-md-5 px-md-5 text-center overflow-hidden">
+        <div className="my-3 p-3">
+          <h2 className="display-5">Another headline</h2>
+          <p className="lead">And an even wittier subheading.</p>
+        </div>
+        <div className="bg-white box-shadow mx-auto"></div>
+      </div>
+      </div>
+    <div className="col">
+    <div className="bg-light mr-md-3 pt-3 px-3 pt-md-5 px-md-5 text-center overflow-hidden">
+        <div className="my-3 p-3">
+          <h2 className="display-5">Another headline</h2>
+          <p className="lead">And an even wittier subheading.</p>
+        </div>
+        <div className="bg-white box-shadow mx-auto"></div>
+      </div>
+      </div>
+    <div className="w-100"></div>
+    <div className="col">Column</div>
+    <div className="col">Column</div>
+  </div>
+</div>
+
     </>
   );
 }

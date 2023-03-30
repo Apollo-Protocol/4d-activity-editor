@@ -31,7 +31,7 @@ export default function Home() {
           <h2 className="display-5">Why</h2>
           <p className="lead">Knowing what information is needed to support any
             business activity is not easy. Especially engineering activities such as product assembly and life cycle mangement.
-            It is crucial that relevant information requirments can be discovered by following a standardised and thorough approach.</p>
+            It is crucial that relevant information requirements can be discovered by following a standardised and thorough approach.</p>
             <a className="btn btn-outline-secondary" href="/intro">Learn more</a>
         </div>
         <div className="bg-white box-shadow mx-auto"></div>

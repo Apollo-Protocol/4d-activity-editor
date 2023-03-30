@@ -48,12 +48,9 @@ function CollapsibleExample() {
     >
       <Container className="border-bottom pb-3 mb-3">
       
-      <a className="navbar-brand" href="#">
+      <a className="navbar-brand" href="/">
     <img src="https://github.com/Apollo-Protocol/terms-of-reference/blob/main/img/apollo-protocol-logo.png?raw=true" height="56" alt=""></img>
   </a>
-        <NavItem href="/" linkType={Navbar.Brand}>
-          Home
-        </NavItem>
         <Navbar.Toggle aria-controls="responsive-navbar-nav" />
         <Navbar.Collapse id="responsive-navbar-nav">
           <Nav className="me-auto">

@@ -65,7 +65,7 @@ export default function Home() {
 
     <div className="col">
     <div className="my-3 p-3">
-          <h2 className="display-5">A Tool For The Future</h2>
+          <h2 className="display-5">A Tool for the Future</h2>
           <p className="lead">For those of you who wish to know more. The editor is built upon the principles of 4-Dimensionalism. By design
           the user interface hides the theory and complexity, whilst providing you the benefits of such a 
           comprehensive approach.   </p>

@@ -15,9 +15,9 @@ export default function Page() {
       <Container>
         <Row className="justify-content-center row-cols-1 row-cols-lg-2">
           <Col>
-            <h1>Analysing a crane lift</h1>
+            <h1 className="display-4 font-weight-normal">Analysing a Crane Lift</h1>
 
-            <p><img src="/crane/crane-lift.jpeg"/></p>
+            <p><img className="w-100" src="/crane/crane-lift.jpeg"/></p>
 
             <p>This document walks through the process of analysing the
             data required to perform an industrial activity, in this

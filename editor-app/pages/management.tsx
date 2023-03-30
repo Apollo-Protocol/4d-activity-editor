@@ -26,8 +26,8 @@ export default function Page() {
             correct information must be available at the time it is needed
             and of a suitable quality to enable the decision to be made 
             properly. <b className="text-danger">Reference Apollo protocol 
-            and Matthew's IMF work.</b></p>
-            <p>This page gives an overview of what's involved in ensuring 
+            and Matthew&apos;s IMF work.</b></p>
+            <p>This page gives an overview of what&apos;s involved in ensuring 
             that information is fit for the collective decisions in an 
             integrated and well managed managed eneterprise.</p>
           </Col>
@@ -52,9 +52,9 @@ export default function Page() {
             are also nearly always a large number of human systems and
             processes, often consisting of manually transferring data
             from one of these systems to another, or into or out of
-            unstructured human documents. Most organisations don't 
+            unstructured human documents. Most organisations don&apos;t 
             realise how reliant they are on unstructured information 
-            and the inherrent knowledge of people with experience of the 
+            and the inherent knowledge of people with experience of the 
             activities, no matter how critical.</p>
 
             <p>Without taking an integrated approach to information

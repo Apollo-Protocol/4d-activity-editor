@@ -27,8 +27,11 @@ export default function Home() {
     <div className="col">
     <div className="bg-light mr-md-3 pt-3 px-3 pt-md-5 px-md-5 text-center overflow-hidden">
         <div className="my-3 p-3">
-          <h2 className="display-5">Another headline</h2>
-          <p className="lead">And an even wittier subheading.</p>
+          <h2 className="display-5">Why</h2>
+          <p className="lead">Knowing what information is needed to support any
+            business activity is not easy. Especially engineering activities such as product assembly and life cycle mangement.
+            It is crucial that relevant information requirments can be discovered by following a standardised and thorough approach.</p>
+            <a className="btn btn-outline-secondary" href="/intro">Learn more</a>
         </div>
         <div className="bg-white box-shadow mx-auto"></div>
       </div>
@@ -36,8 +39,12 @@ export default function Home() {
     <div className="col">
     <div className="bg-light mr-md-3 pt-3 px-3 pt-md-5 px-md-5 text-center overflow-hidden">
         <div className="my-3 p-3">
-          <h2 className="display-5">Another headline</h2>
-          <p className="lead">And an even wittier subheading.</p>
+          <h2 className="display-5">How</h2>
+          <p className="lead">By creating 4D activity diagrams, you are provided with the means to document the information
+          required consistently. The information output of which can be analysed as logical diagrams or machine-readable data for
+          expanded data integration. <br></br>Well constructed activity models can aid business process improvement, 
+          information quality managemement, performance measurement and planning.  </p>
+          <a className="btn btn-outline-secondary" href="/crane">See an example</a>
         </div>
         <div className="bg-white box-shadow mx-auto"></div>
       </div>

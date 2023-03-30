@@ -54,10 +54,13 @@ function CollapsibleExample() {
         <Navbar.Toggle aria-controls="responsive-navbar-nav" />
         <Navbar.Collapse id="responsive-navbar-nav">
           <Nav className="me-auto">
-            <NavItem href="/intro">Introduction</NavItem>
             <NavItem href="/editor">Editor</NavItem>
-            <NavItem href="/crane">Example analysis</NavItem>
-            <NavItem href="/management">Integrated information management</NavItem>
+            <NavItem href="/manual">Using the editor</NavItem>
+            <NavDropdown title="Activity modelling">
+              <NavDropdown.Item href="/intro">Introduction</NavDropdown.Item>
+              <NavDropdown.Item href="/crane">Example analysis</NavDropdown.Item>
+              <NavDropdown.Item href="/management">Integrated information management</NavDropdown.Item>
+            </NavDropdown>
           </Nav>
         </Navbar.Collapse>
       </Container>

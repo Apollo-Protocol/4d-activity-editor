@@ -58,7 +58,7 @@ function CollapsibleExample() {
         <Navbar.Collapse id="responsive-navbar-nav">
           <Nav className="me-auto">
             <NavItem href="/editor">Editor</NavItem>
-            <NavItem href="/manual">Using the editor</NavItem>
+            <NavItem href="/manual">Guide</NavItem>
             <NavDropdown title="Activity modelling">
               <NavDropdown.Item href="/intro">Introduction</NavDropdown.Item>
               <NavDropdown.Item href="/crane">Example analysis</NavDropdown.Item>

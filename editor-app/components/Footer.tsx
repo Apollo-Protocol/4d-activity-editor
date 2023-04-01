@@ -22,11 +22,21 @@ function Footer() {
     <p className="text-center text-muted"><p className="text-center text-muted">2023 Apollo Protocol Activity Diagram Editor</p> <p className="text-center text-muted">Created by AMRC in collaboration with CIS</p></p>
     </div>
     <div className="col-sm">
+      
+    <div className="row">
+    <div className="col-sm text-center align-self-center">
     <Link href="https://www.amrc.co.uk/">
     <picture><img src="Logo_AMRC.png" className="rounded w-50" alt="..."></img></picture>
     </Link>
-    <p></p>
-    <picture><img src="Logo_CIS.png" className="float-right w-50 " alt="..."></img></picture>
+    </div>
+  </div>
+
+  <div className="row">
+    <div className="col-sm text-center align-self-center">
+    <picture><img src="Logo_CIS.png" className="float-right w-25" alt="..."></img></picture>
+    </div>
+  </div>
+    
     </div>
   </div>
 </div>

@@ -13,10 +13,13 @@ export default function Page() {
         <link rel="icon" href="/favicon.ico" />
       </Head>
       <Container>
+      <div className="row">
+    <div className="col mb-5">
+    <h1 className="display-4 font-weight-norma text-center">Analysing a Crane Lift</h1>
+    </div>
+  </div>
         <Row className="justify-content-center row-cols-1 row-cols-lg-2">
           <Col>
-            <h1 className="display-4 font-weight-normal">Analysing a Crane Lift</h1>
-
             <p><img className="w-100" src="/crane/crane-lift.jpeg"/></p>
 
             <p>This document walks through the process of analysing the

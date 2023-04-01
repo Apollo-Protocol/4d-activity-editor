@@ -13,15 +13,19 @@ export default function Page() {
   return (
     <>
       <Head>
-        <title>Activity modelling introduction</title>
+        <title>Activity Modelling Introduction</title>
         <meta name="viewport" content="width=device-width, initial-scale=1" />
         <link rel="icon" href="/favicon.ico" />
       </Head>
       <Container>
+      <div className="row">
+    <div className="col mb-5">
+    <h1 className="display-4 font-weight-normal">Introduction to Activity Modelling</h1>
+    </div>
+  </div>
+      
         <Row className="justify-content-center row-cols-1 row-cols-lg-2">
           <Col className="amrc-text">
-          <h1 className="display-4 font-weight-normal">Introduction to Activity Modelling</h1>
-
             <p>Activity happens all the time: the wind blows, seasons
             pass and the sun&apos;s fusion radiates photons and other
             subatomic particles throughout the solar system.  Human
@@ -58,7 +62,7 @@ export default function Page() {
              of activity from the start to the end of something.  This is 
             typically business or organisational activities.  To get 
             started an initial set of activities should be created, 
-            around which the activity analysis and dcomposition can be
+            around which the activity analysis and decomposition can be
             done.</p>
 
             <h4>Step 2: Identify participants in each activity</h4>

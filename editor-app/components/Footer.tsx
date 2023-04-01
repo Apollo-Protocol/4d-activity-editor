@@ -1,3 +1,5 @@
+import Link from "next/link";
+
 function Footer() {
   const style = {};
   return (
@@ -12,7 +14,7 @@ function Footer() {
     <div className="col-sm">
     <h5>More</h5>
           <ul className="list-unstyled text-small">
-            <li><a className="text-muted" href="#">Get in touch</a></li>
+            <li><Link className="text-muted" href="#">Get in touch</Link></li>
           </ul>
     
     </div>
@@ -20,10 +22,11 @@ function Footer() {
     <p className="text-center text-muted"><p className="text-center text-muted">2023 Apollo Protocol Activity Diagram Editor</p> <p className="text-center text-muted">Created by AMRC in collaboration with CIS</p></p>
     </div>
     <div className="col-sm">
-    <a href="https://www.amrc.co.uk/">
-    <img src="https://www.amrc.co.uk/img/logo-header-2023.svg?1678105026" className="rounded w-55" alt="..."></img>
-    </a>
-    <img src="Logo_CIS.png" className="float-right rounded w-50 " alt="..."></img>
+    <Link href="https://www.amrc.co.uk/">
+    <picture><img src="Logo_AMRC.png" className="rounded w-50" alt="..."></img></picture>
+    </Link>
+    <p></p>
+    <picture><img src="Logo_CIS.png" className="float-right w-50 " alt="..."></img></picture>
     </div>
   </div>
 </div>

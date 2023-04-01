@@ -12,7 +12,7 @@ export default function Page() {
 
   <div className="row">
     
-    <div className="col">
+    <div className="col-md">
       <p>The diagram editor is a tool for modelling activities and
             the resources needed to carry out those activities. In this
             respect it is not very different from existing project
@@ -23,11 +23,11 @@ export default function Page() {
             planning methods.</p>
     </div>
 
-    <div className="col"></div>
+    <div className="col-md"></div>
 
     <div className="w-100"></div>
 
-    <div className="col">
+    <div className="col-md">
     <h4 className="">How the Diagrams Work</h4>
     <p>The axes of the diagram are labelled &lsquo;space&rsquo;
             and &lsquo;time&rsquo;, but this should be taken rather
@@ -48,16 +48,16 @@ export default function Page() {
             individual participates in a particular task.</p>
     </div>
 
-    <div className="col text-center"><img className="w-100" src="/manual/boil-egg-basic.svg"/></div>
+    <div className="col-md text-center"><img className="w-100" src="/manual/boil-egg-basic.svg"/></div>
 
     <div className="w-100 mt-5"></div>
-    <div className="col"><h2 className="text-primary">Creating A Diagram</h2></div>
-    <div className="col"></div>
+    <div className="col-md"><h2 className="text-primary">Creating A Diagram</h2></div>
+    <div className="col-md"></div>
     <div className="w-100"></div>
 
     
 
-    <div className="col">
+    <div className="col-md">
     <h4 className="">Creating Individuals</h4>
     <p>The first thing to do when creating a new diagram is to
             add some individuals. These represent the resources involved
@@ -68,11 +68,11 @@ export default function Page() {
             Individual&rsquo; button.</p>
     </div>
 
-    <div className="col text-center"><img className="w-50" src="/manual/add-individual.png"/></div>
+    <div className="col-md text-center"><img className="w-50 mb-5" src="/manual/add-individual.png"/></div>
 
     <div className="w-100"></div>
     
-    <div className="col">
+    <div className="col-md">
     <h4 className="">Creating Individuals</h4>
     <p>The new individual needs a name, at minimum. The
             &lsquo;Type&rsquo; field can be used to categorise
@@ -87,11 +87,11 @@ export default function Page() {
             that are created or destroyed as part of the activity.</p>
     </div>
 
-    <div className="col text-center"><img className="mw-100" src="/manual/created-individuals.png"/></div>
+    <div className="col-md text-center"><img className="mw-100 mb-5" src="/manual/created-individuals.png"/></div>
 
     <div className="w-100"></div>
     
-    <div className="col">
+    <div className="col-md">
     <h4 className="">Creating Activities</h4>
     <p>Now we have some individuals, we can create the
             activities they are involved in. Create a new activity by
@@ -104,11 +104,11 @@ export default function Page() {
 
             
     </div>
-    <div className="col text-center"><img className="w-50" src="/manual/add-activity.png"/></div>
+    <div className="col-md text-center"><img className="w-50 mb-5" src="/manual/add-activity.png"/></div>
 
     <div className="w-100"></div>
 
-    <div className="col">
+    <div className="col-md">
     <p>An activity happens over a particular period of time. The
             &lsquo;Beginning&rsquo; and &lsquo;Ending&rsquo; fields
             specify when this activity starts and finishes. The time
@@ -120,14 +120,14 @@ export default function Page() {
             a new individual, save the activity and come back in to it
             when you&apos;ve created the individual.</p>
     </div>
-    <div className="col text-center"><img className="w-100" src="/manual/created-activity.png"/></div>
+    <div className="col-md text-center"><img className="w-100 mb-5" src="/manual/created-activity.png"/></div>
 
     <div className="w-100 mt-5"></div>
-    <div className="col"><h2 className="text-primary">Changing A Diagram</h2></div>
-    <div className="col"></div>
+    <div className="col-md"><h2 className="text-primary">Changing A Diagram</h2></div>
+    <div className="col-md"></div>
     <div className="w-100"></div>
 
-    <div className="col">
+    <div className="col-md">
     <h4 className="">Changing Properties</h4>
     <p>Clicking on an individual or an activity will bring up
             the dialog used to create it so that its properties can be
@@ -150,12 +150,12 @@ export default function Page() {
             to model this level of detail becomes more important.</p>
     </div>
 
-    <div className="col text-center"><img className="w-50" src="/manual/edit-participant.png"/></div>
+    <div className="col-md text-center"><img className="w-50 mb-5" src="/manual/edit-participant.png"/></div>
 
 
     <div className="w-100"></div>
 
-    <div className="col">
+    <div className="col-md">
     <h4 className="">Undo, and starting again</h4>
     <p>There is an &lsquo;Undo&rsquo; button on the right-hand
             side; this will undo the most recent change you have made.
@@ -166,11 +166,11 @@ export default function Page() {
             with a clean diagram.</p>
     </div>
 
-    <div className="col"></div>
+    <div className="col-md"></div>
 
     <div className="w-100"></div>
 
-    <div className="col">
+    <div className="col-md">
     <h4 className="">Changing The Display</h4>
     <p>The &lsquo;Settings&rsquo; button lets you change how the
             diagram is displayed. The options are mostly fairly
@@ -183,14 +183,14 @@ export default function Page() {
             to the defaults.</p>
     </div>
 
-    <div className="col"></div>
+    <div className="col-md"></div>
 
     <div className="w-100 mt-5"></div>
-    <div className="col"><h2 className="text-primary">Breaking Down Activites</h2></div>
-    <div className="col"></div>
+    <div className="col-md"><h2 className="text-primary">Breaking Down Activites</h2></div>
+    <div className="col-md"></div>
     <div className="w-100"></div>
 
-    <div className="col">
+    <div className="col-md">
     <p>One of the aims of the methodology this diagram editor is
             intended to support is to break activities down into their
             sub-tasks with the aim of identifying participants (about
@@ -202,11 +202,11 @@ export default function Page() {
             and then click the &lsquo;Sub-tasks&rsquo; button.</p>
     </div>
 
-    <div className="col text-center"><img className="w-50" src="/manual/sub-tasks.png"/></div>
+    <div className="col-md text-center"><img className="w-50 mb-5" src="/manual/sub-tasks.png"/></div>
 
     <div className="w-100"></div>
 
-    <div className="col">
+    <div className="col-md">
     <p>This will open a new diagram representing the sub-tasks
             of the activity you had open. The navigation at the top of
             the diagram shows you where you are, and allows you to go
@@ -220,14 +220,14 @@ export default function Page() {
             project is to promote discussion of these questions.</p>
     </div>
 
-    <div className="col text-center"><img className="w-100" src="/manual/sub-activities.png"/></div>
+    <div className="col-md text-center"><img className="w-100 mb-5" src="/manual/sub-activities.png"/></div>
 
     <div className="w-100 mt-5"></div>
-    <div className="col"><h2 className="text-primary">Saving and Loading Diagrams</h2></div>
-    <div className="col"></div>
+    <div className="col-md"><h2 className="text-primary">Saving and Loading Diagrams</h2></div>
+    <div className="col-md"></div>
     <div className="w-100"></div>
 
-    <div className="col">
+    <div className="col-md">
     <h4 className="">Saving and Loading Turtle Files</h4>
     <p>Diagrams can be saved to your local computer in a format
             called &lsquo;Turtle&rsquo;. (This is a format used by the
@@ -243,11 +243,11 @@ export default function Page() {
             can be reused across diagrams.</p>
     </div>
 
-    <div className="col text-center"><img className="w-50" src="/manual/save-load-ttl.png"/></div>
+    <div className="col text-center"><img className="w-50 mb-5" src="/manual/save-load-ttl.png"/></div>
 
     <div className="w-100"></div>
 
-    <div className="col">
+    <div className="col-md">
     <h4 className="">Loading an example</h4>
     <p>Some examples are provided to make it easier to get
             started. These can be accessed from the &lsquo;Load
@@ -258,11 +258,11 @@ export default function Page() {
             href="/crane">the example analysis</Link>.</p>
     </div>
 
-    <div className="col text-center"><img className="w-25" src="/manual/load-example.png"/></div>
+    <div className="col-md text-center"><img className="w-25 mb-5" src="/manual/load-example.png"/></div>
 
     <div className="w-100"></div>
 
-    <div className="col">
+    <div className="col-md">
     <h4 className="">Exporting other File Formats</h4>
     <p>The editor can export your diagram as an SVG, for
             inclusion as an image in documents. There are various tools
@@ -278,12 +278,12 @@ export default function Page() {
             processed as JSON-LD.</p>
     </div>
 
-    <div className="col"></div>
+    <div className="col-md"></div>
 
     <div className="w-100"></div>
 
-    <div className="col"></div>
-    <div className="col"></div>
+    <div className="col-md"></div>
+    <div className="col-md"></div>
 
 
   </div>

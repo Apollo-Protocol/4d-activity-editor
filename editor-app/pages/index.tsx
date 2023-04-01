@@ -73,7 +73,7 @@ export default function Home() {
           <a className="btn btn-outline-secondary" href="/management">Find out more</a>
         </div>
     </div>
-    <div className="col text-center"><Image src={example} alt="
+    <div className="col text-center align-self-center"><Image src={example} alt="
               A space-time diagram has two axes, Time horizontally and
               Space vertically. Resources are displayed as horizontal
               bars spaced along the Space axis. Activities are displayed

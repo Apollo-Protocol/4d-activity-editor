@@ -44,14 +44,14 @@ export default function Page() {
             to enable activity models to be developed to support
             subsequent information system development.</p>
           </Col>
-          <Col>
+          <Col className="col-md text-center">
             <Image src={flowchart} alt="The four-step activity modelling 
-            method as a flowchart." className="img-fluid"/>
+            method as a flowchart." className="img-fluid mb-5 mt-3"/>
           </Col>
         </Row>
-        <Row className="justify-content-center row-cols-1 row-cols-lg-2">
+        <Row className="justify-content-center row-cols-1 row-cols-lg-2 mt-5">
           <Col>
-            <h2>Step 1: Develop an initial lifecycle activity model</h2>
+            <h4>Step 1: Develop an initial lifecycle activity model</h4>
 
             <p>An activity lifecycle is a
             decomposition of possible activities that represents a pattern
@@ -61,7 +61,7 @@ export default function Page() {
             around which the activity analysis and dcomposition can be
             done.</p>
 
-            <h2>Step 2: Identify participants in each activity</h2>
+            <h4>Step 2: Identify participants in each activity</h4>
 
             <p>Why are participants important?  Firstly, they are the
             only things involved in activities.  If something else is
@@ -75,7 +75,7 @@ export default function Page() {
             its lifefcycle (at least, if we arrange for the data records
             to be managed in a way that allows for this).</p>
 
-            <h2>Step 3: Identify decisions relating to those activities</h2>
+            <h4>Step 3: Identify decisions relating to those activities</h4>
 
             <p>Identifying the decisions that require information should
             be an easy task once Steps 1 & 2 have been completed sufficiently.  
@@ -84,7 +84,7 @@ export default function Page() {
             <p>When done in enough detail, decisions tend to be needed at the
             start and end of activities.</p>
 
-            <h2>Step 4: Proceed to information requirements capture</h2>
+            <h4>Step 4: Proceed to information requirements capture</h4>
 
             <p>Once the activity lifecycle has been captured with the
             participants it is now ready for information requirements
@@ -100,7 +100,7 @@ export default function Page() {
             trial use <a href="https://github.com/Apollo-Protocol">
             here</a>.</p>
           </Col>
-          <Col>
+          <Col className="col-md text-center">
             <Image src={example} alt="
               A space-time diagram has two axes, Time horizontally and
               Space vertically. Resources are displayed as horizontal
@@ -109,13 +109,14 @@ export default function Page() {
               temporal extent on the Time axis. Where a resource
               participates in an activity the overlapping area is
               shaded.
-            " className="img-fluid"/>
+            " className="img-fluid mb-5"/>
           </Col>
         </Row>
-        <ButtonRow>
-          <LinkButton href="/crane">See an example</LinkButton>
-          <LinkButton href="/editor">Try the editor</LinkButton>
-        </ButtonRow>
+
+        <a className="btn btn-outline-secondary mr-1" href="/crane">See an example</a>
+        <p></p>
+        <a className="btn btn-outline-secondary" href="/editor">Try the editor</a>
+
       </Container>
     </>
   );

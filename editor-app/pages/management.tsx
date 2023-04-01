@@ -16,7 +16,7 @@ export default function Page() {
       </Head>
       <Container>
         <Row className="row-cols-1 row-cols-lg-2">
-          <Col className="amrc-text">
+          <Col className="col-md amrc-text">
           <h1 className="display-4 font-weight-normal">Integrated Information Management</h1>
 
             <p>Running a business, or other organisation, of any size 
@@ -31,16 +31,16 @@ export default function Page() {
             that information is fit for the collective decisions in an 
             integrated and well managed managed eneterprise.</p>
           </Col>
-          <Col>
-            <Image src={sevenCircles} alt="A layered view of what's needed
+          <Col className="col-md text-center">
+            <Image src={sevenCircles} className="w-100 mt-3" alt="A layered view of what's needed
             for integrated information management."/>
             <p className="amrc-fixme">Elements of integrated information 
             management</p>
           </Col>
         </Row>
-        <Row className="row-cols-1 row-cols-lg-2">
+        <Row className="row-cols-1 row-cols-lg-2 mt-5">
           <Col className="amrc-text">
-            <h2>Integration data models</h2>
+            <h4>Integration Data Models</h4>
             <p>An integrated information management framework aims to
             ensure that this requirement for suitable information is
             met, while keeping the costs of managing the required
@@ -91,7 +91,7 @@ export default function Page() {
             from that traditionally taken.</p>
           </Col>
           <Col className="amrc-text">
-            <h2>4D data modelling</h2>
+            <h4>4D Data Modelling</h4>
             <p>One of the more difficult aspects of creating an
             integrated information management framework is reconciling
             the different data models used by the different systems we

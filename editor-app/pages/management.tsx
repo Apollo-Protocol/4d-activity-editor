@@ -29,7 +29,8 @@ export default function Page() {
             and Matthew&apos;s IMF work.</b></p>
             <p>This page gives an overview of what&apos;s involved in ensuring 
             that information is fit for the collective decisions in an 
-            integrated and well managed managed eneterprise.</p>
+            integrated and well managed managed eneterprise. Further information can also be found at: </p>
+            <p><a href="https://www.theiet.org/impact-society/factfiles/built-environment-factfiles/the-apollo-protocol-unifying-digital-twins-across-sectors/">Apollo Protocol</a></p>
           </Col>
           <Col className="col-md text-center">
             <Image src={sevenCircles} className="w-100 mt-3" alt="A layered view of what's needed

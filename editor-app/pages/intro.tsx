@@ -101,8 +101,8 @@ export default function Page() {
             the analysis of, and decisions made, for informtion 
             requirements capture.  The full methodology for implementing
             information systems based on this analysis is available for 
-            trial use <a href="https://github.com/Apollo-Protocol">
-            here</a>.</p>
+            trial use <Link href="https://github.com/Apollo-Protocol">
+            here</Link>.</p>
           </Col>
           <Col className="col-md text-center align-self-center">
             <Image src={example} alt="
@@ -117,9 +117,9 @@ export default function Page() {
           </Col>
         </Row>
 
-        <a className="btn btn-outline-secondary mr-1" href="/crane">See an example</a>
+        <Link className="btn btn-outline-secondary mr-1" href="/crane">See an example</Link>
         <p></p>
-        <a className="btn btn-outline-secondary" href="/editor">Try the editor</a>
+        <Link className="btn btn-outline-secondary" href="/editor">Try the editor</Link>
 
       </Container>
     </>

@@ -20,7 +20,7 @@ export default function Page() {
   </div>
         <Row className="justify-content-center row-cols-1 row-cols-lg-2">
           <Col>
-            <p><img className="w-100" src="/crane/crane-lift.jpeg"/></p>
+            <p><picture><img className="w-100" src="/crane/crane-lift.jpeg" alt=""/></picture></p>
 
             <p>This document walks through the process of analysing the
             data required to perform an industrial activity, in this
@@ -98,7 +98,7 @@ export default function Page() {
             physical object overlap indicate that the object is directly
             involved in this step of the activity.
 
-            <br/><img src="/crane/rams-briefing.svg"/></p>
+            <br/><picture><img src="/crane/rams-briefing.svg" alt=""/></picture></p>
 
             <p>There are two people involved in this activity; they have
             both been give the type &lsquo;Person&rsquo;. The activity
@@ -115,9 +115,9 @@ export default function Page() {
             documented. Create new physical objects as needed and add
             them to the activity steps they are involved in.
 
-            <br/><img src="/crane/rams-review.svg"/>
-            <br/><img src="/crane/rams-walk-route.svg"/>
-            <br/><img src="/crane/rams-complete.svg"/>
+            <br/><picture><img src="/crane/rams-review.svg" alt=""/></picture>
+            <br/><picture><img src="/crane/rams-walk-route.svg" alt=""/></picture>
+            <br/><picture><img src="/crane/rams-complete.svg" alt=""/></picture>
             </p>
 
             <p>The analysis at this point is very much following the
@@ -140,7 +140,7 @@ export default function Page() {
             <p>Here is one of the steps from the lift above, represented
             on a separate diagram. 
     
-            <br/><img src="/crane/sub-inspect-inspect.svg"/>
+            <br/><picture><img src="/crane/sub-inspect-inspect.svg" alt=""/></picture>
 
             <br/>Looking into the activity at this level of detail has
             identified more participants in the activity: there are
@@ -162,20 +162,20 @@ export default function Page() {
             diagram view showing sub-tasks of the chosen task. Now start
             creating activities as before. 
             
-            <br/><img src="/crane/sub-inspect-first.svg"/>
+            <br/><picture><img src="/crane/sub-inspect-first.svg" alt=""/></picture>
 
             <br/>Create new individuals as needed; these will also show
             up on the top-level view.
 
-            <br/><img src="/crane/sub-inspect-quarantine.svg"/>
+            <br/><picture><img src="/crane/sub-inspect-quarantine.svg" alt=""/></picture>
 
-            <br/><img src="/crane/sub-inspect-inspect.svg"/></p>
+            <br/><picture><img src="/crane/sub-inspect-inspect.svg" alt=""/></picture></p>
 
             <p>Once the sub-task has been analysed, it is helpful to go
             back to the top-level view and add the new individuals
             identified as participants in the top-level activity.
 
-            <br/><img src="/crane/sub-inspect-top.svg"/></p>
+            <br/><picture><img src="/crane/sub-inspect-top.svg" alt=""/></picture></p>
             <p>This can be loaded as an example in the Editor.</p>
 
             <p>The completed diagram can be loaded into the editor from
@@ -226,7 +226,7 @@ export default function Page() {
             requires the crane&apos;s working limits, which were
             supplied to us at the time the crane was bought.</p>
 
-            <p><img src="/crane/life-crane.svg"/></p>
+            <p><picture><img src="/crane/life-crane.svg" alt=""/></picture></p>
 
             <h3>Deciding where to stop</h3>
 

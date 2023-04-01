@@ -15,9 +15,14 @@ export default function Page() {
         <link rel="icon" href="/favicon.ico" />
       </Head>
       <Container>
+      <div className="row">
+    <div className="col mb-5">
+    <h1 className="display-4 font-weight-normal">Integrated Information Management</h1>
+    </div>
+  </div>
+
         <Row className="row-cols-1 row-cols-lg-2">
           <Col className="col-md amrc-text">
-          <h1 className="display-4 font-weight-normal">Integrated Information Management</h1>
 
             <p>Running a business, or other organisation, of any size 
             means making decisions, all the time, at all levels. For any 

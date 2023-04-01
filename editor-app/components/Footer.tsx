@@ -17,7 +17,7 @@ function Footer() {
     
     </div>
     <div className="col-sm">
-    <p className="text-center text-muted"><p className="text-center text-muted">2023 Apollo Program Activity Diagram Editor</p> <p className="text-center text-muted">Created by AMRC in collaboration with CIS</p></p>
+    <p className="text-center text-muted"><p className="text-center text-muted">2023 Apollo Protocol Activity Diagram Editor</p> <p className="text-center text-muted">Created by AMRC in collaboration with CIS</p></p>
     </div>
     <div className="col-sm">
     <a href="https://www.amrc.co.uk/">

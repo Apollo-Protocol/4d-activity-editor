@@ -48,7 +48,7 @@ export default function Page() {
             to enable activity models to be developed to support
             subsequent information system development.</p>
           </Col>
-          <Col className="col-md text-center">
+          <Col className="col-md text-center align-self-center">
             <Image src={flowchart} alt="The four-step activity modelling 
             method as a flowchart." className="img-fluid mb-5 mt-3"/>
           </Col>
@@ -104,7 +104,7 @@ export default function Page() {
             trial use <a href="https://github.com/Apollo-Protocol">
             here</a>.</p>
           </Col>
-          <Col className="col-md text-center">
+          <Col className="col-md text-center align-self-center">
             <Image src={example} alt="
               A space-time diagram has two axes, Time horizontally and
               Space vertically. Resources are displayed as horizontal

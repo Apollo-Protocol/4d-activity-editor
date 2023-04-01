@@ -8,7 +8,11 @@ export default function Page() {
   return (
     <>
       <div className="container">
-      <h1 className="display-4 font-weight-normal">Editor Guide</h1>
+      <div className="row">
+    <div className="col mb-5">
+    <h1 className="display-4 font-weight-normal">Editor Guide</h1>
+    </div>
+  </div>
 
   <div className="row">
     

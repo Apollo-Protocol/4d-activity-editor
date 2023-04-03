@@ -25,7 +25,7 @@ export default function Home() {
 
     <div className="container">
   <div className="row">
-    <div className="col">
+    <div className="col-md">
     <div className="bg-light mr-md-3 pt-3 px-3 pt-md-5 px-md-5 text-center overflow-hidden h-100">
         <div className="my-3 p-3">
           <h2 className="display-5">Why</h2>
@@ -37,7 +37,7 @@ export default function Home() {
         <div className="bg-white box-shadow mx-auto"></div>
       </div>
       </div>
-    <div className="col">
+    <div className="col-md">
     <div className="bg-light mr-md-3 pt-3 px-3 pt-md-5 px-md-5 text-center overflow-hidden h-100">
         <div className="my-3 p-3">
           <h2 className="display-5">How</h2>
@@ -63,7 +63,7 @@ export default function Home() {
   </div>
 </div>
 
-    <div className="col">
+    <div className="col-md">
     <div className="my-3 p-3">
           <h2 className="display-5">A Tool for the Future</h2>
           <p className="lead">For those of you who wish to know more. The editor is built upon the principles of 4-Dimensionalism. By design

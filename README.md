@@ -25,4 +25,4 @@ In brief:
 
 ## Licence
 
-HQDM-lib is released under the terms of the  Apache 2.0 Licence [license](LICENCE.md).
+4D Activity Editor is released under the terms of the  Apache 2.0 Licence [license](LICENCE.md).

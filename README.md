@@ -11,7 +11,7 @@ The editor is built upon the principles of 4-Dimensionalism. By design the user 
 
 ## Getting Started
 
-Follow the setup instructions in the [editor readme](editor-app/README.md).
+Follow the setup instructions in the editor readme found [here](editor-app/README.md).
 
 ## Contributing
 

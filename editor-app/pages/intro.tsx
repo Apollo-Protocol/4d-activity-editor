@@ -13,15 +13,19 @@ export default function Page() {
   return (
     <>
       <Head>
-        <title>Activity modelling introduction</title>
+        <title>Activity Modelling Introduction</title>
         <meta name="viewport" content="width=device-width, initial-scale=1" />
         <link rel="icon" href="/favicon.ico" />
       </Head>
       <Container>
+      <div className="row">
+    <div className="col mb-5">
+    <h1 className="display-4 font-weight-normal">Introduction to Activity Modelling</h1>
+    </div>
+  </div>
+      
         <Row className="justify-content-center row-cols-1 row-cols-lg-2">
           <Col className="amrc-text">
-            <h1>Introduction to Activity Modelling</h1>
-
             <p>Activity happens all the time: the wind blows, seasons
             pass and the sun&apos;s fusion radiates photons and other
             subatomic particles throughout the solar system.  Human
@@ -44,24 +48,24 @@ export default function Page() {
             to enable activity models to be developed to support
             subsequent information system development.</p>
           </Col>
-          <Col>
+          <Col className="col-md text-center align-self-center">
             <Image src={flowchart} alt="The four-step activity modelling 
-            method as a flowchart." className="img-fluid"/>
+            method as a flowchart." className="img-fluid mb-5 mt-3"/>
           </Col>
         </Row>
-        <Row className="justify-content-center row-cols-1 row-cols-lg-2">
+        <Row className="justify-content-center row-cols-1 row-cols-lg-2 mt-5">
           <Col>
-            <h2>Step 1: Develop an initial lifecycle activity model</h2>
+            <h4>Step 1: Develop an initial lifecycle activity model</h4>
 
             <p>An activity lifecycle is a
             decomposition of possible activities that represents a pattern
              of activity from the start to the end of something.  This is 
             typically business or organisational activities.  To get 
             started an initial set of activities should be created, 
-            around which the activity analysis and dcomposition can be
+            around which the activity analysis and decomposition can be
             done.</p>
 
-            <h2>Step 2: Identify participants in each activity</h2>
+            <h4>Step 2: Identify participants in each activity</h4>
 
             <p>Why are participants important?  Firstly, they are the
             only things involved in activities.  If something else is
@@ -75,7 +79,7 @@ export default function Page() {
             its lifefcycle (at least, if we arrange for the data records
             to be managed in a way that allows for this).</p>
 
-            <h2>Step 3: Identify decisions relating to those activities</h2>
+            <h4>Step 3: Identify decisions relating to those activities</h4>
 
             <p>Identifying the decisions that require information should
             be an easy task once Steps 1 & 2 have been completed sufficiently.  
@@ -84,7 +88,7 @@ export default function Page() {
             <p>When done in enough detail, decisions tend to be needed at the
             start and end of activities.</p>
 
-            <h2>Step 4: Proceed to information requirements capture</h2>
+            <h4>Step 4: Proceed to information requirements capture</h4>
 
             <p>Once the activity lifecycle has been captured with the
             participants it is now ready for information requirements
@@ -97,10 +101,10 @@ export default function Page() {
             the analysis of, and decisions made, for informtion 
             requirements capture.  The full methodology for implementing
             information systems based on this analysis is available for 
-            trial use <a href="https://github.com/Apollo-Protocol">
-            here</a>.</p>
+            trial use <Link href="https://github.com/Apollo-Protocol">
+            here</Link>.</p>
           </Col>
-          <Col>
+          <Col className="col-md text-center align-self-center">
             <Image src={example} alt="
               A space-time diagram has two axes, Time horizontally and
               Space vertically. Resources are displayed as horizontal
@@ -109,13 +113,14 @@ export default function Page() {
               temporal extent on the Time axis. Where a resource
               participates in an activity the overlapping area is
               shaded.
-            " className="img-fluid"/>
+            " className="img-fluid mb-5"/>
           </Col>
         </Row>
-        <ButtonRow>
-          <LinkButton href="/crane">See an example</LinkButton>
-          <LinkButton href="/editor">Try the editor</LinkButton>
-        </ButtonRow>
+
+        <Link className="btn btn-outline-secondary mr-1" href="/crane">See an example</Link>
+        <p></p>
+        <Link className="btn btn-outline-secondary" href="/editor">Try the editor</Link>
+
       </Container>
     </>
   );

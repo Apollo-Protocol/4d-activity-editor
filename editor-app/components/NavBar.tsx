@@ -44,22 +44,22 @@ function CollapsibleExample() {
       className="mb-5"
       collapseOnSelect
       expand="lg"
-      bg="dark"
-      variant="dark"
+      variant="light"
     >
-      <Container>
-        <NavItem href="/" linkType={Navbar.Brand}>
-          Activity Diagram Editor
-        </NavItem>
+      <Container className="border-bottom pb-3 mb-3">
+      
+      <Link className="navbar-brand" href="/">
+      <picture><img src="/Logo_Apollo.png" height="56" alt=""></img></picture>
+  </Link>
         <Navbar.Toggle aria-controls="responsive-navbar-nav" />
         <Navbar.Collapse id="responsive-navbar-nav">
           <Nav className="me-auto">
             <NavItem href="/editor">Editor</NavItem>
-            <NavItem href="/manual">Using the editor</NavItem>
-            <NavDropdown title="Activity modelling">
+            <NavItem href="/manual">Guide</NavItem>
+            <NavDropdown title="Activity Modelling">
               <NavDropdown.Item href="/intro">Introduction</NavDropdown.Item>
-              <NavDropdown.Item href="/crane">Example analysis</NavDropdown.Item>
-              <NavDropdown.Item href="/management">Integrated information management</NavDropdown.Item>
+              <NavDropdown.Item href="/crane">Example Analysis</NavDropdown.Item>
+              <NavDropdown.Item href="/management">Integrated Information Management</NavDropdown.Item>
             </NavDropdown>
           </Nav>
         </Navbar.Collapse>

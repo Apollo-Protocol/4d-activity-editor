@@ -15,9 +15,14 @@ export default function Page() {
         <link rel="icon" href="/favicon.ico" />
       </Head>
       <Container>
+      <div className="row">
+    <div className="col mb-5">
+    <h1 className="display-4 font-weight-normal">Integrated Information Management</h1>
+    </div>
+  </div>
+
         <Row className="row-cols-1 row-cols-lg-2">
-          <Col className="amrc-text">
-            <h1>Integrated information management</h1>
+          <Col className="col-md amrc-text">
 
             <p>Running a business, or other organisation, of any size 
             means making decisions, all the time, at all levels. For any 
@@ -29,18 +34,19 @@ export default function Page() {
             and Matthew&apos;s IMF work.</b></p>
             <p>This page gives an overview of what&apos;s involved in ensuring 
             that information is fit for the collective decisions in an 
-            integrated and well managed managed eneterprise.</p>
+            integrated and well managed managed eneterprise. Further information can also be found at: </p>
+            <p><Link href="https://www.theiet.org/impact-society/factfiles/built-environment-factfiles/the-apollo-protocol-unifying-digital-twins-across-sectors/">Apollo Protocol</Link></p>
           </Col>
-          <Col>
-            <Image src={sevenCircles} alt="A layered view of what's needed
+          <Col className="col-md text-center">
+            <Image src={sevenCircles} className="w-100 mt-3" alt="A layered view of what's needed
             for integrated information management."/>
             <p className="amrc-fixme">Elements of integrated information 
             management</p>
           </Col>
         </Row>
-        <Row className="row-cols-1 row-cols-lg-2">
+        <Row className="row-cols-1 row-cols-lg-2 mt-5">
           <Col className="amrc-text">
-            <h2>Integration data models</h2>
+            <h4>Integration Data Models</h4>
             <p>An integrated information management framework aims to
             ensure that this requirement for suitable information is
             met, while keeping the costs of managing the required
@@ -91,7 +97,7 @@ export default function Page() {
             from that traditionally taken.</p>
           </Col>
           <Col className="amrc-text">
-            <h2>4D data modelling</h2>
+            <h4>4D Data Modelling</h4>
             <p>One of the more difficult aspects of creating an
             integrated information management framework is reconciling
             the different data models used by the different systems we
@@ -135,8 +141,8 @@ export default function Page() {
             <p>Recent work to develop an Information Management Framework 
             comprising a Foundation Data Model that incorporates the 
             necessary comittments of a TLO was summarised at&nbsp;
-            <a href="https://gateway.newton.ac.uk/event/tgmw80/programme">
-              this</a>&nbsp;event.</p>
+            <Link href="https://gateway.newton.ac.uk/event/tgmw80/programme">
+              this</Link>&nbsp;event.</p>
 
             <p>Please get in touch, and contribute to the open source 
             resources, if you are interested in adopting or getting 

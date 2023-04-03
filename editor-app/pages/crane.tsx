@@ -3,6 +3,8 @@ import Link from "next/link";
 import Image from "next/image";
 import { Col, Container, Row } from "react-bootstrap";
 import styles from "@/styles/Home.module.css";
+// @ts-ignore
+import ModalImage from "react-modal-image";
 
 export default function Page() {
   return (
@@ -97,8 +99,10 @@ export default function Page() {
             timeline. Filled in sections where an activity and a
             physical object overlap indicate that the object is directly
             involved in this step of the activity.
+            </p>
 
-            <br/><picture><img src="/crane/rams-briefing.svg" alt=""/></picture></p>
+            <picture><ModalImage small="/crane/rams-briefing.svg" large="/crane/rams-briefing.svg" imageBackgroundColor="#fff" alt="" /></picture>
+            <br/>
 
             <p>There are two people involved in this activity; they have
             both been give the type &lsquo;Person&rsquo;. The activity
@@ -114,11 +118,12 @@ export default function Page() {
             <p>Continue adding the rest of the steps in the process as
             documented. Create new physical objects as needed and add
             them to the activity steps they are involved in.
-
-            <br/><picture><img src="/crane/rams-review.svg" alt=""/></picture>
-            <br/><picture><img src="/crane/rams-walk-route.svg" alt=""/></picture>
-            <br/><picture><img src="/crane/rams-complete.svg" alt=""/></picture>
             </p>
+
+            <picture><ModalImage small="/crane/rams-review.svg" large="/crane/rams-review.svg" imageBackgroundColor="#fff" alt="" /></picture>
+            <br/><picture><ModalImage small="/crane/rams-walk-route.svg" large="/crane/rams-walk-route.svg" imageBackgroundColor="#fff" alt="" /></picture>
+            <br/><picture><ModalImage small="/crane/rams-complete.svg" large="/crane/rams-complete.svg" imageBackgroundColor="#fff" alt="" /></picture>
+            <br/>
 
             <p>The analysis at this point is very much following the
             process documentation as given in the original Method
@@ -138,11 +143,12 @@ export default function Page() {
             you &lsquo;drill down&rsquo; into the detail of the activity.</p>
 
             <p>Here is one of the steps from the lift above, represented
-            on a separate diagram. 
-    
-            <br/><picture><img src="/crane/sub-inspect-inspect.svg" alt=""/></picture>
+            on a separate diagram.</p>
 
-            <br/>Looking into the activity at this level of detail has
+            <picture><ModalImage small="/crane/sub-inspect-inspect.svg" large="/crane/sub-inspect-inspect.svg" imageBackgroundColor="#fff" alt="" /></picture>
+            <br/>
+
+            <p>Looking into the activity at this level of detail has
             identified more participants in the activity: there are
             safety inspection tags on the equipment which must be
             checked, and a quarantine area where unsafe equipment is
@@ -160,22 +166,25 @@ export default function Page() {
             href="/manual#breaking-down-activities">open the sub-tasks
             of one of the existing steps</Link>. This will open a new
             diagram view showing sub-tasks of the chosen task. Now start
-            creating activities as before. 
-            
-            <br/><picture><img src="/crane/sub-inspect-first.svg" alt=""/></picture>
+            creating activities as before.</p>
 
-            <br/>Create new individuals as needed; these will also show
-            up on the top-level view.
+            <picture><ModalImage small="/crane/sub-inspect-first.svg" large="/crane/sub-inspect-first.svg" imageBackgroundColor="#fff" alt="" /></picture>
+            <br/>
 
-            <br/><picture><img src="/crane/sub-inspect-quarantine.svg" alt=""/></picture>
+            <p>Create new individuals as needed; these will also show
+            up on the top-level view.</p>
 
-            <br/><picture><img src="/crane/sub-inspect-inspect.svg" alt=""/></picture></p>
+            <picture><ModalImage small="/crane/sub-inspect-quarantine.svg" large="/crane/sub-inspect-quarantine.svg" imageBackgroundColor="#fff" alt="" /></picture>
+            <br/><picture><ModalImage small="/crane/sub-inspect-inspect.svg" large="/crane/sub-inspect-inspect.svg" imageBackgroundColor="#fff" alt="" /></picture>
+            <br/>
 
             <p>Once the sub-task has been analysed, it is helpful to go
             back to the top-level view and add the new individuals
-            identified as participants in the top-level activity.
+            identified as participants in the top-level activity.</p>
 
-            <br/><picture><img src="/crane/sub-inspect-top.svg" alt=""/></picture></p>
+            <picture><ModalImage small="/crane/sub-inspect-top.svg" large="/crane/sub-inspect-top.svg" imageBackgroundColor="#fff" alt="" /></picture>
+            <br/>
+
             <p>This can be loaded as an example in the Editor.</p>
 
             <p>The completed diagram can be loaded into the editor from
@@ -226,7 +235,8 @@ export default function Page() {
             requires the crane&apos;s working limits, which were
             supplied to us at the time the crane was bought.</p>
 
-            <p><picture><img src="/crane/life-crane.svg" alt=""/></picture></p>
+            <picture><ModalImage small="/crane/life-crane.svg" large="/crane/life-crane.svg" imageBackgroundColor="#fff" alt="" /></picture>
+            <br/>
 
             <h3>Deciding where to stop</h3>
 

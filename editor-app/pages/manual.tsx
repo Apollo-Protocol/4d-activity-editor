@@ -3,6 +3,8 @@ import Link from "next/link";
 import Image from "next/image";
 import { Col, Container, Row } from "react-bootstrap";
 import styles from "@/styles/Home.module.css";
+// @ts-ignore
+import ModalImage from "react-modal-image";
 
 export default function Page() {
   return (
@@ -52,7 +54,7 @@ export default function Page() {
             individual participates in a particular task.</p>
     </div>
 
-    <div className="col-md text-center align-self-center"><picture><img className="w-100" src="/manual/boil-egg-basic.svg" alt=""/></picture></div>
+    <div className="col-md text-center align-self-center"><picture><ModalImage small="/manual/boil-egg-basic.svg" large="/manual/boil-egg-basic.svg" imageBackgroundColor="#fff" alt="" /></picture></div>
 
     <div className="w-100 mt-5"></div>
     <div className="col-md"><h2 className="text-primary">Creating A Diagram</h2></div>
@@ -72,7 +74,7 @@ export default function Page() {
             Individual&rsquo; button.</p>
     </div>
 
-    <div className="col-md text-center align-self-center"><picture><img className="w-50 mb-5" src="/manual/add-individual.png" alt=""/></picture></div>
+    <div className="col-md text-center align-self-center"><picture><ModalImage className="w-50 mb-5" small="/manual/add-individual.png" large="/manual/add-individual.png" imageBackgroundColor="#fff" alt="" /></picture></div>
 
     <div className="w-100"></div>
     
@@ -91,7 +93,7 @@ export default function Page() {
             that are created or destroyed as part of the activity.</p>
     </div>
 
-    <div className="col-md text-center align-self-center"><picture><img className="mw-100 mb-5" src="/manual/created-individuals.png" alt=""/></picture></div>
+    <div className="col-md text-center align-self-center"><picture><ModalImage className="mw-100 mb-5" small="/manual/created-individuals.png" large="/manual/created-individuals.png" imageBackgroundColor="#fff" alt="" /></picture></div>
 
     <div className="w-100"></div>
     
@@ -108,7 +110,7 @@ export default function Page() {
 
             
     </div>
-    <div className="col-md text-center align-self-center"><picture><img className="w-50 mb-5" src="/manual/add-activity.png" alt=""/></picture></div>
+    <div className="col-md text-center align-self-center"><picture><ModalImage className="w-50 mb-5" small="/manual/add-activity.png" large="/manual/add-activity.png" imageBackgroundColor="#fff" alt="" /></picture></div>
 
     <div className="w-100"></div>
 
@@ -124,7 +126,7 @@ export default function Page() {
             a new individual, save the activity and come back in to it
             when you&apos;ve created the individual.</p>
     </div>
-    <div className="col-md text-center align-self-center"><picture><img className="w-100 mb-5" src="/manual/created-activity.png" alt=""/></picture></div>
+    <div className="col-md text-center align-self-center"><picture><ModalImage className="w-100 mb-5" small="/manual/created-activity.png" large="/manual/created-activity.png" imageBackgroundColor="#fff" alt="" /></picture></div>
 
     <div className="w-100 mt-5"></div>
     <div className="col-md"><h2 className="text-primary">Changing A Diagram</h2></div>
@@ -154,7 +156,7 @@ export default function Page() {
             to model this level of detail becomes more important.</p>
     </div>
 
-    <div className="col-md text-center align-self-center"><picture><img className="w-50 mb-5" src="/manual/edit-participant.png" alt=""/></picture></div>
+    <div className="col-md text-center align-self-center"><picture><ModalImage className="w-50 mb-5" small="/manual/edit-participant.png" large="/manual/edit-participant.png" imageBackgroundColor="#fff" alt="" /></picture></div>
 
 
     <div className="w-100"></div>
@@ -206,7 +208,7 @@ export default function Page() {
             and then click the &lsquo;Sub-tasks&rsquo; button.</p>
     </div>
 
-    <div className="col-md text-center align-self-center"><picture><img className="w-50 mb-5" src="/manual/sub-tasks.png" alt=""/></picture></div>
+    <div className="col-md text-center align-self-center"><picture><ModalImage className="w-50 mb-5" small="/manual/sub-tasks.png" large="/manual/sub-tasks.png" imageBackgroundColor="#fff" alt="" /></picture></div>
 
     <div className="w-100"></div>
 
@@ -224,7 +226,7 @@ export default function Page() {
             project is to promote discussion of these questions.</p>
     </div>
 
-    <div className="col-md text-center align-self-center"><picture><img className="w-100 mb-5" src="/manual/sub-activities.png" alt=""/></picture></div>
+    <div className="col-md text-center align-self-center"><picture><ModalImage className="w-100 mb-5" small="/manual/sub-activities.png" large="/manual/sub-activities.png" imageBackgroundColor="#fff" alt="" /></picture></div>
 
     <div className="w-100 mt-5"></div>
     <div className="col-md"><h2 className="text-primary">Saving and Loading Diagrams</h2></div>
@@ -247,7 +249,7 @@ export default function Page() {
             can be reused across diagrams.</p>
     </div>
 
-    <div className="col text-center align-self-center"><picture><img className="w-50 mb-5" src="/manual/save-load-ttl.png" alt=""/></picture></div>
+    <div className="col text-center align-self-center"><picture><ModalImage className="w-50 mb-5" small="/manual/save-load-ttl.png" large="/manual/save-load-ttl.png" imageBackgroundColor="#fff" alt="" /></picture></div>
 
     <div className="w-100"></div>
 
@@ -262,7 +264,7 @@ export default function Page() {
             href="/crane">the example analysis</Link>.</p>
     </div>
 
-    <div className="col-md text-center align-self-center"><picture><img className="w-25 mb-5" src="/manual/load-example.png" alt=""/></picture></div>
+    <div className="col-md text-center align-self-center"><picture><ModalImage className="w-25 mb-5" small="/manual/load-example.png" large="/manual/load-example.png" imageBackgroundColor="#fff" alt="" /></picture></div>
 
     <div className="w-100"></div>
 

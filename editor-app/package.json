@@ -4,13 +4,13 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "preinstall":  "node -p \"'export const EDITOR_VERSION = ' + JSON.stringify(require('./package.json').version) + ';'\" > lib/version.ts",
+    "preinstall": "node -p \"'export const EDITOR_VERSION = ' + JSON.stringify(require('./package.json').version) + ';'\" > lib/version.ts",
     "build": "next build && next export",
     "start": "next start",
     "lint": "next lint"
   },
   "dependencies": {
-    "@apollo-protocol/hqdm-lib": "^0.0.1",
+    "@apollo-protocol/hqdm-lib": "^0.0.2",
     "@dnd-kit/core": "6.0.3",
     "@dnd-kit/sortable": "7.0.0",
     "@dnd-kit/utilities": "3.2.0",

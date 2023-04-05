@@ -22,7 +22,7 @@ export default function Page() {
   </div>
         <Row className="justify-content-center row-cols-1 row-cols-lg-2">
           <Col>
-            <p><picture><img className="w-100" src="crane/crane-lift.jpeg" alt=""/></picture></p>
+            <p><picture><img className="w-100" src="crane/crane-lift.jpeg" alt="" /></picture></p>
 
             <p>This document walks through the process of analysing the
             data required to perform an industrial activity, in this
@@ -168,7 +168,7 @@ export default function Page() {
             diagram view showing sub-tasks of the chosen task. Now start
             creating activities as before.</p>
 
-            <picture><ModalImage small="crane/sub-inspect-first.svg" large="/crane/sub-inspect-first.svg" imageBackgroundColor="#fff" alt="" /></picture>
+            <picture><ModalImage small="crane/sub-inspect-first.svg" large="crane/sub-inspect-first.svg" imageBackgroundColor="#fff" alt="" /></picture>
             <br/>
 
             <p>Create new individuals as needed; these will also show

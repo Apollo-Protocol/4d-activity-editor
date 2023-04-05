@@ -16,7 +16,7 @@ export default function Home() {
       <div className="col-md-5 p-lg-5 mx-auto my-5">
         <h1 className="display-4 font-weight-normal">Activity Model Development Tool</h1>
         <p className="lead font-weight-normal">Learn and practice planning in a new way. Helping you discover all the information you need for complete decision making and resource planning.</p>
-        <Link className="btn btn-outline-secondary" href="/editor">Go To Editor</Link>
+        <Link className="btn btn-outline-secondary" href="editor">Go To Editor</Link>
       </div>
       <div className="product-device box-shadow d-none d-md-block"></div>
       <div className="product-device product-device-2 box-shadow d-none d-md-block"></div>
@@ -81,7 +81,7 @@ export default function Home() {
               temporal extent on the Time axis. Where a resource
               participates in an activity the overlapping area is
               shaded.
-            " className="img-fluid"/></div>
+            " className="img-fluid" /></div>
   </div>
 </div>
 

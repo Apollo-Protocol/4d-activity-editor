@@ -50,7 +50,7 @@ export default function Page() {
           </Col>
           <Col className="col-md text-center align-self-center">
             <Image src={flowchart} alt="The four-step activity modelling 
-            method as a flowchart." className="img-fluid mb-5 mt-3"/>
+            method as a flowchart." className="img-fluid mb-5 mt-3" />
           </Col>
         </Row>
         <Row className="justify-content-center row-cols-1 row-cols-lg-2 mt-5">
@@ -113,13 +113,13 @@ export default function Page() {
               temporal extent on the Time axis. Where a resource
               participates in an activity the overlapping area is
               shaded.
-            " className="img-fluid mb-5"/>
+            " className="img-fluid mb-5" />
           </Col>
         </Row>
 
-        <Link className="btn btn-outline-secondary mr-1" href="/crane">See an example</Link>
+        <Link className="btn btn-outline-secondary mr-1" href="crane">See an example</Link>
         <p></p>
-        <Link className="btn btn-outline-secondary" href="/editor">Try the editor</Link>
+        <Link className="btn btn-outline-secondary" href="editor">Try the editor</Link>
 
       </Container>
     </>

@@ -1,17 +1,36 @@
-# 4D Activity Editor
+# Apollo Protocol: 4D Activity Editor
+> Activity Model Development Tool
 
-This prototype Activity Modeller uses the techniques laid out in [“An Integrated Approach to Information Management: Identifying decisions and the information required for them using activity and process models”](https://www.cdbb.cam.ac.uk/news/publication-integrated-approach-information-management-identifying-decisions-and-information).  Discover the value of using data to model activities and what’s involved in them.
+This application is a lightweight web application to produce activity models based on the principles of 4-Dimensionalism (4D) whilst hiding the complexity to end users.
 
-The application is a next.js web application built around the editor to provide support and guidance, as well as allow for hosting. When locally spun up all data remains on the device.
+## Introduction
+
+Knowing what information is needed to support any business activity is not easy. Especially engineering activities such as product assembly and management of assets across their life. 
+It is crucial that relevant information requirements can be discovered by following a standardised and thorough approach.
+
+By creating 4D activity diagrams, you are provided with the means to document the information required consistently. 
+The information output of which can be analysed as logical diagrams or machine-readable data for expanded data integration.
+Well constructed activity models can aid business process improvement, information quality management, performance measurement and planning.
+
+
+![Screenshot](docs/CraneLift-20230329b.png)
+
+This prototype uses the techniques laid out in [“An Integrated Approach to Information Management: Identifying decisions and the information required for them using activity and process models”](https://www.cdbb.cam.ac.uk/news/publication-integrated-approach-information-management-identifying-decisions-and-information).  Discover the value of using data to model activities and what’s involved in creating them.
 
 The editor is built upon the principles of 4-Dimensionalism. By design the user interface hides the theory and complexity, whilst providing you the benefits of such a comprehensive approach. This editor is part of ongoing research, and as such [feedback](link-to-discussion) is greatly appreciated.
 
-![Screenshot](docs/CraneLift-20230329b.png)
+The application is a next.js web application built around the editor providing support and guidance to get started. When locally hosted all data remains on the device.
 
 
 ## Getting Started
 
-Follow the setup instructions in the editor-app readme found [here](editor-app/README.md).
+An online free access version of the last released editor tool is hosted by GitHub Pages [here](https://apollo-protocol.github.io/4d-activity-editor/).
+
+For running locally please follow the setup instructions in the editor-app readme found [here](editor-app/README.md).
+
+### Examples
+
+A series of diagram examples are included in the `./examples` folder [here](./examples/) that are supported by the tool in addition to the in-built examples.
 
 ## Contributing
 
@@ -25,4 +44,4 @@ In brief:
 
 ## Licence
 
-4D Activity Editor is released under the terms of the  Apache 2.0 Licence [license](LICENCE.md).
+4D Activity Editor is released under the terms of the [Apache 2.0 Licence](LICENCE.md).

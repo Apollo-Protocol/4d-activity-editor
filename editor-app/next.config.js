@@ -12,7 +12,7 @@ if (isGithubActions) {
   const repo = process.env.GITHUB_REPOSITORY.replace(/.*?\//, '');
 
   assetPrefix = `/${repo}/`;
-  basePath = `/${repo}/`;
+  basePath = `/${repo}`;
   images = {
     loader: 'imgix',
     path: 'apollo-protocol-editor.imgix.net',

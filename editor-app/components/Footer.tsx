@@ -15,7 +15,7 @@ function Footer() {
     <h5>More</h5>
           <ul className="list-unstyled text-small">
             <li><Link className="text-muted" href="https://digitaltwinhub.co.uk/networks/29-the-apollo-protocol">Get in touch</Link></li>
-            <li><Link className="text-muted" href="/">Give feedback</Link></li>
+            <li><Link className="text-muted" href="https://github.com/Apollo-Protocol/4d-activity-editor/discussions">Give feedback</Link></li>
           </ul>
     
     </div>

@@ -10,7 +10,7 @@ export default function Home() {
     <>
     <div className="container ">
       <div className="position-relative overflow-hidden p-3 p-md-5 m-md-3 text-center">
-      <div className="col-md-5 p-lg-5 mx-auto my-5">
+      <div className="col-md-6 p-lg-5 mx-auto my-5">
         <h1 className="display-4 font-weight-normal">Activity Model Development Tool</h1>
         <p className="lead font-weight-normal">Learn and practice planning in a new way. Helping you discover all the information you need for complete decision making and resource planning.</p>
         <Link className="btn btn-outline-secondary" href="editor">Go To Editor</Link>

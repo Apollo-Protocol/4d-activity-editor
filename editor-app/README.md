@@ -1,4 +1,6 @@
-This website hosts a High Quality Data Model (HQDM) activity diagram editor.
+# How to Deploy Locally
+
+This guide explains how to host the 4D Activity Editor.
 
 ## Getting Started
 
@@ -10,13 +12,13 @@ Install yarn
 npm install --global yarn
 ```
 
-Install the project dependencies
+From inside this folder location, install the project dependencies
 
 ```bash
 yarn install
 ```
 
-Run the development server:
+Then run the development server:
 
 ```bash
 yarn dev
@@ -31,3 +33,7 @@ Update next.config.js and set this option:
 ```js
 assetPrefix: "./";
 ```
+
+## Feedback
+
+This tool is currently an early experiment and as such any issues or feedback you have please [get in touch](https://github.com/Apollo-Protocol/4d-activity-editor/discussions). All thoughts are greatly appreciated!

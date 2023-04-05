@@ -112,7 +112,7 @@ export default function Page() {
             <p>The intention of the 4D approach to data modelling is to
             provide an overall framework within which to develop models
             (technically through the use of a 
-            <i>top-level ontology (TLO)</i>)
+            <i> top-level ontology (TLO)</i>)
             which matches as closely to the physical reality as possible. 
             The reason for this is that where you have separate systems
             modelling the same real-world things using different data

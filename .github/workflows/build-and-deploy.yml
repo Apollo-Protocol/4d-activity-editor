@@ -28,6 +28,7 @@ jobs:
         working-directory: ./editor-app
         run: |
           npm i yarn
+          yarn install
           yarn build
           touch out/.nojekyll
 

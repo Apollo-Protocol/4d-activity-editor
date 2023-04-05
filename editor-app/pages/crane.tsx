@@ -12,7 +12,7 @@ export default function Page() {
       <Head>
         <title>Analysing a crane lift</title>
         <meta name="viewport" content="width=device-width, initial-scale=1" />
-        <link rel="icon" href="/favicon.ico" />
+        <link rel="icon" href="favicon.ico" />
       </Head>
       <Container>
       <div className="row">
@@ -22,7 +22,7 @@ export default function Page() {
   </div>
         <Row className="justify-content-center row-cols-1 row-cols-lg-2">
           <Col>
-            <p><picture><img className="w-100" src="/crane/crane-lift.jpeg" alt=""/></picture></p>
+            <p><picture><img className="w-100" src="crane/crane-lift.jpeg" alt="" /></picture></p>
 
             <p>This document walks through the process of analysing the
             data required to perform an industrial activity, in this
@@ -31,7 +31,7 @@ export default function Page() {
             activity analysis method.</p>
 
             <p>This analysis performs Step 2 of the {}<Link
-            href="/intro">information requirements methodology</Link>,
+            href="intro">information requirements methodology</Link>,
             that of identifying all participants involved in the
             activity in question and breaking down the steps in the
             activity until decision points can be identified.</p>
@@ -90,7 +90,7 @@ export default function Page() {
             <h3>Representing a step on the diagram</h3>
 
             <p>Take the first step in the process as documented, and {}
-            <Link href="/manual#creating-a-diagram">represent it on the
+            <Link href="manual#creating-a-diagram">represent it on the
             diagram</Link>. Horizontal boxes represent physical objects
             involved in the process: people, machines, documents,
             anything at all in the real world that might affect the
@@ -101,7 +101,7 @@ export default function Page() {
             involved in this step of the activity.
             </p>
 
-            <picture><ModalImage small="/crane/rams-briefing.svg" large="/crane/rams-briefing.svg" imageBackgroundColor="#fff" alt="" /></picture>
+            <picture><ModalImage small="crane/rams-briefing.svg" large="crane/rams-briefing.svg" imageBackgroundColor="#fff" alt="" /></picture>
             <br/>
 
             <p>There are two people involved in this activity; they have
@@ -120,9 +120,9 @@ export default function Page() {
             them to the activity steps they are involved in.
             </p>
 
-            <picture><ModalImage small="/crane/rams-review.svg" large="/crane/rams-review.svg" imageBackgroundColor="#fff" alt="" /></picture>
-            <br/><picture><ModalImage small="/crane/rams-walk-route.svg" large="/crane/rams-walk-route.svg" imageBackgroundColor="#fff" alt="" /></picture>
-            <br/><picture><ModalImage small="/crane/rams-complete.svg" large="/crane/rams-complete.svg" imageBackgroundColor="#fff" alt="" /></picture>
+            <picture><ModalImage small="crane/rams-review.svg" large="crane/rams-review.svg" imageBackgroundColor="#fff" alt="" /></picture>
+            <br/><picture><ModalImage small="crane/rams-walk-route.svg" large="crane/rams-walk-route.svg" imageBackgroundColor="#fff" alt="" /></picture>
+            <br/><picture><ModalImage small="crane/rams-complete.svg" large="crane/rams-complete.svg" imageBackgroundColor="#fff" alt="" /></picture>
             <br/>
 
             <p>The analysis at this point is very much following the
@@ -145,7 +145,7 @@ export default function Page() {
             <p>Here is one of the steps from the lift above, represented
             on a separate diagram.</p>
 
-            <picture><ModalImage small="/crane/sub-inspect-inspect.svg" large="/crane/sub-inspect-inspect.svg" imageBackgroundColor="#fff" alt="" /></picture>
+            <picture><ModalImage small="crane/sub-inspect-inspect.svg" large="crane/sub-inspect-inspect.svg" imageBackgroundColor="#fff" alt="" /></picture>
             <br/>
 
             <p>Looking into the activity at this level of detail has
@@ -163,26 +163,26 @@ export default function Page() {
             model these situations; work is ongoing.</p>
 
             <p>To create a sub-task breakdown like this, <Link
-            href="/manual#breaking-down-activities">open the sub-tasks
+            href="manual#breaking-down-activities">open the sub-tasks
             of one of the existing steps</Link>. This will open a new
             diagram view showing sub-tasks of the chosen task. Now start
             creating activities as before.</p>
 
-            <picture><ModalImage small="/crane/sub-inspect-first.svg" large="/crane/sub-inspect-first.svg" imageBackgroundColor="#fff" alt="" /></picture>
+            <picture><ModalImage small="crane/sub-inspect-first.svg" large="crane/sub-inspect-first.svg" imageBackgroundColor="#fff" alt="" /></picture>
             <br/>
 
             <p>Create new individuals as needed; these will also show
             up on the top-level view.</p>
 
-            <picture><ModalImage small="/crane/sub-inspect-quarantine.svg" large="/crane/sub-inspect-quarantine.svg" imageBackgroundColor="#fff" alt="" /></picture>
-            <br/><picture><ModalImage small="/crane/sub-inspect-inspect.svg" large="/crane/sub-inspect-inspect.svg" imageBackgroundColor="#fff" alt="" /></picture>
+            <picture><ModalImage small="crane/sub-inspect-quarantine.svg" large="crane/sub-inspect-quarantine.svg" imageBackgroundColor="#fff" alt="" /></picture>
+            <br/><picture><ModalImage small="crane/sub-inspect-inspect.svg" large="crane/sub-inspect-inspect.svg" imageBackgroundColor="#fff" alt="" /></picture>
             <br/>
 
             <p>Once the sub-task has been analysed, it is helpful to go
             back to the top-level view and add the new individuals
             identified as participants in the top-level activity.</p>
 
-            <picture><ModalImage small="/crane/sub-inspect-top.svg" large="/crane/sub-inspect-top.svg" imageBackgroundColor="#fff" alt="" /></picture>
+            <picture><ModalImage small="crane/sub-inspect-top.svg" large="crane/sub-inspect-top.svg" imageBackgroundColor="#fff" alt="" /></picture>
             <br/>
 
             <p>This can be loaded as an example in the Editor.</p>
@@ -235,7 +235,7 @@ export default function Page() {
             requires the crane&apos;s working limits, which were
             supplied to us at the time the crane was bought.</p>
 
-            <picture><ModalImage small="/crane/life-crane.svg" large="/crane/life-crane.svg" imageBackgroundColor="#fff" alt="" /></picture>
+            <picture><ModalImage small="crane/life-crane.svg" large="crane/life-crane.svg" imageBackgroundColor="#fff" alt="" /></picture>
             <br/>
 
             <h3>Deciding where to stop</h3>

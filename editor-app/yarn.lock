@@ -2,10 +2,10 @@
 # yarn lockfile v1
 
 
-"@apollo-protocol/hqdm-lib@^0.0.1":
-  version "0.0.1"
-  resolved "https://registry.yarnpkg.com/@apollo-protocol/hqdm-lib/-/hqdm-lib-0.0.1.tgz#49c8b7a840b0ef6d6655f8293196b4d3bcfdda6b"
-  integrity sha512-2vFf6Wm+HuKgcQzNCadXT9WhPCJkj3wcfxtDFx6p7+MMAD5qgXUuArdOkE44JdNOQX/ip8URo6xduDX4Nw9slA==
+"@apollo-protocol/hqdm-lib@^0.0.2":
+  version "0.0.2"
+  resolved "https://registry.yarnpkg.com/@apollo-protocol/hqdm-lib/-/hqdm-lib-0.0.2.tgz#8da40c2027a88ce11ebf9994abbd4935832d3352"
+  integrity sha512-5Jh4FmSIe1Zmpm04Hh30EPNSz+bcEdI5tC7+z6SJg/gOAxwYKsfjqQuvKSHrohf6EEHampYhirYp6tMGlVrc2w==
   dependencies:
     "@rdfjs/serializer-jsonld" "^2.0.0"
     n3 "^1.16.3"
@@ -2465,9 +2465,9 @@ ms@^2.1.1:
   integrity sha512-6FlzubTLZG3J2a/NVCAleEhjzq5oxgHyaCU9yYXvcLsvoVaHJq/s5xXI6/XXP6tz7R9xAOtHnSO/tXtF3WRTlA==
 
 n3@^1.16.3:
-  version "1.16.3"
-  resolved "https://registry.yarnpkg.com/n3/-/n3-1.16.3.tgz#d339dca14c79648b1595a3252c5410b800b896f8"
-  integrity sha512-9caLSZuMW1kdlPxEN4ka6E4E8a5QKoZ2emxpW+zHMofI+Bo92nJhN//wNub15S5T9I4c6saEqdGEu+YXJqMZVA==
+  version "1.16.4"
+  resolved "https://registry.yarnpkg.com/n3/-/n3-1.16.4.tgz#6747e9e63e1b6656c1ce02a29707471307b23c04"
+  integrity sha512-jtC53efM5/q4BYC3qBnegn1MJDKXHH9PEd6gVDNpIicbgXS6gkANz4DdI0jt4aLvza1xSjCcni33riXWvfoEdw==
   dependencies:
     queue-microtask "^1.1.2"
     readable-stream "^4.0.0"

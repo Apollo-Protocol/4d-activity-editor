@@ -4,15 +4,13 @@ import Link from "next/link";
 import { Col, Container, Row } from "react-bootstrap";
 import styles from "@/styles/Home.module.css";
 
-import sevenCircles from "@/public/7CirclesMedium2.png";
-
 export default function Page() {
   return (
     <>
       <Head>
         <title>Integrated information management</title>
         <meta name="viewport" content="width=device-width, initial-scale=1" />
-        <link rel="icon" href="/favicon.ico" />
+        <link rel="icon" href="favicon.ico" />
       </Head>
       <Container>
       <div className="row">
@@ -30,16 +28,15 @@ export default function Page() {
             by a person or by a machine, information is essential; the 
             correct information must be available at the time it is needed
             and of a suitable quality to enable the decision to be made 
-            properly. <b className="text-danger">Reference Apollo protocol 
-            and Matthew&apos;s IMF work.</b></p>
+            properly.</p>
             <p>This page gives an overview of what&apos;s involved in ensuring 
             that information is fit for the collective decisions in an 
             integrated and well managed managed eneterprise. Further information can also be found at: </p>
             <p><Link href="https://www.theiet.org/impact-society/factfiles/built-environment-factfiles/the-apollo-protocol-unifying-digital-twins-across-sectors/">Apollo Protocol</Link></p>
           </Col>
           <Col className="col-md text-center">
-            <Image src={sevenCircles} className="w-100 mt-3" alt="A layered view of what's needed
-            for integrated information management."/>
+            <picture><img src="7CirclesMedium2.png" className="w-100 mt-3" alt="A layered view of what's needed
+            for integrated information management"></img></picture>
             <p className="amrc-fixme">Elements of integrated information 
             management</p>
           </Col>

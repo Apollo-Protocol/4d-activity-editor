@@ -26,7 +26,7 @@ const DiagramPersistence = (props: any) => {
   const [examples, setExamples] = useState<Example[]>([]);
 
   useEffect(() => {
-    fetch("/examples/index.json")
+    fetch("examples/index.json")
       .then(res => {
         if (!res.ok) {
           console.log(`Fetching examples index failed: ${res.status}`);

@@ -32,7 +32,7 @@ export default function Home() {
           <p className="lead">Knowing what information is needed to support any
             business activity is not easy. Especially engineering activities such as product assembly and life cycle mangement.
             It is crucial that relevant information requirements can be discovered by following a standardised and thorough approach.</p>
-            <Link className="btn btn-outline-secondary" href="/intro">Learn more</Link>
+            <Link className="btn btn-outline-secondary" href="intro">Learn more</Link>
         </div>
         <div className="bg-white box-shadow mx-auto"></div>
       </div>
@@ -45,7 +45,7 @@ export default function Home() {
           required consistently. The information output of which can be analysed as logical diagrams or machine-readable data for
           expanded data integration. <br></br>Well constructed activity models can aid business process improvement, 
           information quality managemement, performance measurement and planning.  </p>
-          <Link className="btn btn-outline-secondary" href="/crane">See an example</Link>
+          <Link className="btn btn-outline-secondary" href="crane">See an example</Link>
         </div>
         <div className="bg-white box-shadow mx-auto"></div>
       </div>
@@ -70,7 +70,7 @@ export default function Home() {
           the user interface hides the theory and complexity, whilst providing you the benefits of such a 
           comprehensive approach.   </p>
           <p>Methodologies such as these will prove essential for the adoption and use of integrated information management.</p>
-          <Link className="btn btn-outline-secondary" href="/management">Find out more</Link>
+          <Link className="btn btn-outline-secondary" href="management">Find out more</Link>
         </div>
     </div>
     <div className="col text-center align-self-center"><Image src={example} alt="

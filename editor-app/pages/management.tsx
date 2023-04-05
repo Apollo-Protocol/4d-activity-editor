@@ -4,15 +4,13 @@ import Link from "next/link";
 import { Col, Container, Row } from "react-bootstrap";
 import styles from "@/styles/Home.module.css";
 
-import sevenCircles from "@/public/7CirclesMedium2.png";
-
 export default function Page() {
   return (
     <>
       <Head>
         <title>Integrated information management</title>
         <meta name="viewport" content="width=device-width, initial-scale=1" />
-        <link rel="icon" href="/favicon.ico" />
+        <link rel="icon" href="favicon.ico" />
       </Head>
       <Container>
       <div className="row">
@@ -38,8 +36,8 @@ export default function Page() {
             <p><Link href="https://www.theiet.org/impact-society/factfiles/built-environment-factfiles/the-apollo-protocol-unifying-digital-twins-across-sectors/">Apollo Protocol</Link></p>
           </Col>
           <Col className="col-md text-center">
-            <Image src={sevenCircles} className="w-100 mt-3" alt="A layered view of what's needed
-            for integrated information management."/>
+            <picture><img src="7CirclesMedium2.png" className="w-100 mt-3" alt="A layered view of what's needed
+            for integrated information management"></img></picture>
             <p className="amrc-fixme">Elements of integrated information 
             management</p>
           </Col>

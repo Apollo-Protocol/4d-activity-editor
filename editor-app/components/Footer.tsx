@@ -23,7 +23,7 @@ function Footer() {
     </div>
     <div className="col-sm">
       
-    <div className="row">
+    <div className="row mb-3">
     <div className="col-sm text-center align-self-center">
     <Link href="https://www.amrc.co.uk/">
     <picture><img src="Logo_AMRC.png" className="rounded w-50" alt="..."></img></picture>

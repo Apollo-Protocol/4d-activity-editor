@@ -28,8 +28,7 @@ export default function Page() {
             by a person or by a machine, information is essential; the 
             correct information must be available at the time it is needed
             and of a suitable quality to enable the decision to be made 
-            properly. <b className="text-danger">Reference Apollo protocol 
-            and Matthew&apos;s IMF work.</b></p>
+            properly.</p>
             <p>This page gives an overview of what&apos;s involved in ensuring 
             that information is fit for the collective decisions in an 
             integrated and well managed managed eneterprise. Further information can also be found at: </p>

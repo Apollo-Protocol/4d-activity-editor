@@ -73,7 +73,7 @@ export default function Page() {
             used to tighten it and the robot manipulating the torque 
             wrench.  Each item modelled has an identity that
             can be used to create and query for records at any point in
-            its lifefcycle (at least, if we arrange for the data records
+            its lifecycle (at least, if we arrange for the data records
             to be managed in a way that allows for this).</p>
 
             <h4>Step 3: Identify decisions relating to those activities</h4>
@@ -95,10 +95,10 @@ export default function Page() {
             decision in the activity lifecycle.</p>
             
             <p>Data from the Activity Modeller can serve as a record of 
-            the analysis of, and decisions made, for informtion 
-            requirements capture.  The full methodology for implementing
+            the analysis of, and decisions made, for information 
+            requirements capture.  The full draft methodology for implementing
             information systems based on this analysis is available for 
-            trial use <Link href="https://github.com/Apollo-Protocol">
+            trial use <Link href="https://github.com/Apollo-Protocol/information-requirement-methodology">
             here</Link>.</p>
           </Col>
           <Col className="col-md text-center align-self-center">

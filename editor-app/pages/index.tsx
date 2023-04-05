@@ -27,7 +27,7 @@ export default function Home() {
         <div className="my-3 p-3">
           <h2 className="display-5">Why</h2>
           <p className="lead">Knowing what information is needed to support any
-            business activity is not easy. Especially engineering activities such as product assembly and life cycle mangement.
+            business activity is not easy. Especially engineering activities such as product assembly and management of assets across their life.
             It is crucial that relevant information requirements can be discovered by following a standardised and thorough approach.</p>
             <Link className="btn btn-outline-secondary" href="intro">Learn more</Link>
         </div>
@@ -41,7 +41,7 @@ export default function Home() {
           <p className="lead">By creating 4D activity diagrams, you are provided with the means to document the information
           required consistently. The information output of which can be analysed as logical diagrams or machine-readable data for
           expanded data integration. <br></br>Well constructed activity models can aid business process improvement, 
-          information quality managemement, performance measurement and planning.  </p>
+          information quality management, performance measurement and planning.  </p>
           <Link className="btn btn-outline-secondary" href="crane">See an example</Link>
         </div>
         <div className="bg-white box-shadow mx-auto"></div>

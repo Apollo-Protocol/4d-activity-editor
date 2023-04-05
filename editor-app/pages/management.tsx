@@ -31,7 +31,7 @@ export default function Page() {
             properly.</p>
             <p>This page gives an overview of what&apos;s involved in ensuring 
             that information is fit for the collective decisions in an 
-            integrated and well managed managed eneterprise. Further information can also be found at: </p>
+            integrated and well managed managed enterprise. Further information can also be found at: </p>
             <p><Link href="https://www.theiet.org/impact-society/factfiles/built-environment-factfiles/the-apollo-protocol-unifying-digital-twins-across-sectors/">Apollo Protocol</Link></p>
           </Col>
           <Col className="col-md text-center">
@@ -132,12 +132,12 @@ export default function Page() {
             complicated place). However, an understanding of the
             technical foundations is not necessary in order to use the
             results. This activity modeller uses a top-level framework
-            called HDQM (High Quality Data Models) developed by Matthew 
+            called HQDM (High Quality Data Models) developed by Matthew 
             West.</p>
 
             <p>Recent work to develop an Information Management Framework 
             comprising a Foundation Data Model that incorporates the 
-            necessary comittments of a TLO was summarised at&nbsp;
+            necessary commitments of a TLO was summarised at&nbsp;
             <Link href="https://gateway.newton.ac.uk/event/tgmw80/programme">
               this</Link>&nbsp;event.</p>
 

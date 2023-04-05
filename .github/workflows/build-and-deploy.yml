@@ -1,6 +1,6 @@
 # .github/workflows/build-and-deploy.yml
 
-name: Node.js CI
+name: GitHub Pages Deployment
 
 on:
   push:

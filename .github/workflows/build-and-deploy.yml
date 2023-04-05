@@ -22,6 +22,7 @@ jobs:
           # update the Node version to meet your needs
           node-version: 16
           cache: npm
+          cache-dependency-path: ./editor-app
 
       - name: Build
         working-directory: ./editor-app

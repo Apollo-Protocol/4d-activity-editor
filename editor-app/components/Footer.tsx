@@ -20,21 +20,27 @@ function Footer() {
     
     </div>
     <div className="col-sm">
-    <p className="text-center text-muted"><p className="text-center text-muted">2023 Apollo Protocol Activity Diagram Editor</p> <p className="text-center text-muted">Created by AMRC in collaboration with CIS</p></p>
+    <p className="text-center text-muted"><p className="text-center text-muted">2023 Apollo Protocol Activity Diagram Editor</p> <p className="text-center text-muted">Created by AMRC in collaboration with CIS</p>
+    <p className="text-center text-muted"> </p></p>
     </div>
     <div className="col-sm">
       
     <div className="row mb-3">
     <div className="col-sm text-center align-self-center">
     <Link href="https://www.amrc.co.uk/">
-    <picture><img src="Logo_AMRC.png" className="rounded w-50" alt="..."></img></picture>
+    <picture><img src="Logo_AMRC.png" className="rounded mw-100" alt="..."></img></picture>  
     </Link>
+    
     </div>
+    <div className="col-5">
+    <picture><img src="Logo_CIS.png" className="mw-100 float-right" alt="..."></img></picture>
+    </div>
+    
   </div>
 
   <div className="row">
     <div className="col-sm text-center align-self-center">
-    <picture><img src="Logo_CIS.png" className="float-right w-25" alt="..."></img></picture>
+    Funded by <picture><img src="Logo_InnovateUK.png" className="rounded w-25" alt="..."></img></picture>
     </div>
   </div>
     

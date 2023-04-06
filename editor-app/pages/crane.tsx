@@ -64,7 +64,7 @@ export default function Page() {
             <p>If done diligently the activity models can be used directly
             to develop information models that match the intended 
             activities. As part of a continuous approach to improvement, 
-            the activity models can support busniess performance analysis 
+            the activity models can support business performance analysis 
             and can be updated to better reflect ongoing activities.</p>
 
             <p>In some industries there will be existing libraries of
@@ -155,7 +155,7 @@ export default function Page() {
             kept for inspection or disposal.</p>
 
             <p>In this diagram there are steps which may be omitted (if
-            the equpment is safe it will not be quarantined) and steps
+            the equipment is safe it will not be quarantined) and steps
             which may be repeated (if we quarantine unsafe equipment we
             need to choose another set and re-inspect). There are also
             situations (an unsafe crane) where the entire activity will

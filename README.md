@@ -1,12 +1,12 @@
 # Apollo Protocol: 4D Activity Editor
 > Activity Model Development Tool
 
-This application is a lightweight web application to produce activity models based on the principles of 4-Dimensionalism (4D) whilst hiding the complexity to end users.
+This application is a lightweight web application to produce activity models based on the principles of 4-Dimensionalism (4D) whilst hiding the model complexity from end users.
 
 ## Introduction
 
-Knowing what information is needed to support any business activity is not easy. Especially engineering activities such as product assembly and management of assets across their life. 
-It is crucial that relevant information requirements can be discovered by following a standardised and thorough approach.
+Knowing what information is needed to support any business activity is not easy. Especially engineering activities such as product assembly and management of assets throughout their lifecycle. 
+It is crucial that relevant information requirements can be discovered by following a standardised and thorough approach to enable good, ongoing information management.
 
 By creating 4D activity diagrams, you are provided with the means to document the information required consistently. 
 The information output of which can be analysed as logical diagrams or machine-readable data for expanded data integration.

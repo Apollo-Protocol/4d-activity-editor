@@ -10,7 +10,7 @@ export default function Home() {
     <>
     <div className="container ">
       <div className="position-relative overflow-hidden p-3 p-md-5 m-md-3 text-center">
-      <div className="col-md-5 p-lg-5 mx-auto my-5">
+      <div className="col-md-6 p-lg-5 mx-auto my-5">
         <h1 className="display-4 font-weight-normal">Activity Model Development Tool</h1>
         <p className="lead font-weight-normal">Learn and practice planning in a new way. Helping you discover all the information you need for complete decision making and resource planning.</p>
         <Link className="btn btn-outline-secondary" href="editor">Go To Editor</Link>
@@ -21,27 +21,27 @@ export default function Home() {
     </div>
 
     <div className="container">
-  <div className="row">
-    <div className="col">
+  <div className="row pt-5">
+    <div className="col-md">
     <div className="bg-light mr-md-3 pt-3 px-3 pt-md-5 px-md-5 text-center overflow-hidden h-100">
         <div className="my-3 p-3">
           <h2 className="display-5">Why</h2>
           <p className="lead">Knowing what information is needed to support any
-            business activity is not easy. Especially engineering activities such as product assembly and life cycle mangement.
+            business activity is not easy. Especially engineering activities such as product assembly and management of assets across their life.
             It is crucial that relevant information requirements can be discovered by following a standardised and thorough approach.</p>
             <Link className="btn btn-outline-secondary" href="intro">Learn more</Link>
         </div>
         <div className="bg-white box-shadow mx-auto"></div>
       </div>
       </div>
-    <div className="col">
+    <div className="col-md">
     <div className="bg-light mr-md-3 pt-3 px-3 pt-md-5 px-md-5 text-center overflow-hidden h-100">
         <div className="my-3 p-3">
           <h2 className="display-5">How</h2>
           <p className="lead">By creating 4D activity diagrams, you are provided with the means to document the information
           required consistently. The information output of which can be analysed as logical diagrams or machine-readable data for
           expanded data integration. <br></br>Well constructed activity models can aid business process improvement, 
-          information quality managemement, performance measurement and planning.  </p>
+          information quality management, performance measurement and planning.  </p>
           <Link className="btn btn-outline-secondary" href="crane">See an example</Link>
         </div>
         <div className="bg-white box-shadow mx-auto"></div>
@@ -60,7 +60,7 @@ export default function Home() {
   </div>
 </div>
 
-    <div className="col">
+    <div className="col-md">
     <div className="my-3 p-3">
           <h2 className="display-5">A Tool for the Future</h2>
           <p className="lead">For those of you who wish to know more. The editor is built upon the principles of 4-Dimensionalism. By design

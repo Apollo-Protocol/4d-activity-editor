@@ -8,6 +8,13 @@ import styles from "@/styles/Home.module.css";
 export default function Home() {
   return (
     <>
+    <Head>
+      <title>Activity Diagram Editor</title>
+      <meta name="description" content="HDQM activity diagram editor" />
+      <meta name="viewport" content="width=device-width, initial-scale=1" />
+      <link rel="icon" href="favicon.ico" />
+    </Head>
+    <Container>
     <div className="container ">
       <div className="position-relative overflow-hidden p-3 p-md-5 m-md-3 text-center">
       <div className="col-md-6 p-lg-5 mx-auto my-5">
@@ -86,6 +93,7 @@ export default function Home() {
   </div>
 </div>
 
+</Container>
     </>
   );
 }

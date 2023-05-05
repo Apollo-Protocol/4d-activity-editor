@@ -9,6 +9,13 @@ import ModalImage from "react-modal-image";
 export default function Page() {
   return (
     <>
+    <Head>
+      <title>Guide | Activity Diagram Editor</title>
+      <meta name="description" content="HDQM activity diagram editor" />
+      <meta name="viewport" content="width=device-width, initial-scale=1" />
+      <link rel="icon" href="favicon.ico" />
+    </Head>
+    <Container>
       <div className="container">
       <div className="row">
     <div className="col mb-5">
@@ -294,6 +301,7 @@ export default function Page() {
 
   </div>
 </div>
+    </Container>
     </>
   );
 }

@@ -10,7 +10,7 @@ export default function Page() {
   return (
     <>
       <Head>
-        <title>Analysing a crane lift</title>
+        <title>Analysing a Crane Lift | Activity Diagram Editor</title>
         <meta name="viewport" content="width=device-width, initial-scale=1" />
         <link rel="icon" href="favicon.ico" />
       </Head>

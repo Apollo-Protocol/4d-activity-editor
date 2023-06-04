@@ -44,4 +44,4 @@ In brief:
 
 ## Licence
 
-4D Activity Editor is released under the terms of the [Apache 2.0 Licence](LICENCE.md).
+4D Activity Editor is released under the terms of the [Apache 2.0 Licence](LICENCE.md) and is covered by [Crown Copyright](https://www.nationalarchives.gov.uk/information-management/re-using-public-sector-information/uk-government-licensing-framework/crown-copyright/).

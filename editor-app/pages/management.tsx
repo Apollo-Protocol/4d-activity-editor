@@ -135,11 +135,11 @@ export default function Page() {
             called HQDM (High Quality Data Models) developed by Matthew 
             West.</p>
 
-            <p>Recent work to develop an Information Management Framework 
-            comprising a Foundation Data Model that incorporates the 
-            necessary commitments of a TLO was summarised at&nbsp;
-            <Link href="https://gateway.newton.ac.uk/event/tgmw80/programme">
-              this</Link>&nbsp;event.</p>
+            <p>Recent work by the National Digital Twin Programme to develop 
+            an Information Management Framework comprising of a Foundation Data 
+            Model incorporating the necessary commitments of a TLO was 
+            summarised at&nbsp;<Link href="https://gateway.newton.ac.uk/event/tgmw80/programme">
+            this</Link>&nbsp;event.</p>
 
             <p>Please get in touch, and contribute to the open source 
             resources, if you are interested in adopting or getting 

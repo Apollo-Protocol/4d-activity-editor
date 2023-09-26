@@ -27,6 +27,7 @@ import { IndividualImpl } from "./IndividualImpl";
 import { Kind, Model } from "./Model";
 import { STExtent } from "./Schema";
 import { EDITOR_VERSION } from "./version";
+import { Fade } from "react-bootstrap";
 
 /**
  * ActivityLib
@@ -141,9 +142,6 @@ const getTimeValue = (hqdm: HQDMModel, t: Thing): number => {
  * Creates an HQDM point_in_time.
  */
 const createTimeValue = (hqdm: HQDMModel, modelWorld: Thing, time: number): Thing => {
-  const iri = BASE + uuidv4();
-  const thing = hqdm.createThing(event, iri);
-  hqdm.addMemberOf(thing, diagramTimeClass);
 
   /* Map the epoch start and end to +-Inf for output to the file. This
    * is cleaner than leaving magic numbers in the output. Possibly we
@@ -151,8 +149,27 @@ const createTimeValue = (hqdm: HQDMModel, modelWorld: Thing, time: number): Thin
   const f = time < EPOCH_START  ? Number.NEGATIVE_INFINITY
     : time >= EPOCH_END         ? Number.POSITIVE_INFINITY
     : time;
-  hqdm.relate(ENTITY_NAME, thing, new Thing(f.toString()));
-  hqdm.addToPossibleWorld(thing, modelWorld);
+
+  var exists: boolean = false;
+  const iri = BASE + uuidv4();
+  var thing = hqdm.createThing(event, iri);
+  
+  // Test whether f already exists in hqdm: HQDMModel
+  hqdm.findByType(event).forEach((obj) => {
+    const tVal = hqdm.getEntityName(obj);
+    if(tVal == f.toString()){
+      // Time event already exists
+      exists = true;
+      thing = obj;
+    }
+  });
+
+  if(!exists){
+    hqdm.addMemberOf(thing, diagramTimeClass);
+    hqdm.relate(ENTITY_NAME, thing, new Thing(f.toString()));
+    hqdm.addToPossibleWorld(thing, modelWorld);
+  }
+  
   return thing;
 };
 

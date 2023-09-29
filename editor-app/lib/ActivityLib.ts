@@ -25,9 +25,7 @@ import {
 } from "@apollo-protocol/hqdm-lib";
 import { IndividualImpl } from "./IndividualImpl";
 import { Kind, Model } from "./Model";
-import { STExtent } from "./Schema";
 import { EDITOR_VERSION } from "./version";
-import { Fade } from "react-bootstrap";
 
 /**
  * ActivityLib
@@ -139,7 +137,7 @@ const getTimeValue = (hqdm: HQDMModel, t: Thing): number => {
 };
 
 /**
- * Creates an HQDM point_in_time.
+ * Returns HQDM point_in_time, creating it if it doesn't already exist.
  */
 const createTimeValue = (hqdm: HQDMModel, modelWorld: Thing, time: number): Thing => {
 
@@ -152,19 +150,19 @@ const createTimeValue = (hqdm: HQDMModel, modelWorld: Thing, time: number): Thin
 
   var exists: boolean = false;
   const iri = BASE + uuidv4();
-  var thing = hqdm.createThing(event, iri);
+  var thing = new Thing(iri); // Placeholder thing as we don't know if we need to create one yet.
   
-  // Test whether f already exists in hqdm: HQDMModel
+  // Test whether f value already exists in hqdm: HQDMModel
   hqdm.findByType(event).forEach((obj) => {
     const tVal = hqdm.getEntityName(obj);
     if(tVal == f.toString()){
-      // Time event already exists
       exists = true;
       thing = obj;
     }
   });
 
   if(!exists){
+    thing = hqdm.createThing(event, iri);
     hqdm.addMemberOf(thing, diagramTimeClass);
     hqdm.relate(ENTITY_NAME, thing, new Thing(f.toString()));
     hqdm.addToPossibleWorld(thing, modelWorld);

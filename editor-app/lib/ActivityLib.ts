@@ -25,7 +25,6 @@ import {
 } from "@apollo-protocol/hqdm-lib";
 import { IndividualImpl } from "./IndividualImpl";
 import { Kind, Model } from "./Model";
-import { STExtent } from "./Schema";
 import { EDITOR_VERSION } from "./version";
 
 /**
@@ -138,12 +137,9 @@ const getTimeValue = (hqdm: HQDMModel, t: Thing): number => {
 };
 
 /**
- * Creates an HQDM point_in_time.
+ * Returns HQDM point_in_time, creating it if it doesn't already exist.
  */
 const createTimeValue = (hqdm: HQDMModel, modelWorld: Thing, time: number): Thing => {
-  const iri = BASE + uuidv4();
-  const thing = hqdm.createThing(event, iri);
-  hqdm.addMemberOf(thing, diagramTimeClass);
 
   /* Map the epoch start and end to +-Inf for output to the file. This
    * is cleaner than leaving magic numbers in the output. Possibly we
@@ -151,8 +147,27 @@ const createTimeValue = (hqdm: HQDMModel, modelWorld: Thing, time: number): Thin
   const f = time < EPOCH_START  ? Number.NEGATIVE_INFINITY
     : time >= EPOCH_END         ? Number.POSITIVE_INFINITY
     : time;
-  hqdm.relate(ENTITY_NAME, thing, new Thing(f.toString()));
-  hqdm.addToPossibleWorld(thing, modelWorld);
+
+  var exists: boolean = false;
+  const iri = BASE + uuidv4();
+  var thing = new Thing(iri); // Placeholder thing as we don't know if we need to create one yet.
+  
+  // Test whether f value already exists in hqdm: HQDMModel
+  hqdm.findByType(event).forEach((obj) => {
+    const tVal = hqdm.getEntityName(obj);
+    if(tVal == f.toString()){
+      exists = true;
+      thing = obj;
+    }
+  });
+
+  if(!exists){
+    thing = hqdm.createThing(event, iri);
+    hqdm.addMemberOf(thing, diagramTimeClass);
+    hqdm.relate(ENTITY_NAME, thing, new Thing(f.toString()));
+    hqdm.addToPossibleWorld(thing, modelWorld);
+  }
+  
   return thing;
 };
 

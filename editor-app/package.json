@@ -5,7 +5,7 @@
   "scripts": {
     "dev": "next dev",
     "preinstall": "node -p \"'export const EDITOR_VERSION = ' + JSON.stringify(require('./package.json').version) + ';'\" > lib/version.ts",
-    "build": "next build && next export",
+    "build": "next build",
     "start": "next start",
     "lint": "next lint"
   },
@@ -20,7 +20,7 @@
     "@types/react-dom": "18.3.0",
     "bootstrap": "^5.3.3",
     "d3": "^7.9.0",
-    "eslint": "9.3.0",
+    "eslint": "^8.0.0",
     "eslint-config-next": "14.2.3",
     "lodash": "^4.17.21",
     "next": "14.2.3",
@@ -29,8 +29,6 @@
     "react-dom": "18.3.1",
     "react-modal-image": "^2.6.0",
     "react-select": "^5.8.0",
-    "sharp": "^0.33.4",
-    "types": "^0.1.1",
     "typescript": "5.4.5",
     "uuidv4": "^6.2.13"
   }

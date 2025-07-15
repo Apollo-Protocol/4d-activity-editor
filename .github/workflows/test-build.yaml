@@ -1,22 +1,22 @@
-# .github/workflows/build-and-deploy.yml
+# .github/workflows/test-build.yml
 
-name: GitHub Pages Deployment
+name: Test Build
 
 on:
-  release:
-    types: [published]
-  # Optional: Allow manual trigger
-  workflow_dispatch:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
 
 jobs:
-  build:
+  test-build:
 
     runs-on: ubuntu-latest
 
     steps:
       # https://github.com/actions/checkout
       - uses: actions/checkout@v4
-        
+      
       # a standard step for GitHub actions on Node
       # https://github.com/actions/setup-node
       - uses: actions/setup-node@v4
@@ -29,28 +29,33 @@ jobs:
         working-directory: ./editor-app
         run: yarn install --frozen-lockfile
       
+      - name: Run linting
+        working-directory: ./editor-app
+        run: yarn lint
+        continue-on-error: true
+
       - name: Run security audit
         working-directory: ./editor-app
         run: yarn audit --level moderate
         continue-on-error: true  # Don't fail deployment on audit issues
       
-      - name: Build
+      - name: Test build
         working-directory: ./editor-app
         run: |
           yarn build
-          touch out/.nojekyll
-        env:
-          NODE_ENV: production
+          echo "✅ Build successful"
       
-      - name: Verify build output
+      - name: Check build output
         working-directory: ./editor-app
         run: |
-          ls -la out/
-          echo "Build completed successfully"
-      
-      - name: Deploy
-        # https://github.com/JamesIves/github-pages-deploy-action
-        uses: JamesIves/github-pages-deploy-action@v4
-        with:
-          branch: gh-pages
-          folder: editor-app/out
+          if [ ! -d "out" ]; then
+            echo "❌ Build output directory 'out' not found"
+            exit 1
+          fi
+          
+          if [ ! -f "out/index.html" ]; then
+            echo "❌ index.html not found in build output"
+            exit 1
+          fi
+          
+          echo "✅ Build output verified"

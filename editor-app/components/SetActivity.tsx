@@ -1,4 +1,10 @@
-import React, { Dispatch, SetStateAction, useRef, useState } from "react";
+import React, {
+  Dispatch,
+  SetStateAction,
+  useRef,
+  useState,
+  useEffect,
+} from "react";
 import Button from "react-bootstrap/Button";
 import Modal from "react-bootstrap/Modal";
 import Form from "react-bootstrap/Form";
@@ -47,10 +53,16 @@ const SetActivity = (props: Props) => {
     partOf: activityContext,
   };
 
-  const newType = useRef<any>(null);
   const [inputs, setInputs] = useState(defaultActivity);
   const [errors, setErrors] = useState([]);
   const [dirty, setDirty] = useState(false);
+
+  // Custom activity-type selector state (search / create / inline edit)
+  const [typeOpen, setTypeOpen] = useState(false);
+  const [typeSearch, setTypeSearch] = useState("");
+  const [editingTypeId, setEditingTypeId] = useState<string | null>(null);
+  const [editingTypeValue, setEditingTypeValue] = useState("");
+  const typeDropdownRef = useRef<HTMLDivElement | null>(null);
 
   function updateIndividuals(d: Model) {
     d.individuals.forEach((individual) => {
@@ -65,6 +77,22 @@ const SetActivity = (props: Props) => {
       d.addIndividual(individual);
     });
   }
+
+  // click outside to close type dropdown
+  useEffect(() => {
+    function handleClickOutside(ev: MouseEvent) {
+      if (
+        typeDropdownRef.current &&
+        !typeDropdownRef.current.contains(ev.target as Node)
+      ) {
+        setTypeOpen(false);
+        setEditingTypeId(null);
+        setEditingTypeValue("");
+      }
+    }
+    if (typeOpen) document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [typeOpen]);
 
   const handleClose = () => {
     setShow(false);
@@ -83,8 +111,7 @@ const SetActivity = (props: Props) => {
   };
   const handleAdd = (event: any) => {
     event.preventDefault();
-    if (!dirty)
-      return handleClose();
+    if (!dirty) return handleClose();
     const isValid = validateInputs();
     if (isValid) {
       updateDataset((d) => {
@@ -123,11 +150,7 @@ const SetActivity = (props: Props) => {
   };
 
   const handleTypeChange = (e: any) => {
-    dataset.activityTypes.forEach((type) => {
-      if (e.target.value == type.id) {
-        updateInputs(e.target.name, type)
-      }
-    });
+    // deprecated: replaced by custom selector
   };
 
   const handleChangeNumeric = (e: any) => {
@@ -198,12 +221,89 @@ const SetActivity = (props: Props) => {
     }
   };
 
-  const addType = (e: any) => {
-    if (newType.current && newType.current.value) {
-      updateDataset((d) => d.addActivityType(uuidv4(), newType.current.value));
-      newType.current.value = null;
-    }
+  // ----- New helper functions for custom activity-type selector -----
+  const filteredTypes = dataset.activityTypes.filter((t) =>
+    t.name.toLowerCase().includes(typeSearch.toLowerCase())
+  );
+
+  const showCreateTypeOption =
+    typeSearch.trim().length > 0 &&
+    !dataset.activityTypes.some(
+      (t) => t.name.toLowerCase() === typeSearch.trim().toLowerCase()
+    );
+
+  const handleSelectType = (typeId: string) => {
+    const t = dataset.activityTypes.find((x) => x.id === typeId);
+    if (t) updateInputs("type", t);
+    setTypeOpen(false);
+    setTypeSearch("");
+    setEditingTypeId(null);
+    setEditingTypeValue("");
   };
+
+  const handleCreateTypeFromSearch = () => {
+    const name = typeSearch.trim();
+    if (!name) return;
+    const newId = uuidv4();
+
+    updateDataset((d) => {
+      d.addActivityType(newId, name);
+      return d;
+    });
+
+    // Immediately select the newly created type for this form
+    updateInputs("type", { id: newId, name, isCoreHqdm: false });
+    setTypeOpen(false);
+    setTypeSearch("");
+  };
+
+  const startEditType = (typeId: string, currentName: string, e: any) => {
+    e.stopPropagation();
+    const found = dataset.activityTypes.find((x) => x.id === typeId);
+    if (found && found.isCoreHqdm) return;
+    setEditingTypeId(typeId);
+    setEditingTypeValue(currentName);
+  };
+
+  const saveEditType = () => {
+    if (!editingTypeId) return;
+    const newName = editingTypeValue.trim();
+    if (!newName) return;
+
+    updateDataset((d) => {
+      const kind = d.activityTypes.find((x) => x.id === editingTypeId);
+      if (kind) kind.name = newName;
+
+      // update activities that reference this type to use canonical Kind
+      d.activities.forEach((a) => {
+        if (a.type && a.type.id === editingTypeId) {
+          const canonical = d.activityTypes.find((x) => x.id === editingTypeId);
+          if (canonical) a.type = canonical;
+        }
+      });
+
+      if (d.defaultActivityType && d.defaultActivityType.id === editingTypeId) {
+        const canonical = d.activityTypes.find((x) => x.id === editingTypeId);
+        if (canonical) d.defaultActivityType = canonical;
+      }
+
+      return d;
+    });
+
+    updateInputs("type", {
+      id: editingTypeId,
+      name: newName,
+      isCoreHqdm: false,
+    });
+    setEditingTypeId(null);
+    setEditingTypeValue("");
+  };
+
+  const cancelEditType = () => {
+    setEditingTypeId(null);
+    setEditingTypeValue("");
+  };
+  // ----- end helpers -----
 
   return (
     <>
@@ -235,37 +335,140 @@ const SetActivity = (props: Props) => {
             </Form.Group>
             <Form.Group className="mb-3" controlId="formIndividualType">
               <Form.Label>Type</Form.Label>
-              <Form.Select
-                name="type"
-                value={inputs?.type?.id}
-                onChange={handleTypeChange}
-                className="form-control"
+              <div
+                ref={typeDropdownRef}
+                className="position-relative"
+                style={{ zIndex: 1050 }}
               >
-                {inputs.type == undefined && (
-                  <option value={undefined}>Choose type</option>
+                <button
+                  type="button"
+                  className="w-100 btn btn-outline-secondary d-flex justify-content-between align-items-center"
+                  onClick={() => setTypeOpen((s) => !s)}
+                >
+                  <span className="text-truncate">
+                    {inputs?.type?.name || "Select type..."}
+                  </span>
+                  <span style={{ marginLeft: 8 }}>▾</span>
+                </button>
+
+                {typeOpen && (
+                  <div
+                    className="card mt-1"
+                    style={{ maxHeight: 300, overflow: "hidden" }}
+                  >
+                    <div className="card-body p-2 border-bottom">
+                      <input
+                        className="form-control form-control-sm"
+                        placeholder="Search or create type..."
+                        value={typeSearch}
+                        onChange={(e) => setTypeSearch(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter" && showCreateTypeOption) {
+                            e.preventDefault();
+                            handleCreateTypeFromSearch();
+                          }
+                        }}
+                        autoFocus
+                      />
+                    </div>
+
+                    <div style={{ maxHeight: 180, overflow: "auto" }}>
+                      {filteredTypes.map((t) => (
+                        <div
+                          key={t.id}
+                          className={`d-flex align-items-center justify-content-between px-3 py-2 ${
+                            inputs?.type?.id === t.id
+                              ? "bg-primary text-white"
+                              : ""
+                          }`}
+                          style={{ cursor: "pointer" }}
+                          onClick={() => handleSelectType(t.id)}
+                        >
+                          {editingTypeId === t.id ? (
+                            <div className="d-flex align-items-center w-100">
+                              <input
+                                className="form-control form-control-sm me-2"
+                                value={editingTypeValue}
+                                onChange={(e) =>
+                                  setEditingTypeValue(e.target.value)
+                                }
+                                onKeyDown={(e) => {
+                                  if (e.key === "Enter") saveEditType();
+                                  if (e.key === "Escape") cancelEditType();
+                                }}
+                                autoFocus
+                              />
+                              <div className="d-flex align-items-center">
+                                <button
+                                  type="button"
+                                  className="btn btn-sm btn-success me-1"
+                                  onClick={(ev) => {
+                                    ev.stopPropagation();
+                                    saveEditType();
+                                  }}
+                                >
+                                  Save
+                                </button>
+                                <button
+                                  type="button"
+                                  className="btn btn-sm btn-secondary"
+                                  onClick={(ev) => {
+                                    ev.stopPropagation();
+                                    cancelEditType();
+                                  }}
+                                >
+                                  Cancel
+                                </button>
+                              </div>
+                            </div>
+                          ) : (
+                            <>
+                              <div className="flex-grow-1">{t.name}</div>
+                              <div className="d-flex align-items-center">
+                                {inputs?.type?.id === t.id && (
+                                  <span className="me-2">✓</span>
+                                )}
+                                {!t.isCoreHqdm && (
+                                  <button
+                                    type="button"
+                                    className={`btn btn-sm btn-link p-0 ${
+                                      inputs?.type?.id === t.id
+                                        ? "text-white"
+                                        : ""
+                                    }`}
+                                    onClick={(e) =>
+                                      startEditType(t.id, t.name, e)
+                                    }
+                                  >
+                                    edit
+                                  </button>
+                                )}
+                              </div>
+                            </>
+                          )}
+                        </div>
+                      ))}
+
+                      {showCreateTypeOption && (
+                        <div
+                          className="px-3 py-2 text-primary fw-medium border-top"
+                          style={{ cursor: "pointer" }}
+                          onClick={handleCreateTypeFromSearch}
+                        >
+                          Create "{typeSearch}"
+                        </div>
+                      )}
+
+                      {filteredTypes.length === 0 && !showCreateTypeOption && (
+                        <div className="p-3 text-muted small">
+                          No results found
+                        </div>
+                      )}
+                    </div>
+                  </div>
                 )}
-                {dataset.activityTypes.map((type) => (
-                  <option key={type.id} value={type.id}>
-                    {type.name}
-                  </option>
-                ))}
-              </Form.Select>
+              </div>
             </Form.Group>
-            <InputGroup className="mb-3" size="sm">
-              <InputGroup.Text id="basic-addon1">Add option</InputGroup.Text>
-              <Form.Control
-                placeholder="New type"
-                aria-label="New Type"
-                ref={newType}
-              />
-              <Button
-                variant="outline-secondary"
-                id="button-addon2"
-                onClick={addType}
-              >
-                Add Type
-              </Button>
-            </InputGroup>
             <Form.Group className="mb-3" controlId="formIndividualDescription">
               <Form.Label>Description</Form.Label>
               <Form.Control
@@ -318,60 +521,59 @@ const SetActivity = (props: Props) => {
           </Form>
         </Modal.Body>
         <Modal.Footer>
-          <Container>
-            <Row className="justify-content-between">
-              <Col xs="auto">
-                <Button
-                  className={selectedActivity ? "mx-1" : "d-none mx-1"}
-                  variant="danger"
-                  onClick={handleDelete}
-                >
-                  Delete
-                </Button>
-                <Button
-                  className={selectedActivity ? "mx-1" : "d-none mx-1"}
-                  variant="primary"
-                  onClick={handleCopy}
-                >
-                  Copy
-                </Button>
-                <Button
-                  className={selectedActivity ? "mx-1" : "d-none mx-1"}
-                  variant="secondary"
-                  onClick={handleContext}
-                >
-                  Sub-tasks
-                </Button>
-              </Col>
-              <Col xs="auto">
-                <Button
-                  className="mx-1" variant="secondary"
-                  onClick={handleClose}
-                >
-                  Close
-                </Button>
-                <Button 
-                  className="mx-1" variant="primary" 
-                  onClick={handleAdd} disabled={!dirty}
-                >
-                  Save
-                </Button>
-              </Col>
-            </Row>
-            <Row className="mt-2">
-              <Col>
-                {errors.length > 0 && (
-                  <Alert variant={"danger"} className="p-2 m-0">
-                    {errors.map((error, i) => (
-                      <p key={i} className="mb-1">
-                        {error}
-                      </p>
-                    ))}
-                  </Alert>
-                )}
-              </Col>
-            </Row>
-          </Container>
+          <div className="w-100 d-flex justify-content-between align-items-center">
+            <div>
+              <Button
+                className={selectedActivity ? "d-inline-block me-2" : "d-none"}
+                variant="danger"
+                onClick={handleDelete}
+              >
+                Delete
+              </Button>
+              <Button
+                className={selectedActivity ? "d-inline-block me-2" : "d-none"}
+                variant="primary"
+                onClick={handleCopy}
+              >
+                Copy
+              </Button>
+              <Button
+                className={selectedActivity ? "d-inline-block me-2" : "d-none"}
+                variant="secondary"
+                onClick={handleContext}
+              >
+                Sub-tasks
+              </Button>
+            </div>
+            <div className="d-flex gap-2">
+              <Button
+                className="mx-1"
+                variant="secondary"
+                onClick={handleClose}
+              >
+                Close
+              </Button>
+              <Button
+                className="mx-1"
+                variant="primary"
+                onClick={handleAdd}
+                disabled={!dirty}
+              >
+                Save
+              </Button>
+            </div>
+          </div>
+          <div className="w-100 mt-2">
+            {errors.length > 0 && (
+              <Alert variant={"danger"} className="p-2 m-0">
+                {errors.map((error, i) => (
+                  <p key={i} className="mb-1">
+                    {error}
+                  </p>
+                ))}
+              </Alert>
+            )}
+          </div>
         </Modal.Footer>
       </Modal>
     </>

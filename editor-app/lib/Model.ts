@@ -7,11 +7,15 @@ import { EPOCH_END } from "./ActivityLib";
  * A class used to list the types needed for drop-downs in the UI.
  */
 export class Kind {
-  constructor(
-    readonly id: Id,
-    readonly name: string,
-    readonly isCoreHqdm: boolean
-  ) {}
+  readonly id: Id;
+  name: string;
+  readonly isCoreHqdm: boolean;
+
+  constructor(id: Id, name: string, isCoreHqdm: boolean) {
+    this.id = id;
+    this.name = name;
+    this.isCoreHqdm = isCoreHqdm;
+  }
 }
 
 /**
@@ -25,9 +29,9 @@ export class Model {
   readonly activityTypes: Array<Kind>;
   readonly individualTypes: Array<Kind>;
 
-  readonly defaultRole: Kind;
-  readonly defaultActivityType: Kind;
-  readonly defaultIndividualType: Kind;
+  defaultRole: Kind;
+  defaultActivityType: Kind;
+  defaultIndividualType: Kind;
 
   // Overall information about the model
   name: Maybe<string>;
@@ -47,13 +51,9 @@ export class Model {
 
     /* These default roles created here need to match the equivalents
      * created in ActivityLib:toModel. */
-    this.roles = [
-      new Kind(HQDM_NS + "participant", "Participant", true),
-    ];
+    this.roles = [new Kind(HQDM_NS + "participant", "Participant", true)];
     this.defaultRole = this.roles[0];
-    this.activityTypes = [
-        new Kind(HQDM_NS + "activity", "Task", true),
-    ];
+    this.activityTypes = [new Kind(HQDM_NS + "activity", "Task", true)];
     this.defaultActivityType = this.activityTypes[0];
     this.individualTypes = [
       new Kind(HQDM_NS + "person", "Person", true),
@@ -83,10 +83,10 @@ export class Model {
         newModel.roles.push(r);
       });
     this.activityTypes
-        .filter((a) => !a.isCoreHqdm)
-        .forEach((a) => {
-          newModel.activityTypes.push(a);
-        });
+      .filter((a) => !a.isCoreHqdm)
+      .forEach((a) => {
+        newModel.activityTypes.push(a);
+      });
     this.individualTypes
       .filter((i) => !i.isCoreHqdm)
       .forEach((i) => {
@@ -260,12 +260,10 @@ export class Model {
     console.log("Normalising activity bounds: %o", this.activities);
 
     const parts = new Map<Maybe<Id>, Id[]>();
-    this.activities.forEach(a => {
+    this.activities.forEach((a) => {
       const list = parts.get(a.partOf);
-      if (list)
-        list.push(a.id);
-      else
-        parts.set(a.partOf, [a.id]);
+      if (list) list.push(a.id);
+      else parts.set(a.partOf, [a.id]);
     });
 
     const to_process: Id[] = [];
@@ -276,8 +274,7 @@ export class Model {
       if (list) {
         /* This skips the top-level activities. We could instead rescale
          * to some standard boundaries (e.g. 0-1000). */
-        if (next)
-          to_process.push(next);
+        if (next) to_process.push(next);
         to_check.push(...list);
       }
     }
@@ -285,9 +282,9 @@ export class Model {
     for (const id of to_process) {
       const act = this.activities.get(id)!;
 
-      const kids = parts.get(id)!.map(id => this.activities.get(id)!);
-      const earliest = Math.min(...kids.map(a => a.beginning));
-      const latest = Math.max(...kids.map(a => a.ending));
+      const kids = parts.get(id)!.map((id) => this.activities.get(id)!);
+      const earliest = Math.min(...kids.map((a) => a.beginning));
+      const latest = Math.max(...kids.map((a) => a.ending));
 
       const scale = (act.ending - act.beginning) / (latest - earliest);
       const offset = act.beginning - earliest;

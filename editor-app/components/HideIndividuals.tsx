@@ -3,18 +3,25 @@ import Button from "react-bootstrap/Button";
 import OverlayTrigger from "react-bootstrap/OverlayTrigger";
 import Tooltip from "react-bootstrap/Tooltip";
 import { Model } from "@/lib/Model";
+import { Activity } from "@/lib/Schema";
 
 interface Props {
   compactMode: boolean;
   setCompactMode: Dispatch<SetStateAction<boolean>>;
   dataset: Model;
+  activitiesInView: Activity[];
 }
 
-const HideIndividuals = ({ compactMode, setCompactMode, dataset }: Props) => {
-  // Find if there are individuals with no activity
+const HideIndividuals = ({
+  compactMode,
+  setCompactMode,
+  dataset,
+  activitiesInView,
+}: Props) => {
+  // Find if there are individuals with no activity in the current view
   const hasInactiveIndividuals = (() => {
     const participating = new Set<string>();
-    dataset.activities.forEach((a) =>
+    activitiesInView.forEach((a) =>
       a.participations.forEach((p: any) => participating.add(p.individualId))
     );
     for (const i of Array.from(dataset.individuals.values())) {
@@ -31,23 +38,14 @@ const HideIndividuals = ({ compactMode, setCompactMode, dataset }: Props) => {
     </Tooltip>
   );
 
-  const unhideTooltip = (
-    <Tooltip id="unhide-individuals-tooltip">
-      This will show all individuals with no activity.
-    </Tooltip>
-  );
-
   return (
     <div className="ms-2 d-flex align-items-center">
-      <OverlayTrigger
-        placement="top"
-        overlay={compactMode ? unhideTooltip : tooltip}
-      >
+      <OverlayTrigger placement="top" overlay={tooltip}>
         <Button
           variant={compactMode ? "secondary" : "primary"}
           onClick={() => setCompactMode(!compactMode)}
         >
-          {compactMode ? " Show Individuals" : "Hide Individuals"}
+          {compactMode ? "Unhide Individuals" : "Hide Individuals"}
         </Button>
       </OverlayTrigger>
     </div>

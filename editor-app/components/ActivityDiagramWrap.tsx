@@ -208,6 +208,7 @@ export default function ActivityDiagramWrap() {
               compactMode={compactMode}
               setCompactMode={setCompactMode}
               dataset={dataset}
+              activitiesInView={activitiesInView}
             />
           </Col>
           <Col className="d-flex justify-content-end">

@@ -137,6 +137,15 @@ export default function ActivityDiagramWrap() {
     activitiesInView = activitiesArray.filter((a) => !a.partOf);
   }
 
+  const partsCountMap: Record<string, number> = {};
+  activitiesInView.forEach((a) => {
+    partsCountMap[a.id] =
+      typeof dataset.getPartsCount === "function"
+        ? dataset.getPartsCount(a.id)
+        : 0;
+  });
+
+  // render
   return (
     <>
       <Container fluid>
@@ -145,6 +154,7 @@ export default function ActivityDiagramWrap() {
             <DiagramLegend
               activities={activitiesInView}
               activityColors={config.presentation.activity.fill}
+              partsCount={partsCountMap}
             />
           </Col>
           <Col>

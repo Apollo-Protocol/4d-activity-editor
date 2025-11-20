@@ -12,7 +12,7 @@ import { activity } from "@apollo-protocol/hqdm-lib";
 let mouseOverElement: any | null = null;
 
 export function drawActivities(ctx: DrawContext) {
-  const { config, svgElement, activities, individuals } = ctx;
+  const { config, svgElement, activities, individuals, dataset } = ctx;
 
   let startOfTime = Math.min(...activities.map((a) => a.beginning));
   let endOfTime = Math.max(...activities.map((a) => a.ending));
@@ -76,6 +76,24 @@ export function drawActivities(ctx: DrawContext) {
       ];
     })
     .attr("opacity", config.presentation.activity.opacity);
+
+  // small helper functions to reuse computations
+  const xOf = (a: Activity) => x + timeInterval * (a.beginning - startOfTime);
+  const yOf = (a: Activity) =>
+    calculateTopPositionOfNewActivity(svgElement, a) -
+    config.layout.individual.gap * 0.3;
+  const widthOf = (a: Activity) => (a.ending - a.beginning) * timeInterval;
+  const heightOf = (a: Activity) => {
+    const h = calculateLengthOfNewActivity(svgElement, a);
+    return h
+      ? h -
+          calculateTopPositionOfNewActivity(svgElement, a) +
+          config.layout.individual.gap * 0.6 +
+          config.layout.individual.height
+      : 0;
+  };
+
+  // Subtask badge rendering removed — badge no longer drawn on activities.
 
   labelActivities(ctx, x, timeInterval, startOfTime);
 

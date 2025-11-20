@@ -213,13 +213,29 @@ export class Model {
    * Given an activity ID, finds if the activity has any parts.
    */
   hasParts(activityId: string) {
-    const it = this.activities.values();
-    for (let res = it.next(); !res.done; res = it.next()) {
-      if (res.value.partOf == activityId) {
-        return true;
-      }
-    }
-    return false;
+    return this.getPartsCount(activityId) > 0;
+  }
+
+  /**
+   * Return the list of child activities (parts) for a given activity id.
+   */
+  getParts(activityId: string): Activity[] {
+    const parts: Activity[] = [];
+    this.activities.forEach((a) => {
+      if (a.partOf === activityId) parts.push(a);
+    });
+    return parts;
+  }
+
+  /**
+   * Return the number of child activities (parts) for a given activity id.
+   */
+  getPartsCount(activityId: string): number {
+    let count = 0;
+    this.activities.forEach((a) => {
+      if (a.partOf === activityId) count++;
+    });
+    return count;
   }
 
   /**

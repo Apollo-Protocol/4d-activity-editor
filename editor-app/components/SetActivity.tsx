@@ -661,16 +661,22 @@ const SetActivity = (props: Props) => {
                 if (isAncestorLocal(inputs.id, a.id)) return false; // avoid cycles
                 return true;
               })
-              .map((a) => (
-                <ListGroup.Item
-                  key={a.id}
-                  action
-                  active={selectedParentId === a.id}
-                  onClick={() => setSelectedParentId(a.id)}
-                >
-                  {a.name} {a.partOf ? `(partOf ${a.partOf})` : ""}
-                </ListGroup.Item>
-              ))}
+              .map((a) => {
+                const parentName =
+                  a.partOf && dataset.activities.get(a.partOf as string)
+                    ? dataset.activities.get(a.partOf as string)!.name
+                    : a.partOf ?? "";
+                return (
+                  <ListGroup.Item
+                    key={a.id}
+                    action
+                    active={selectedParentId === a.id}
+                    onClick={() => setSelectedParentId(a.id)}
+                  >
+                    {a.name} {parentName ? `(Part of ${parentName})` : ""}
+                  </ListGroup.Item>
+                );
+              })}
           </ListGroup>
         </Modal.Body>
         <Modal.Footer>

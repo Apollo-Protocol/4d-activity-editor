@@ -15,6 +15,9 @@ import { Model } from "@/lib/Model";
 import { Activity, Id, Individual, Maybe, Participation } from "@/lib/Schema";
 import ExportJson from "./ExportJson";
 import ExportSvg from "./ExportSvg";
+import { Button } from "react-bootstrap";
+import HideIndividuals from "./HideIndividuals";
+import React from "react";
 
 const beforeUnloadHandler = (ev: BeforeUnloadEvent) => {
   ev.returnValue = "";
@@ -25,6 +28,8 @@ const beforeUnloadHandler = (ev: BeforeUnloadEvent) => {
 /* XXX Most of this component needs refactoring into a Controller class,
  * leaving the react component as just the View. */
 export default function ActivityDiagramWrap() {
+  // compactMode hides individuals that participate in zero activities
+  const [compactMode, setCompactMode] = useState(false);
   const model = new Model();
   const [dataset, setDataset] = useState(model);
   const [dirty, setDirty] = useState(false);
@@ -47,10 +52,8 @@ export default function ActivityDiagramWrap() {
   const [showSortIndividuals, setShowSortIndividuals] = useState(false);
 
   useEffect(() => {
-    if (dirty)
-      window.addEventListener("beforeunload", beforeUnloadHandler);
-    else
-      window.removeEventListener("beforeunload", beforeUnloadHandler);
+    if (dirty) window.addEventListener("beforeunload", beforeUnloadHandler);
+    else window.removeEventListener("beforeunload", beforeUnloadHandler);
   }, [dirty]);
 
   const updateDataset = (updater: Dispatch<Model>) => {
@@ -135,6 +138,7 @@ export default function ActivityDiagramWrap() {
           rightClickActivity={rightClickActivity}
           rightClickParticipation={rightClickParticipation}
           svgRef={svgRef}
+          hideNonParticipating={compactMode}
         />
         <Row className="mt-3 justify-content-between">
           <Col className="d-flex justify-content-start">
@@ -176,12 +180,18 @@ export default function ActivityDiagramWrap() {
               showSortIndividuals={showSortIndividuals}
               setShowSortIndividuals={setShowSortIndividuals}
             />
+            <HideIndividuals
+              compactMode={compactMode}
+              setCompactMode={setCompactMode}
+              dataset={dataset}
+            />
           </Col>
           <Col className="d-flex justify-content-end">
-            <Undo 
+            <Undo
               hasUndo={undoHistory.length > 0}
               undo={undo}
-              clearDiagram={clearDiagram}/>
+              clearDiagram={clearDiagram}
+            />
             <SetConfig
               configData={configData}
               setConfigData={setConfigData}
@@ -206,3 +216,26 @@ export default function ActivityDiagramWrap() {
     </>
   );
 }
+
+// Pass compactMode down to ActivityDiagram (already rendered above)
+// Update ActivityDiagram invocation near top of file:
+
+/*
+  Replace the existing ActivityDiagram invocation with:
+  <ActivityDiagram
+    dataset={dataset}
+    configData={configData}
+    activityContext={activityContext}
+    setActivityContext={setActivityContext}
+    clickIndividual={clickIndividual}
+    clickActivity={clickActivity}
+    clickParticipation={clickParticipation}
+    rightClickIndividual={rightClickIndividual}
+    rightClickActivity={rightClickActivity}
+    rightClickParticipation={rightClickParticipation}
+    svgRef={svgRef}
+    hideNonParticipating={compactMode}
+  />
+
+  (The earlier invocation should be replaced so ActivityDiagram receives the prop.)
+*/

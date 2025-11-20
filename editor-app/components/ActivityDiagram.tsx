@@ -19,6 +19,7 @@ interface Props {
   rightClickActivity: (a: Activity) => void;
   rightClickParticipation: (a: Activity, p: Participation) => void;
   svgRef: MutableRefObject<any>;
+  hideNonParticipating?: boolean;
 }
 
 const ActivityDiagram = (props: Props) => {
@@ -34,6 +35,7 @@ const ActivityDiagram = (props: Props) => {
     rightClickActivity,
     rightClickParticipation,
     svgRef,
+    hideNonParticipating = false,
   } = props;
 
   const [plot, setPlot] = useState({
@@ -53,7 +55,8 @@ const ActivityDiagram = (props: Props) => {
         clickParticipation,
         rightClickIndividual,
         rightClickActivity,
-        rightClickParticipation
+        rightClickParticipation,
+        hideNonParticipating
       )
     );
   }, [
@@ -67,6 +70,7 @@ const ActivityDiagram = (props: Props) => {
     rightClickIndividual,
     rightClickActivity,
     rightClickParticipation,
+    hideNonParticipating,
   ]);
 
   const buildCrumbs = () => {
@@ -78,12 +82,14 @@ const ActivityDiagram = (props: Props) => {
       const text = act ? act.name : <i>{dataset.name ?? "Top"}</i>;
       context.push(
         <Breadcrumb.Item
-          active={ id == activityContext }
+          active={id == activityContext}
           linkProps={{ onClick: () => setActivityContext(link) }}
           key={id ?? "."}
-        >{text}</Breadcrumb.Item>);
-      if (id == undefined)
-        break;
+        >
+          {text}
+        </Breadcrumb.Item>
+      );
+      if (id == undefined) break;
       id = act!.partOf;
     }
     return context.reverse();

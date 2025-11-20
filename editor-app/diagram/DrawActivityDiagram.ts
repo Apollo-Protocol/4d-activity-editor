@@ -43,24 +43,36 @@ export function drawActivityDiagram(
   clickParticipation: (a: Activity, p: Participation) => void,
   rightClickIndividual: (i: Individual) => void,
   rightClickActivity: (a: Activity) => void,
-  rightClickParticipation: (a: Activity, p: Participation) => void
+  rightClickParticipation: (a: Activity, p: Participation) => void,
+  hideNonParticipating: boolean = false
 ) {
   //Prepare Model data into arrays
-  const individualsArray: Individual[] = [];
+  let individualsArray: Individual[] = [];
   const activitiesArray: Activity[] = [];
   const { individuals, activities } = dataset;
+
   individuals.forEach((i: Individual) => individualsArray.push(i));
   activities.forEach((a: Activity) => {
-    if (a.partOf === activityContext)
-      activitiesArray.push(a);
+    if (a.partOf === activityContext) activitiesArray.push(a);
   });
+
+  if (hideNonParticipating) {
+    const participating = new Set<string>();
+    activitiesArray.forEach((a) =>
+      a.participations.forEach((p: Participation) =>
+        participating.add(p.individualId)
+      )
+    );
+    individualsArray = individualsArray.filter((i) => participating.has(i.id));
+  }
 
   //Draw Diagram parts
   const svgElement = clearDiagram(svgRef);
-  const height = calculateViewportHeight(configData, dataset.individuals);
+  const individualsMap = new Map(individualsArray.map((i) => [i.id, i]));
+  const height = calculateViewportHeight(configData, individualsMap);
   const tooltip = createTooltip();
 
-  const drawCtx: DrawContext = { 
+  const drawCtx: DrawContext = {
     config: configData,
     svgElement,
     tooltip,

@@ -18,6 +18,8 @@ import ExportSvg from "./ExportSvg";
 import { Button } from "react-bootstrap";
 import HideIndividuals from "./HideIndividuals";
 import React from "react";
+import Card from "react-bootstrap/Card";
+import DiagramLegend from "./DiagramLegend";
 
 const beforeUnloadHandler = (ev: BeforeUnloadEvent) => {
   ev.returnValue = "";
@@ -123,23 +125,45 @@ export default function ActivityDiagramWrap() {
   const activitiesArray: Activity[] = [];
   dataset.activities.forEach((a: Activity) => activitiesArray.push(a));
 
+  // Filter activities for the current context
+  let activitiesInView: Activity[] = [];
+  if (activityContext) {
+    // Only include activities that are part of the current context
+    activitiesInView = activitiesArray.filter(
+      (a) => a.partOf === activityContext
+    );
+  } else {
+    // Top-level activities (no parent)
+    activitiesInView = activitiesArray.filter((a) => !a.partOf);
+  }
+
   return (
     <>
       <Container fluid>
-        <ActivityDiagram
-          dataset={dataset}
-          configData={configData}
-          activityContext={activityContext}
-          setActivityContext={setActivityContext}
-          clickIndividual={clickIndividual}
-          clickActivity={clickActivity}
-          clickParticipation={clickParticipation}
-          rightClickIndividual={rightClickIndividual}
-          rightClickActivity={rightClickActivity}
-          rightClickParticipation={rightClickParticipation}
-          svgRef={svgRef}
-          hideNonParticipating={compactMode}
-        />
+        <Row>
+          <Col xs="auto">
+            <DiagramLegend
+              activities={activitiesInView}
+              activityColors={config.presentation.activity.fill}
+            />
+          </Col>
+          <Col>
+            <ActivityDiagram
+              dataset={dataset}
+              configData={configData}
+              activityContext={activityContext}
+              setActivityContext={setActivityContext}
+              clickIndividual={clickIndividual}
+              clickActivity={clickActivity}
+              clickParticipation={clickParticipation}
+              rightClickIndividual={rightClickIndividual}
+              rightClickActivity={rightClickActivity}
+              rightClickParticipation={rightClickParticipation}
+              svgRef={svgRef}
+              hideNonParticipating={compactMode}
+            />
+          </Col>
+        </Row>
         <Row className="mt-3 justify-content-between">
           <Col className="d-flex justify-content-start">
             <SetIndividual

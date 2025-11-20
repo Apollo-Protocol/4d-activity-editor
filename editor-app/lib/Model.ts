@@ -320,12 +320,27 @@ export class Model {
   }
 
   // Set the parent (partOf) for an activity. parentId may be null for top-level.
-  setActivityParent(activityId: Id, parentId: Id | null) {
-    const act = this.activities.get(activityId);
-    if (!act) return;
-    act.partOf = parentId ?? undefined;
-    // if you need any consistency updates (e.g., adjust times/participants), do them here
-    this.addActivity(act); // replace stored activity
+  setActivityParent(
+    activityId: Id,
+    parentId: Id | null,
+    expandAncestors = false
+  ) {
+    const a = this.activities.get(activityId);
+    if (!a) return;
+    a.partOf = parentId ?? undefined;
+    this.activities.set(a.id, a);
+
+    if (expandAncestors && parentId) {
+      let cur = this.activities.get(parentId);
+      while (cur) {
+        // ensure parent contains child
+        if (a.beginning < cur.beginning) cur.beginning = a.beginning;
+        if (a.ending > cur.ending) cur.ending = a.ending;
+        this.activities.set(cur.id, cur);
+        if (!cur.partOf) break;
+        cur = this.activities.get(cur.partOf);
+      }
+    }
   }
 
   // Get parent activity (or undefined)

@@ -321,12 +321,36 @@ const SetActivity = (props: Props) => {
   };
   // ----- end helpers -----
 
+  // ...existing code...
   const handlePromote = () => {
     if (!inputs || !inputs.partOf) return;
-    const parent = dataset.getParent(inputs.partOf as Id);
-    const newParentId = parent ? parent.id : null; // parent.partOf => grandparent
+    // find current parent and then its parent (grandparent) - that's the new parent
+    const currentParent = dataset.getParent(inputs.partOf as Id);
+    const grandParent = currentParent
+      ? dataset.getParent(currentParent.id)
+      : undefined;
+    const newParentId = grandParent ? grandParent.id : null;
+
+    // confirm if child outside of new parent's timeframe
+    if (newParentId) {
+      const parentAct = dataset.activities.get(newParentId);
+      if (
+        parentAct &&
+        (inputs.beginning < parentAct.beginning ||
+          inputs.ending > parentAct.ending)
+      ) {
+        if (
+          !window.confirm(
+            `Promoting will require expanding "${parentAct.name}" timeframe to include this activity. Proceed?`
+          )
+        ) {
+          return;
+        }
+      }
+    }
+
     updateDataset((d) => {
-      d.setActivityParent(inputs.id, newParentId);
+      d.setActivityParent(inputs.id, newParentId, true);
       return d;
     });
     updateInputs("partOf", newParentId ?? undefined);

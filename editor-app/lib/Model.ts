@@ -313,4 +313,53 @@ export class Model {
 
     console.log("Normalised activity bounds: %o", this.activities);
   }
+
+  // Return the activity object for a given id (or undefined)
+  getActivity(activityId: Id): Activity | undefined {
+    return this.activities.get(activityId);
+  }
+
+  // Set the parent (partOf) for an activity. parentId may be null for top-level.
+  setActivityParent(activityId: Id, parentId: Id | null) {
+    const act = this.activities.get(activityId);
+    if (!act) return;
+    act.partOf = parentId ?? undefined;
+    // if you need any consistency updates (e.g., adjust times/participants), do them here
+    this.addActivity(act); // replace stored activity
+  }
+
+  // Get parent activity (or undefined)
+  getParent(activityId: Id): Activity | undefined {
+    const a = this.activities.get(activityId);
+    if (!a || !a.partOf) return undefined;
+    return this.activities.get(a.partOf);
+  }
+
+  // Return ancestors chain (closest parent first)
+  getAncestors(activityId: Id): Activity[] {
+    const ancestors: Activity[] = [];
+    let cur = this.getParent(activityId);
+    while (cur) {
+      ancestors.push(cur);
+      if (!cur.partOf) break;
+      cur = this.getParent(cur.id);
+    }
+    return ancestors;
+  }
+
+  // True if candidateAncestorId is an ancestor of descendantId
+  isAncestor(candidateAncestorId: Id, descendantId: Id): boolean {
+    let cur = this.getParent(descendantId);
+    while (cur) {
+      if (cur.id === candidateAncestorId) return true;
+      if (!cur.partOf) break;
+      cur = this.getParent(cur.id);
+    }
+    return false;
+  }
+
+  // True if descendantId is a descendant of ancestorId
+  isDescendant(ancestorId: Id, descendantId: Id): boolean {
+    return this.isAncestor(ancestorId, descendantId);
+  }
 }

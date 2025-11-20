@@ -8,6 +8,7 @@ import React, {
 import Button from "react-bootstrap/Button";
 import Modal from "react-bootstrap/Modal";
 import Form from "react-bootstrap/Form";
+import ListGroup from "react-bootstrap/ListGroup";
 import Alert from "react-bootstrap/Alert";
 import Container from "react-bootstrap/Container";
 import Row from "react-bootstrap/Row";
@@ -63,6 +64,21 @@ const SetActivity = (props: Props) => {
   const [editingTypeId, setEditingTypeId] = useState<string | null>(null);
   const [editingTypeValue, setEditingTypeValue] = useState("");
   const typeDropdownRef = useRef<HTMLDivElement | null>(null);
+  const [showParentModal, setShowParentModal] = useState(false);
+  const [selectedParentId, setSelectedParentId] = useState<string | null>(null);
+
+  // Safe local ancestor check (walks partOf chain). Avoids depending on Model.isAncestor.
+  const isAncestorLocal = (
+    ancestorId: string,
+    descendantId: string
+  ): boolean => {
+    let cur = dataset.activities.get(descendantId);
+    while (cur && cur.partOf) {
+      if (cur.partOf === ancestorId) return true;
+      cur = dataset.activities.get(cur.partOf as string);
+    }
+    return false;
+  };
 
   function updateIndividuals(d: Model) {
     d.individuals.forEach((individual) => {
@@ -305,6 +321,32 @@ const SetActivity = (props: Props) => {
   };
   // ----- end helpers -----
 
+  const handlePromote = () => {
+    if (!inputs || !inputs.partOf) return;
+    const parent = dataset.getParent(inputs.partOf as Id);
+    const newParentId = parent ? parent.id : null; // parent.partOf => grandparent
+    updateDataset((d) => {
+      d.setActivityParent(inputs.id, newParentId);
+      return d;
+    });
+    updateInputs("partOf", newParentId ?? undefined);
+  };
+
+  const openChangeParent = () => {
+    // prepare list in modal by setting default selection to current parent
+    setSelectedParentId(inputs.partOf ? (inputs.partOf as string) : null);
+    setShowParentModal(true);
+  };
+
+  const handleApplyParent = () => {
+    updateDataset((d) => {
+      d.setActivityParent(inputs.id, selectedParentId ?? null);
+      return d;
+    });
+    updateInputs("partOf", selectedParentId ?? undefined);
+    setShowParentModal(false);
+  };
+
   return (
     <>
       <Button
@@ -545,7 +587,7 @@ const SetActivity = (props: Props) => {
                 Sub-tasks
               </Button>
             </div>
-            <div className="d-flex gap-2">
+            <div className="d-flex">
               <Button
                 className="mx-1"
                 variant="secondary"
@@ -563,6 +605,26 @@ const SetActivity = (props: Props) => {
               </Button>
             </div>
           </div>
+          <div>
+            <div className="d-flex">
+              <Button
+                className={selectedActivity ? "d-inline-block me-2" : "d-none"}
+                variant="secondary"
+                onClick={handlePromote}
+                title="Promote (move up one level)"
+              >
+                Promote
+              </Button>
+              <Button
+                className={selectedActivity ? "d-inline-block me-1" : "d-none"}
+                variant="danger"
+                onClick={openChangeParent}
+                title="Change parent (assign as sub-task of another activity)"
+              >
+                Change parent
+              </Button>
+            </div>
+          </div>
           <div className="w-100 mt-2">
             {errors.length > 0 && (
               <Alert variant={"danger"} className="p-2 m-0">
@@ -574,6 +636,50 @@ const SetActivity = (props: Props) => {
               </Alert>
             )}
           </div>
+        </Modal.Footer>
+      </Modal>
+
+      {/* Parent chooser modal */}
+      <Modal show={showParentModal} onHide={() => setShowParentModal(false)}>
+        <Modal.Header closeButton>
+          <Modal.Title>Choose parent activity (or None)</Modal.Title>
+        </Modal.Header>
+        <Modal.Body>
+          <ListGroup>
+            <ListGroup.Item
+              action
+              active={selectedParentId === null}
+              onClick={() => setSelectedParentId(null)}
+            >
+              None (make top-level)
+            </ListGroup.Item>
+            {Array.from(dataset.activities.values())
+              .filter((a) => {
+                // exclude self and descendants
+                if (!inputs || !inputs.id) return false;
+                if (a.id === inputs.id) return false;
+                if (isAncestorLocal(inputs.id, a.id)) return false; // avoid cycles
+                return true;
+              })
+              .map((a) => (
+                <ListGroup.Item
+                  key={a.id}
+                  action
+                  active={selectedParentId === a.id}
+                  onClick={() => setSelectedParentId(a.id)}
+                >
+                  {a.name} {a.partOf ? `(partOf ${a.partOf})` : ""}
+                </ListGroup.Item>
+              ))}
+          </ListGroup>
+        </Modal.Body>
+        <Modal.Footer>
+          <Button variant="secondary" onClick={() => setShowParentModal(false)}>
+            Cancel
+          </Button>
+          <Button variant="primary" onClick={handleApplyParent}>
+            Apply
+          </Button>
         </Modal.Footer>
       </Modal>
     </>

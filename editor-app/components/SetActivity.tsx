@@ -613,6 +613,26 @@ const SetActivity = (props: Props) => {
             </div>
             <div className="d-flex">
               <Button
+                className={selectedActivity ? "d-inline-block me-2" : "d-none"}
+                variant="secondary"
+                onClick={handlePromote}
+                title="Promote (move up one level)"
+              >
+                Promote
+              </Button>
+              <Button
+                className={selectedActivity ? "d-inline-block me-1" : "d-none"}
+                variant="danger"
+                onClick={openChangeParent}
+                title="Swap parent (assign as sub-task of another activity)"
+              >
+                Swap Parent
+              </Button>
+            </div>
+          </div>
+          <div>
+            <div className="d-flex">
+              <Button
                 className="mx-1"
                 variant="secondary"
                 onClick={handleClose}
@@ -626,26 +646,6 @@ const SetActivity = (props: Props) => {
                 disabled={!dirty}
               >
                 Save
-              </Button>
-            </div>
-          </div>
-          <div>
-            <div className="d-flex">
-              <Button
-                className={selectedActivity ? "d-inline-block me-2" : "d-none"}
-                variant="secondary"
-                onClick={handlePromote}
-                title="Promote (move up one level)"
-              >
-                Promote
-              </Button>
-              <Button
-                className={selectedActivity ? "d-inline-block me-1" : "d-none"}
-                variant="danger"
-                onClick={openChangeParent}
-                title="Change parent (assign as sub-task of another activity)"
-              >
-                Change parent
               </Button>
             </div>
           </div>

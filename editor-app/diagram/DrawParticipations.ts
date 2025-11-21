@@ -128,23 +128,23 @@ export function clickParticipations(
   clickParticipation: any,
   rightClickParticipation: any
 ) {
-  const { svgElement, activities } = ctx;
+  const { svgElement } = ctx;
 
-  activities.forEach((a) => {
-    a.participations.forEach((p) => {
-      svgElement
-        .select("#p" + a.id + p.individualId)
-        .on("click", function (event: MouseEvent) {
-          clickParticipation(a, p);
-        });
-      svgElement
-        .select("#p" + a.id + p.individualId)
-        .on("contextmenu", function (event: MouseEvent) {
-          event.preventDefault();
-          rightClickParticipation(a, p);
-        });
+  // Attach handlers directly to the participation rects created in drawParticipations.
+  svgElement
+    .selectAll(".participation-rect")
+    .on("click", function (event: any, d: any) {
+      // d has shape { activity, participation, activityIndex }
+      if (d && d.activity && d.participation) {
+        clickParticipation(d.activity, d.participation);
+      }
+    })
+    .on("contextmenu", function (event: any, d: any) {
+      event.preventDefault();
+      if (d && d.activity && d.participation) {
+        rightClickParticipation(d.activity, d.participation);
+      }
     });
-  });
 }
 
 function participationTooltip(part: any) {

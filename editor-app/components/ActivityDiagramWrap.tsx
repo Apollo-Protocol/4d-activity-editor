@@ -155,6 +155,10 @@ export default function ActivityDiagramWrap() {
               activities={activitiesInView}
               activityColors={config.presentation.activity.fill}
               partsCount={partsCountMap}
+              onOpenActivity={(a) => {
+                setSelectedActivity(a);
+                setShowActivity(true);
+              }}
             />
           </Col>
           <Col>

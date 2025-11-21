@@ -1,5 +1,5 @@
 import { MouseEvent } from "react";
-import { Activity } from "@/lib/Schema";
+import { Activity, Participation } from "@/lib/Schema";
 import { ConfigData } from "./config";
 import { DrawContext } from "./DrawHelpers";
 
@@ -8,51 +8,102 @@ let mouseOverElement: any | null = null;
 export function drawParticipations(ctx: DrawContext) {
   const { config, svgElement, activities } = ctx;
 
-  const parts: any[] = [];
-  activities.forEach((a) => {
-    a.participations?.forEach((p) => {
-      parts.push({
-        box: getPositionOfParticipation(svgElement, a.id, p.individualId),
-        activityId: a.id,
-        individualId: p.individualId,
-        participation: p,
-      });
-    });
+  if (!activities || activities.length === 0) return svgElement;
+
+  const startOfTime = Math.min(...activities.map((a) => a.beginning));
+  const endOfTime = Math.max(...activities.map((a) => a.ending));
+  const duration = Math.max(1, endOfTime - startOfTime);
+  let totalLeftMargin =
+    config.viewPort.x * config.viewPort.zoom -
+    config.layout.individual.xMargin * 2;
+  totalLeftMargin -= config.layout.individual.temporalMargin;
+
+  try {
+    const { keepIndividualLabels } = require("./DrawHelpers");
+    if (
+      config.labels.individual.enabled &&
+      keepIndividualLabels(ctx.individuals)
+    ) {
+      totalLeftMargin -= config.layout.individual.textLength;
+    }
+  } catch {
+    // ignore
+  }
+
+  const timeInterval = totalLeftMargin / duration;
+  const xBase =
+    config.layout.individual.xMargin +
+    config.layout.individual.temporalMargin +
+    (config.labels.individual.enabled
+      ? config.layout.individual.textLength
+      : 0);
+
+  const parts: {
+    activity: Activity;
+    participation: Participation;
+    activityIndex: number;
+  }[] = [];
+  activities.forEach((a, idx) => {
+    (a.participations || []).forEach((p: Participation) =>
+      parts.push({ activity: a, participation: p, activityIndex: idx })
+    );
   });
 
   svgElement
-    .selectAll(".participation")
-    .data(parts.values())
+    .selectAll(".participation-rect")
+    .data(parts, (d: any) => `${d.activity.id}:${d.participation.individualId}`)
     .join("rect")
-    .attr("class", "participation")
-    .attr("id", (p: any) => "p" + p.activityId + p.individualId)
-    .attr("x", (d: any) => d.box.x)
-    .attr("y", (d: any) => d.box.y)
-    .attr("width", (d: any) => d.box.width)
-    .attr("height", (d: any) => d.box.height)
-    .attr("stroke", config.presentation.participation.stroke)
-    .attr("stroke-dasharray", config.presentation.participation.strokeDasharray)
-    .attr("stroke-width", config.presentation.participation.strokeWidth)
-    .attr("fill", config.presentation.participation.fill)
-    .attr("opacity", config.presentation.participation.opacity);
+    .attr("class", "participation-rect")
+    .attr(
+      "id",
+      (d: any) => `p_${d.activity.id}_${d.participation.individualId}`
+    )
+    .attr(
+      "x",
+      (d: any) => xBase + timeInterval * (d.activity.beginning - startOfTime)
+    )
+    .attr("width", (d: any) =>
+      Math.max(1, (d.activity.ending - d.activity.beginning) * timeInterval)
+    )
+    .attr("y", (d: any) => {
+      const node = svgElement
+        .select("#i" + d.participation.individualId)
+        .node();
+      if (!node) return 0;
+      const box = node.getBBox();
+      return box.y;
+    })
+    .attr("height", () => config.layout.individual.height)
+    .attr(
+      "fill",
+      (d: any) =>
+        config.presentation.activity.fill[
+          d.activityIndex % config.presentation.activity.fill.length
+        ]
+    )
+    .attr("stroke", "none")
+    .attr("opacity", 1);
 
+  // Add hover behavior using the same pattern as original
   hoverParticipations(ctx);
+
+  return svgElement;
 }
 
 function hoverParticipations(ctx: DrawContext) {
   const { config, svgElement, tooltip } = ctx;
   svgElement
-    .selectAll(".participation")
+    .selectAll(".participation-rect")
     .on("mouseover", function (event: MouseEvent) {
       mouseOverElement = event.target as HTMLElement;
-      mouseOverElement.style.opacity =
-        config.presentation.participation.opacityHover;
+      mouseOverElement.style.opacity = String(
+        config.presentation.activity.opacityHover ?? 0.9
+      );
       tooltip.style("display", "block");
     })
     .on("mouseout", function (event: MouseEvent) {
       if (mouseOverElement) {
-        mouseOverElement.style.opacity =
-          config.presentation.participation.opacity;
+        mouseOverElement.style.opacity = "1";
         mouseOverElement = null;
       }
       tooltip.style("display", "none");

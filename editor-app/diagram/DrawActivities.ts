@@ -63,19 +63,11 @@ export function drawActivities(ctx: DrawContext) {
             config.layout.individual.height
         : 0;
     })
-    .attr("stroke", (a: Activity, i: number) => {
-      return config.presentation.activity.stroke[
-        i % config.presentation.activity.stroke.length
-      ];
-    })
-    .attr("stroke-dasharray", config.presentation.activity.strokeDasharray)
-    .attr("stroke-width", config.presentation.activity.strokeWidth)
-    .attr("fill", (a: Activity, i: number) => {
-      return config.presentation.activity.fill[
-        i % config.presentation.activity.fill.length
-      ];
-    })
-    .attr("opacity", config.presentation.activity.opacity);
+    // Make the top-level activity rect invisible so per-participation blocks show clearly.
+    // (keeps DOM elements for hit-testing / layout if other code relies on them)
+    .attr("stroke", "none")
+    .attr("fill", "none")
+    .attr("opacity", 1);
 
   // small helper functions to reuse computations
   const xOf = (a: Activity) => x + timeInterval * (a.beginning - startOfTime);

@@ -49,6 +49,11 @@ export function drawParticipations(ctx: DrawContext) {
     );
   });
 
+  const rectHeight = Math.min(36, config.layout.individual.height); // glass height, bounded by row
+  const rx = 4; // border-radius
+  const strokeWidth = 1;
+  const fillOpacity = 0.85;
+
   svgElement
     .selectAll(".participation-rect")
     .data(parts, (d: any) => `${d.activity.id}:${d.participation.individualId}`)
@@ -71,9 +76,12 @@ export function drawParticipations(ctx: DrawContext) {
         .node();
       if (!node) return 0;
       const box = node.getBBox();
-      return box.y;
+      // vertically center the glass rect inside the individual row
+      return box.y + Math.max(0, (box.height - rectHeight) / 2);
     })
-    .attr("height", () => config.layout.individual.height)
+    .attr("height", () => rectHeight)
+    .attr("rx", rx)
+    .attr("ry", rx)
     .attr(
       "fill",
       (d: any) =>
@@ -81,7 +89,16 @@ export function drawParticipations(ctx: DrawContext) {
           d.activityIndex % config.presentation.activity.fill.length
         ]
     )
-    .attr("stroke", "none")
+    .attr("fill-opacity", fillOpacity)
+    .attr("stroke", (d: any) =>
+      darkenHex(
+        config.presentation.activity.fill[
+          d.activityIndex % config.presentation.activity.fill.length
+        ],
+        0.28
+      )
+    )
+    .attr("stroke-width", strokeWidth)
     .attr("opacity", 1);
 
   // Add hover behavior using the same pattern as original
@@ -181,4 +198,18 @@ function getPositionOfParticipation(
     width: width,
     height: height,
   };
+}
+
+/** darken a #rrggbb colour by pct (0..1) */
+function darkenHex(hex: string, pct: number) {
+  if (!hex) return "#000";
+  const h = hex.replace("#", "");
+  const r = parseInt(h.substring(0, 2), 16);
+  const g = parseInt(h.substring(2, 4), 16);
+  const b = parseInt(h.substring(4, 6), 16);
+  const dr = Math.max(0, Math.min(255, Math.floor(r * (1 - pct))));
+  const dg = Math.max(0, Math.min(255, Math.floor(g * (1 - pct))));
+  const db = Math.max(0, Math.min(255, Math.floor(b * (1 - pct))));
+  const toHex = (v: number) => v.toString(16).padStart(2, "0");
+  return `#${toHex(dr)}${toHex(dg)}${toHex(db)}`;
 }

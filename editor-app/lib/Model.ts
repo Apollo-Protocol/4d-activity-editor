@@ -1,6 +1,12 @@
 /* eslint-disable max-classes-per-file */
 import { HQDM_NS } from "@apollo-protocol/hqdm-lib";
-import type { Activity, Id, Individual, Maybe } from "./Schema.js";
+import type {
+  Activity,
+  Id,
+  Individual,
+  Installation,
+  Maybe,
+} from "./Schema.js";
 import { EPOCH_END } from "./ActivityLib";
 
 /**
@@ -22,8 +28,8 @@ export class Kind {
  * A class that is the UI Model.
  */
 export class Model {
-  readonly activities: Map<string, Activity>;
-  readonly individuals: Map<string, Individual>;
+  readonly activities: Map<Id, Activity>;
+  readonly individuals: Map<Id, Individual>;
 
   readonly roles: Array<Kind>;
   readonly activityTypes: Array<Kind>;
@@ -38,12 +44,15 @@ export class Model {
   description: Maybe<string>;
   filename: string;
 
+  // NEW: central store of installations
+  installations: Map<Id, Installation>;
+
   constructor(name?: string, description?: string) {
     this.name = name;
     this.description = description;
     this.filename = "activity_diagram.ttl";
-    this.activities = new Map<string, Activity>();
-    this.individuals = new Map<string, Individual>();
+    this.activities = new Map<Id, Activity>();
+    this.individuals = new Map<Id, Individual>();
 
     /* XXX There is an inconsistency here. Most objects in the UI model
      * have their id set to a plain UUID, i.e. not to an IRI. These core
@@ -61,6 +70,8 @@ export class Model {
       new Kind(HQDM_NS + "ordinary_physical_object", "Resource", true),
     ];
     this.defaultIndividualType = this.individualTypes[2];
+
+    this.installations = new Map<Id, Installation>();
   }
 
   static END_OF_TIME = EPOCH_END;
@@ -376,5 +387,45 @@ export class Model {
   // True if descendantId is a descendant of ancestorId
   isDescendant(ancestorId: Id, descendantId: Id): boolean {
     return this.isAncestor(ancestorId, descendantId);
+  }
+
+  // Persist/update an individual as usual
+  setIndividual(individual: Individual) {
+    // ...existing code to put into this.individuals...
+    this.individuals.set(individual.id, individual);
+
+    // Also mirror any inline installations into the central map
+    if (individual.installations) {
+      individual.installations.forEach((inst) => {
+        this.installations.set(inst.id, inst);
+      });
+    }
+  }
+
+  // NEW: convenience methods for managing installations
+  addInstallation(inst: Installation) {
+    this.installations.set(inst.id, inst);
+
+    const comp = this.individuals.get(inst.componentId);
+    if (comp) {
+      const list = [...(comp.installations ?? [])].filter(
+        (i) => i.id !== inst.id
+      );
+      list.push(inst);
+      comp.installations = list;
+      this.individuals.set(comp.id, comp);
+    }
+  }
+
+  removeInstallation(id: Id) {
+    const inst = this.installations.get(id);
+    if (inst) {
+      const comp = this.individuals.get(inst.componentId);
+      if (comp && comp.installations) {
+        comp.installations = comp.installations.filter((i) => i.id !== id);
+        this.individuals.set(comp.id, comp);
+      }
+    }
+    this.installations.delete(id);
   }
 }

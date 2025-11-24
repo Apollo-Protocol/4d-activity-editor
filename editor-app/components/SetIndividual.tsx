@@ -2,6 +2,7 @@ import React, {
   Dispatch,
   SetStateAction,
   useEffect,
+  useMemo,
   useRef,
   useState,
 } from "react";
@@ -11,8 +12,8 @@ import Row from "react-bootstrap/Row";
 import Col from "react-bootstrap/Col";
 import Form from "react-bootstrap/Form";
 import Container from "react-bootstrap/Container";
-import { Individual } from "@/lib/Schema";
-import { Model } from "@/lib/Model";
+import { Model } from "../lib/Model";
+import { EntityType, Individual } from "../lib/Schema";
 import { v4 as uuidv4 } from "uuid";
 import { Alert, InputGroup } from "react-bootstrap";
 
@@ -101,6 +102,22 @@ const SetIndividual = (props: Props) => {
     if (typeOpen) document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, [typeOpen]);
+
+  // Ensure defaults so new items behave
+  useEffect(() => {
+    if (!inputs.entityType) updateInputs("entityType", EntityType.Individual);
+    if (inputs.beginning === undefined) updateInputs("beginning", -1);
+    if (inputs.ending === undefined) updateInputs("ending", Model.END_OF_TIME);
+  }, [show]); // when opening the dialog
+
+  // Systems list for parent dropdown
+  const availableSystems = useMemo(
+    () =>
+      Array.from(dataset.individuals.values()).filter(
+        (i) => (i.entityType ?? EntityType.Individual) === EntityType.System
+      ),
+    [dataset]
+  );
 
   const handleClose = () => {
     setShow(false);
@@ -492,6 +509,81 @@ const SetIndividual = (props: Props) => {
                 disabled={!individualHasParticipants}
                 checked={endsWithParticipant}
                 onChange={handleEndsWithParticipant}
+              />
+            </Form.Group>
+
+            {/* Entity type selection */}
+            <Form.Group className="mb-3" controlId="ind-entity-type">
+              <Form.Label>Entity type</Form.Label>
+              <Form.Select
+                value={inputs.entityType ?? EntityType.Individual}
+                onChange={(e) =>
+                  updateInputs("entityType", e.target.value as EntityType)
+                }
+              >
+                <option value={EntityType.Individual}>Individual</option>
+                <option value={EntityType.System}>System</option>
+                <option value={EntityType.SystemComponent}>
+                  System component
+                </option>
+              </Form.Select>
+            </Form.Group>
+
+            {/* Parent system – only for components */}
+            {(inputs.entityType ?? EntityType.Individual) ===
+              EntityType.SystemComponent && (
+              <Form.Group className="mb-3" controlId="ind-parent-system">
+                <Form.Label>Parent system</Form.Label>
+                <Form.Select
+                  value={inputs.parentSystemId ?? ""}
+                  onChange={(e) =>
+                    updateInputs("parentSystemId", e.target.value || undefined)
+                  }
+                >
+                  <option value="">-- Select system --</option>
+                  {availableSystems.map((s) => (
+                    <option key={s.id} value={s.id}>
+                      {s.name}
+                    </option>
+                  ))}
+                </Form.Select>
+              </Form.Group>
+            )}
+
+            {/* Temporal bounds */}
+            <Form.Group className="mb-3" controlId="ind-beginning">
+              <Form.Label>Beginning (time)</Form.Label>
+              <Form.Control
+                type="number"
+                value={inputs.beginning === -1 ? "" : inputs.beginning}
+                onChange={(e) =>
+                  updateInputs(
+                    "beginning",
+                    e.target.value === "" ? -1 : parseInt(e.target.value, 10)
+                  )
+                }
+                placeholder="Leave empty to start at earliest"
+              />
+            </Form.Group>
+
+            <Form.Group className="mb-3" controlId="ind-ending">
+              <Form.Label>Ending (time)</Form.Label>
+              <Form.Control
+                type="number"
+                value={
+                  inputs.ending === Model.END_OF_TIME
+                    ? ""
+                    : (inputs.ending as number)
+                }
+                onChange={(e) =>
+                  updateInputs(
+                    "ending",
+                    e.target.value === ""
+                      ? Model.END_OF_TIME
+                      : parseInt(e.target.value, 10)
+                  )
+                }
+                placeholder="Leave empty to extend to end"
               />
             </Form.Group>
           </Form>

@@ -20,6 +20,7 @@ import {
 import { clickParticipations, drawParticipations } from "./DrawParticipations";
 import * as d3 from "d3";
 import { Model } from "@/lib/Model";
+import { EntityType } from "@/lib/Schema";
 
 export interface Plot {
   width: number;
@@ -44,14 +45,19 @@ export function drawActivityDiagram(
   rightClickIndividual: (i: Individual) => void,
   rightClickActivity: (a: Activity) => void,
   rightClickParticipation: (a: Activity, p: Participation) => void,
-  hideNonParticipating: boolean = false
+  hideNonParticipating: boolean = false,
+  sortedIndividuals?: Individual[]
 ) {
-  //Prepare Model data into arrays
-  let individualsArray: Individual[] = [];
+  // Prepare Model data into arrays
+  // Use sorted individuals if provided, otherwise use dataset order
+  let individualsArray: Individual[] = sortedIndividuals || [];
+  if (!sortedIndividuals) {
+    dataset.individuals.forEach((i: Individual) => individualsArray.push(i));
+  }
+
   const activitiesArray: Activity[] = [];
   const { individuals, activities } = dataset;
 
-  individuals.forEach((i: Individual) => individualsArray.push(i));
   activities.forEach((a: Activity) => {
     if (a.partOf === activityContext) activitiesArray.push(a);
   });
@@ -78,7 +84,7 @@ export function drawActivityDiagram(
     tooltip,
     dataset,
     activities: activitiesArray,
-    individuals: individualsArray,
+    individuals: individualsArray, // Pass sorted individuals
   };
 
   drawIndividuals(drawCtx);

@@ -12,7 +12,14 @@ import SortIndividuals from "./SortIndividuals";
 import SetParticipation from "./SetParticipation";
 import Undo from "./Undo";
 import { Model } from "@/lib/Model";
-import { Activity, Id, Individual, Maybe, Participation } from "@/lib/Schema";
+import {
+  Activity,
+  Id,
+  Individual,
+  Maybe,
+  Participation,
+  EntityType,
+} from "@/lib/Schema";
 import ExportJson from "./ExportJson";
 import ExportSvg from "./ExportSvg";
 import { Button } from "react-bootstrap";
@@ -119,11 +126,60 @@ export default function ActivityDiagramWrap() {
     );
   };
 
-  const individualsArray: Individual[] = [];
-  dataset.individuals.forEach((i: Individual) => individualsArray.push(i));
+  // Sort individuals: Systems first with their components grouped underneath
+  const individualsArray = Array.from(dataset.individuals.values());
 
-  const activitiesArray: Activity[] = [];
-  dataset.activities.forEach((a: Activity) => activitiesArray.push(a));
+  const sortedIndividuals = [...individualsArray].sort((a, b) => {
+    // Helper: Get group key - systems use own ID, components use parent ID
+    const getGroupKey = (ind: Individual) => {
+      if ((ind.entityType ?? EntityType.Individual) === EntityType.System) {
+        return ind.id;
+      }
+      if (
+        (ind.entityType ?? EntityType.Individual) ===
+          EntityType.SystemComponent &&
+        ind.parentSystemId
+      ) {
+        return ind.parentSystemId;
+      }
+      return `_individual_${ind.id}`; // Regular individuals get unique keys
+    };
+
+    const groupA = getGroupKey(a);
+    const groupB = getGroupKey(b);
+
+    // Different groups? Systems/components come first, then individuals
+    if (groupA !== groupB) {
+      const aIsIndividual =
+        (a.entityType ?? EntityType.Individual) === EntityType.Individual;
+      const bIsIndividual =
+        (b.entityType ?? EntityType.Individual) === EntityType.Individual;
+
+      if (aIsIndividual && !bIsIndividual) return 1; // a after b
+      if (!aIsIndividual && bIsIndividual) return -1; // a before b
+
+      return groupA.localeCompare(groupB);
+    }
+
+    // Same group: System first, then components alphabetically
+    const aIsSystem =
+      (a.entityType ?? EntityType.Individual) === EntityType.System;
+    const bIsSystem =
+      (b.entityType ?? EntityType.Individual) === EntityType.System;
+    const aIsComponent =
+      (a.entityType ?? EntityType.Individual) === EntityType.SystemComponent;
+    const bIsComponent =
+      (b.entityType ?? EntityType.Individual) === EntityType.SystemComponent;
+
+    if (aIsSystem && bIsComponent) return -1;
+    if (aIsComponent && bIsSystem) return 1;
+
+    // Both same type: sort by name
+    return a.name.localeCompare(b.name);
+  });
+
+  // Build an array of activities from the dataset so it can be filtered below
+  const activitiesArray = Array.from(dataset.activities.values());
 
   // Filter activities for the current context
   let activitiesInView: Activity[] = [];
@@ -164,7 +220,7 @@ export default function ActivityDiagramWrap() {
           <Col>
             <ActivityDiagram
               dataset={dataset}
-              configData={configData}
+              configData={config}
               activityContext={activityContext}
               setActivityContext={setActivityContext}
               clickIndividual={clickIndividual}
@@ -175,6 +231,7 @@ export default function ActivityDiagramWrap() {
               rightClickParticipation={rightClickParticipation}
               svgRef={svgRef}
               hideNonParticipating={compactMode}
+              sortedIndividuals={sortedIndividuals}
             />
           </Col>
         </Row>

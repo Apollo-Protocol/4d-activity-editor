@@ -9,10 +9,9 @@ export interface DrawContext {
   config: ConfigData;
   svgElement: any;
   tooltip: any;
-
   dataset: Model;
   activities: Activity[];
-  individuals: Individual[];
+  individuals: Individual[]; // Add sorted individuals list
 }
 
 export interface Label {

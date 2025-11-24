@@ -1,5 +1,5 @@
 import { MouseEvent } from "react";
-import { Activity, Individual } from "@/lib/Schema";
+import { Activity, Individual, EntityType } from "@/lib/Schema";
 import { Model } from "@/lib/Model";
 import {
   DrawContext,
@@ -21,7 +21,9 @@ interface Layout {
 }
 
 export function drawIndividuals(ctx: DrawContext) {
-  const { config, svgElement, individuals, activities } = ctx;
+  const { config, svgElement, activities } = ctx;
+  // Use sorted individuals from context
+  const individuals = ctx.individuals;
 
   let startOfTime = Math.min(...activities.map((a) => a.beginning));
   let endOfTime = Math.max(...activities.map((a) => a.ending));
@@ -46,7 +48,8 @@ export function drawIndividuals(ctx: DrawContext) {
   }
 
   const chevOff = config.layout.individual.height / 3;
-  const fullWidth = chevOff +
+  const fullWidth =
+    chevOff +
     config.viewPort.x * config.viewPort.zoom +
     config.layout.individual.temporalMargin -
     config.layout.individual.xMargin * 2;
@@ -54,35 +57,43 @@ export function drawIndividuals(ctx: DrawContext) {
   const layout = new Map<string, Layout>();
 
   /* yuck */
-  let next_y = config.layout.individual.topMargin + config.layout.individual.gap;
+  let next_y =
+    config.layout.individual.topMargin + config.layout.individual.gap;
   for (const i of individuals) {
     const start = i.beginning >= startOfTime;
     const stop = i.ending <= endOfTime;
 
-    const x = start
-      ? lhs_x + timeInterval * (i.beginning - startOfTime)
-      : config.layout.individual.xMargin - chevOff;
+    // Indent system components by 30px
+    const isComponent =
+      (i.entityType ?? EntityType.Individual) === EntityType.SystemComponent;
+    const indent = isComponent ? 30 : 0;
+
+    const x =
+      (start
+        ? lhs_x + timeInterval * (i.beginning - startOfTime)
+        : config.layout.individual.xMargin - chevOff) + indent;
 
     const y = next_y;
     next_y = y + config.layout.individual.height + config.layout.individual.gap;
 
-    const w = 
-      (!start && !stop)   ? fullWidth
-      : (start && !stop)  ? (
-        (endOfTime - i.beginning) * timeInterval +
-        config.layout.individual.temporalMargin
-      )
-      : (!start && stop)  ? (
-        fullWidth -
-        (endOfTime - i.ending) * timeInterval -
-        config.layout.individual.temporalMargin
-      )
-      : (i.ending - i.beginning) * timeInterval;
+    const w =
+      !start && !stop
+        ? fullWidth - indent
+        : start && !stop
+        ? (endOfTime - i.beginning) * timeInterval +
+          config.layout.individual.temporalMargin -
+          indent
+        : !start && stop
+        ? fullWidth -
+          indent -
+          (endOfTime - i.ending) * timeInterval -
+          config.layout.individual.temporalMargin
+        : (i.ending - i.beginning) * timeInterval - indent;
 
     const h = config.layout.individual.height;
 
     layout.set(i.id, { x, y, w, h, start, stop });
-  };
+  }
 
   svgElement
     .selectAll(".individual")
@@ -92,11 +103,13 @@ export function drawIndividuals(ctx: DrawContext) {
     .attr("id", (d: Individual) => "i" + d["id"])
     .attr("d", (i: Individual) => {
       const { x, y, w, h, start, stop } = layout.get(i.id)!;
-      return `M ${x} ${y} l ${w} 0`
-        + (stop ? `l 0 ${h}` : `l ${chevOff} ${h/2} ${-chevOff} ${h/2}`)
-        + `l ${-w} 0`
-        + (start ? "" : `l ${chevOff} ${-h/2} ${-chevOff} ${-h/2}`)
-        + "Z";
+      return (
+        `M ${x} ${y} l ${w} 0` +
+        (stop ? `l 0 ${h}` : `l ${chevOff} ${h / 2} ${-chevOff} ${h / 2}`) +
+        `l ${-w} 0` +
+        (start ? "" : `l ${chevOff} ${-h / 2} ${-chevOff} ${-h / 2}`) +
+        "Z"
+      );
     })
     .attr("stroke", config.presentation.individual.stroke)
     .attr("stroke-width", config.presentation.individual.strokeWidth)
@@ -158,10 +171,12 @@ export function clickIndividuals(
       rightClickIndividual(i);
     };
 
-    svgElement.select("#i" + i.id)
+    svgElement
+      .select("#i" + i.id)
       .on("click", lclick)
       .on("contextmenu", rclick);
-    svgElement.select("#il" + i.id)
+    svgElement
+      .select("#il" + i.id)
       .on("click", lclick)
       .on("contextmenu", rclick);
   });
@@ -183,30 +198,31 @@ export function labelIndividuals(ctx: DrawContext) {
     config.labels.individual.topMargin;
 
   svgElement
-    .selectAll(".individualLabel")
-    .data(individuals.values())
+    .selectAll(".individual-label")
+    .data(individuals)
     .join("text")
-    .attr("class", "individualLabel")
-    .attr("id", (i: Individual) => `il${i.id}`)
-    .attr(
-      "x",
-      config.layout.individual.xMargin + config.labels.individual.leftMargin
-    )
-    .attr("y", () => {
-      const oldY = y;
-      y = y + config.layout.individual.height + config.layout.individual.gap;
-      return oldY;
+    .attr("class", "individual-label")
+    .attr("id", (i: Individual) => "individual-label-" + i.id)
+    .attr("x", (i: Individual) => {
+      const isComponent =
+        (i.entityType ?? EntityType.Individual) === EntityType.SystemComponent;
+      const indent = isComponent ? 30 : 0;
+      return config.layout.individual.xMargin + indent + 5;
     })
-    .attr("text-anchor", "start")
-    .attr("font-family", "Roboto, Arial, sans-serif")
+    .attr("y", (i: Individual, index: number) => {
+      return (
+        y +
+        index * (config.layout.individual.height + config.layout.individual.gap)
+      );
+    })
     .attr("font-size", config.labels.individual.fontSize)
-    .text((d: Individual) => {
-      let label = d["name"];
-      if (label.length > config.labels.individual.maxChars) {
-        label = label.substring(0, config.labels.individual.maxChars);
-        label += "...";
-      }
-      return label;
+    .attr("fill", config.labels.individual.color)
+    .text((i: Individual) => {
+      // Add arrow prefix for system components
+      const isComponent =
+        (i.entityType ?? EntityType.Individual) === EntityType.SystemComponent;
+      const prefix = isComponent ? "↳ " : "";
+      return prefix + i.name;
     })
     .each((d: Individual, i: number, nodes: SVGGraphicsElement[]) => {
       removeLabelIfItOverlaps(labels, nodes[i]);

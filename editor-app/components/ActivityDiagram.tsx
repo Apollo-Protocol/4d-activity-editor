@@ -19,7 +19,8 @@ interface Props {
   rightClickActivity: (a: Activity) => void;
   rightClickParticipation: (a: Activity, p: Participation) => void;
   svgRef: MutableRefObject<any>;
-  hideNonParticipating?: boolean;
+  hideNonParticipating: boolean;
+  sortedIndividuals?: Individual[];
 }
 
 const ActivityDiagram = (props: Props) => {
@@ -35,7 +36,8 @@ const ActivityDiagram = (props: Props) => {
     rightClickActivity,
     rightClickParticipation,
     svgRef,
-    hideNonParticipating = false,
+    hideNonParticipating,
+    sortedIndividuals,
   } = props;
 
   const [plot, setPlot] = useState({
@@ -56,7 +58,8 @@ const ActivityDiagram = (props: Props) => {
         rightClickIndividual,
         rightClickActivity,
         rightClickParticipation,
-        hideNonParticipating
+        hideNonParticipating,
+        sortedIndividuals
       )
     );
   }, [
@@ -71,6 +74,7 @@ const ActivityDiagram = (props: Props) => {
     rightClickActivity,
     rightClickParticipation,
     hideNonParticipating,
+    sortedIndividuals,
   ]);
 
   const buildCrumbs = () => {

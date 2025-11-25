@@ -21,9 +21,19 @@ interface Layout {
 }
 
 export function drawIndividuals(ctx: DrawContext) {
-  const { config, svgElement, activities } = ctx;
-  // Use sorted individuals from context
+  const { config, svgElement, activities, dataset } = ctx;
   const individuals = ctx.individuals;
+
+  console.log(
+    "DrawIndividuals received individuals:",
+    individuals.length,
+    individuals.map((i) => i.name)
+  );
+
+  if (!individuals || individuals.length === 0) {
+    console.warn("No individuals to draw!");
+    return svgElement;
+  }
 
   let startOfTime = Math.min(...activities.map((a) => a.beginning));
   let endOfTime = Math.max(...activities.map((a) => a.ending));
@@ -56,17 +66,59 @@ export function drawIndividuals(ctx: DrawContext) {
 
   const layout = new Map<string, Layout>();
 
-  /* yuck */
+  // Helper: Calculate indentation level based on parent chain
+  const getIndentLevel = (ind: Individual): number => {
+    let level = 0;
+    let currentId: string | undefined = undefined;
+    const visited = new Set<string>();
+
+    const entityType = ind.entityType ?? EntityType.Individual;
+
+    if (entityType === EntityType.SystemComponent) {
+      currentId = ind.parentSystemId;
+    } else if (entityType === EntityType.InstalledComponent) {
+      // InstalledComponent's parent is the SystemComponent it's installed into
+      if (ind.installations && ind.installations.length > 0) {
+        currentId = ind.installations[0].targetId;
+      }
+    }
+
+    // Walk up the parent chain
+    while (currentId && !visited.has(currentId)) {
+      visited.add(currentId);
+      level++;
+
+      const parent = dataset.individuals.get(currentId);
+      if (!parent) break;
+
+      const parentType = parent.entityType ?? EntityType.Individual;
+
+      if (parentType === EntityType.SystemComponent) {
+        currentId = parent.parentSystemId;
+      } else if (parentType === EntityType.InstalledComponent) {
+        if (parent.installations && parent.installations.length > 0) {
+          currentId = parent.installations[0].targetId;
+        } else {
+          break;
+        }
+      } else {
+        break; // Systems and Individuals don't have parents
+      }
+    }
+
+    return level;
+  };
+
+  /* Layout calculation */
   let next_y =
     config.layout.individual.topMargin + config.layout.individual.gap;
   for (const i of individuals) {
     const start = i.beginning >= startOfTime;
     const stop = i.ending <= endOfTime;
 
-    // Indent system components by 30px
-    const isComponent =
-      (i.entityType ?? EntityType.Individual) === EntityType.SystemComponent;
-    const indent = isComponent ? 30 : 0;
+    // Calculate indent based on hierarchy depth (30px per level)
+    const indentLevel = getIndentLevel(i);
+    const indent = indentLevel * 30;
 
     const x =
       (start
@@ -183,11 +235,53 @@ export function clickIndividuals(
 }
 
 export function labelIndividuals(ctx: DrawContext) {
-  const { config, svgElement, individuals } = ctx;
+  const { config, svgElement, dataset } = ctx;
+  const individuals = ctx.individuals;
 
   if (config.labels.individual.enabled === false) {
     return;
   }
+
+  // Same helper as above
+  const getIndentLevel = (ind: Individual): number => {
+    let level = 0;
+    let currentId: string | undefined = undefined;
+    const visited = new Set<string>();
+
+    const entityType = ind.entityType ?? EntityType.Individual;
+
+    if (entityType === EntityType.SystemComponent) {
+      currentId = ind.parentSystemId;
+    } else if (entityType === EntityType.InstalledComponent) {
+      if (ind.installations && ind.installations.length > 0) {
+        currentId = ind.installations[0].targetId;
+      }
+    }
+
+    while (currentId && !visited.has(currentId)) {
+      visited.add(currentId);
+      level++;
+
+      const parent = dataset.individuals.get(currentId);
+      if (!parent) break;
+
+      const parentType = parent.entityType ?? EntityType.Individual;
+
+      if (parentType === EntityType.SystemComponent) {
+        currentId = parent.parentSystemId;
+      } else if (parentType === EntityType.InstalledComponent) {
+        if (parent.installations && parent.installations.length > 0) {
+          currentId = parent.installations[0].targetId;
+        } else {
+          break;
+        }
+      } else {
+        break;
+      }
+    }
+
+    return level;
+  };
 
   let labels: Label[] = [];
 
@@ -204,9 +298,8 @@ export function labelIndividuals(ctx: DrawContext) {
     .attr("class", "individual-label")
     .attr("id", (i: Individual) => "individual-label-" + i.id)
     .attr("x", (i: Individual) => {
-      const isComponent =
-        (i.entityType ?? EntityType.Individual) === EntityType.SystemComponent;
-      const indent = isComponent ? 30 : 0;
+      const indentLevel = getIndentLevel(i);
+      const indent = indentLevel * 30;
       return config.layout.individual.xMargin + indent + 5;
     })
     .attr("y", (i: Individual, index: number) => {
@@ -218,10 +311,8 @@ export function labelIndividuals(ctx: DrawContext) {
     .attr("font-size", config.labels.individual.fontSize)
     .attr("fill", config.labels.individual.color)
     .text((i: Individual) => {
-      // Add arrow prefix for system components
-      const isComponent =
-        (i.entityType ?? EntityType.Individual) === EntityType.SystemComponent;
-      const prefix = isComponent ? "↳ " : "";
+      const indentLevel = getIndentLevel(i);
+      const prefix = indentLevel > 0 ? "↳ " : "";
       return prefix + i.name;
     })
     .each((d: Individual, i: number, nodes: SVGGraphicsElement[]) => {

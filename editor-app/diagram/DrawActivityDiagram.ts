@@ -18,6 +18,7 @@ import {
   hoverActivities,
 } from "./DrawActivities";
 import { clickParticipations, drawParticipations } from "./DrawParticipations";
+import { drawInstallations } from "./DrawInstallations";
 import * as d3 from "d3";
 import { Model } from "@/lib/Model";
 import { EntityType } from "@/lib/Schema";
@@ -52,7 +53,10 @@ export function drawActivityDiagram(
   // Use sorted individuals if provided, otherwise use dataset order
   let individualsArray: Individual[] = sortedIndividuals || [];
   if (!sortedIndividuals) {
+    console.log("No sortedIndividuals provided, using dataset order");
     dataset.individuals.forEach((i: Individual) => individualsArray.push(i));
+  } else {
+    console.log("Using sortedIndividuals:", sortedIndividuals.length);
   }
 
   const activitiesArray: Activity[] = [];
@@ -61,6 +65,8 @@ export function drawActivityDiagram(
   activities.forEach((a: Activity) => {
     if (a.partOf === activityContext) activitiesArray.push(a);
   });
+
+  console.log("individualsArray before filter:", individualsArray.length);
 
   if (hideNonParticipating) {
     const participating = new Set<string>();
@@ -71,6 +77,8 @@ export function drawActivityDiagram(
     );
     individualsArray = individualsArray.filter((i) => participating.has(i.id));
   }
+
+  console.log("individualsArray after filter:", individualsArray.length);
 
   //Draw Diagram parts
   const svgElement = clearDiagram(svgRef);
@@ -87,6 +95,11 @@ export function drawActivityDiagram(
     individuals: individualsArray, // Pass sorted individuals
   };
 
+  console.log(
+    "DrawContext created with individuals:",
+    drawCtx.individuals.length
+  );
+
   drawIndividuals(drawCtx);
   hoverIndividuals(drawCtx);
   labelIndividuals(drawCtx);
@@ -95,6 +108,7 @@ export function drawActivityDiagram(
   hoverActivities(drawCtx);
   clickActivities(drawCtx, clickActivity, rightClickActivity);
   drawParticipations(drawCtx);
+  drawInstallations(drawCtx);
   clickParticipations(drawCtx, clickParticipation, rightClickParticipation);
   drawAxisArrows(drawCtx, height);
   let plot: Plot = {

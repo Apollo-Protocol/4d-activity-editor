@@ -13,9 +13,10 @@ import Col from "react-bootstrap/Col";
 import Form from "react-bootstrap/Form";
 import Container from "react-bootstrap/Container";
 import { Model } from "../lib/Model";
-import { EntityType, Individual } from "../lib/Schema";
+import { EntityType, Individual, Installation } from "../lib/Schema";
 import { v4 as uuidv4 } from "uuid";
 import { Alert, InputGroup } from "react-bootstrap";
+import Card from "react-bootstrap/Card";
 
 interface Props {
   deleteIndividual: (id: string) => void;
@@ -108,13 +109,27 @@ const SetIndividual = (props: Props) => {
     if (!inputs.entityType) updateInputs("entityType", EntityType.Individual);
     if (inputs.beginning === undefined) updateInputs("beginning", -1);
     if (inputs.ending === undefined) updateInputs("ending", Model.END_OF_TIME);
+    if (!inputs.installations) updateInputs("installations", []);
   }, [show]); // when opening the dialog
 
-  // Systems list for parent dropdown
-  const availableSystems = useMemo(
+  // Systems AND installed components can contain component slots
+  const availableParents = useMemo(
     () =>
       Array.from(dataset.individuals.values()).filter(
-        (i) => (i.entityType ?? EntityType.Individual) === EntityType.System
+        (i) =>
+          (i.entityType ?? EntityType.Individual) === EntityType.System ||
+          (i.entityType ?? EntityType.Individual) ===
+            EntityType.InstalledComponent
+      ),
+    [dataset]
+  );
+
+  // Only SystemComponents can be installation targets (they're the slots!)
+  const availableInstallationTargets = useMemo(
+    () =>
+      Array.from(dataset.individuals.values()).filter(
+        (i) =>
+          (i.entityType ?? EntityType.Individual) === EntityType.SystemComponent
       ),
     [dataset]
   );
@@ -138,15 +153,34 @@ const SetIndividual = (props: Props) => {
       setInputs(defaultIndividual);
     }
   };
-  const handleAdd = (event: any) => {
-    event.preventDefault();
-    if (!dirty) return handleClose();
-    const isValid = validateInputs();
-    if (isValid) {
-      setIndividual(inputs);
-      handleClose();
-    }
+  // ...existing code...
+
+  const handleAdd = () => {
+    // Generate ID if missing (new individual)
+    const id = inputs.id || "i" + Date.now();
+
+    // Create complete individual object
+    const newInd: Individual = {
+      id: id,
+      name: inputs.name || "Unnamed",
+      description: inputs.description || "",
+      type: inputs.type,
+      beginning: inputs.beginning ?? -1,
+      ending: inputs.ending ?? 100, // Default to 100 if Model.END_OF_TIME is not available
+      beginsWithParticipant: inputs.beginsWithParticipant ?? false,
+      endsWithParticipant: inputs.endsWithParticipant ?? false,
+
+      // New fields
+      entityType: inputs.entityType ?? EntityType.Individual,
+      parentSystemId: inputs.parentSystemId,
+      installations: inputs.installations ?? [],
+    };
+
+    setIndividual(newInd);
+    handleClose();
   };
+
+  // ...existing code...
   const handleDelete = (event: any) => {
     deleteIndividual(inputs.id);
     handleClose();
@@ -308,6 +342,42 @@ const SetIndividual = (props: Props) => {
     setEditingTypeValue("");
   };
   // ----- end helpers -----
+
+  // Load selected individual data when dialog opens
+  useEffect(() => {
+    if (show && selectedIndividual) {
+      // Populate form with existing individual data
+      setInputs({
+        id: selectedIndividual.id,
+        name: selectedIndividual.name || "",
+        description: selectedIndividual.description || "",
+        type: selectedIndividual.type,
+        beginning: selectedIndividual.beginning,
+        ending: selectedIndividual.ending,
+        beginsWithParticipant:
+          selectedIndividual.beginsWithParticipant ?? false,
+        endsWithParticipant: selectedIndividual.endsWithParticipant ?? false,
+        entityType: selectedIndividual.entityType ?? EntityType.Individual,
+        parentSystemId: selectedIndividual.parentSystemId,
+        installations: selectedIndividual.installations ?? [],
+      });
+    } else if (show && !selectedIndividual) {
+      // Reset form for new individual
+      setInputs({
+        id: "",
+        name: "",
+        description: "",
+        type: undefined,
+        beginning: -1,
+        ending: Model.END_OF_TIME,
+        beginsWithParticipant: false,
+        endsWithParticipant: false,
+        entityType: EntityType.Individual,
+        parentSystemId: undefined,
+        installations: [],
+      });
+    }
+  }, [show, selectedIndividual]);
 
   return (
     <>
@@ -524,33 +594,178 @@ const SetIndividual = (props: Props) => {
                 <option value={EntityType.Individual}>Individual</option>
                 <option value={EntityType.System}>System</option>
                 <option value={EntityType.SystemComponent}>
-                  System component
+                  System Component (slot/position)
+                </option>
+                <option value={EntityType.InstalledComponent}>
+                  Installed Component (physical object)
                 </option>
               </Form.Select>
             </Form.Group>
 
-            {/* Parent system – only for components */}
+            {/* Parent – for SystemComponents (slots need a parent container) */}
             {(inputs.entityType ?? EntityType.Individual) ===
               EntityType.SystemComponent && (
               <Form.Group className="mb-3" controlId="ind-parent-system">
-                <Form.Label>Parent system</Form.Label>
+                <Form.Label>Parent (System or Installed Object)</Form.Label>
                 <Form.Select
                   value={inputs.parentSystemId ?? ""}
                   onChange={(e) =>
                     updateInputs("parentSystemId", e.target.value || undefined)
                   }
                 >
-                  <option value="">-- Select system --</option>
-                  {availableSystems.map((s) => (
-                    <option key={s.id} value={s.id}>
-                      {s.name}
-                    </option>
-                  ))}
+                  <option value="">-- Select parent --</option>
+                  {availableParents.map((p) => {
+                    const type =
+                      (p.entityType ?? EntityType.Individual) ===
+                      EntityType.System
+                        ? "System"
+                        : "Installed Object";
+                    return (
+                      <option key={p.id} value={p.id}>
+                        [{type}] {p.name}
+                      </option>
+                    );
+                  })}
                 </Form.Select>
+                <Form.Text className="text-muted">
+                  This defines WHERE this component slot exists
+                </Form.Text>
               </Form.Group>
             )}
 
-            {/* Temporal bounds */}
+            {/* Installation periods – for InstalledComponents (physical objects) */}
+            {(inputs.entityType ?? EntityType.Individual) ===
+              EntityType.InstalledComponent && (
+              <Card className="mb-3">
+                <Card.Header>Installation Periods</Card.Header>
+                <Card.Body>
+                  <Form.Text className="text-muted d-block mb-2">
+                    Define when this physical object occupies a component slot
+                  </Form.Text>
+
+                  {(inputs.installations || []).map((inst, idx) => (
+                    <div
+                      key={inst.id}
+                      className="border rounded p-2 mb-2"
+                      style={{ backgroundColor: "#fff3cd" }}
+                    >
+                      <div className="d-flex justify-content-between align-items-center mb-2">
+                        <strong>Installation {idx + 1}</strong>
+                        <Button
+                          variant="danger"
+                          size="sm"
+                          onClick={() => {
+                            const updated = (inputs.installations || []).filter(
+                              (i) => i.id !== inst.id
+                            );
+                            updateInputs("installations", updated);
+                          }}
+                        >
+                          Remove
+                        </Button>
+                      </div>
+
+                      <Form.Group className="mb-2">
+                        <Form.Label>
+                          Install Into Slot (SystemComponent)
+                        </Form.Label>
+                        <Form.Select
+                          value={inst.targetId}
+                          onChange={(e) => {
+                            const updated = (inputs.installations || []).map(
+                              (i) =>
+                                i.id === inst.id
+                                  ? { ...i, targetId: e.target.value }
+                                  : i
+                            );
+                            updateInputs("installations", updated);
+                          }}
+                        >
+                          <option value="">-- Select component slot --</option>
+                          {availableInstallationTargets.map((slot) => (
+                            <option key={slot.id} value={slot.id}>
+                              {slot.name}
+                            </option>
+                          ))}
+                        </Form.Select>
+                        <Form.Text className="text-muted">
+                          The slot/position this object will occupy
+                        </Form.Text>
+                      </Form.Group>
+
+                      <Row>
+                        <Col>
+                          <Form.Group>
+                            <Form.Label>Attached from</Form.Label>
+                            <Form.Control
+                              type="number"
+                              value={inst.beginning}
+                              onChange={(e) => {
+                                const updated = (
+                                  inputs.installations || []
+                                ).map((i) =>
+                                  i.id === inst.id
+                                    ? {
+                                        ...i,
+                                        beginning: parseInt(e.target.value, 10),
+                                      }
+                                    : i
+                                );
+                                updateInputs("installations", updated);
+                              }}
+                            />
+                          </Form.Group>
+                        </Col>
+                        <Col>
+                          <Form.Group>
+                            <Form.Label>Attached until</Form.Label>
+                            <Form.Control
+                              type="number"
+                              value={inst.ending}
+                              onChange={(e) => {
+                                const updated = (
+                                  inputs.installations || []
+                                ).map((i) =>
+                                  i.id === inst.id
+                                    ? {
+                                        ...i,
+                                        ending: parseInt(e.target.value, 10),
+                                      }
+                                    : i
+                                );
+                                updateInputs("installations", updated);
+                              }}
+                            />
+                          </Form.Group>
+                        </Col>
+                      </Row>
+                    </div>
+                  ))}
+
+                  <Button
+                    variant="outline-primary"
+                    size="sm"
+                    onClick={() => {
+                      const newInst: Installation = {
+                        id: `inst_${Date.now()}`,
+                        componentId: inputs.id,
+                        targetId: "",
+                        beginning: 0,
+                        ending: 10,
+                      };
+                      updateInputs("installations", [
+                        ...(inputs.installations || []),
+                        newInst,
+                      ]);
+                    }}
+                  >
+                    + Add Installation Period
+                  </Button>
+                </Card.Body>
+              </Card>
+            )}
+
+            {/* Temporal bounds - same for all types */}
             <Form.Group className="mb-3" controlId="ind-beginning">
               <Form.Label>Beginning (time)</Form.Label>
               <Form.Control

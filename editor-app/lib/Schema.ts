@@ -28,6 +28,23 @@ export interface Activity extends STExtent {
   partOf: Maybe<Id>;
 }
 
+// Add entity typing for Individuals
+export enum EntityType {
+  Individual = "individual",
+  System = "system",
+  SystemComponent = "systemComponent", // A slot/position within a system or installed object
+  InstalledComponent = "installedComponent", // A physical object that occupies a slot
+}
+
+// Installation - just a temporal relationship record
+export interface Installation {
+  id: Id;
+  componentId: Id; // The physical object being installed
+  targetId: Id; // The SystemComponent (slot) it's installed into
+  beginning: number;
+  ending: number;
+}
+
 /**
  * An individual is a person, place, or thing that participates in an activity.
  */
@@ -35,7 +52,7 @@ export interface Individual extends STExtent {
   beginsWithParticipant: boolean; //not persisted to HQDM. Indicates that the beginning time should be synchronised to participants.
   endsWithParticipant: boolean; //not persisted to HQDM. Indicates that the ending time should be synchronised to participants.
   entityType?: EntityType; // defaults to individual when absent
-  parentSystemId?: Id; // only used when entityType === SystemComponent
+  parentSystemId?: Id; // For SystemComponents and InstalledComponents - can be System OR InstalledComponent
   installations?: Installation[]; // optional list of installation periods
 }
 
@@ -45,29 +62,4 @@ export interface Individual extends STExtent {
 export interface Participation {
   individualId: Id;
   role: Maybe<Kind>;
-}
-
-// Add entity typing for Individuals
-export enum EntityType {
-  Individual = "individual",
-  System = "system",
-  SystemComponent = "systemComponent",
-}
-
-// Temporal extent is already defined as STExtent in your schema.
-// We add an Installation that reuses beginning/ending.
-export interface Installation extends STExtent {
-  id: Id;
-  componentId: Id; // the component being installed
-  systemId: Id; // the system it is installed into
-}
-
-// Extend Individual with system fields (kept optional for back-compat)
-export interface Individual extends STExtent {
-  beginsWithParticipant: boolean;
-  endsWithParticipant: boolean;
-
-  entityType?: EntityType;
-  parentSystemId?: Id;
-  installations?: Installation[];
 }

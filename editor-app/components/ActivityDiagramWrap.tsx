@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef, Dispatch } from "react";
+import { useEffect, useState, useRef, Dispatch, useMemo } from "react";
 import { config } from "@/diagram/config";
 import SetIndividual from "@/components/SetIndividual";
 import SetActivity from "@/components/SetActivity";
@@ -87,6 +87,9 @@ export default function ActivityDiagramWrap() {
 
   const svgRef = useRef<SVGSVGElement>(null);
 
+  // Build an array of individuals from the dataset
+  const individualsArray = Array.from(dataset.individuals.values());
+
   const deleteIndividual = (id: string) => {
     updateDataset((d: Model) => d.removeIndividual(id));
   };
@@ -126,57 +129,116 @@ export default function ActivityDiagramWrap() {
     );
   };
 
-  // Sort individuals: Systems first with their components grouped underneath
-  const individualsArray = Array.from(dataset.individuals.values());
+  // Sort individuals to show nested hierarchy
+  const sortedIndividuals = useMemo(() => {
+    const result: Individual[] = [];
+    const visited = new Set<string>();
 
-  const sortedIndividuals = [...individualsArray].sort((a, b) => {
-    // Helper: Get group key - systems use own ID, components use parent ID
-    const getGroupKey = (ind: Individual) => {
-      if ((ind.entityType ?? EntityType.Individual) === EntityType.System) {
-        return ind.id;
-      }
-      if (
-        (ind.entityType ?? EntityType.Individual) ===
-          EntityType.SystemComponent &&
-        ind.parentSystemId
-      ) {
+    // Helper: Get the "parent" of an individual
+    // - For SystemComponents: parentSystemId
+    // - For InstalledComponents: the targetId of their first installation (if any)
+    const getParentId = (ind: Individual): string | undefined => {
+      const entityType = ind.entityType ?? EntityType.Individual;
+
+      if (entityType === EntityType.SystemComponent) {
         return ind.parentSystemId;
       }
-      return `_individual_${ind.id}`; // Regular individuals get unique keys
+
+      if (entityType === EntityType.InstalledComponent) {
+        // InstalledComponent's parent is the SystemComponent it's installed into
+        if (ind.installations && ind.installations.length > 0) {
+          return ind.installations[0].targetId;
+        }
+      }
+
+      return undefined;
     };
 
-    const groupA = getGroupKey(a);
-    const groupB = getGroupKey(b);
+    // Recursive function to add an individual and its descendants
+    const addWithDescendants = (ind: Individual) => {
+      if (visited.has(ind.id)) return;
+      visited.add(ind.id);
+      result.push(ind);
 
-    // Different groups? Systems/components come first, then individuals
-    if (groupA !== groupB) {
-      const aIsIndividual =
-        (a.entityType ?? EntityType.Individual) === EntityType.Individual;
-      const bIsIndividual =
-        (b.entityType ?? EntityType.Individual) === EntityType.Individual;
+      // Find children (SystemComponents or InstalledComponents whose parent/target is this individual)
+      const children = individualsArray.filter((child) => {
+        const childEntityType = child.entityType ?? EntityType.Individual;
 
-      if (aIsIndividual && !bIsIndividual) return 1; // a after b
-      if (!aIsIndividual && bIsIndividual) return -1; // a before b
+        // SystemComponents with this as parent
+        if (
+          childEntityType === EntityType.SystemComponent &&
+          child.parentSystemId === ind.id
+        ) {
+          return true;
+        }
 
-      return groupA.localeCompare(groupB);
-    }
+        // InstalledComponents installed into this (if this is a SystemComponent)
+        if (
+          childEntityType === EntityType.InstalledComponent &&
+          child.installations
+        ) {
+          return child.installations.some((inst) => inst.targetId === ind.id);
+        }
 
-    // Same group: System first, then components alphabetically
-    const aIsSystem =
-      (a.entityType ?? EntityType.Individual) === EntityType.System;
-    const bIsSystem =
-      (b.entityType ?? EntityType.Individual) === EntityType.System;
-    const aIsComponent =
-      (a.entityType ?? EntityType.Individual) === EntityType.SystemComponent;
-    const bIsComponent =
-      (b.entityType ?? EntityType.Individual) === EntityType.SystemComponent;
+        return false;
+      });
 
-    if (aIsSystem && bIsComponent) return -1;
-    if (aIsComponent && bIsSystem) return 1;
+      // Sort children by name and add them
+      children
+        .sort((a, b) => a.name.localeCompare(b.name))
+        .forEach((child) => addWithDescendants(child));
+    };
 
-    // Both same type: sort by name
-    return a.name.localeCompare(b.name);
-  });
+    // Start with top-level items (Systems, regular Individuals, or things with no parent)
+    const topLevel = individualsArray.filter((ind) => {
+      const entityType = ind.entityType ?? EntityType.Individual;
+
+      // Systems are always top-level
+      if (entityType === EntityType.System) return true;
+
+      // Regular individuals are top-level
+      if (entityType === EntityType.Individual) return true;
+
+      // SystemComponents without a parent are top-level (shouldn't happen, but handle it)
+      if (entityType === EntityType.SystemComponent && !ind.parentSystemId)
+        return true;
+
+      // InstalledComponents without installations are top-level
+      if (entityType === EntityType.InstalledComponent) {
+        if (!ind.installations || ind.installations.length === 0) return true;
+        // Also top-level if their target doesn't exist
+        const targetExists = ind.installations.some((inst) =>
+          individualsArray.some((i) => i.id === inst.targetId)
+        );
+        return !targetExists;
+      }
+
+      return false;
+    });
+
+    // Add all top-level items with their descendants
+    topLevel
+      .sort((a, b) => {
+        // Systems first, then individuals
+        const aIsSystem =
+          (a.entityType ?? EntityType.Individual) === EntityType.System;
+        const bIsSystem =
+          (b.entityType ?? EntityType.Individual) === EntityType.System;
+        if (aIsSystem && !bIsSystem) return -1;
+        if (!aIsSystem && bIsSystem) return 1;
+        return a.name.localeCompare(b.name);
+      })
+      .forEach((ind) => addWithDescendants(ind));
+
+    // Add any remaining individuals that weren't visited (orphans)
+    individualsArray.forEach((ind) => {
+      if (!visited.has(ind.id)) {
+        result.push(ind);
+      }
+    });
+
+    return result;
+  }, [individualsArray]);
 
   // Build an array of activities from the dataset so it can be filtered below
   const activitiesArray = Array.from(dataset.activities.values());

@@ -20,6 +20,27 @@ interface Layout {
   stop: boolean;
 }
 
+// Helper to check if this is an "installation reference" (virtual row)
+function isInstallationRef(ind: Individual): boolean {
+  return ind.id.includes("__installed_in__");
+}
+
+// Get the original ID from an installation reference
+function getOriginalId(ind: Individual): string {
+  if (isInstallationRef(ind)) {
+    return ind.id.split("__installed_in__")[0];
+  }
+  return ind.id;
+}
+
+// Get the slot ID from an installation reference
+function getSlotId(ind: Individual): string | undefined {
+  if (isInstallationRef(ind)) {
+    return ind.id.split("__installed_in__")[1];
+  }
+  return undefined;
+}
+
 export function drawIndividuals(ctx: DrawContext) {
   const { config, svgElement, activities, dataset } = ctx;
   const individuals = ctx.individuals;
@@ -74,13 +95,34 @@ export function drawIndividuals(ctx: DrawContext) {
 
     const entityType = ind.entityType ?? EntityType.Individual;
 
+    // Installation references get indented based on their target slot
+    if (isInstallationRef(ind)) {
+      const slotId = getSlotId(ind);
+      if (slotId) {
+        // Start from the slot and count up
+        currentId = slotId;
+        while (currentId && !visited.has(currentId)) {
+          visited.add(currentId);
+          level++;
+          const parent = dataset.individuals.get(currentId);
+          if (!parent) break;
+          const parentType = parent.entityType ?? EntityType.Individual;
+          if (parentType === EntityType.SystemComponent) {
+            currentId = parent.parentSystemId;
+          } else {
+            break;
+          }
+        }
+      }
+      return level;
+    }
+
+    // SystemComponents get indented based on parentSystemId
     if (entityType === EntityType.SystemComponent) {
       currentId = ind.parentSystemId;
-    } else if (entityType === EntityType.InstalledComponent) {
-      // InstalledComponent's parent is the SystemComponent it's installed into
-      if (ind.installations && ind.installations.length > 0) {
-        currentId = ind.installations[0].targetId;
-      }
+    } else {
+      // Individual, System, InstalledComponent (at top level) - no indentation
+      return 0;
     }
 
     // Walk up the parent chain
@@ -95,14 +137,8 @@ export function drawIndividuals(ctx: DrawContext) {
 
       if (parentType === EntityType.SystemComponent) {
         currentId = parent.parentSystemId;
-      } else if (parentType === EntityType.InstalledComponent) {
-        if (parent.installations && parent.installations.length > 0) {
-          currentId = parent.installations[0].targetId;
-        } else {
-          break;
-        }
       } else {
-        break; // Systems and Individuals don't have parents
+        break; // Systems don't have parents
       }
     }
 
@@ -203,6 +239,13 @@ export function hoverIndividuals(ctx: DrawContext) {
 
 function individualTooltip(individual: Individual) {
   let tip = "<strong>Individual</strong>";
+
+  // Check if this is an installation reference
+  if (isInstallationRef(individual)) {
+    tip = "<strong>Installed Component</strong>";
+    tip += "<br/><em>(Installation instance)</em>";
+  }
+
   if (individual.name) tip += "<br/> Name: " + individual.name;
   if (individual.type) tip += "<br/> Type: " + individual.type.name;
   if (individual.description)
@@ -215,20 +258,27 @@ export function clickIndividuals(
   clickIndividual: any,
   rightClickIndividual: any
 ) {
-  const { config, svgElement, individuals } = ctx;
+  const { config, svgElement, individuals, dataset } = ctx;
   individuals.forEach((i) => {
-    const lclick = (e: MouseEvent) => clickIndividual(i);
+    // For installation references, we need to get the original individual
+    const actualIndividual = isInstallationRef(i)
+      ? dataset.individuals.get(getOriginalId(i))
+      : i;
+
+    if (!actualIndividual) return;
+
+    const lclick = (e: MouseEvent) => clickIndividual(actualIndividual);
     const rclick = (e: MouseEvent) => {
       e.preventDefault();
-      rightClickIndividual(i);
+      rightClickIndividual(actualIndividual);
     };
 
     svgElement
-      .select("#i" + i.id)
+      .select("#i" + i.id.replace(/__/g, "\\$&")) // Escape special chars in selector
       .on("click", lclick)
       .on("contextmenu", rclick);
     svgElement
-      .select("#il" + i.id)
+      .select("#il" + i.id.replace(/__/g, "\\$&"))
       .on("click", lclick)
       .on("contextmenu", rclick);
   });
@@ -242,7 +292,7 @@ export function labelIndividuals(ctx: DrawContext) {
     return;
   }
 
-  // Same helper as above
+  // Helper: Get indent level
   const getIndentLevel = (ind: Individual): number => {
     let level = 0;
     let currentId: string | undefined = undefined;
@@ -250,12 +300,32 @@ export function labelIndividuals(ctx: DrawContext) {
 
     const entityType = ind.entityType ?? EntityType.Individual;
 
+    // Installation references get indented based on their target slot
+    if (isInstallationRef(ind)) {
+      const slotId = getSlotId(ind);
+      if (slotId) {
+        currentId = slotId;
+        while (currentId && !visited.has(currentId)) {
+          visited.add(currentId);
+          level++;
+          const parent = dataset.individuals.get(currentId);
+          if (!parent) break;
+          const parentType = parent.entityType ?? EntityType.Individual;
+          if (parentType === EntityType.SystemComponent) {
+            currentId = parent.parentSystemId;
+          } else {
+            break;
+          }
+        }
+      }
+      return level;
+    }
+
+    // SystemComponents get indented
     if (entityType === EntityType.SystemComponent) {
       currentId = ind.parentSystemId;
-    } else if (entityType === EntityType.InstalledComponent) {
-      if (ind.installations && ind.installations.length > 0) {
-        currentId = ind.installations[0].targetId;
-      }
+    } else {
+      return 0;
     }
 
     while (currentId && !visited.has(currentId)) {
@@ -269,12 +339,6 @@ export function labelIndividuals(ctx: DrawContext) {
 
       if (parentType === EntityType.SystemComponent) {
         currentId = parent.parentSystemId;
-      } else if (parentType === EntityType.InstalledComponent) {
-        if (parent.installations && parent.installations.length > 0) {
-          currentId = parent.installations[0].targetId;
-        } else {
-          break;
-        }
       } else {
         break;
       }
@@ -313,7 +377,7 @@ export function labelIndividuals(ctx: DrawContext) {
     .text((i: Individual) => {
       const indentLevel = getIndentLevel(i);
       const prefix = indentLevel > 0 ? "↳ " : "";
-      return prefix + i.name;
+      return `${prefix}${i.name}`;
     })
     .each((d: Individual, i: number, nodes: SVGGraphicsElement[]) => {
       removeLabelIfItOverlaps(labels, nodes[i]);

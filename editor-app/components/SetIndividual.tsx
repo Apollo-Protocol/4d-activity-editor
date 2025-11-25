@@ -11,12 +11,10 @@ import Modal from "react-bootstrap/Modal";
 import Row from "react-bootstrap/Row";
 import Col from "react-bootstrap/Col";
 import Form from "react-bootstrap/Form";
-import Container from "react-bootstrap/Container";
 import { Model } from "../lib/Model";
-import { EntityType, Individual, Installation } from "../lib/Schema";
+import { EntityType, Individual } from "../lib/Schema";
 import { v4 as uuidv4 } from "uuid";
-import { Alert, InputGroup } from "react-bootstrap";
-import Card from "react-bootstrap/Card";
+import { Alert } from "react-bootstrap";
 
 interface Props {
   deleteIndividual: (id: string) => void;
@@ -40,6 +38,7 @@ const SetIndividual = (props: Props) => {
     dataset,
     updateDataset,
   } = props;
+
   let defaultIndividual: Individual = {
     id: "",
     name: "",
@@ -49,10 +48,13 @@ const SetIndividual = (props: Props) => {
     ending: Model.END_OF_TIME,
     beginsWithParticipant: false,
     endsWithParticipant: false,
+    entityType: EntityType.Individual,
+    parentSystemId: undefined,
+    installations: [],
   };
 
-  const [errors, setErrors] = useState([]);
-  const [inputs, setInputs] = useState(
+  const [errors, setErrors] = useState<string[]>([]);
+  const [inputs, setInputs] = useState<Individual>(
     selectedIndividual ? selectedIndividual : defaultIndividual
   );
   const [dirty, setDirty] = useState(false);
@@ -61,7 +63,7 @@ const SetIndividual = (props: Props) => {
   const [individualHasParticipants, setIndividualHasParticipants] =
     useState(false);
 
-  // New state for custom type selector
+  // State for custom type selector
   const [typeOpen, setTypeOpen] = useState(false);
   const [typeSearch, setTypeSearch] = useState("");
   const [editingTypeId, setEditingTypeId] = useState<string | null>(null);
@@ -88,7 +90,7 @@ const SetIndividual = (props: Props) => {
     }
   }, [selectedIndividual, dataset]);
 
-  // click outside to close type dropdown
+  // Click outside to close type dropdown
   useEffect(() => {
     function handleClickOutside(ev: MouseEvent) {
       if (
@@ -145,32 +147,30 @@ const SetIndividual = (props: Props) => {
     setEditingTypeId(null);
     setEditingTypeValue("");
   };
+
   const handleShow = () => {
     if (selectedIndividual) {
       setInputs(selectedIndividual);
     } else {
-      defaultIndividual.id = uuidv4();
-      setInputs(defaultIndividual);
+      const newDefault = { ...defaultIndividual, id: uuidv4() };
+      setInputs(newDefault);
     }
   };
-  // ...existing code...
 
   const handleAdd = () => {
-    // Generate ID if missing (new individual)
-    const id = inputs.id || "i" + Date.now();
+    if (!validateInputs()) return;
 
-    // Create complete individual object
+    const id = inputs.id || uuidv4();
+
     const newInd: Individual = {
       id: id,
       name: inputs.name || "Unnamed",
       description: inputs.description || "",
       type: inputs.type,
-      beginning: inputs.beginning ?? -1,
-      ending: inputs.ending ?? 100, // Default to 100 if Model.END_OF_TIME is not available
+      beginning: -1,
+      ending: Model.END_OF_TIME,
       beginsWithParticipant: inputs.beginsWithParticipant ?? false,
       endsWithParticipant: inputs.endsWithParticipant ?? false,
-
-      // New fields
       entityType: inputs.entityType ?? EntityType.Individual,
       parentSystemId: inputs.parentSystemId,
       installations: inputs.installations ?? [],
@@ -180,22 +180,19 @@ const SetIndividual = (props: Props) => {
     handleClose();
   };
 
-  // ...existing code...
-  const handleDelete = (event: any) => {
+  const handleDelete = () => {
     deleteIndividual(inputs.id);
     handleClose();
   };
 
   const updateInputs = (key: string, value: any) => {
-    setInputs({ ...inputs, [key]: value });
+    setInputs((prev) => ({ ...prev, [key]: value }));
     setDirty(true);
   };
 
   const handleChange = (e: any) => {
     updateInputs(e.target.name, e.target.value);
   };
-
-  // remove old handleTypeChange and add new type handlers below
 
   const handleBeginsWithParticipant = (e: any) => {
     const checked = e.target.checked;
@@ -210,8 +207,6 @@ const SetIndividual = (props: Props) => {
     }
   };
 
-  /* XXX Why does this use Number.MAX_VALUE rather than
-   * Model.END_OF_TIME? */
   const handleEndsWithParticipant = (e: any) => {
     const checked = e.target.checked;
     const lastEnding = selectedIndividual
@@ -222,25 +217,22 @@ const SetIndividual = (props: Props) => {
   };
 
   const validateInputs = () => {
-    let runningErrors = [];
-    //Name
+    let runningErrors: string[] = [];
     if (!inputs.name) {
       runningErrors.push("Name field is required");
     }
-    //Type
     if (!inputs.type) {
       runningErrors.push("Type field is required");
     }
-    if (runningErrors.length == 0) {
+    if (runningErrors.length === 0) {
       return true;
     } else {
-      // @ts-ignore
       setErrors(runningErrors);
       return false;
     }
   };
 
-  // ----- New helper functions for custom type selector -----
+  // Helper functions for custom type selector
   const filteredTypes = dataset.individualTypes.filter((t) =>
     t.name.toLowerCase().includes(typeSearch.toLowerCase())
   );
@@ -267,15 +259,11 @@ const SetIndividual = (props: Props) => {
     if (!name) return;
     const newId = uuidv4();
 
-    // add to dataset (keeps existing project pattern)
     updateDataset((d) => {
       d.addIndividualType(newId, name);
       return d;
     });
 
-    // Immediately select the newly created type for this form.
-    // Create a minimal Kind-like object so selection is immediate even
-    // if the dataset state hasn't re-rendered yet.
     const createdType = { id: newId, name, isCoreHqdm: false };
     updateInputs("type", createdType);
 
@@ -285,7 +273,6 @@ const SetIndividual = (props: Props) => {
 
   const startEditType = (typeId: string, currentName: string, e: any) => {
     e.stopPropagation();
-    // prevent editing core HQDM defaults
     const found = dataset.individualTypes.find((x) => x.id === typeId);
     if (found && found.isCoreHqdm) return;
     setEditingTypeId(typeId);
@@ -297,15 +284,11 @@ const SetIndividual = (props: Props) => {
     const newName = editingTypeValue.trim();
     if (!newName) return;
 
-    // Update model: rename the Kind and update all Individuals that reference it
     updateDataset((d) => {
-      // find the canonical kind in the model and rename it
       const kind = d.individualTypes.find((x) => x.id === editingTypeId);
       if (kind) kind.name = newName;
 
-      // update any Individuals that still reference the old Kind object
-      // by replacing their .type with the canonical Kind from the model
-      d.individuals.forEach((ind /*, key */) => {
+      d.individuals.forEach((ind) => {
         if (ind.type && ind.type.id === editingTypeId) {
           const canonical = d.individualTypes.find(
             (x) => x.id === editingTypeId
@@ -314,7 +297,6 @@ const SetIndividual = (props: Props) => {
         }
       });
 
-      // if defaultIndividualType matches, update that reference too
       if (
         d.defaultIndividualType &&
         d.defaultIndividualType.id === editingTypeId
@@ -326,7 +308,6 @@ const SetIndividual = (props: Props) => {
       return d;
     });
 
-    // Update the form selection immediately to show edited name
     updateInputs("type", {
       id: editingTypeId,
       name: newName,
@@ -341,43 +322,6 @@ const SetIndividual = (props: Props) => {
     setEditingTypeId(null);
     setEditingTypeValue("");
   };
-  // ----- end helpers -----
-
-  // Load selected individual data when dialog opens
-  useEffect(() => {
-    if (show && selectedIndividual) {
-      // Populate form with existing individual data
-      setInputs({
-        id: selectedIndividual.id,
-        name: selectedIndividual.name || "",
-        description: selectedIndividual.description || "",
-        type: selectedIndividual.type,
-        beginning: selectedIndividual.beginning,
-        ending: selectedIndividual.ending,
-        beginsWithParticipant:
-          selectedIndividual.beginsWithParticipant ?? false,
-        endsWithParticipant: selectedIndividual.endsWithParticipant ?? false,
-        entityType: selectedIndividual.entityType ?? EntityType.Individual,
-        parentSystemId: selectedIndividual.parentSystemId,
-        installations: selectedIndividual.installations ?? [],
-      });
-    } else if (show && !selectedIndividual) {
-      // Reset form for new individual
-      setInputs({
-        id: "",
-        name: "",
-        description: "",
-        type: undefined,
-        beginning: -1,
-        ending: Model.END_OF_TIME,
-        beginsWithParticipant: false,
-        endsWithParticipant: false,
-        entityType: EntityType.Individual,
-        parentSystemId: undefined,
-        installations: [],
-      });
-    }
-  }, [show, selectedIndividual]);
 
   return (
     <>
@@ -392,7 +336,13 @@ const SetIndividual = (props: Props) => {
           </Modal.Title>
         </Modal.Header>
         <Modal.Body>
-          <Form onSubmit={handleAdd}>
+          <Form
+            onSubmit={(e) => {
+              e.preventDefault();
+              handleAdd();
+            }}
+          >
+            {/* Name */}
             <Form.Group className="mb-3" controlId="formIndividualName">
               <Form.Label>Name</Form.Label>
               <Form.Control
@@ -404,10 +354,9 @@ const SetIndividual = (props: Props) => {
               />
             </Form.Group>
 
-            {/* ----------------- REPLACED Type field: custom select/create ----------------- */}
+            {/* Type dropdown with create/edit */}
             <Form.Group className="mb-3" controlId="formIndividualType">
               <Form.Label>Type</Form.Label>
-
               <div
                 ref={typeDropdownRef}
                 className="position-relative"
@@ -426,7 +375,7 @@ const SetIndividual = (props: Props) => {
 
                 {typeOpen && (
                   <div
-                    className="card mt-1"
+                    className="card mt-1 position-absolute w-100"
                     style={{ maxHeight: 300, overflow: "hidden" }}
                   >
                     <div className="card-body p-2 border-bottom">
@@ -501,7 +450,6 @@ const SetIndividual = (props: Props) => {
                                 {inputs?.type?.id === t.id && (
                                   <span className="me-2">✓</span>
                                 )}
-                                {/* hide/disable edit for core HQDM types */}
                                 {!t.isCoreHqdm && (
                                   <button
                                     type="button"
@@ -543,8 +491,8 @@ const SetIndividual = (props: Props) => {
                 )}
               </div>
             </Form.Group>
-            {/* ----------------- end replaced Type field ----------------- */}
 
+            {/* Description */}
             <Form.Group className="mb-3" controlId="formIndividualDescription">
               <Form.Label>Description</Form.Label>
               <Form.Control
@@ -555,10 +503,9 @@ const SetIndividual = (props: Props) => {
                 className="form-control"
               />
             </Form.Group>
-            <Form.Group
-              className="mb-3"
-              controlId="formIndividualBeginsWithParticipant"
-            >
+
+            {/* Begins/Ends with participant */}
+            <Form.Group className="mb-3">
               <Form.Check
                 type="switch"
                 name="beginsWithParticipant"
@@ -568,10 +515,7 @@ const SetIndividual = (props: Props) => {
                 onChange={handleBeginsWithParticipant}
               />
             </Form.Group>
-            <Form.Group
-              className="mb-3"
-              controlId="formIndividualEndsWithParticipant"
-            >
+            <Form.Group className="mb-3">
               <Form.Check
                 type="switch"
                 name="endsWithParticipant"
@@ -582,7 +526,7 @@ const SetIndividual = (props: Props) => {
               />
             </Form.Group>
 
-            {/* Entity type selection */}
+            {/* Entity type selection - NO ICONS */}
             <Form.Group className="mb-3" controlId="ind-entity-type">
               <Form.Label>Entity type</Form.Label>
               <Form.Select
@@ -602,7 +546,7 @@ const SetIndividual = (props: Props) => {
               </Form.Select>
             </Form.Group>
 
-            {/* Parent – for SystemComponents (slots need a parent container) */}
+            {/* Parent – for SystemComponents only */}
             {(inputs.entityType ?? EntityType.Individual) ===
               EntityType.SystemComponent && (
               <Form.Group className="mb-3" controlId="ind-parent-system">
@@ -618,191 +562,30 @@ const SetIndividual = (props: Props) => {
                     const type =
                       (p.entityType ?? EntityType.Individual) ===
                       EntityType.System
-                        ? "System"
-                        : "Installed Object";
+                        ? "[System]"
+                        : "[Installed]";
                     return (
                       <option key={p.id} value={p.id}>
-                        [{type}] {p.name}
+                        {type} {p.name}
                       </option>
                     );
                   })}
                 </Form.Select>
-                <Form.Text className="text-muted">
-                  This defines WHERE this component slot exists
-                </Form.Text>
               </Form.Group>
             )}
 
-            {/* Installation periods – for InstalledComponents (physical objects) */}
+            {/* Note for InstalledComponents */}
             {(inputs.entityType ?? EntityType.Individual) ===
-              EntityType.InstalledComponent && (
-              <Card className="mb-3">
-                <Card.Header>Installation Periods</Card.Header>
-                <Card.Body>
-                  <Form.Text className="text-muted d-block mb-2">
-                    Define when this physical object occupies a component slot
-                  </Form.Text>
-
-                  {(inputs.installations || []).map((inst, idx) => (
-                    <div
-                      key={inst.id}
-                      className="border rounded p-2 mb-2"
-                      style={{ backgroundColor: "#fff3cd" }}
-                    >
-                      <div className="d-flex justify-content-between align-items-center mb-2">
-                        <strong>Installation {idx + 1}</strong>
-                        <Button
-                          variant="danger"
-                          size="sm"
-                          onClick={() => {
-                            const updated = (inputs.installations || []).filter(
-                              (i) => i.id !== inst.id
-                            );
-                            updateInputs("installations", updated);
-                          }}
-                        >
-                          Remove
-                        </Button>
-                      </div>
-
-                      <Form.Group className="mb-2">
-                        <Form.Label>
-                          Install Into Slot (SystemComponent)
-                        </Form.Label>
-                        <Form.Select
-                          value={inst.targetId}
-                          onChange={(e) => {
-                            const updated = (inputs.installations || []).map(
-                              (i) =>
-                                i.id === inst.id
-                                  ? { ...i, targetId: e.target.value }
-                                  : i
-                            );
-                            updateInputs("installations", updated);
-                          }}
-                        >
-                          <option value="">-- Select component slot --</option>
-                          {availableInstallationTargets.map((slot) => (
-                            <option key={slot.id} value={slot.id}>
-                              {slot.name}
-                            </option>
-                          ))}
-                        </Form.Select>
-                        <Form.Text className="text-muted">
-                          The slot/position this object will occupy
-                        </Form.Text>
-                      </Form.Group>
-
-                      <Row>
-                        <Col>
-                          <Form.Group>
-                            <Form.Label>Attached from</Form.Label>
-                            <Form.Control
-                              type="number"
-                              value={inst.beginning}
-                              onChange={(e) => {
-                                const updated = (
-                                  inputs.installations || []
-                                ).map((i) =>
-                                  i.id === inst.id
-                                    ? {
-                                        ...i,
-                                        beginning: parseInt(e.target.value, 10),
-                                      }
-                                    : i
-                                );
-                                updateInputs("installations", updated);
-                              }}
-                            />
-                          </Form.Group>
-                        </Col>
-                        <Col>
-                          <Form.Group>
-                            <Form.Label>Attached until</Form.Label>
-                            <Form.Control
-                              type="number"
-                              value={inst.ending}
-                              onChange={(e) => {
-                                const updated = (
-                                  inputs.installations || []
-                                ).map((i) =>
-                                  i.id === inst.id
-                                    ? {
-                                        ...i,
-                                        ending: parseInt(e.target.value, 10),
-                                      }
-                                    : i
-                                );
-                                updateInputs("installations", updated);
-                              }}
-                            />
-                          </Form.Group>
-                        </Col>
-                      </Row>
-                    </div>
-                  ))}
-
-                  <Button
-                    variant="outline-primary"
-                    size="sm"
-                    onClick={() => {
-                      const newInst: Installation = {
-                        id: `inst_${Date.now()}`,
-                        componentId: inputs.id,
-                        targetId: "",
-                        beginning: 0,
-                        ending: 10,
-                      };
-                      updateInputs("installations", [
-                        ...(inputs.installations || []),
-                        newInst,
-                      ]);
-                    }}
-                  >
-                    + Add Installation Period
-                  </Button>
-                </Card.Body>
-              </Card>
-            )}
-
-            {/* Temporal bounds - same for all types */}
-            <Form.Group className="mb-3" controlId="ind-beginning">
-              <Form.Label>Beginning (time)</Form.Label>
-              <Form.Control
-                type="number"
-                value={inputs.beginning === -1 ? "" : inputs.beginning}
-                onChange={(e) =>
-                  updateInputs(
-                    "beginning",
-                    e.target.value === "" ? -1 : parseInt(e.target.value, 10)
-                  )
-                }
-                placeholder="Leave empty to start at earliest"
-              />
-            </Form.Group>
-
-            <Form.Group className="mb-3" controlId="ind-ending">
-              <Form.Label>Ending (time)</Form.Label>
-              <Form.Control
-                type="number"
-                value={
-                  inputs.ending === Model.END_OF_TIME
-                    ? ""
-                    : (inputs.ending as number)
-                }
-                onChange={(e) =>
-                  updateInputs(
-                    "ending",
-                    e.target.value === ""
-                      ? Model.END_OF_TIME
-                      : parseInt(e.target.value, 10)
-                  )
-                }
-                placeholder="Leave empty to extend to end"
-              />
-            </Form.Group>
+              EntityType.InstalledComponent &&
+              selectedIndividual && (
+                <div className="alert alert-info">
+                  To manage installation periods, save this and then click on
+                  the component in the diagram to open the Installation Editor.
+                </div>
+              )}
           </Form>
         </Modal.Body>
+
         <Modal.Footer>
           <div className="w-100 d-flex justify-content-between align-items-center">
             <div>
@@ -820,8 +603,8 @@ const SetIndividual = (props: Props) => {
               <Button variant="secondary" onClick={handleClose}>
                 Cancel
               </Button>
-              <Button variant="primary" onClick={handleAdd} disabled={!dirty}>
-                Save
+              <Button variant="primary" onClick={handleAdd}>
+                {selectedIndividual ? "Save" : "Add"}
               </Button>
             </div>
           </div>

@@ -1,16 +1,29 @@
 import { DrawContext } from "./DrawHelpers";
 import { EntityType, Installation, Individual } from "@/lib/Schema";
 
+// Helper to check if this is an "installation reference" (virtual row)
+function isInstallationRef(ind: Individual): boolean {
+  return ind.id.includes("__installed_in__");
+}
+
+// Get the original ID from an installation reference
+function getOriginalId(ind: Individual): string {
+  if (isInstallationRef(ind)) {
+    return ind.id.split("__installed_in__")[0];
+  }
+  return ind.id;
+}
+
+// Get the slot ID from an installation reference
+function getSlotId(ind: Individual): string | undefined {
+  if (isInstallationRef(ind)) {
+    return ind.id.split("__installed_in__")[1];
+  }
+  return undefined;
+}
+
 export function drawInstallations(ctx: DrawContext) {
-  const { svgElement, individuals, activities, config } = ctx;
-
-  // Only process installed components
-  const installedComponents = individuals.filter(
-    (i) =>
-      (i.entityType ?? EntityType.Individual) === EntityType.InstalledComponent
-  );
-
-  if (installedComponents.length === 0) return;
+  const { svgElement, individuals, activities, config, dataset } = ctx;
 
   // Calculate time scale using BOTH activities AND individuals
   let startOfTime = Infinity;
@@ -29,17 +42,41 @@ export function drawInstallations(ctx: DrawContext) {
     if (i.ending < 1000000 && i.ending > endOfTime) endOfTime = i.ending;
   });
 
+  // Also consider installation periods
+  individuals.forEach((ind) => {
+    if (isInstallationRef(ind)) {
+      const originalId = getOriginalId(ind);
+      const slotId = getSlotId(ind);
+      const originalComponent = dataset.individuals.get(originalId);
+
+      if (originalComponent && originalComponent.installations) {
+        originalComponent.installations
+          .filter((inst) => inst.targetId === slotId)
+          .forEach((inst) => {
+            if (inst.beginning < startOfTime) startOfTime = inst.beginning;
+            if (inst.ending > endOfTime) endOfTime = inst.ending;
+          });
+      }
+    }
+  });
+
   // Default fallback
   if (!isFinite(startOfTime)) startOfTime = 0;
   if (!isFinite(endOfTime)) endOfTime = 100;
 
   const duration = endOfTime - startOfTime;
+  if (duration <= 0) return;
+
   let totalLeftMargin =
     config.viewPort.x * config.viewPort.zoom -
     config.layout.individual.xMargin * 2;
   totalLeftMargin -= config.layout.individual.temporalMargin;
 
-  const timeInterval = duration > 0 ? totalLeftMargin / duration : 1;
+  if (config.labels.individual.enabled) {
+    totalLeftMargin -= config.layout.individual.textLength;
+  }
+
+  const timeInterval = totalLeftMargin / duration;
   const lhs_x =
     config.layout.individual.xMargin +
     config.layout.individual.temporalMargin +
@@ -47,18 +84,38 @@ export function drawInstallations(ctx: DrawContext) {
       ? config.layout.individual.textLength
       : 0);
 
-  // Collect all installations
-  const installations: Array<{ inst: Installation; component: Individual }> =
-    [];
-  installedComponents.forEach((comp) => {
-    if (comp.installations && comp.installations.length > 0) {
-      comp.installations.forEach((inst) => {
-        installations.push({ inst, component: comp });
+  // Collect installations ONLY for installation reference rows
+  const installationData: Array<{
+    inst: Installation;
+    refId: string; // The installation reference row ID
+    originalComponent: Individual;
+  }> = [];
+
+  individuals.forEach((ind) => {
+    if (!isInstallationRef(ind)) return;
+
+    const originalId = getOriginalId(ind);
+    const slotId = getSlotId(ind);
+    if (!slotId) return;
+
+    const originalComponent = dataset.individuals.get(originalId);
+    if (!originalComponent) return;
+
+    const installations = originalComponent.installations || [];
+    const relevantInstallations = installations.filter(
+      (inst) => inst.targetId === slotId
+    );
+
+    relevantInstallations.forEach((inst) => {
+      installationData.push({
+        inst,
+        refId: ind.id,
+        originalComponent,
       });
-    }
+    });
   });
 
-  if (installations.length === 0 || timeInterval <= 0) return;
+  if (installationData.length === 0) return;
 
   // Create or get the defs element for patterns
   let defs = svgElement.select("defs");
@@ -76,7 +133,7 @@ export function drawInstallations(ctx: DrawContext) {
       .attr("height", 8)
       .attr("patternTransform", "rotate(45)");
 
-    // Background (optional - remove for transparent background)
+    // Background (optional - for slight visibility)
     pattern
       .append("rect")
       .attr("width", 8)
@@ -98,30 +155,75 @@ export function drawInstallations(ctx: DrawContext) {
   // Draw hatched area for each installation period
   svgElement
     .selectAll(".installation-period")
-    .data(installations)
+    .data(installationData)
     .join("rect")
     .attr("class", "installation-period")
-    .attr("x", (d: any) => {
-      return lhs_x + timeInterval * (d.inst.beginning - startOfTime);
-    })
-    .attr("y", (d: any) => {
-      // Find the component's row
-      const node = svgElement.select("#i" + d.component.id).node();
-      if (!node) return 0;
-      return node.getBBox().y;
-    })
-    .attr("width", (d: any) => {
-      return (d.inst.ending - d.inst.beginning) * timeInterval;
-    })
-    .attr("height", (d: any) => {
-      const node = svgElement.select("#i" + d.component.id).node();
-      if (!node) return 0;
-      return node.getBBox().height;
-    })
-    .attr("fill", "url(#diagonal-hatch)") // Use the hatch pattern
-    .attr("stroke", "#374151") // Optional border
+    .attr(
+      "x",
+      (d: {
+        inst: Installation;
+        refId: string;
+        originalComponent: Individual;
+      }) => {
+        // Clamp the beginning to the visible time range
+        const clampedStart = Math.max(d.inst.beginning, startOfTime);
+        return lhs_x + timeInterval * (clampedStart - startOfTime);
+      }
+    )
+    .attr(
+      "y",
+      (d: {
+        inst: Installation;
+        refId: string;
+        originalComponent: Individual;
+      }) => {
+        // Find the installation reference row by its composite ID
+        // Need to escape special characters in the selector
+        const escapedId = d.refId.replace(/__/g, "\\$&");
+        const node = svgElement
+          .select("#i" + escapedId)
+          .node() as SVGGraphicsElement | null;
+        if (!node) {
+          console.log(`Could not find row for refId: ${d.refId}`);
+          return 0;
+        }
+        return node.getBBox().y;
+      }
+    )
+    .attr(
+      "width",
+      (d: {
+        inst: Installation;
+        refId: string;
+        originalComponent: Individual;
+      }) => {
+        // Clamp to visible time range
+        const clampedStart = Math.max(d.inst.beginning, startOfTime);
+        const clampedEnd = Math.min(d.inst.ending, endOfTime);
+        const width = (clampedEnd - clampedStart) * timeInterval;
+        return Math.max(0, width);
+      }
+    )
+    .attr(
+      "height",
+      (d: {
+        inst: Installation;
+        refId: string;
+        originalComponent: Individual;
+      }) => {
+        const escapedId = d.refId.replace(/__/g, "\\$&");
+        const node = svgElement
+          .select("#i" + escapedId)
+          .node() as SVGGraphicsElement | null;
+        if (!node) return 0;
+        return node.getBBox().height;
+      }
+    )
+    .attr("fill", "url(#diagonal-hatch)")
+    .attr("stroke", "#374151")
     .attr("stroke-width", 1)
     .attr("rx", 2)
     .attr("ry", 2)
+    .attr("pointer-events", "none")
     .raise();
 }

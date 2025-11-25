@@ -49,12 +49,16 @@ export interface Installation {
  * An individual is a person, place, or thing that participates in an activity.
  */
 export interface Individual extends STExtent {
-  beginsWithParticipant: boolean; //not persisted to HQDM. Indicates that the beginning time should be synchronised to participants.
-  endsWithParticipant: boolean; //not persisted to HQDM. Indicates that the ending time should be synchronised to participants.
-  entityType?: EntityType; // defaults to individual when absent
-  parentSystemId?: Id; // For SystemComponents and InstalledComponents - can be System OR InstalledComponent
-  installations?: Installation[]; // optional list of installation periods
+  beginsWithParticipant: boolean;
+  endsWithParticipant: boolean;
+  entityType?: EntityType;
+  parentSystemId?: Id;
+  installations?: Installation[];
 }
+
+// Note: beginning/ending are inherited from STExtent
+// For Individual, System, SystemComponent: use -1 and END_OF_TIME to span full diagram
+// For InstalledComponent: use actual lifecycle times
 
 /**
  * A participation is a relationship between an individual and an activity that it particiaptes in.

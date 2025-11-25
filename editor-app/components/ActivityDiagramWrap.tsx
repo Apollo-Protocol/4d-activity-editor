@@ -27,6 +27,7 @@ import HideIndividuals from "./HideIndividuals";
 import React from "react";
 import Card from "react-bootstrap/Card";
 import DiagramLegend from "./DiagramLegend";
+import EditInstalledComponent from "./EditInstalledComponent";
 
 const beforeUnloadHandler = (ev: BeforeUnloadEvent) => {
   ev.returnValue = "";
@@ -59,6 +60,13 @@ export default function ActivityDiagramWrap() {
   const [configData, setConfigData] = useState(config);
   const [showConfigModal, setShowConfigModal] = useState(false);
   const [showSortIndividuals, setShowSortIndividuals] = useState(false);
+
+  // Add new state for the InstalledComponent editor
+  const [showInstalledComponentEditor, setShowInstalledComponentEditor] =
+    useState(false);
+  const [selectedInstalledComponent, setSelectedInstalledComponent] = useState<
+    Individual | undefined
+  >(undefined);
 
   useEffect(() => {
     if (dirty) window.addEventListener("beforeunload", beforeUnloadHandler);
@@ -104,8 +112,17 @@ export default function ActivityDiagramWrap() {
   };
 
   const clickIndividual = (i: Individual) => {
-    setSelectedIndividual(i);
-    setShowIndividual(true);
+    // If it's an InstalledComponent, open the special editor
+    if (
+      (i.entityType ?? EntityType.Individual) === EntityType.InstalledComponent
+    ) {
+      setSelectedInstalledComponent(i);
+      setShowInstalledComponentEditor(true);
+    } else {
+      // For other types, open the regular editor
+      setSelectedIndividual(i);
+      setShowIndividual(true);
+    }
   };
   const clickActivity = (a: Activity) => {
     setSelectedActivity(a);
@@ -130,29 +147,10 @@ export default function ActivityDiagramWrap() {
   };
 
   // Sort individuals to show nested hierarchy
+  // InstalledComponents appear BOTH at top-level AND under their installation targets
   const sortedIndividuals = useMemo(() => {
     const result: Individual[] = [];
     const visited = new Set<string>();
-
-    // Helper: Get the "parent" of an individual
-    // - For SystemComponents: parentSystemId
-    // - For InstalledComponents: the targetId of their first installation (if any)
-    const getParentId = (ind: Individual): string | undefined => {
-      const entityType = ind.entityType ?? EntityType.Individual;
-
-      if (entityType === EntityType.SystemComponent) {
-        return ind.parentSystemId;
-      }
-
-      if (entityType === EntityType.InstalledComponent) {
-        // InstalledComponent's parent is the SystemComponent it's installed into
-        if (ind.installations && ind.installations.length > 0) {
-          return ind.installations[0].targetId;
-        }
-      }
-
-      return undefined;
-    };
 
     // Recursive function to add an individual and its descendants
     const addWithDescendants = (ind: Individual) => {
@@ -160,36 +158,57 @@ export default function ActivityDiagramWrap() {
       visited.add(ind.id);
       result.push(ind);
 
-      // Find children (SystemComponents or InstalledComponents whose parent/target is this individual)
-      const children = individualsArray.filter((child) => {
-        const childEntityType = child.entityType ?? EntityType.Individual;
+      // Find children of this individual
+      const children: Individual[] = [];
 
-        // SystemComponents with this as parent
+      // 1. SystemComponents whose parent is this individual
+      individualsArray.forEach((child) => {
+        const childEntityType = child.entityType ?? EntityType.Individual;
         if (
           childEntityType === EntityType.SystemComponent &&
           child.parentSystemId === ind.id
         ) {
-          return true;
+          children.push(child);
         }
-
-        // InstalledComponents installed into this (if this is a SystemComponent)
-        if (
-          childEntityType === EntityType.InstalledComponent &&
-          child.installations
-        ) {
-          return child.installations.some((inst) => inst.targetId === ind.id);
-        }
-
-        return false;
       });
 
       // Sort children by name and add them
       children
         .sort((a, b) => a.name.localeCompare(b.name))
         .forEach((child) => addWithDescendants(child));
+
+      // 2. After adding SystemComponent children, check if this IS a SystemComponent
+      //    If so, find InstalledComponents that are installed into this slot
+      const indEntityType = ind.entityType ?? EntityType.Individual;
+      if (indEntityType === EntityType.SystemComponent) {
+        // Find all InstalledComponents that have an installation targeting this slot
+        const installedHere = individualsArray.filter((ic) => {
+          const icType = ic.entityType ?? EntityType.Individual;
+          if (icType !== EntityType.InstalledComponent) return false;
+          if (!ic.installations || ic.installations.length === 0) return false;
+          return ic.installations.some((inst) => inst.targetId === ind.id);
+        });
+
+        // Add these as "installation references"
+        installedHere
+          .sort((a, b) => a.name.localeCompare(b.name))
+          .forEach((ic) => {
+            // Create a reference entry with composite ID
+            // The ID format is: originalId__installed_in__slotId
+            const installRef: Individual = {
+              ...ic,
+              id: `${ic.id}__installed_in__${ind.id}`,
+              // Keep beginning/ending as the full timeline for the row shape
+              // The actual installation period will be drawn by DrawInstallations
+              beginning: -1,
+              ending: Model.END_OF_TIME,
+            };
+            result.push(installRef);
+          });
+      }
     };
 
-    // Start with top-level items (Systems, regular Individuals, or things with no parent)
+    // Start with top-level items
     const topLevel = individualsArray.filter((ind) => {
       const entityType = ind.entityType ?? EntityType.Individual;
 
@@ -199,43 +218,36 @@ export default function ActivityDiagramWrap() {
       // Regular individuals are top-level
       if (entityType === EntityType.Individual) return true;
 
-      // SystemComponents without a parent are top-level (shouldn't happen, but handle it)
-      if (entityType === EntityType.SystemComponent && !ind.parentSystemId)
-        return true;
+      // InstalledComponents are top-level (physical objects exist independently)
+      if (entityType === EntityType.InstalledComponent) return true;
 
-      // InstalledComponents without installations are top-level
-      if (entityType === EntityType.InstalledComponent) {
-        if (!ind.installations || ind.installations.length === 0) return true;
-        // Also top-level if their target doesn't exist
-        const targetExists = ind.installations.some((inst) =>
-          individualsArray.some((i) => i.id === inst.targetId)
+      // SystemComponents without a valid parent are top-level (orphans)
+      if (entityType === EntityType.SystemComponent) {
+        if (!ind.parentSystemId) return true;
+        const parentExists = individualsArray.some(
+          (i) => i.id === ind.parentSystemId
         );
-        return !targetExists;
+        return !parentExists;
       }
 
       return false;
     });
 
-    // Add all top-level items with their descendants
+    // Sort top-level: Systems first, then InstalledComponents, then Individuals
     topLevel
       .sort((a, b) => {
-        // Systems first, then individuals
-        const aIsSystem =
-          (a.entityType ?? EntityType.Individual) === EntityType.System;
-        const bIsSystem =
-          (b.entityType ?? EntityType.Individual) === EntityType.System;
-        if (aIsSystem && !bIsSystem) return -1;
-        if (!aIsSystem && bIsSystem) return 1;
+        const aType = a.entityType ?? EntityType.Individual;
+        const bType = b.entityType ?? EntityType.Individual;
+
+        // Systems first
+        if (aType === EntityType.System && bType !== EntityType.System)
+          return -1;
+        if (aType !== EntityType.System && bType === EntityType.System)
+          return 1;
+
         return a.name.localeCompare(b.name);
       })
       .forEach((ind) => addWithDescendants(ind));
-
-    // Add any remaining individuals that weren't visited (orphans)
-    individualsArray.forEach((ind) => {
-      if (!visited.has(ind.id)) {
-        result.push(ind);
-      }
-    });
 
     return result;
   }, [individualsArray]);
@@ -371,6 +383,15 @@ export default function ActivityDiagramWrap() {
           </Col>
         </Row>
       </Container>
+
+      {/* Add the new InstalledComponent editor modal */}
+      <EditInstalledComponent
+        show={showInstalledComponentEditor}
+        setShow={setShowInstalledComponentEditor}
+        individual={selectedInstalledComponent}
+        setIndividual={setIndividual}
+        dataset={dataset}
+      />
     </>
   );
 }

@@ -165,8 +165,10 @@ export function drawInstallations(ctx: DrawContext) {
         refId: string;
         originalComponent: Individual;
       }) => {
-        // Clamp the beginning to the visible time range
-        const clampedStart = Math.max(d.inst.beginning, startOfTime);
+        // Ensure installation never starts before 0
+        const effectiveStart = Math.max(0, d.inst.beginning);
+        // Clamp to visible time range
+        const clampedStart = Math.max(effectiveStart, startOfTime);
         return lhs_x + timeInterval * (clampedStart - startOfTime);
       }
     )
@@ -197,8 +199,10 @@ export function drawInstallations(ctx: DrawContext) {
         refId: string;
         originalComponent: Individual;
       }) => {
+        // Ensure installation never starts before 0
+        const effectiveStart = Math.max(0, d.inst.beginning);
         // Clamp to visible time range
-        const clampedStart = Math.max(d.inst.beginning, startOfTime);
+        const clampedStart = Math.max(effectiveStart, startOfTime);
         const clampedEnd = Math.min(d.inst.ending, endOfTime);
         const width = (clampedEnd - clampedStart) * timeInterval;
         return Math.max(0, width);

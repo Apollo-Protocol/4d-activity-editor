@@ -28,8 +28,11 @@ export function drawParticipations(ctx: DrawContext) {
               (x) => x.targetId === slotId
             );
             if (inst) {
-              if (inst.beginning !== undefined && inst.beginning < startOfTime)
-                startOfTime = inst.beginning;
+              // Ensure beginning is at least 0
+              const instBeginning = Math.max(0, inst.beginning ?? 0);
+
+              if (instBeginning < startOfTime) startOfTime = instBeginning;
+
               if (
                 inst.ending !== undefined &&
                 inst.ending < Model.END_OF_TIME &&

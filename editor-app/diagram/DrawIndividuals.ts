@@ -71,8 +71,11 @@ export function drawIndividuals(ctx: DrawContext) {
             (x) => x.targetId === slotId
           );
           if (inst) {
-            if (inst.beginning !== undefined && inst.beginning < startOfTime)
-              startOfTime = inst.beginning;
+            // Ensure beginning is at least 0
+            const instBeginning = Math.max(0, inst.beginning ?? 0);
+
+            if (instBeginning < startOfTime) startOfTime = instBeginning;
+
             if (
               inst.ending !== undefined &&
               inst.ending < Model.END_OF_TIME &&
@@ -191,7 +194,8 @@ export function drawIndividuals(ctx: DrawContext) {
             (x) => x.targetId === slotId
           );
           if (inst) {
-            effectiveBeginning = inst.beginning;
+            // FORCE start to be at least 0
+            effectiveBeginning = Math.max(0, inst.beginning ?? 0);
             effectiveEnding = inst.ending;
           }
         }
@@ -334,7 +338,7 @@ export function clickIndividuals(
 }
 
 export function labelIndividuals(ctx: DrawContext) {
-  const { config, svgElement, dataset } = ctx;
+  const { config, svgElement, dataset, activities } = ctx;
   const individuals = ctx.individuals;
 
   if (config.labels.individual.enabled === false) {
@@ -396,6 +400,58 @@ export function labelIndividuals(ctx: DrawContext) {
     return level;
   };
 
+  // --- Calculate Time Range & Layout (Same as drawIndividuals) ---
+  let startOfTime = Math.min(...activities.map((a) => a.beginning));
+  let endOfTime = Math.max(...activities.map((a) => a.ending));
+
+  for (const ind of individuals) {
+    if (isInstallationRef(ind)) {
+      const originalId = getOriginalId(ind);
+      const slotId = getSlotId(ind);
+      if (originalId && slotId) {
+        const original = dataset.individuals.get(originalId);
+        if (original && original.installations) {
+          const inst = original.installations.find(
+            (x) => x.targetId === slotId
+          );
+          if (inst) {
+            const instBeginning = Math.max(0, inst.beginning ?? 0);
+            if (instBeginning < startOfTime) startOfTime = instBeginning;
+            if (
+              inst.ending !== undefined &&
+              inst.ending < Model.END_OF_TIME &&
+              inst.ending > endOfTime
+            )
+              endOfTime = inst.ending;
+          }
+        }
+      }
+    }
+  }
+
+  let duration = endOfTime - startOfTime;
+  let totalLeftMargin =
+    config.viewPort.x * config.viewPort.zoom -
+    config.layout.individual.xMargin * 2;
+  totalLeftMargin -= config.layout.individual.temporalMargin;
+
+  const individualLabelsEnabled =
+    config.labels.individual.enabled && keepIndividualLabels(individuals);
+  if (individualLabelsEnabled) {
+    totalLeftMargin -= config.layout.individual.textLength;
+  }
+
+  let timeInterval = totalLeftMargin / duration;
+
+  let lhs_x = config.layout.individual.xMargin;
+  lhs_x += config.layout.individual.temporalMargin;
+  if (individualLabelsEnabled) {
+    lhs_x += config.layout.individual.textLength;
+  }
+
+  const chevOff = config.layout.individual.height / 3;
+  // -------------------------------------------------------------
+
   let labels: Label[] = [];
 
   let y =
@@ -413,7 +469,38 @@ export function labelIndividuals(ctx: DrawContext) {
     .attr("x", (i: Individual) => {
       const indentLevel = getIndentLevel(i);
       const indent = indentLevel * 30;
-      return config.layout.individual.xMargin + indent + 5;
+
+      // Calculate effective beginning for this individual
+      let effectiveBeginning = i.beginning;
+      if (isInstallationRef(i)) {
+        const originalId = getOriginalId(i);
+        const slotId = getSlotId(i);
+        if (originalId && slotId) {
+          const original = dataset.individuals.get(originalId);
+          if (original && original.installations) {
+            const inst = original.installations.find(
+              (x) => x.targetId === slotId
+            );
+            if (inst) {
+              // FORCE start to be at least 0
+              effectiveBeginning = Math.max(0, inst.beginning ?? 0);
+            }
+          }
+        }
+      }
+
+      const start = effectiveBeginning >= startOfTime;
+
+      // Calculate bar start position (same logic as drawIndividuals)
+      const barX =
+        (start
+          ? lhs_x + timeInterval * (effectiveBeginning - startOfTime)
+          : config.layout.individual.xMargin - chevOff) + indent;
+
+      // If it's a chevron start (start=false), add chevOff to padding so label is inside the flat part
+      const padding = start ? 5 : 5 + chevOff;
+
+      return barX + padding;
     })
     .attr("y", (i: Individual, index: number) => {
       return (

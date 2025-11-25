@@ -58,6 +58,33 @@ export function drawIndividuals(ctx: DrawContext) {
 
   let startOfTime = Math.min(...activities.map((a) => a.beginning));
   let endOfTime = Math.max(...activities.map((a) => a.ending));
+
+  // Expand time range to include installed components' actual installation periods
+  for (const ind of individuals) {
+    if (isInstallationRef(ind)) {
+      const originalId = getOriginalId(ind);
+      const slotId = getSlotId(ind);
+      if (originalId && slotId) {
+        const original = dataset.individuals.get(originalId);
+        if (original && original.installations) {
+          const inst = original.installations.find(
+            (x) => x.targetId === slotId
+          );
+          if (inst) {
+            if (inst.beginning !== undefined && inst.beginning < startOfTime)
+              startOfTime = inst.beginning;
+            if (
+              inst.ending !== undefined &&
+              inst.ending < Model.END_OF_TIME &&
+              inst.ending > endOfTime
+            )
+              endOfTime = inst.ending;
+          }
+        }
+      }
+    }
+  }
+
   let duration = endOfTime - startOfTime;
   let totalLeftMargin =
     config.viewPort.x * config.viewPort.zoom -

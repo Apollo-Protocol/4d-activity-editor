@@ -1,5 +1,6 @@
 import { MouseEvent } from "react";
 import { Activity, Individual, Participation } from "@/lib/Schema";
+import { Model } from "@/lib/Model";
 import {
   DrawContext,
   Label,
@@ -16,6 +17,36 @@ export function drawActivities(ctx: DrawContext) {
 
   let startOfTime = Math.min(...activities.map((a) => a.beginning));
   let endOfTime = Math.max(...activities.map((a) => a.ending));
+
+  // Expand time range to include installed components' actual installation periods
+  if (individuals) {
+    individuals.forEach((ind) => {
+      if (ind.id.includes("__installed_in__")) {
+        const parts = ind.id.split("__installed_in__");
+        if (parts.length === 2) {
+          const originalId = parts[0];
+          const slotId = parts[1];
+          const original = dataset.individuals.get(originalId);
+          if (original && original.installations) {
+            const inst = original.installations.find(
+              (x) => x.targetId === slotId
+            );
+            if (inst) {
+              if (inst.beginning !== undefined && inst.beginning < startOfTime)
+                startOfTime = inst.beginning;
+              if (
+                inst.ending !== undefined &&
+                inst.ending < Model.END_OF_TIME &&
+                inst.ending > endOfTime
+              )
+                endOfTime = inst.ending;
+            }
+          }
+        }
+      }
+    });
+  }
+
   let duration = endOfTime - startOfTime;
   let totalLeftMargin =
     config.viewPort.x * config.viewPort.zoom -

@@ -2,16 +2,47 @@ import { MouseEvent } from "react";
 import { Activity, Participation } from "@/lib/Schema";
 import { ConfigData } from "./config";
 import { DrawContext } from "./DrawHelpers";
+import { Model } from "@/lib/Model";
 
 let mouseOverElement: any | null = null;
 
 export function drawParticipations(ctx: DrawContext) {
-  const { config, svgElement, activities } = ctx;
+  const { config, svgElement, activities, individuals, dataset } = ctx;
 
   if (!activities || activities.length === 0) return svgElement;
 
-  const startOfTime = Math.min(...activities.map((a) => a.beginning));
-  const endOfTime = Math.max(...activities.map((a) => a.ending));
+  let startOfTime = Math.min(...activities.map((a) => a.beginning));
+  let endOfTime = Math.max(...activities.map((a) => a.ending));
+
+  // Expand time range to include installed components' actual installation periods
+  if (individuals) {
+    individuals.forEach((ind) => {
+      if (ind.id.includes("__installed_in__")) {
+        const parts = ind.id.split("__installed_in__");
+        if (parts.length === 2) {
+          const originalId = parts[0];
+          const slotId = parts[1];
+          const original = dataset.individuals.get(originalId);
+          if (original && original.installations) {
+            const inst = original.installations.find(
+              (x) => x.targetId === slotId
+            );
+            if (inst) {
+              if (inst.beginning !== undefined && inst.beginning < startOfTime)
+                startOfTime = inst.beginning;
+              if (
+                inst.ending !== undefined &&
+                inst.ending < Model.END_OF_TIME &&
+                inst.ending > endOfTime
+              )
+                endOfTime = inst.ending;
+            }
+          }
+        }
+      }
+    });
+  }
+
   const duration = Math.max(1, endOfTime - startOfTime);
   let totalLeftMargin =
     config.viewPort.x * config.viewPort.zoom -
@@ -38,18 +69,65 @@ export function drawParticipations(ctx: DrawContext) {
       ? config.layout.individual.textLength
       : 0);
 
+  // Prepare parts with extra metadata for layout
   const parts: {
     activity: Activity;
     participation: Participation;
     activityIndex: number;
+    lane?: number;
+    totalLanes?: number;
   }[] = [];
+
   activities.forEach((a, idx) => {
     (a.participations || []).forEach((p: Participation) =>
       parts.push({ activity: a, participation: p, activityIndex: idx })
     );
   });
 
-  const rectHeight = Math.min(36, config.layout.individual.height); // glass height, bounded by row
+  // --- Overlap Detection & Lane Assignment ---
+  // 1. Group by individual
+  const byIndividual = new Map<string, typeof parts>();
+  parts.forEach((p) => {
+    const id = p.participation.individualId;
+    if (!byIndividual.has(id)) {
+      byIndividual.set(id, []);
+    }
+    byIndividual.get(id)!.push(p);
+  });
+
+  // 2. Calculate lanes for each individual
+  byIndividual.forEach((items) => {
+    // Sort by start time
+    items.sort((a, b) => a.activity.beginning - b.activity.beginning);
+
+    const lanes: number[] = []; // tracks the end time of the last item in each lane
+
+    items.forEach((item) => {
+      let placed = false;
+      // Try to place in existing lane
+      for (let i = 0; i < lanes.length; i++) {
+        // If this lane is free (last item ended before this one starts)
+        if (lanes[i] <= item.activity.beginning) {
+          item.lane = i;
+          lanes[i] = item.activity.ending;
+          placed = true;
+          break;
+        }
+      }
+      // Create new lane if needed
+      if (!placed) {
+        item.lane = lanes.length;
+        lanes.push(item.activity.ending);
+      }
+    });
+
+    // Store total lanes count on each item for height calculation
+    const totalLanes = lanes.length;
+    items.forEach((item) => (item.totalLanes = totalLanes));
+  });
+  // -------------------------------------------
+
+  const maxRectHeight = Math.min(36, config.layout.individual.height); // max glass height
   const rx = 4; // border-radius
   const strokeWidth = 1;
   const fillOpacity = 0.85;
@@ -76,12 +154,26 @@ export function drawParticipations(ctx: DrawContext) {
         .node();
       if (!node) return 0;
       const box = node.getBBox();
-      // vertically center the glass rect inside the individual row
-      return box.y + Math.max(0, (box.height - rectHeight) / 2);
+
+      const totalLanes = d.totalLanes || 1;
+      const laneIndex = d.lane || 0;
+
+      // Calculate height per lane
+      const laneHeight = maxRectHeight / totalLanes;
+
+      // Center the group of lanes in the row
+      const groupY = box.y + (box.height - maxRectHeight) / 2;
+
+      return groupY + laneIndex * laneHeight;
     })
-    .attr("height", () => rectHeight)
-    .attr("rx", rx)
-    .attr("ry", rx)
+    .attr("height", (d: any) => {
+      const totalLanes = d.totalLanes || 1;
+      // Add a tiny gap if multiple lanes, unless it makes them too small
+      const gap = totalLanes > 1 ? 1 : 0;
+      return maxRectHeight / totalLanes - gap;
+    })
+    .attr("rx", (d: any) => (d.totalLanes && d.totalLanes > 2 ? 1 : rx)) // reduce radius if thin
+    .attr("ry", (d: any) => (d.totalLanes && d.totalLanes > 2 ? 1 : rx))
     .attr(
       "fill",
       (d: any) =>

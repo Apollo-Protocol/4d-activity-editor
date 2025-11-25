@@ -149,8 +149,30 @@ export function drawIndividuals(ctx: DrawContext) {
   let next_y =
     config.layout.individual.topMargin + config.layout.individual.gap;
   for (const i of individuals) {
-    const start = i.beginning >= startOfTime;
-    const stop = i.ending <= endOfTime;
+    // Determine effective beginning/ending for drawing
+    // For installed components, we MUST use the installation period, not the individual's lifetime
+    let effectiveBeginning = i.beginning;
+    let effectiveEnding = i.ending;
+
+    if (isInstallationRef(i)) {
+      const originalId = getOriginalId(i);
+      const slotId = getSlotId(i);
+      if (originalId && slotId) {
+        const original = dataset.individuals.get(originalId);
+        if (original && original.installations) {
+          const inst = original.installations.find(
+            (x) => x.targetId === slotId
+          );
+          if (inst) {
+            effectiveBeginning = inst.beginning;
+            effectiveEnding = inst.ending;
+          }
+        }
+      }
+    }
+
+    const start = effectiveBeginning >= startOfTime;
+    const stop = effectiveEnding <= endOfTime;
 
     // Calculate indent based on hierarchy depth (30px per level)
     const indentLevel = getIndentLevel(i);
@@ -158,7 +180,7 @@ export function drawIndividuals(ctx: DrawContext) {
 
     const x =
       (start
-        ? lhs_x + timeInterval * (i.beginning - startOfTime)
+        ? lhs_x + timeInterval * (effectiveBeginning - startOfTime)
         : config.layout.individual.xMargin - chevOff) + indent;
 
     const y = next_y;
@@ -168,15 +190,15 @@ export function drawIndividuals(ctx: DrawContext) {
       !start && !stop
         ? fullWidth - indent
         : start && !stop
-        ? (endOfTime - i.beginning) * timeInterval +
+        ? (endOfTime - effectiveBeginning) * timeInterval +
           config.layout.individual.temporalMargin -
           indent
         : !start && stop
         ? fullWidth -
           indent -
-          (endOfTime - i.ending) * timeInterval -
+          (endOfTime - effectiveEnding) * timeInterval -
           config.layout.individual.temporalMargin
-        : (i.ending - i.beginning) * timeInterval - indent;
+        : (effectiveEnding - effectiveBeginning) * timeInterval - indent;
 
     const h = config.layout.individual.height;
 

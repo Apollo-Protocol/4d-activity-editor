@@ -4,19 +4,23 @@ import React, {
   useRef,
   useState,
   useEffect,
+  useMemo,
 } from "react";
 import Button from "react-bootstrap/Button";
 import Modal from "react-bootstrap/Modal";
 import Form from "react-bootstrap/Form";
 import ListGroup from "react-bootstrap/ListGroup";
 import Alert from "react-bootstrap/Alert";
-import Container from "react-bootstrap/Container";
-import Row from "react-bootstrap/Row";
-import Col from "react-bootstrap/Col";
 import { v4 as uuidv4 } from "uuid";
-import Select from "react-select";
-import { Individual, Id, Activity, Maybe, Participation } from "@/lib/Schema";
-import { InputGroup } from "react-bootstrap";
+import Select, { MultiValue } from "react-select";
+import {
+  Individual,
+  Id,
+  Activity,
+  Maybe,
+  Participation,
+  EntityType,
+} from "@/lib/Schema";
 import { Model } from "@/lib/Model";
 
 interface Props {
@@ -31,6 +35,22 @@ interface Props {
   setActivityContext: Dispatch<Maybe<Id>>;
 }
 
+// Helper to check if this is an "installation reference" (virtual row)
+function isInstallationRef(ind: Individual): boolean {
+  return ind.id.includes("__installed_in__");
+}
+
+// Get the slot ID from an installation reference
+function getSlotId(ind: Individual): string | undefined {
+  if (isInstallationRef(ind)) {
+    return ind.id.split("__installed_in__")[1];
+  }
+  return undefined;
+}
+
+// Define the option type for the Select component
+type IndividualOption = Individual & { displayLabel: string };
+
 const SetActivity = (props: Props) => {
   const {
     show,
@@ -43,6 +63,7 @@ const SetActivity = (props: Props) => {
     activityContext,
     setActivityContext,
   } = props;
+
   let defaultActivity: Activity = {
     id: "",
     name: "",
@@ -55,7 +76,7 @@ const SetActivity = (props: Props) => {
   };
 
   const [inputs, setInputs] = useState(defaultActivity);
-  const [errors, setErrors] = useState([]);
+  const [errors, setErrors] = useState<string[]>([]);
   const [dirty, setDirty] = useState(false);
 
   // Custom activity-type selector state (search / create / inline edit)
@@ -66,6 +87,148 @@ const SetActivity = (props: Props) => {
   const typeDropdownRef = useRef<HTMLDivElement | null>(null);
   const [showParentModal, setShowParentModal] = useState(false);
   const [selectedParentId, setSelectedParentId] = useState<string | null>(null);
+
+  // Build the individuals list with proper labels for the Select component
+  const individualsWithLabels = useMemo<IndividualOption[]>(() => {
+    const individualsArray = Array.from(dataset.individuals.values());
+
+    // Helper to get the hierarchy label for an individual
+    const getHierarchyLabel = (ind: Individual): string => {
+      const entityType = ind.entityType ?? EntityType.Individual;
+
+      // For installation references, build full path: System - Slot - Component (installed component)
+      if (isInstallationRef(ind)) {
+        const slotId = getSlotId(ind);
+        if (slotId) {
+          const slot = dataset.individuals.get(slotId);
+          if (slot) {
+            // Find the parent system of the slot
+            if (slot.parentSystemId) {
+              const system = dataset.individuals.get(slot.parentSystemId);
+              if (system) {
+                return `${system.name} - ${slot.name} - ${ind.name} (installed component)`;
+              }
+            }
+            return `${slot.name} - ${ind.name} (installed component)`;
+          }
+        }
+        return `${ind.name} (installed component)`;
+      }
+
+      // For SystemComponents, show: System - Component (system component slot)
+      if (entityType === EntityType.SystemComponent) {
+        if (ind.parentSystemId) {
+          const parent = dataset.individuals.get(ind.parentSystemId);
+          if (parent) {
+            return `${parent.name} - ${ind.name} (system component slot)`;
+          }
+        }
+        return `${ind.name} (system component slot)`;
+      }
+
+      // For Systems
+      if (entityType === EntityType.System) {
+        return `${ind.name} (system)`;
+      }
+
+      // For InstalledComponents at top level (shouldn't be selectable, but just in case)
+      if (entityType === EntityType.InstalledComponent) {
+        return `${ind.name} (installed component - not installed)`;
+      }
+
+      // For regular individuals
+      return `${ind.name} (individual)`;
+    };
+
+    const result: IndividualOption[] = [];
+    const visited = new Set<string>();
+
+    const addWithDescendants = (ind: Individual) => {
+      if (visited.has(ind.id)) return;
+      visited.add(ind.id);
+
+      const entityType = ind.entityType ?? EntityType.Individual;
+
+      // Skip top-level InstalledComponents - only their installation refs can participate
+      if (entityType === EntityType.InstalledComponent) {
+        // Don't add - will be added as installation refs under slots
+      } else {
+        result.push({
+          ...ind,
+          displayLabel: getHierarchyLabel(ind),
+        });
+      }
+
+      // Find SystemComponent children
+      const children: Individual[] = [];
+      individualsArray.forEach((child) => {
+        const childEntityType = child.entityType ?? EntityType.Individual;
+        if (
+          childEntityType === EntityType.SystemComponent &&
+          child.parentSystemId === ind.id
+        ) {
+          children.push(child);
+        }
+      });
+
+      children
+        .sort((a, b) => a.name.localeCompare(b.name))
+        .forEach((child) => addWithDescendants(child));
+
+      // Add installation references for SystemComponents
+      const indEntityType = ind.entityType ?? EntityType.Individual;
+      if (indEntityType === EntityType.SystemComponent) {
+        const installedHere = individualsArray.filter((ic) => {
+          const icType = ic.entityType ?? EntityType.Individual;
+          if (icType !== EntityType.InstalledComponent) return false;
+          if (!ic.installations || ic.installations.length === 0) return false;
+          return ic.installations.some((inst) => inst.targetId === ind.id);
+        });
+
+        installedHere
+          .sort((a, b) => a.name.localeCompare(b.name))
+          .forEach((ic) => {
+            // Find the specific installation for this slot
+            const installation = ic.installations?.find(
+              (inst) => inst.targetId === ind.id
+            );
+
+            const installRef: IndividualOption = {
+              ...ic,
+              id: `${ic.id}__installed_in__${ind.id}`,
+              // Use the actual installation period, not fixed values
+              beginning: installation?.beginning ?? -1,
+              ending: installation?.ending ?? Model.END_OF_TIME,
+              displayLabel: "", // Will be set below
+            };
+            installRef.displayLabel = getHierarchyLabel(installRef);
+            result.push(installRef);
+          });
+      }
+    };
+
+    // Start with top-level items
+    const topLevel = individualsArray.filter((ind) => {
+      const entityType = ind.entityType ?? EntityType.Individual;
+      if (entityType === EntityType.System) return true;
+      if (entityType === EntityType.Individual) return true;
+      if (entityType === EntityType.InstalledComponent) return false;
+      if (entityType === EntityType.SystemComponent) {
+        if (!ind.parentSystemId) return true;
+        const parentExists = individualsArray.some(
+          (i) => i.id === ind.parentSystemId
+        );
+        return !parentExists;
+      }
+      return false;
+    });
+
+    topLevel
+      .sort((a, b) => a.name.localeCompare(b.name))
+      .forEach((ind) => addWithDescendants(ind));
+
+    return result;
+  }, [dataset]);
 
   // Safe local ancestor check (walks partOf chain). Avoids depending on Model.isAncestor.
   const isAncestorLocal = (
@@ -165,17 +328,13 @@ const SetActivity = (props: Props) => {
     updateInputs(e.target.name, e.target.value);
   };
 
-  const handleTypeChange = (e: any) => {
-    // deprecated: replaced by custom selector
-  };
-
   const handleChangeNumeric = (e: any) => {
     updateInputs(e.target.name, e.target.valueAsNumber);
   };
 
-  const handleChangeMultiselect = (e: any) => {
+  const handleChangeMultiselect = (newValue: MultiValue<IndividualOption>) => {
     const participations = new Map<string, Participation>();
-    e.forEach((i: Individual) => {
+    newValue.forEach((i) => {
       const old = inputs.participations.get(i.id)?.role;
       let participation: Participation = {
         individualId: i.id,
@@ -186,7 +345,7 @@ const SetActivity = (props: Props) => {
     updateInputs("participations", participations);
   };
 
-  const getSelectedIndividuals = () => {
+  const getSelectedIndividuals = (): IndividualOption[] => {
     if (
       selectedActivity === undefined ||
       selectedActivity.participations === undefined
@@ -195,16 +354,19 @@ const SetActivity = (props: Props) => {
     }
     const individualIds = Array.from(
       selectedActivity.participations,
-      ([key, value]) => key
+      ([key]) => key
     );
-    const participatingIndividuals = individuals.filter((participant) => {
-      return individualIds.includes(participant.id);
-    });
+    // Find matching individuals from our labeled list
+    const participatingIndividuals = individualsWithLabels.filter(
+      (participant) => {
+        return individualIds.includes(participant.id);
+      }
+    );
     return participatingIndividuals;
   };
 
   const validateInputs = () => {
-    let runningErrors = [];
+    let runningErrors: string[] = [];
     //Name
     if (!inputs.name) {
       runningErrors.push("Name field is required");
@@ -228,10 +390,47 @@ const SetActivity = (props: Props) => {
       runningErrors.push("Select at least one participant");
     }
 
+    // Validate activity timing against installed component installation periods
+    if (inputs.participations) {
+      inputs.participations.forEach((participation, participantId) => {
+        if (isInstallationRef({ id: participantId } as Individual)) {
+          const originalId = participantId.split("__installed_in__")[0];
+          const slotId = participantId.split("__installed_in__")[1];
+
+          const installedComponent = dataset.individuals.get(originalId);
+          if (installedComponent?.installations) {
+            const installation = installedComponent.installations.find(
+              (inst) => inst.targetId === slotId
+            );
+
+            if (installation) {
+              const installStart = installation.beginning ?? 0;
+              const installEnd = installation.ending ?? Model.END_OF_TIME;
+
+              if (
+                inputs.beginning < installStart ||
+                inputs.ending > installEnd
+              ) {
+                const slot = dataset.individuals.get(slotId);
+                const slotName = slot?.name ?? slotId;
+                runningErrors.push(
+                  `Activity timing (${inputs.beginning}-${inputs.ending}) is outside the installation period ` +
+                    `of "${
+                      installedComponent.name
+                    }" in "${slotName}" (${installStart}-${
+                      installEnd === Model.END_OF_TIME ? "∞" : installEnd
+                    })`
+                );
+              }
+            }
+          }
+        }
+      });
+    }
+
     if (runningErrors.length == 0) {
       return true;
     } else {
-      // @ts-ignore
       setErrors(runningErrors);
       return false;
     }
@@ -321,7 +520,6 @@ const SetActivity = (props: Props) => {
   };
   // ----- end helpers -----
 
-  // ...existing code...
   const handlePromote = () => {
     if (!inputs || !inputs.partOf) return;
     // find current parent and then its parent (grandparent) - that's the new parent
@@ -573,13 +771,11 @@ const SetActivity = (props: Props) => {
             </Form.Group>
             <Form.Group className="mb-3" controlId="formParticipants">
               <Form.Label>Participants</Form.Label>
-              <Select
-                defaultValue={getSelectedIndividuals}
+              <Select<IndividualOption, true>
+                defaultValue={getSelectedIndividuals()}
                 isMulti
-                // @ts-ignore
-                options={individuals}
-                getOptionLabel={(option) => option.name}
-                // @ts-ignore
+                options={individualsWithLabels}
+                getOptionLabel={(option) => option.displayLabel}
                 getOptionValue={(option) => option.id}
                 onChange={handleChangeMultiselect}
               />

@@ -208,11 +208,11 @@ export function clickActivities(
 function calculateLengthOfNewActivity(svgElement: any, activity: Activity) {
   let highestY = 0;
   activity?.participations?.forEach((a: Participation) => {
-    const element = svgElement
-      .select("#i" + a.individualId)
-      .node()
-      .getBBox();
-    highestY = Math.max(highestY, element.y);
+    const node = svgElement.select("#i" + CSS.escape(a.individualId)).node();
+    if (node) {
+      const element = node.getBBox();
+      highestY = Math.max(highestY, element.y);
+    }
   });
   return highestY > 0 ? highestY : null;
 }
@@ -223,18 +223,19 @@ function calculateTopPositionOfNewActivity(
 ) {
   let lowestY = Number.MAX_VALUE;
   activity?.participations?.forEach((a: Participation) => {
-    const element = svgElement
-      .select("#i" + a.individualId)
-      .node()
-      .getBBox();
-    lowestY = Math.min(lowestY, element.y);
+    const node = svgElement.select("#i" + CSS.escape(a.individualId)).node();
+    if (node) {
+      const element = node.getBBox();
+      lowestY = Math.min(lowestY, element.y);
+    }
   });
-  return lowestY;
+  return lowestY === Number.MAX_VALUE ? 0 : lowestY;
 }
 
 function getBoxOfExistingActivity(svgElement: any, activity: Activity) {
-  return svgElement
-    .select("#a" + activity.id)
-    .node()
-    .getBBox();
+  const node = svgElement.select("#a" + activity.id).node();
+  if (node) {
+    return node.getBBox();
+  }
+  return { x: 0, y: 0, width: 0, height: 0 };
 }

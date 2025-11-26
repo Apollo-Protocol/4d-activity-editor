@@ -390,6 +390,16 @@ const SetActivity = (props: Props) => {
       runningErrors.push("Select at least one participant");
     }
 
+    // Helper function to check if there's ANY overlap between two time ranges
+    const hasOverlap = (
+      aStart: number,
+      aEnd: number,
+      iStart: number,
+      iEnd: number
+    ): boolean => {
+      return aStart < iEnd && aEnd > iStart;
+    };
+
     // Validate activity timing against installed component installation periods
     if (inputs.participations) {
       inputs.participations.forEach((participation, participantId) => {
@@ -407,14 +417,20 @@ const SetActivity = (props: Props) => {
               const installStart = installation.beginning ?? 0;
               const installEnd = installation.ending ?? Model.END_OF_TIME;
 
+              // Only error if there's NO overlap at all
+              // Partial overlap is allowed - the participation will be cropped visually
               if (
-                inputs.beginning < installStart ||
-                inputs.ending > installEnd
+                !hasOverlap(
+                  inputs.beginning,
+                  inputs.ending,
+                  installStart,
+                  installEnd
+                )
               ) {
                 const slot = dataset.individuals.get(slotId);
                 const slotName = slot?.name ?? slotId;
                 runningErrors.push(
-                  `Activity timing (${inputs.beginning}-${inputs.ending}) is outside the installation period ` +
+                  `Activity timing (${inputs.beginning}-${inputs.ending}) has no overlap with installation period ` +
                     `of "${
                       installedComponent.name
                     }" in "${slotName}" (${installStart}-${

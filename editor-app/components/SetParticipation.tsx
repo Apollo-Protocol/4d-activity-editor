@@ -204,6 +204,30 @@ const SetParticipation = (props: Props) => {
   };
   // ----- end role helpers -----
 
+  // Helper function to check overlap
+  const hasOverlap = (
+    aStart: number,
+    aEnd: number,
+    iStart: number,
+    iEnd: number
+  ): boolean => {
+    return aStart < iEnd && aEnd > iStart;
+  };
+
+  // Helper to get overlap range
+  const getOverlapRange = (
+    aStart: number,
+    aEnd: number,
+    iStart: number,
+    iEnd: number
+  ): { start: number; end: number } | null => {
+    if (!hasOverlap(aStart, aEnd, iStart, iEnd)) return null;
+    return {
+      start: Math.max(aStart, iStart),
+      end: Math.min(aEnd, iEnd),
+    };
+  };
+
   return (
     <>
       <Modal show={show} onHide={handleClose} onShow={handleShow}>
@@ -366,3 +390,20 @@ const SetParticipation = (props: Props) => {
 };
 
 export default SetParticipation;
+
+function hasAnyOverlap(
+  aStart: number,
+  aEnd: number,
+  iStart: number,
+  iEnd: number
+) {
+  return aEnd > iStart && aStart < iEnd; // strict overlap
+}
+function fullyInside(
+  aStart: number,
+  aEnd: number,
+  iStart: number,
+  iEnd: number
+) {
+  return aStart >= iStart && aEnd <= iEnd;
+}

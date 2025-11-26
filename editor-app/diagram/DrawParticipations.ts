@@ -6,6 +6,55 @@ import { Model } from "@/lib/Model";
 
 let mouseOverElement: any | null = null;
 
+function isInstallationRefId(id: string): boolean {
+  return id.includes("__installed_in__");
+}
+
+function getOriginalAndSlot(
+  id: string
+): { originalId: string; slotId: string } | null {
+  if (!isInstallationRefId(id)) return null;
+  const parts = id.split("__installed_in__");
+  if (parts.length !== 2) return null;
+  return { originalId: parts[0], slotId: parts[1] };
+}
+
+// Add this helper function to get visible interval for a participation
+function getVisibleInterval(
+  activityStart: number,
+  activityEnd: number,
+  individualId: string,
+  dataset: any
+): { start: number; end: number } {
+  const ref = getOriginalAndSlot(individualId);
+  if (!ref) {
+    // Normal individual - use full activity interval
+    return { start: activityStart, end: activityEnd };
+  }
+
+  // This is an installed component - crop to installation period
+  const original = dataset.individuals.get(ref.originalId);
+  if (!original || !original.installations) {
+    return { start: activityStart, end: activityEnd };
+  }
+
+  const inst = original.installations.find(
+    (i: any) => i.targetId === ref.slotId
+  );
+  if (!inst) {
+    return { start: activityStart, end: activityEnd };
+  }
+
+  const instStart = Math.max(0, inst.beginning ?? 0);
+  const instEnd = inst.ending;
+
+  // Compute overlap
+  const visibleStart = Math.max(activityStart, instStart);
+  const visibleEnd = Math.min(activityEnd, instEnd);
+
+  return { start: visibleStart, end: visibleEnd };
+}
+
 export function drawParticipations(ctx: DrawContext) {
   const { config, svgElement, activities, individuals, dataset } = ctx;
 
@@ -144,13 +193,27 @@ export function drawParticipations(ctx: DrawContext) {
       "id",
       (d: any) => `p_${d.activity.id}_${d.participation.individualId}`
     )
-    .attr(
-      "x",
-      (d: any) => xBase + timeInterval * (d.activity.beginning - startOfTime)
-    )
-    .attr("width", (d: any) =>
-      Math.max(1, (d.activity.ending - d.activity.beginning) * timeInterval)
-    )
+    .attr("x", (d: any) => {
+      const { start, end } = getVisibleInterval(
+        d.activity.beginning,
+        d.activity.ending,
+        d.participation.individualId,
+        dataset
+      );
+      // If no visible portion, move offscreen
+      if (end <= start) return -99999;
+      return xBase + timeInterval * (start - startOfTime);
+    })
+    .attr("width", (d: any) => {
+      const { start, end } = getVisibleInterval(
+        d.activity.beginning,
+        d.activity.ending,
+        d.participation.individualId,
+        dataset
+      );
+      const width = (end - start) * timeInterval;
+      return Math.max(0, width);
+    })
     .attr("y", (d: any) => {
       const node = svgElement
         .select("#i" + d.participation.individualId)

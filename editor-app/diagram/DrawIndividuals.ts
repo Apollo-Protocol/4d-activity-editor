@@ -115,6 +115,7 @@ export function drawIndividuals(ctx: DrawContext) {
   const layout = new Map<string, Layout>();
 
   // Helper: Calculate indentation level based on parent chain
+  // This is ONLY used for labels, NOT for bar positioning
   const getIndentLevel = (ind: Individual): number => {
     let level = 0;
     let currentId: string | undefined = undefined;
@@ -201,31 +202,26 @@ export function drawIndividuals(ctx: DrawContext) {
     const start = effectiveBeginning >= startOfTime;
     const stop = effectiveEnding <= endOfTime;
 
-    // Calculate indent based on hierarchy depth (30px per level)
-    const indentLevel = getIndentLevel(i);
-    const indent = indentLevel * 30;
-
-    const x =
-      (start
-        ? lhs_x + timeInterval * (effectiveBeginning - startOfTime)
-        : config.layout.individual.xMargin - chevOff) + indent;
+    // NO indent for bars - bars always align with their time position
+    // Indent is ONLY for labels
+    const x = start
+      ? lhs_x + timeInterval * (effectiveBeginning - startOfTime)
+      : config.layout.individual.xMargin - chevOff;
 
     const y = next_y;
     next_y = y + config.layout.individual.height + config.layout.individual.gap;
 
     const w =
       !start && !stop
-        ? fullWidth - indent
+        ? fullWidth
         : start && !stop
         ? (endOfTime - effectiveBeginning) * timeInterval +
-          config.layout.individual.temporalMargin -
-          indent
+          config.layout.individual.temporalMargin
         : !start && stop
         ? fullWidth -
-          indent -
           (endOfTime - effectiveEnding) * timeInterval -
           config.layout.individual.temporalMargin
-        : (effectiveEnding - effectiveBeginning) * timeInterval - indent;
+        : (effectiveEnding - effectiveBeginning) * timeInterval;
 
     const h = config.layout.individual.height;
 
@@ -321,17 +317,17 @@ export function clickIndividuals(
     };
 
     svgElement
-      .select("#i" + i.id.replace(/__/g, "\\$&"))
+      .select("#i" + CSS.escape(i.id))
       .on("click", lclick)
       .on("contextmenu", rclick);
     svgElement
-      .select("#il" + i.id.replace(/__/g, "\\$&"))
+      .select("#il" + CSS.escape(i.id))
       .on("click", lclick)
       .on("contextmenu", rclick);
   });
 }
 
-// RESTORED ORIGINAL labelIndividuals - labels always at fixed left margin
+// Labels get indented, bars do not
 export function labelIndividuals(ctx: DrawContext) {
   const { config, svgElement, individuals, dataset } = ctx;
 
@@ -406,8 +402,7 @@ export function labelIndividuals(ctx: DrawContext) {
     .attr("x", (i: Individual) => {
       const indentLevel = getIndentLevel(i);
       const indent = indentLevel * 30;
-      const prefix = indentLevel > 0 ? "↳ " : "";
-      // Labels always at fixed left margin + indent
+      // Labels get indented
       return (
         config.layout.individual.xMargin +
         config.labels.individual.leftMargin +

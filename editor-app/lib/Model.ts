@@ -6,6 +6,7 @@ import type {
   Individual,
   Installation,
   Maybe,
+  Participation,
 } from "./Schema.js";
 import { EPOCH_END } from "./ActivityLib";
 
@@ -82,12 +83,43 @@ export class Model {
   clone(): Model {
     const newModel = new Model(this.name, this.description);
     newModel.filename = this.filename;
+
+    // Deep clone activities
     this.activities.forEach((a) => {
-      newModel.addActivity(a);
+      // Deep clone participations map
+      let participations: Map<string, Participation> | undefined;
+      if (a.participations instanceof Map) {
+        participations = new Map<string, Participation>();
+        a.participations.forEach((p, k) => {
+          participations!.set(k, { ...p });
+        });
+      } else if (a.participations) {
+        participations = new Map<string, Participation>(
+          Object.entries(a.participations).map(([k, p]) => [
+            k,
+            Object.assign({}, p as Participation),
+          ])
+        );
+      }
+      newModel.addActivity({
+        ...a,
+        participations: participations ?? new Map<string, Participation>(),
+      });
     });
+
+    // Deep clone individuals
     this.individuals.forEach((i) => {
-      newModel.addIndividual(i);
+      // Deep clone installations array if present
+      let installations = undefined;
+      if (i.installations) {
+        installations = i.installations.map((inst) => ({ ...inst }));
+      }
+      newModel.addIndividual({
+        ...i,
+        installations,
+      });
     });
+
     this.roles
       .filter((r) => !r.isCoreHqdm)
       .forEach((r) => {
@@ -149,15 +181,126 @@ export class Model {
    *
    * @param id The id of the individual to remove.
    */
-  removeIndividual(id: string): void {
+  removeIndividual(id: string) {
+    // delegate to deleteIndividual which performs full cleanup
+    this.deleteIndividual(id);
+  }
+
+  /**
+   * Removes an individual and cleans up related data (participations, installations, activities).
+   *
+   * @param id The id of the individual to remove.
+   */
+  deleteIndividual(id: string) {
+    const individual = this.individuals.get(id);
+    if (!individual) return;
+
+    // Remove the individual itself
     this.individuals.delete(id);
-    this.activities.forEach((a) => {
-      a.participations?.forEach((p) => {
-        if (p.individualId === id) {
-          a.participations?.delete(id);
-        }
-      });
+
+    // Remove installations that target this id (slot removed)
+    this.individuals.forEach((ind) => {
+      if (ind.installations) {
+        ind.installations = ind.installations.filter(
+          (inst) => inst.targetId !== id
+        );
+      }
     });
+
+    // Also remove any installations owned by the deleted component (componentId === id)
+    // and remove them from the central installations map.
+    Array.from(this.installations.entries()).forEach(([instId, inst]) => {
+      if (inst.componentId === id || inst.targetId === id) {
+        this.installations.delete(instId);
+      }
+    });
+
+    // Clean up participations in all activities
+    const activitiesToDelete: string[] = [];
+    this.activities.forEach((activity) => {
+      const parts = activity.participations;
+      if (!parts) return;
+
+      // Support Map or object shape; prefer Map if used
+      if (parts instanceof Map) {
+        const toRemove: string[] = [];
+        parts.forEach((part, key) => {
+          // Remove if direct reference
+          if (key === id) {
+            toRemove.push(key);
+            return;
+          }
+          // Remove if participation object points to individualId
+          if ((part as any).individualId === id) {
+            toRemove.push(key);
+            return;
+          }
+          // Remove if installed component or slot is being deleted, or if either is missing
+          if (typeof key === "string" && key.includes("__installed_in__")) {
+            const [originalId, slotId] = key.split("__installed_in__");
+            if (originalId === id || slotId === id) {
+              toRemove.push(key);
+              return;
+            }
+            // Defensive: remove if either referenced individual is missing
+            if (
+              !this.individuals.has(originalId) ||
+              !this.individuals.has(slotId)
+            ) {
+              toRemove.push(key);
+              return;
+            }
+          }
+        });
+
+        toRemove.forEach((k) => parts.delete(k));
+        // Update the activity in the map after modifying participations
+        this.activities.set(activity.id, activity);
+
+        // mark activity for deletion if no participations remain
+        if (parts.size === 0) activitiesToDelete.push(activity.id);
+      } else {
+        // If participations are stored as an object/array, handle common shapes
+        try {
+          // object with keys
+          const keys = Object.keys(parts as any);
+          keys.forEach((k) => {
+            const p = (parts as any)[k];
+            if (k === id || p?.individualId === id) {
+              delete (parts as any)[k];
+              return;
+            }
+            if (k.includes("__installed_in__")) {
+              const [originalId, slotId] = k.split("__installed_in__");
+              if (originalId === id || slotId === id) {
+                delete (parts as any)[k];
+                return;
+              }
+              // Defensive: remove if either referenced individual is missing
+              if (
+                !this.individuals.has(originalId) ||
+                !this.individuals.has(slotId)
+              ) {
+                delete (parts as any)[k];
+                return;
+              }
+            }
+          });
+
+          // after deleting keys from (parts as any)
+          this.activities.set(activity.id, activity);
+
+          // if it's now empty, queue activity for removal
+          if (Object.keys(parts as any).length === 0)
+            activitiesToDelete.push(activity.id);
+        } catch {
+          // ignore unexpected shapes
+        }
+      }
+    });
+
+    // Remove activities that have become orphaned
+    activitiesToDelete.forEach((aid) => this.activities.delete(aid));
   }
 
   /**
@@ -425,89 +568,40 @@ export class Model {
         comp.installations = comp.installations.filter((i) => i.id !== id);
         this.individuals.set(comp.id, comp);
       }
+
+      // Clean up any participations that reference this installation
+      // The participation key format is: componentId__installed_in__targetId
+      const participationKey = `${inst.componentId}__installed_in__${inst.targetId}`;
+
+      const activitiesToDelete: string[] = [];
+      this.activities.forEach((activity) => {
+        const parts = activity.participations;
+        if (!parts) return;
+
+        if (parts instanceof Map) {
+          if (parts.has(participationKey)) {
+            parts.delete(participationKey);
+            this.activities.set(activity.id, activity);
+          }
+          if (parts.size === 0) activitiesToDelete.push(activity.id);
+        } else {
+          try {
+            if ((parts as any)[participationKey]) {
+              delete (parts as any)[participationKey];
+              this.activities.set(activity.id, activity);
+            }
+            if (Object.keys(parts as any).length === 0) {
+              activitiesToDelete.push(activity.id);
+            }
+          } catch {
+            // ignore
+          }
+        }
+      });
+
+      // Remove activities that have become orphaned
+      activitiesToDelete.forEach((aid) => this.activities.delete(aid));
     }
     this.installations.delete(id);
-  }
-
-  deleteIndividual(id: string) {
-    const individual = this.individuals.get(id);
-    if (!individual) return;
-
-    // Remove the individual itself
-    this.individuals.delete(id);
-
-    // Remove installations that target this id (slot removed)
-    this.individuals.forEach((ind) => {
-      if (ind.installations) {
-        ind.installations = ind.installations.filter(
-          (inst) => inst.targetId !== id
-        );
-      }
-    });
-
-    // Clean up participations in all activities
-    const activitiesToDelete: string[] = [];
-    this.activities.forEach((activity) => {
-      const parts = activity.participations;
-      if (!parts) return;
-
-      // Support Map or object shape; prefer Map if used
-      if (parts instanceof Map) {
-        const toRemove: string[] = [];
-        parts.forEach((part, key) => {
-          // direct reference
-          if (key === id) {
-            toRemove.push(key);
-            return;
-          }
-
-          // defensive: participation object points to individualId
-          if ((part as any).individualId === id) {
-            toRemove.push(key);
-            return;
-          }
-
-          // installation reference form: "<originalId>__installed_in__<slotId>"
-          if (typeof key === "string" && key.includes("__installed_in__")) {
-            const [originalId, slotId] = key.split("__installed_in__");
-            if (originalId === id || slotId === id) {
-              toRemove.push(key);
-              return;
-            }
-          }
-        });
-
-        toRemove.forEach((k) => parts.delete(k));
-
-        // mark activity for deletion if no participations remain
-        if (parts.size === 0) activitiesToDelete.push(activity.id);
-      } else {
-        // If participations are stored as an object/array, handle common shapes
-        try {
-          // object with keys
-          const keys = Object.keys(parts as any);
-          keys.forEach((k) => {
-            const p = (parts as any)[k];
-            if (k === id || p?.individualId === id) {
-              delete (parts as any)[k];
-              return;
-            }
-            if (k.includes("__installed_in__")) {
-              const [originalId, slotId] = k.split("__installed_in__");
-              if (originalId === id || slotId === id) delete (parts as any)[k];
-            }
-          });
-
-          // if it's now empty, queue activity for removal
-          if (Object.keys(parts as any).length === 0)
-            activitiesToDelete.push(activity.id);
-        } catch {
-          // ignore unexpected shapes
-        }
-      }
-    });
-
-    // Remove activities that have become orphaned
-    activitiesToDelete.forEach((aid) => this.activities.delete(aid));
   }
 }

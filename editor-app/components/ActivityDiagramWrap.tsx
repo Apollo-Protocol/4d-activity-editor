@@ -391,6 +391,7 @@ export default function ActivityDiagramWrap() {
         individual={selectedInstalledComponent}
         setIndividual={setIndividual}
         dataset={dataset}
+        updateDataset={updateDataset}
       />
     </>
   );

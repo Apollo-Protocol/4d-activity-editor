@@ -1,242 +1,234 @@
-import React, {
-  Dispatch,
-  SetStateAction,
-  useEffect,
-  useMemo,
-  useState,
-} from "react";
-import Button from "react-bootstrap/Button";
-import Modal from "react-bootstrap/Modal";
-import Row from "react-bootstrap/Row";
-import Col from "react-bootstrap/Col";
-import Form from "react-bootstrap/Form";
-import Card from "react-bootstrap/Card";
-import { Model } from "../lib/Model";
-import { EntityType, Individual, Installation } from "../lib/Schema";
+import React, { useState, useEffect } from "react";
+import { Button, Modal, Form, Row, Col, Card } from "react-bootstrap";
+import { v4 as uuidv4 } from "uuid";
+import { Individual, Installation, EntityType } from "@/lib/Schema";
+import { Model } from "@/lib/Model";
 
 interface Props {
   show: boolean;
-  setShow: Dispatch<SetStateAction<boolean>>;
+  setShow: (show: boolean) => void;
   individual: Individual | undefined;
   setIndividual: (individual: Individual) => void;
   dataset: Model;
+  updateDataset?: (updater: (d: Model) => void) => void;
 }
 
 const EditInstalledComponent = (props: Props) => {
-  const { show, setShow, individual, setIndividual, dataset } = props;
+  const { show, setShow, individual, setIndividual, dataset, updateDataset } =
+    props;
 
-  const [installations, setInstallations] = useState<Installation[]>([]);
+  const [localInstallations, setLocalInstallations] = useState<Installation[]>(
+    []
+  );
 
-  // Load installations when modal opens
+  // Track removed installations to clean up participations on save
+  const [removedInstallations, setRemovedInstallations] = useState<
+    Installation[]
+  >([]);
+
   useEffect(() => {
-    if (show && individual) {
-      setInstallations(
-        individual.installations ? [...individual.installations] : []
-      );
+    if (individual && individual.installations) {
+      setLocalInstallations([...individual.installations]);
+    } else {
+      setLocalInstallations([]);
     }
-  }, [show, individual]);
-
-  // Get all SystemComponents as potential installation targets
-  const availableSlots = useMemo(() => {
-    return Array.from(dataset.individuals.values()).filter(
-      (i) =>
-        (i.entityType ?? EntityType.Individual) === EntityType.SystemComponent
-    );
-  }, [dataset]);
-
-  // Group slots by their parent system for better UX
-  const slotsBySystem = useMemo(() => {
-    const groups: Map<
-      string,
-      { system: Individual | null; slots: Individual[] }
-    > = new Map();
-
-    availableSlots.forEach((slot) => {
-      const parentId = slot.parentSystemId || "unassigned";
-      const parent = slot.parentSystemId
-        ? dataset.individuals.get(slot.parentSystemId)
-        : null;
-
-      if (!groups.has(parentId)) {
-        groups.set(parentId, { system: parent || null, slots: [] });
-      }
-      groups.get(parentId)!.slots.push(slot);
-    });
-
-    return groups;
-  }, [availableSlots, dataset]);
+    setRemovedInstallations([]);
+  }, [individual, show]);
 
   const handleClose = () => {
     setShow(false);
-    setInstallations([]);
+    setRemovedInstallations([]);
   };
 
   const handleSave = () => {
     if (!individual) return;
 
-    const updated: Individual = {
-      ...individual,
-      installations: installations,
-    };
+    // If we have updateDataset, use it to clean up participations for removed installations
+    if (updateDataset && removedInstallations.length > 0) {
+      updateDataset((d: Model) => {
+        // Clean up participations for each removed installation
+        removedInstallations.forEach((removedInst) => {
+          const participationKey = `${individual.id}__installed_in__${removedInst.targetId}`;
 
-    setIndividual(updated);
+          const activitiesToDelete: string[] = [];
+          d.activities.forEach((activity) => {
+            const parts = activity.participations;
+            if (!parts) return;
+
+            if (parts instanceof Map) {
+              if (parts.has(participationKey)) {
+                parts.delete(participationKey);
+                d.activities.set(activity.id, activity);
+              }
+              if (parts.size === 0) activitiesToDelete.push(activity.id);
+            }
+          });
+
+          activitiesToDelete.forEach((aid) => d.activities.delete(aid));
+        });
+
+        // Update the individual with new installations
+        const updated: Individual = {
+          ...individual,
+          installations: localInstallations,
+        };
+        d.addIndividual(updated);
+      });
+    } else {
+      // Fallback: just update the individual
+      const updated: Individual = {
+        ...individual,
+        installations: localInstallations,
+      };
+      setIndividual(updated);
+    }
+
     handleClose();
   };
 
   const addInstallation = () => {
     const newInst: Installation = {
-      id: `inst_${Date.now()}`,
+      id: uuidv4(),
       componentId: individual?.id || "",
       targetId: "",
       beginning: 0,
       ending: 10,
     };
-    setInstallations([...installations, newInst]);
+    setLocalInstallations([...localInstallations, newInst]);
+  };
+
+  const removeInstallation = (instId: string) => {
+    const removed = localInstallations.find((inst) => inst.id === instId);
+    if (removed) {
+      setRemovedInstallations([...removedInstallations, removed]);
+    }
+    setLocalInstallations(
+      localInstallations.filter((inst) => inst.id !== instId)
+    );
   };
 
   const updateInstallation = (
-    id: string,
+    instId: string,
     field: keyof Installation,
     value: any
   ) => {
-    setInstallations(
-      installations.map((inst) =>
-        inst.id === id ? { ...inst, [field]: value } : inst
+    setLocalInstallations(
+      localInstallations.map((inst) =>
+        inst.id === instId ? { ...inst, [field]: value } : inst
       )
     );
   };
 
-  const removeInstallation = (id: string) => {
-    setInstallations(installations.filter((inst) => inst.id !== id));
-  };
-
-  // Get the system name for a given slot
-  const getSlotLabel = (slot: Individual): string => {
-    if (slot.parentSystemId) {
-      const parent = dataset.individuals.get(slot.parentSystemId);
-      if (parent) {
-        return `${parent.name} → ${slot.name}`;
-      }
-    }
-    return slot.name;
-  };
+  // Get available slots (SystemComponents)
+  const availableSlots = Array.from(dataset.individuals.values()).filter(
+    (ind) =>
+      (ind.entityType ?? EntityType.Individual) === EntityType.SystemComponent
+  );
 
   if (!individual) return null;
 
   return (
     <Modal show={show} onHide={handleClose} size="lg">
       <Modal.Header closeButton>
-        <Modal.Title>Installation Periods: {individual.name}</Modal.Title>
+        <Modal.Title>Edit Installed Component: {individual.name}</Modal.Title>
       </Modal.Header>
       <Modal.Body>
-        <p className="text-muted mb-3">
-          Define when and where this physical component is installed. A
-          component can be installed into different slots at different times.
+        <p className="text-muted">
+          Manage where this component is installed and for what time periods.
         </p>
 
-        {installations.length === 0 ? (
-          <div className="text-center py-4 text-muted">
-            <p>No installation periods defined.</p>
-            <p>This component is currently not installed anywhere.</p>
+        {localInstallations.length === 0 && (
+          <div className="alert alert-info">
+            No installations yet. Click "Add Installation" to install this
+            component into a slot.
           </div>
-        ) : (
-          installations.map((inst, idx) => (
-            <Card key={inst.id} className="mb-3">
-              <Card.Header className="d-flex justify-content-between align-items-center">
-                <strong>Installation {idx + 1}</strong>
-                <Button
-                  variant="outline-danger"
-                  size="sm"
-                  onClick={() => removeInstallation(inst.id)}
-                >
-                  Remove
-                </Button>
-              </Card.Header>
-              <Card.Body>
-                <Form.Group className="mb-3">
-                  <Form.Label>Install Into Slot</Form.Label>
-                  <Form.Select
-                    value={inst.targetId}
-                    onChange={(e) =>
-                      updateInstallation(inst.id, "targetId", e.target.value)
-                    }
-                  >
-                    <option value="">-- Select a slot --</option>
-                    {Array.from(slotsBySystem.entries()).map(
-                      ([parentId, group]) => (
-                        <optgroup
-                          key={parentId}
-                          label={
-                            group.system
-                              ? group.system.name
-                              : "Unassigned Slots"
-                          }
-                        >
-                          {group.slots.map((slot) => (
-                            <option key={slot.id} value={slot.id}>
-                              {slot.name}
-                            </option>
-                          ))}
-                        </optgroup>
-                      )
-                    )}
-                  </Form.Select>
-                  {inst.targetId && (
-                    <Form.Text className="text-muted">
-                      Installing into:{" "}
-                      {getSlotLabel(
-                        availableSlots.find((s) => s.id === inst.targetId)!
-                      )}
-                    </Form.Text>
-                  )}
-                </Form.Group>
-
-                <Row>
-                  <Col>
-                    <Form.Group>
-                      <Form.Label>Installed From (time)</Form.Label>
-                      <Form.Control
-                        type="number"
-                        min="0"
-                        value={inst.beginning}
-                        onChange={(e) =>
-                          updateInstallation(
-                            inst.id,
-                            "beginning",
-                            Math.max(0, parseInt(e.target.value, 10) || 0)
-                          )
-                        }
-                      />
-                    </Form.Group>
-                  </Col>
-                  <Col>
-                    <Form.Group>
-                      <Form.Label>Removed At (time)</Form.Label>
-                      <Form.Control
-                        type="number"
-                        min="1"
-                        value={inst.ending}
-                        onChange={(e) =>
-                          updateInstallation(
-                            inst.id,
-                            "ending",
-                            Math.max(1, parseInt(e.target.value, 10) || 1)
-                          )
-                        }
-                      />
-                    </Form.Group>
-                  </Col>
-                </Row>
-              </Card.Body>
-            </Card>
-          ))
         )}
 
+        {localInstallations.map((inst, idx) => (
+          <Card key={inst.id} className="mb-3">
+            <Card.Body>
+              <Row className="align-items-end">
+                <Col md={4}>
+                  <Form.Group>
+                    <Form.Label>Target Slot</Form.Label>
+                    <Form.Select
+                      value={inst.targetId}
+                      onChange={(e) =>
+                        updateInstallation(inst.id, "targetId", e.target.value)
+                      }
+                    >
+                      <option value="">-- Select slot --</option>
+                      {availableSlots.map((slot) => {
+                        // Find parent system name
+                        let parentName = "";
+                        if (slot.parentSystemId) {
+                          const parent = dataset.individuals.get(
+                            slot.parentSystemId
+                          );
+                          if (parent) parentName = parent.name + " - ";
+                        }
+                        return (
+                          <option key={slot.id} value={slot.id}>
+                            {parentName}
+                            {slot.name}
+                          </option>
+                        );
+                      })}
+                    </Form.Select>
+                  </Form.Group>
+                </Col>
+                <Col md={3}>
+                  <Form.Group>
+                    <Form.Label>Installed From (time)</Form.Label>
+                    <Form.Control
+                      type="number"
+                      min="0"
+                      value={inst.beginning}
+                      onChange={(e) =>
+                        updateInstallation(
+                          inst.id,
+                          "beginning",
+                          Math.max(0, parseInt(e.target.value, 10) || 0)
+                        )
+                      }
+                    />
+                  </Form.Group>
+                </Col>
+                <Col md={3}>
+                  <Form.Group>
+                    <Form.Label>Removed At (time)</Form.Label>
+                    <Form.Control
+                      type="number"
+                      min="1"
+                      value={inst.ending}
+                      onChange={(e) =>
+                        updateInstallation(
+                          inst.id,
+                          "ending",
+                          Math.max(1, parseInt(e.target.value, 10) || 1)
+                        )
+                      }
+                    />
+                  </Form.Group>
+                </Col>
+                <Col md={2}>
+                  <Button
+                    variant="outline-danger"
+                    size="sm"
+                    onClick={() => removeInstallation(inst.id)}
+                  >
+                    Remove
+                  </Button>
+                </Col>
+              </Row>
+            </Card.Body>
+          </Card>
+        ))}
+
         <Button variant="outline-primary" onClick={addInstallation}>
-          + Add Installation Period
+          + Add Installation
         </Button>
       </Modal.Body>
-
       <Modal.Footer>
         <Button variant="secondary" onClick={handleClose}>
           Cancel

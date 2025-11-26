@@ -28,6 +28,7 @@ import React from "react";
 import Card from "react-bootstrap/Card";
 import DiagramLegend from "./DiagramLegend";
 import EditInstalledComponent from "./EditInstalledComponent";
+import EntityTypeLegend from "./EntityTypeLegend";
 
 const beforeUnloadHandler = (ev: BeforeUnloadEvent) => {
   ev.returnValue = "";
@@ -301,6 +302,8 @@ export default function ActivityDiagramWrap() {
       <Container fluid>
         <Row>
           <Col xs="auto">
+            {/* Entity Type Legend above Activity Legend */}
+            <EntityTypeLegend />
             <DiagramLegend
               activities={activitiesInView}
               activityColors={config.presentation.activity.fill}

@@ -251,6 +251,27 @@ export function drawIndividuals(ctx: DrawContext) {
   return svgElement;
 }
 
+// Helper function to get icon for entity type
+function getEntityIcon(ind: Individual): string {
+  const entityType = ind.entityType ?? EntityType.Individual;
+
+  if (isInstallationRef(ind)) {
+    return "⬡"; // hexagon for installed component reference
+  }
+
+  switch (entityType) {
+    case EntityType.System:
+      return "▣"; // filled square for system
+    case EntityType.SystemComponent:
+      return "◈"; // diamond for system component
+    case EntityType.InstalledComponent:
+      return "⬢"; // hexagon for installed component
+    case EntityType.Individual:
+    default:
+      return "○"; // circle for individual
+  }
+}
+
 export function hoverIndividuals(ctx: DrawContext) {
   const { config, svgElement, tooltip } = ctx;
   svgElement
@@ -393,6 +414,38 @@ export function labelIndividuals(ctx: DrawContext) {
     config.layout.individual.height / 2 +
     config.labels.individual.topMargin;
 
+  // First, draw the icons (monochrome gray)
+  svgElement
+    .selectAll(".individualIcon")
+    .data(individuals.values())
+    .join("text")
+    .attr("class", "individualIcon")
+    .attr("id", (i: Individual) => `ii${i.id}`)
+    .attr("x", (i: Individual) => {
+      const indentLevel = getIndentLevel(i);
+      const indent = indentLevel * 30;
+      return (
+        config.layout.individual.xMargin +
+        config.labels.individual.leftMargin +
+        indent
+      );
+    })
+    .attr("y", (i: Individual, idx: number) => {
+      return (
+        config.layout.individual.topMargin +
+        config.layout.individual.gap +
+        config.layout.individual.height / 2 +
+        config.labels.individual.topMargin +
+        idx * (config.layout.individual.height + config.layout.individual.gap)
+      );
+    })
+    .attr("text-anchor", "start")
+    .attr("font-family", "Arial, sans-serif")
+    .attr("font-size", config.labels.individual.fontSize)
+
+    .text((d: Individual) => getEntityIcon(d));
+
+  // Then, draw the labels (normal text color)
   svgElement
     .selectAll(".individualLabel")
     .data(individuals.values())
@@ -402,11 +455,12 @@ export function labelIndividuals(ctx: DrawContext) {
     .attr("x", (i: Individual) => {
       const indentLevel = getIndentLevel(i);
       const indent = indentLevel * 30;
-      // Labels get indented
+      // Offset by icon width (approximately 16px)
       return (
         config.layout.individual.xMargin +
         config.labels.individual.leftMargin +
-        indent
+        indent +
+        16
       );
     })
     .attr("y", () => {
@@ -417,12 +471,12 @@ export function labelIndividuals(ctx: DrawContext) {
     .attr("text-anchor", "start")
     .attr("font-family", "Roboto, Arial, sans-serif")
     .attr("font-size", config.labels.individual.fontSize)
+    .attr("fill", "#111827") // Dark color for text (normal readable text)
     .text((d: Individual) => {
-      const indentLevel = getIndentLevel(d);
-      const prefix = indentLevel > 0 ? "↳ " : "";
-      let label = prefix + d["name"];
-      if (label.length > config.labels.individual.maxChars) {
-        label = label.substring(0, config.labels.individual.maxChars);
+      let label = d.name;
+      // Account for icon width when checking max chars
+      if (label.length > config.labels.individual.maxChars - 2) {
+        label = label.substring(0, config.labels.individual.maxChars - 2);
         label += "...";
       }
       return label;

@@ -157,7 +157,7 @@ const EditInstalledComponent = (props: Props) => {
                         updateInstallation(inst.id, "targetId", e.target.value)
                       }
                     >
-                      <option value="">-- Select slot --</option>
+                      <option value="">Select Slot</option>
                       {availableSlots.map((slot) => {
                         // Find parent system name
                         let parentName = "";

@@ -492,6 +492,54 @@ const SetIndividual = (props: Props) => {
               </div>
             </Form.Group>
 
+            {/* Entity type selection - NO ICONS */}
+            <Form.Group className="mb-3" controlId="ind-entity-type">
+              <Form.Label>Entity type</Form.Label>
+              <Form.Select
+                value={inputs.entityType ?? EntityType.Individual}
+                onChange={(e) =>
+                  updateInputs("entityType", e.target.value as EntityType)
+                }
+              >
+                <option value={EntityType.Individual}>Individual</option>
+                <option value={EntityType.System}>System</option>
+                <option value={EntityType.SystemComponent}>
+                  System Component (slot/position)
+                </option>
+                <option value={EntityType.InstalledComponent}>
+                  Installed Component (physical object)
+                </option>
+              </Form.Select>
+            </Form.Group>
+
+            {/* Parent – for SystemComponents only */}
+            {(inputs.entityType ?? EntityType.Individual) ===
+              EntityType.SystemComponent && (
+              <Form.Group className="mb-3" controlId="ind-parent-system">
+                <Form.Label>Parent (System or Installed Object)</Form.Label>
+                <Form.Select
+                  value={inputs.parentSystemId ?? ""}
+                  onChange={(e) =>
+                    updateInputs("parentSystemId", e.target.value || undefined)
+                  }
+                >
+                  <option value=""> Select parent </option>
+                  {availableParents.map((p) => {
+                    const type =
+                      (p.entityType ?? EntityType.Individual) ===
+                      EntityType.System
+                        ? "[System]"
+                        : "[Installed]";
+                    return (
+                      <option key={p.id} value={p.id}>
+                        {type} {p.name}
+                      </option>
+                    );
+                  })}
+                </Form.Select>
+              </Form.Group>
+            )}
+
             {/* Description */}
             <Form.Group className="mb-3" controlId="formIndividualDescription">
               <Form.Label>Description</Form.Label>
@@ -525,54 +573,6 @@ const SetIndividual = (props: Props) => {
                 onChange={handleEndsWithParticipant}
               />
             </Form.Group>
-
-            {/* Entity type selection - NO ICONS */}
-            <Form.Group className="mb-3" controlId="ind-entity-type">
-              <Form.Label>Entity type</Form.Label>
-              <Form.Select
-                value={inputs.entityType ?? EntityType.Individual}
-                onChange={(e) =>
-                  updateInputs("entityType", e.target.value as EntityType)
-                }
-              >
-                <option value={EntityType.Individual}>Individual</option>
-                <option value={EntityType.System}>System</option>
-                <option value={EntityType.SystemComponent}>
-                  System Component (slot/position)
-                </option>
-                <option value={EntityType.InstalledComponent}>
-                  Installed Component (physical object)
-                </option>
-              </Form.Select>
-            </Form.Group>
-
-            {/* Parent – for SystemComponents only */}
-            {(inputs.entityType ?? EntityType.Individual) ===
-              EntityType.SystemComponent && (
-              <Form.Group className="mb-3" controlId="ind-parent-system">
-                <Form.Label>Parent (System or Installed Object)</Form.Label>
-                <Form.Select
-                  value={inputs.parentSystemId ?? ""}
-                  onChange={(e) =>
-                    updateInputs("parentSystemId", e.target.value || undefined)
-                  }
-                >
-                  <option value="">-- Select parent --</option>
-                  {availableParents.map((p) => {
-                    const type =
-                      (p.entityType ?? EntityType.Individual) ===
-                      EntityType.System
-                        ? "[System]"
-                        : "[Installed]";
-                    return (
-                      <option key={p.id} value={p.id}>
-                        {type} {p.name}
-                      </option>
-                    );
-                  })}
-                </Form.Select>
-              </Form.Group>
-            )}
 
             {/* Note for InstalledComponents */}
             {(inputs.entityType ?? EntityType.Individual) ===

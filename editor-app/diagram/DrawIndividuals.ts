@@ -71,11 +71,8 @@ export function drawIndividuals(ctx: DrawContext) {
             (x) => x.targetId === slotId
           );
           if (inst) {
-            // Ensure beginning is at least 0
             const instBeginning = Math.max(0, inst.beginning ?? 0);
-
             if (instBeginning < startOfTime) startOfTime = instBeginning;
-
             if (
               inst.ending !== undefined &&
               inst.ending < Model.END_OF_TIME &&
@@ -129,7 +126,6 @@ export function drawIndividuals(ctx: DrawContext) {
     if (isInstallationRef(ind)) {
       const slotId = getSlotId(ind);
       if (slotId) {
-        // Start from the slot and count up
         currentId = slotId;
         while (currentId && !visited.has(currentId)) {
           visited.add(currentId);
@@ -151,7 +147,6 @@ export function drawIndividuals(ctx: DrawContext) {
     if (entityType === EntityType.SystemComponent) {
       currentId = ind.parentSystemId;
     } else {
-      // Individual, System, InstalledComponent (at top level) - no indentation
       return 0;
     }
 
@@ -180,10 +175,10 @@ export function drawIndividuals(ctx: DrawContext) {
     config.layout.individual.topMargin + config.layout.individual.gap;
   for (const i of individuals) {
     // Determine effective beginning/ending for drawing
-    // For installed components, we MUST use the installation period, not the individual's lifetime
     let effectiveBeginning = i.beginning;
     let effectiveEnding = i.ending;
 
+    // For installed components, use installation period
     if (isInstallationRef(i)) {
       const originalId = getOriginalId(i);
       const slotId = getSlotId(i);
@@ -194,14 +189,15 @@ export function drawIndividuals(ctx: DrawContext) {
             (x) => x.targetId === slotId
           );
           if (inst) {
-            // FORCE start to be at least 0
             effectiveBeginning = Math.max(0, inst.beginning ?? 0);
-            effectiveEnding = inst.ending;
+            effectiveEnding = inst.ending ?? Model.END_OF_TIME;
           }
         }
       }
     }
 
+    // Original logic: beginning >= startOfTime means bar starts within view
+    // -1 means "extends before startOfTime" (chevron on left)
     const start = effectiveBeginning >= startOfTime;
     const stop = effectiveEnding <= endOfTime;
 
@@ -293,7 +289,6 @@ export function hoverIndividuals(ctx: DrawContext) {
 function individualTooltip(individual: Individual) {
   let tip = "<strong>Individual</strong>";
 
-  // Check if this is an installation reference
   if (isInstallationRef(individual)) {
     tip = "<strong>Installed Component</strong>";
     tip += "<br/><em>(Installation instance)</em>";
@@ -313,7 +308,6 @@ export function clickIndividuals(
 ) {
   const { config, svgElement, individuals, dataset } = ctx;
   individuals.forEach((i) => {
-    // For installation references, we need to get the original individual
     const actualIndividual = isInstallationRef(i)
       ? dataset.individuals.get(getOriginalId(i))
       : i;
@@ -327,7 +321,7 @@ export function clickIndividuals(
     };
 
     svgElement
-      .select("#i" + i.id.replace(/__/g, "\\$&")) // Escape special chars in selector
+      .select("#i" + i.id.replace(/__/g, "\\$&"))
       .on("click", lclick)
       .on("contextmenu", rclick);
     svgElement
@@ -337,15 +331,15 @@ export function clickIndividuals(
   });
 }
 
+// RESTORED ORIGINAL labelIndividuals - labels always at fixed left margin
 export function labelIndividuals(ctx: DrawContext) {
-  const { config, svgElement, dataset, activities } = ctx;
-  const individuals = ctx.individuals;
+  const { config, svgElement, individuals, dataset } = ctx;
 
   if (config.labels.individual.enabled === false) {
     return;
   }
 
-  // Helper: Get indent level
+  // Helper: Get indent level (for indented labels like system components)
   const getIndentLevel = (ind: Individual): number => {
     let level = 0;
     let currentId: string | undefined = undefined;
@@ -353,7 +347,6 @@ export function labelIndividuals(ctx: DrawContext) {
 
     const entityType = ind.entityType ?? EntityType.Individual;
 
-    // Installation references get indented based on their target slot
     if (isInstallationRef(ind)) {
       const slotId = getSlotId(ind);
       if (slotId) {
@@ -374,7 +367,6 @@ export function labelIndividuals(ctx: DrawContext) {
       return level;
     }
 
-    // SystemComponents get indented
     if (entityType === EntityType.SystemComponent) {
       currentId = ind.parentSystemId;
     } else {
@@ -384,12 +376,9 @@ export function labelIndividuals(ctx: DrawContext) {
     while (currentId && !visited.has(currentId)) {
       visited.add(currentId);
       level++;
-
       const parent = dataset.individuals.get(currentId);
       if (!parent) break;
-
       const parentType = parent.entityType ?? EntityType.Individual;
-
       if (parentType === EntityType.SystemComponent) {
         currentId = parent.parentSystemId;
       } else {
@@ -400,58 +389,6 @@ export function labelIndividuals(ctx: DrawContext) {
     return level;
   };
 
-  // --- Calculate Time Range & Layout (Same as drawIndividuals) ---
-  let startOfTime = Math.min(...activities.map((a) => a.beginning));
-  let endOfTime = Math.max(...activities.map((a) => a.ending));
-
-  for (const ind of individuals) {
-    if (isInstallationRef(ind)) {
-      const originalId = getOriginalId(ind);
-      const slotId = getSlotId(ind);
-      if (originalId && slotId) {
-        const original = dataset.individuals.get(originalId);
-        if (original && original.installations) {
-          const inst = original.installations.find(
-            (x) => x.targetId === slotId
-          );
-          if (inst) {
-            const instBeginning = Math.max(0, inst.beginning ?? 0);
-            if (instBeginning < startOfTime) startOfTime = instBeginning;
-            if (
-              inst.ending !== undefined &&
-              inst.ending < Model.END_OF_TIME &&
-              inst.ending > endOfTime
-            )
-              endOfTime = inst.ending;
-          }
-        }
-      }
-    }
-  }
-
-  let duration = endOfTime - startOfTime;
-  let totalLeftMargin =
-    config.viewPort.x * config.viewPort.zoom -
-    config.layout.individual.xMargin * 2;
-  totalLeftMargin -= config.layout.individual.temporalMargin;
-
-  const individualLabelsEnabled =
-    config.labels.individual.enabled && keepIndividualLabels(individuals);
-  if (individualLabelsEnabled) {
-    totalLeftMargin -= config.layout.individual.textLength;
-  }
-
-  let timeInterval = totalLeftMargin / duration;
-
-  let lhs_x = config.layout.individual.xMargin;
-  lhs_x += config.layout.individual.temporalMargin;
-  if (individualLabelsEnabled) {
-    lhs_x += config.layout.individual.textLength;
-  }
-
-  const chevOff = config.layout.individual.height / 3;
-  // -------------------------------------------------------------
-
   let labels: Label[] = [];
 
   let y =
@@ -461,59 +398,39 @@ export function labelIndividuals(ctx: DrawContext) {
     config.labels.individual.topMargin;
 
   svgElement
-    .selectAll(".individual-label")
-    .data(individuals)
+    .selectAll(".individualLabel")
+    .data(individuals.values())
     .join("text")
-    .attr("class", "individual-label")
-    .attr("id", (i: Individual) => "individual-label-" + i.id)
+    .attr("class", "individualLabel")
+    .attr("id", (i: Individual) => `il${i.id}`)
     .attr("x", (i: Individual) => {
       const indentLevel = getIndentLevel(i);
       const indent = indentLevel * 30;
-
-      // Calculate effective beginning for this individual
-      let effectiveBeginning = i.beginning;
-      if (isInstallationRef(i)) {
-        const originalId = getOriginalId(i);
-        const slotId = getSlotId(i);
-        if (originalId && slotId) {
-          const original = dataset.individuals.get(originalId);
-          if (original && original.installations) {
-            const inst = original.installations.find(
-              (x) => x.targetId === slotId
-            );
-            if (inst) {
-              // FORCE start to be at least 0
-              effectiveBeginning = Math.max(0, inst.beginning ?? 0);
-            }
-          }
-        }
-      }
-
-      const start = effectiveBeginning >= startOfTime;
-
-      // Calculate bar start position (same logic as drawIndividuals)
-      const barX =
-        (start
-          ? lhs_x + timeInterval * (effectiveBeginning - startOfTime)
-          : config.layout.individual.xMargin - chevOff) + indent;
-
-      // If it's a chevron start (start=false), add chevOff to padding so label is inside the flat part
-      const padding = start ? 5 : 5 + chevOff;
-
-      return barX + padding;
-    })
-    .attr("y", (i: Individual, index: number) => {
+      const prefix = indentLevel > 0 ? "↳ " : "";
+      // Labels always at fixed left margin + indent
       return (
-        y +
-        index * (config.layout.individual.height + config.layout.individual.gap)
+        config.layout.individual.xMargin +
+        config.labels.individual.leftMargin +
+        indent
       );
     })
+    .attr("y", () => {
+      const oldY = y;
+      y = y + config.layout.individual.height + config.layout.individual.gap;
+      return oldY;
+    })
+    .attr("text-anchor", "start")
+    .attr("font-family", "Roboto, Arial, sans-serif")
     .attr("font-size", config.labels.individual.fontSize)
-    .attr("fill", config.labels.individual.color)
-    .text((i: Individual) => {
-      const indentLevel = getIndentLevel(i);
+    .text((d: Individual) => {
+      const indentLevel = getIndentLevel(d);
       const prefix = indentLevel > 0 ? "↳ " : "";
-      return `${prefix}${i.name}`;
+      let label = prefix + d["name"];
+      if (label.length > config.labels.individual.maxChars) {
+        label = label.substring(0, config.labels.individual.maxChars);
+        label += "...";
+      }
+      return label;
     })
     .each((d: Individual, i: number, nodes: SVGGraphicsElement[]) => {
       removeLabelIfItOverlaps(labels, nodes[i]);

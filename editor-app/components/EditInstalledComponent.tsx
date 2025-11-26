@@ -197,12 +197,13 @@ const EditInstalledComponent = (props: Props) => {
                       <Form.Label>Installed From (time)</Form.Label>
                       <Form.Control
                         type="number"
+                        min="0"
                         value={inst.beginning}
                         onChange={(e) =>
                           updateInstallation(
                             inst.id,
                             "beginning",
-                            parseInt(e.target.value, 10) || 0
+                            Math.max(0, parseInt(e.target.value, 10) || 0)
                           )
                         }
                       />
@@ -213,12 +214,13 @@ const EditInstalledComponent = (props: Props) => {
                       <Form.Label>Removed At (time)</Form.Label>
                       <Form.Control
                         type="number"
+                        min="1"
                         value={inst.ending}
                         onChange={(e) =>
                           updateInstallation(
                             inst.id,
                             "ending",
-                            parseInt(e.target.value, 10) || 0
+                            Math.max(1, parseInt(e.target.value, 10) || 1)
                           )
                         }
                       />

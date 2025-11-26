@@ -122,6 +122,14 @@ export function drawParticipations(ctx: DrawContext) {
       : 0);
 
   // Prepare parts with extra metadata for layout
+  // Replace the parts construction with this safer version
+  const getParticipationArray = (a: Activity): Participation[] => {
+    if (!a.participations) return [];
+    if (a.participations instanceof Map)
+      return Array.from(a.participations.values());
+    return a.participations as Participation[];
+  };
+
   const parts: {
     activity: Activity;
     participation: Participation;
@@ -130,10 +138,28 @@ export function drawParticipations(ctx: DrawContext) {
     totalLanes?: number;
   }[] = [];
 
+  // Build parts but skip any participation whose individual row is missing
+  // or which has no visible interval after cropping to installation window.
   activities.forEach((a, idx) => {
-    (a.participations || []).forEach((p: Participation) =>
-      parts.push({ activity: a, participation: p, activityIndex: idx })
-    );
+    const pa = getParticipationArray(a);
+    pa.forEach((p) => {
+      // ensure the individual's row element exists
+      const indNode = svgElement
+        .select("#i" + CSS.escape(p.individualId))
+        .node();
+      if (!indNode) return; // skip orphaned participation
+
+      // ensure there's a visible interval (after cropping for installations)
+      const vis = getVisibleInterval(
+        a.beginning,
+        a.ending,
+        p.individualId,
+        dataset
+      );
+      if (vis.end <= vis.start) return; // fully outside -> skip
+
+      parts.push({ activity: a, participation: p, activityIndex: idx });
+    });
   });
 
   // --- Overlap Detection & Lane Assignment ---

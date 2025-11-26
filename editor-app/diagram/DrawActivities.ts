@@ -70,9 +70,28 @@ export function drawActivities(ctx: DrawContext) {
     x += config.layout.individual.textLength;
   }
 
+  // Filter out activities that have no valid participations (orphaned activities)
+  const getParticipationArray = (a: Activity): Participation[] => {
+    if (!a.participations) return [];
+    // support both Map and Array storage
+    if (a.participations instanceof Map) {
+      return Array.from(a.participations.values());
+    }
+    return a.participations as Participation[];
+  };
+
+  const validActivities = Array.from(activities.values()).filter((a) => {
+    const parts = getParticipationArray(a);
+    if (!parts || parts.length === 0) return false;
+    return parts.some((p) => {
+      const node = svgElement.select("#i" + CSS.escape(p.individualId)).node();
+      return node !== null;
+    });
+  });
+
   svgElement
     .selectAll(".activity")
-    .data(activities.values())
+    .data(validActivities)
     .join("rect")
     .attr("class", "activity")
     .attr("id", (a: Activity) => "a" + a["id"])

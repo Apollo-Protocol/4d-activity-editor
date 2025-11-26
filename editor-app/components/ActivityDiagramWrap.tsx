@@ -208,46 +208,66 @@ export default function ActivityDiagramWrap() {
       }
     };
 
-    // Start with top-level items
-    const topLevel = individualsArray.filter((ind) => {
+    // Separate entities into groups
+    const systems: Individual[] = [];
+    const installedComponents: Individual[] = [];
+    const regularIndividuals: Individual[] = [];
+    const orphanedSystemComponents: Individual[] = [];
+
+    individualsArray.forEach((ind) => {
       const entityType = ind.entityType ?? EntityType.Individual;
 
-      // Systems are always top-level
-      if (entityType === EntityType.System) return true;
-
-      // Regular individuals are top-level
-      if (entityType === EntityType.Individual) return true;
-
-      // InstalledComponents are top-level (physical objects exist independently)
-      if (entityType === EntityType.InstalledComponent) return true;
-
-      // SystemComponents without a valid parent are top-level (orphans)
-      if (entityType === EntityType.SystemComponent) {
-        if (!ind.parentSystemId) return true;
-        const parentExists = individualsArray.some(
-          (i) => i.id === ind.parentSystemId
-        );
-        return !parentExists;
+      if (entityType === EntityType.System) {
+        systems.push(ind);
+      } else if (entityType === EntityType.InstalledComponent) {
+        installedComponents.push(ind);
+      } else if (entityType === EntityType.SystemComponent) {
+        // SystemComponents without a valid parent are orphans (show at top level)
+        if (!ind.parentSystemId) {
+          orphanedSystemComponents.push(ind);
+        } else {
+          const parentExists = individualsArray.some(
+            (i) => i.id === ind.parentSystemId
+          );
+          if (!parentExists) {
+            orphanedSystemComponents.push(ind);
+          }
+          // Otherwise, they will be added as children of their parent
+        }
+      } else if (entityType === EntityType.Individual) {
+        regularIndividuals.push(ind);
       }
-
-      return false;
     });
 
-    // Sort top-level: Systems first, then InstalledComponents, then Individuals
-    topLevel
-      .sort((a, b) => {
-        const aType = a.entityType ?? EntityType.Individual;
-        const bType = b.entityType ?? EntityType.Individual;
+    // 1. Add Systems first (with their nested SystemComponents and InstalledComponents)
+    systems
+      .sort((a, b) => a.name.localeCompare(b.name))
+      .forEach((sys) => addWithDescendants(sys));
 
-        // Systems first
-        if (aType === EntityType.System && bType !== EntityType.System)
-          return -1;
-        if (aType !== EntityType.System && bType === EntityType.System)
-          return 1;
+    // 2. Add orphaned SystemComponents (if any)
+    orphanedSystemComponents
+      .sort((a, b) => a.name.localeCompare(b.name))
+      .forEach((sc) => addWithDescendants(sc));
 
-        return a.name.localeCompare(b.name);
-      })
-      .forEach((ind) => addWithDescendants(ind));
+    // 3. Add InstalledComponents (physical objects shown at top level)
+    installedComponents
+      .sort((a, b) => a.name.localeCompare(b.name))
+      .forEach((ic) => {
+        if (!visited.has(ic.id)) {
+          visited.add(ic.id);
+          result.push(ic);
+        }
+      });
+
+    // 4. Add regular Individuals last (sorted alphabetically)
+    regularIndividuals
+      .sort((a, b) => a.name.localeCompare(b.name))
+      .forEach((ind) => {
+        if (!visited.has(ind.id)) {
+          visited.add(ind.id);
+          result.push(ind);
+        }
+      });
 
     return result;
   }, [individualsArray]);

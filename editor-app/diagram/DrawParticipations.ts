@@ -10,16 +10,26 @@ function isInstallationRefId(id: string): boolean {
   return id.includes("__installed_in__");
 }
 
+// Updated to handle new format: componentId__installed_in__slotId__installationId
 function getOriginalAndSlot(
   id: string
-): { originalId: string; slotId: string } | null {
+): { originalId: string; slotId: string; installationId?: string } | null {
   if (!isInstallationRefId(id)) return null;
   const parts = id.split("__installed_in__");
   if (parts.length !== 2) return null;
-  return { originalId: parts[0], slotId: parts[1] };
+
+  const originalId = parts[0];
+  const rest = parts[1];
+
+  // rest could be "slotId" (old format) or "slotId__installationId" (new format)
+  const restParts = rest.split("__");
+  const slotId = restParts[0];
+  const installationId = restParts.length > 1 ? restParts[1] : undefined;
+
+  return { originalId, slotId, installationId };
 }
 
-// Add this helper function to get visible interval for a participation
+// Updated to use installation ID when available for precise matching
 function getVisibleInterval(
   activityStart: number,
   activityEnd: number,
@@ -38,15 +48,23 @@ function getVisibleInterval(
     return { start: activityStart, end: activityEnd };
   }
 
-  const inst = original.installations.find(
-    (i: any) => i.targetId === ref.slotId
-  );
+  // Find the specific installation - prefer by ID if available, otherwise by slot
+  let inst;
+  if (ref.installationId) {
+    inst = original.installations.find((i: any) => i.id === ref.installationId);
+  }
+
+  // Fallback to slot-based lookup if no installation ID or not found
+  if (!inst) {
+    inst = original.installations.find((i: any) => i.targetId === ref.slotId);
+  }
+
   if (!inst) {
     return { start: activityStart, end: activityEnd };
   }
 
   const instStart = Math.max(0, inst.beginning ?? 0);
-  const instEnd = inst.ending;
+  const instEnd = inst.ending ?? Model.END_OF_TIME;
 
   // Compute overlap
   const visibleStart = Math.max(activityStart, instStart);
@@ -67,15 +85,23 @@ export function drawParticipations(ctx: DrawContext) {
   if (individuals) {
     individuals.forEach((ind) => {
       if (ind.id.includes("__installed_in__")) {
-        const parts = ind.id.split("__installed_in__");
-        if (parts.length === 2) {
-          const originalId = parts[0];
-          const slotId = parts[1];
-          const original = dataset.individuals.get(originalId);
+        const ref = getOriginalAndSlot(ind.id);
+        if (ref) {
+          const original = dataset.individuals.get(ref.originalId);
           if (original && original.installations) {
-            const inst = original.installations.find(
-              (x) => x.targetId === slotId
-            );
+            // Find the specific installation
+            let inst;
+            if (ref.installationId) {
+              inst = original.installations.find(
+                (x: any) => x.id === ref.installationId
+              );
+            }
+            if (!inst) {
+              inst = original.installations.find(
+                (x: any) => x.targetId === ref.slotId
+              );
+            }
+
             if (inst) {
               // Ensure beginning is at least 0
               const instBeginning = Math.max(0, inst.beginning ?? 0);
@@ -242,10 +268,10 @@ export function drawParticipations(ctx: DrawContext) {
     })
     .attr("y", (d: any) => {
       const node = svgElement
-        .select("#i" + d.participation.individualId)
+        .select("#i" + CSS.escape(d.participation.individualId))
         .node();
       if (!node) return 0;
-      const box = node.getBBox();
+      const box = (node as SVGGraphicsElement).getBBox();
 
       const totalLanes = d.totalLanes || 1;
       const laneIndex = d.lane || 0;

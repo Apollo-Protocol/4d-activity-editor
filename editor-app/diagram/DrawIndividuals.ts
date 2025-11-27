@@ -18,6 +18,7 @@ interface Layout {
   h: number;
   start: boolean;
   stop: boolean;
+  nestingLevel: number;
 }
 
 // Helper to check if this is an "installation reference" (virtual row)
@@ -39,6 +40,83 @@ function getSlotId(ind: Individual): string | undefined {
     return ind.id.split("__installed_in__")[1];
   }
   return undefined;
+}
+
+// Helper function to get icon for entity type
+function getEntityIcon(ind: Individual): string {
+  const entityType = ind.entityType ?? EntityType.Individual;
+
+  if (isInstallationRef(ind)) {
+    return "⬡"; // hexagon for installed component reference
+  }
+
+  switch (entityType) {
+    case EntityType.System:
+      return "▣"; // filled square for system
+    case EntityType.SystemComponent:
+      return "◈"; // diamond for system component
+    case EntityType.InstalledComponent:
+      return "⬢"; // hexagon for installed component
+    case EntityType.Individual:
+    default:
+      return "○"; // circle for individual
+  }
+}
+
+// Calculate nesting level for visual gap
+function getNestingLevel(ind: Individual, dataset: Model): number {
+  let level = 0;
+  let currentId: string | undefined = undefined;
+  const visited = new Set<string>();
+
+  const entityType = ind.entityType ?? EntityType.Individual;
+
+  // Installation references get nested based on their target slot
+  if (isInstallationRef(ind)) {
+    const slotId = getSlotId(ind);
+    if (slotId) {
+      currentId = slotId;
+      while (currentId && !visited.has(currentId)) {
+        visited.add(currentId);
+        level++;
+        const parent = dataset.individuals.get(currentId);
+        if (!parent) break;
+        const parentType = parent.entityType ?? EntityType.Individual;
+        if (parentType === EntityType.SystemComponent) {
+          currentId = parent.parentSystemId;
+        } else {
+          break;
+        }
+      }
+    }
+    return level;
+  }
+
+  // SystemComponents get nested based on parentSystemId
+  if (entityType === EntityType.SystemComponent) {
+    currentId = ind.parentSystemId;
+  } else {
+    return 0;
+  }
+
+  // Walk up the parent chain
+  while (currentId && !visited.has(currentId)) {
+    visited.add(currentId);
+    level++;
+
+    const parent = dataset.individuals.get(currentId);
+    if (!parent) break;
+
+    const parentType = parent.entityType ?? EntityType.Individual;
+
+    if (parentType === EntityType.SystemComponent) {
+      currentId = parent.parentSystemId;
+    } else {
+      break; // Systems don't have parents
+    }
+  }
+
+  return level;
 }
 
 export function drawIndividuals(ctx: DrawContext) {
@@ -114,63 +192,6 @@ export function drawIndividuals(ctx: DrawContext) {
 
   const layout = new Map<string, Layout>();
 
-  // Helper: Calculate indentation level based on parent chain
-  // This is ONLY used for labels, NOT for bar positioning
-  const getIndentLevel = (ind: Individual): number => {
-    let level = 0;
-    let currentId: string | undefined = undefined;
-    const visited = new Set<string>();
-
-    const entityType = ind.entityType ?? EntityType.Individual;
-
-    // Installation references get indented based on their target slot
-    if (isInstallationRef(ind)) {
-      const slotId = getSlotId(ind);
-      if (slotId) {
-        currentId = slotId;
-        while (currentId && !visited.has(currentId)) {
-          visited.add(currentId);
-          level++;
-          const parent = dataset.individuals.get(currentId);
-          if (!parent) break;
-          const parentType = parent.entityType ?? EntityType.Individual;
-          if (parentType === EntityType.SystemComponent) {
-            currentId = parent.parentSystemId;
-          } else {
-            break;
-          }
-        }
-      }
-      return level;
-    }
-
-    // SystemComponents get indented based on parentSystemId
-    if (entityType === EntityType.SystemComponent) {
-      currentId = ind.parentSystemId;
-    } else {
-      return 0;
-    }
-
-    // Walk up the parent chain
-    while (currentId && !visited.has(currentId)) {
-      visited.add(currentId);
-      level++;
-
-      const parent = dataset.individuals.get(currentId);
-      if (!parent) break;
-
-      const parentType = parent.entityType ?? EntityType.Individual;
-
-      if (parentType === EntityType.SystemComponent) {
-        currentId = parent.parentSystemId;
-      } else {
-        break; // Systems don't have parents
-      }
-    }
-
-    return level;
-  };
-
   /* Layout calculation */
   let next_y =
     config.layout.individual.topMargin + config.layout.individual.gap;
@@ -179,7 +200,35 @@ export function drawIndividuals(ctx: DrawContext) {
     let effectiveBeginning = i.beginning;
     let effectiveEnding = i.ending;
 
-    // For installed components, use installation period
+    const entityType = i.entityType ?? EntityType.Individual;
+
+    // For SystemComponents, inherit time from parent System if beginning is < 0
+    if (entityType === EntityType.SystemComponent) {
+      if (effectiveBeginning < 0 && i.parentSystemId) {
+        const parentSystem = dataset.individuals.get(i.parentSystemId);
+        if (parentSystem) {
+          // Use parent's beginning, or startOfTime if parent also extends before
+          effectiveBeginning =
+            parentSystem.beginning >= 0 ? parentSystem.beginning : startOfTime;
+        } else {
+          // No parent found, use startOfTime
+          effectiveBeginning = startOfTime;
+        }
+      } else if (effectiveBeginning < 0) {
+        // No parent, use startOfTime
+        effectiveBeginning = startOfTime;
+      }
+
+      // Same for ending
+      if (effectiveEnding >= Model.END_OF_TIME && i.parentSystemId) {
+        const parentSystem = dataset.individuals.get(i.parentSystemId);
+        if (parentSystem && parentSystem.ending < Model.END_OF_TIME) {
+          effectiveEnding = parentSystem.ending;
+        }
+      }
+    }
+
+    // For installed components (installation references), use installation period
     if (isInstallationRef(i)) {
       const originalId = getOriginalId(i);
       const slotId = getSlotId(i);
@@ -197,35 +246,58 @@ export function drawIndividuals(ctx: DrawContext) {
       }
     }
 
-    // Original logic: beginning >= startOfTime means bar starts within view
-    // -1 means "extends before startOfTime" (chevron on left)
+    // Calculate nesting level (kept for reference but NOT used to modify time)
+    const nestingLevel = getNestingLevel(i, dataset);
+
+    // DO NOT modify effectiveBeginning for nesting
+    // All rectangles start at their actual time position
+    // Nesting is shown visually by the row order and icons only
+
+    // start = true means flat left edge (begins within view)
+    // start = false means left chevron (extends before view)
     const start = effectiveBeginning >= startOfTime;
     const stop = effectiveEnding <= endOfTime;
 
-    // NO indent for bars - bars always align with their time position
-    // Indent is ONLY for labels
-    const x = start
-      ? lhs_x + timeInterval * (effectiveBeginning - startOfTime)
-      : config.layout.individual.xMargin - chevOff;
+    // Calculate x position based on time (all items aligned to timeline)
+    let x: number;
+    if (start) {
+      // Starts within view - position based on time
+      x = lhs_x + timeInterval * (effectiveBeginning - startOfTime);
+    } else {
+      // Extends before view - chevron on left
+      x = config.layout.individual.xMargin - chevOff;
+    }
 
     const y = next_y;
     next_y = y + config.layout.individual.height + config.layout.individual.gap;
 
-    const w =
-      !start && !stop
-        ? fullWidth
-        : start && !stop
-        ? (endOfTime - effectiveBeginning) * timeInterval +
-          config.layout.individual.temporalMargin
-        : !start && stop
-        ? fullWidth -
-          (endOfTime - effectiveEnding) * timeInterval -
-          config.layout.individual.temporalMargin
-        : (effectiveEnding - effectiveBeginning) * timeInterval;
+    // Calculate width based on time
+    let w: number;
+    if (!start && !stop) {
+      // Extends both directions
+      w = fullWidth;
+    } else if (start && !stop) {
+      // Has start, extends to end
+      w =
+        (endOfTime - effectiveBeginning) * timeInterval +
+        config.layout.individual.temporalMargin;
+    } else if (!start && stop) {
+      // Extends before, has end
+      w =
+        fullWidth -
+        (endOfTime - effectiveEnding) * timeInterval -
+        config.layout.individual.temporalMargin;
+    } else {
+      // Has both start and end
+      w = (effectiveEnding - effectiveBeginning) * timeInterval;
+    }
+
+    // Ensure minimum width
+    if (w < 20) w = 20;
 
     const h = config.layout.individual.height;
 
-    layout.set(i.id, { x, y, w, h, start, stop });
+    layout.set(i.id, { x, y, w, h, start, stop, nestingLevel });
   }
 
   svgElement
@@ -249,27 +321,6 @@ export function drawIndividuals(ctx: DrawContext) {
     .attr("fill", config.presentation.individual.fill);
 
   return svgElement;
-}
-
-// Helper function to get icon for entity type
-function getEntityIcon(ind: Individual): string {
-  const entityType = ind.entityType ?? EntityType.Individual;
-
-  if (isInstallationRef(ind)) {
-    return "⬡"; // hexagon for installed component reference
-  }
-
-  switch (entityType) {
-    case EntityType.System:
-      return "▣"; // filled square for system
-    case EntityType.SystemComponent:
-      return "◈"; // diamond for system component
-    case EntityType.InstalledComponent:
-      return "⬢"; // hexagon for installed component
-    case EntityType.Individual:
-    default:
-      return "○"; // circle for individual
-  }
 }
 
 export function hoverIndividuals(ctx: DrawContext) {
@@ -348,63 +399,13 @@ export function clickIndividuals(
   });
 }
 
-// Labels get indented, bars do not
+// Labels all aligned to the left (no indent), icons show the type
 export function labelIndividuals(ctx: DrawContext) {
   const { config, svgElement, individuals, dataset } = ctx;
 
   if (config.labels.individual.enabled === false) {
     return;
   }
-
-  // Helper: Get indent level (for indented labels like system components)
-  const getIndentLevel = (ind: Individual): number => {
-    let level = 0;
-    let currentId: string | undefined = undefined;
-    const visited = new Set<string>();
-
-    const entityType = ind.entityType ?? EntityType.Individual;
-
-    if (isInstallationRef(ind)) {
-      const slotId = getSlotId(ind);
-      if (slotId) {
-        currentId = slotId;
-        while (currentId && !visited.has(currentId)) {
-          visited.add(currentId);
-          level++;
-          const parent = dataset.individuals.get(currentId);
-          if (!parent) break;
-          const parentType = parent.entityType ?? EntityType.Individual;
-          if (parentType === EntityType.SystemComponent) {
-            currentId = parent.parentSystemId;
-          } else {
-            break;
-          }
-        }
-      }
-      return level;
-    }
-
-    if (entityType === EntityType.SystemComponent) {
-      currentId = ind.parentSystemId;
-    } else {
-      return 0;
-    }
-
-    while (currentId && !visited.has(currentId)) {
-      visited.add(currentId);
-      level++;
-      const parent = dataset.individuals.get(currentId);
-      if (!parent) break;
-      const parentType = parent.entityType ?? EntityType.Individual;
-      if (parentType === EntityType.SystemComponent) {
-        currentId = parent.parentSystemId;
-      } else {
-        break;
-      }
-    }
-
-    return level;
-  };
 
   let labels: Label[] = [];
 
@@ -414,22 +415,17 @@ export function labelIndividuals(ctx: DrawContext) {
     config.layout.individual.height / 2 +
     config.labels.individual.topMargin;
 
-  // First, draw the icons (monochrome gray)
+  // Draw icons (all aligned left - no indent)
   svgElement
     .selectAll(".individualIcon")
     .data(individuals.values())
     .join("text")
     .attr("class", "individualIcon")
     .attr("id", (i: Individual) => `ii${i.id}`)
-    .attr("x", (i: Individual) => {
-      const indentLevel = getIndentLevel(i);
-      const indent = indentLevel * 30;
-      return (
-        config.layout.individual.xMargin +
-        config.labels.individual.leftMargin +
-        indent
-      );
-    })
+    .attr(
+      "x",
+      config.layout.individual.xMargin + config.labels.individual.leftMargin
+    )
     .attr("y", (i: Individual, idx: number) => {
       return (
         config.layout.individual.topMargin +
@@ -442,27 +438,22 @@ export function labelIndividuals(ctx: DrawContext) {
     .attr("text-anchor", "start")
     .attr("font-family", "Arial, sans-serif")
     .attr("font-size", config.labels.individual.fontSize)
-
+    .attr("fill", "#374151") // Dark gray for icons
     .text((d: Individual) => getEntityIcon(d));
 
-  // Then, draw the labels (normal text color)
+  // Draw labels (all aligned left after icon - no indent)
   svgElement
     .selectAll(".individualLabel")
     .data(individuals.values())
     .join("text")
     .attr("class", "individualLabel")
     .attr("id", (i: Individual) => `il${i.id}`)
-    .attr("x", (i: Individual) => {
-      const indentLevel = getIndentLevel(i);
-      const indent = indentLevel * 30;
-      // Offset by icon width (approximately 16px)
-      return (
-        config.layout.individual.xMargin +
+    .attr(
+      "x",
+      config.layout.individual.xMargin +
         config.labels.individual.leftMargin +
-        indent +
         16
-      );
-    })
+    )
     .attr("y", () => {
       const oldY = y;
       y = y + config.layout.individual.height + config.layout.individual.gap;
@@ -471,10 +462,9 @@ export function labelIndividuals(ctx: DrawContext) {
     .attr("text-anchor", "start")
     .attr("font-family", "Roboto, Arial, sans-serif")
     .attr("font-size", config.labels.individual.fontSize)
-    .attr("fill", "#111827") // Dark color for text (normal readable text)
+    .attr("fill", "#111827") // Dark color for text
     .text((d: Individual) => {
       let label = d.name;
-      // Account for icon width when checking max chars
       if (label.length > config.labels.individual.maxChars - 2) {
         label = label.substring(0, config.labels.individual.maxChars - 2);
         label += "...";

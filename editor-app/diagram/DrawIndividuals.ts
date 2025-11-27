@@ -29,6 +29,7 @@ function isInstallationRef(ind: Individual): boolean {
 // Get the original ID from an installation reference
 function getOriginalId(ind: Individual): string {
   if (isInstallationRef(ind)) {
+    // Format: componentId__installed_in__slotId__installationId
     return ind.id.split("__installed_in__")[0];
   }
   return ind.id;
@@ -37,9 +38,29 @@ function getOriginalId(ind: Individual): string {
 // Get the slot ID from an installation reference
 function getSlotId(ind: Individual): string | undefined {
   if (isInstallationRef(ind)) {
-    return ind.id.split("__installed_in__")[1];
+    // Format: componentId__installed_in__slotId__installationId
+    const parts = ind.id.split("__installed_in__")[1];
+    if (parts) {
+      // Split by __ to get slotId (first part) and installationId (second part)
+      const subParts = parts.split("__");
+      return subParts[0];
+    }
   }
   return undefined;
+}
+
+// Get the installation ID from an installation reference
+function getInstallationId(ind: Individual): string | undefined {
+  if (isInstallationRef(ind)) {
+    // Format: componentId__installed_in__slotId__installationId
+    const parts = ind.id.split("__installed_in__")[1];
+    if (parts) {
+      const subParts = parts.split("__");
+      return subParts[1]; // installationId is after slotId
+    }
+  }
+  // Also check the _installationId field
+  return ind._installationId;
 }
 
 // Helper function to get icon for entity type
@@ -146,10 +167,12 @@ export function drawIndividuals(ctx: DrawContext) {
       if (originalId && slotId) {
         const original = dataset.individuals.get(originalId);
         if (original && original.installations) {
-          const inst = original.installations.find(
+          // Get ALL installations for this component in this slot
+          const installationsForSlot = original.installations.filter(
             (x) => x.targetId === slotId
           );
-          if (inst) {
+
+          for (const inst of installationsForSlot) {
             const instBeginning = Math.max(0, inst.beginning ?? 0);
             if (instBeginning < startOfTime) startOfTime = instBeginning;
             if (
@@ -225,19 +248,32 @@ export function drawIndividuals(ctx: DrawContext) {
       }
     }
 
-    // For installed components (installation references), use installation period
+    // For installed components (installation references), use THIS installation's period
     if (isInstallationRef(i)) {
-      const originalId = getOriginalId(i);
-      const slotId = getSlotId(i);
-      if (originalId && slotId) {
-        const original = dataset.individuals.get(originalId);
-        if (original && original.installations) {
-          const inst = original.installations.find(
-            (x) => x.targetId === slotId
-          );
-          if (inst) {
-            effectiveBeginning = Math.max(0, inst.beginning ?? 0);
-            effectiveEnding = inst.ending ?? Model.END_OF_TIME;
+      // The virtual row already has the correct beginning/ending set from ActivityDiagramWrap
+      // Just use them directly
+      effectiveBeginning = i.beginning >= 0 ? i.beginning : 0;
+      effectiveEnding =
+        i.ending < Model.END_OF_TIME ? i.ending : Model.END_OF_TIME;
+
+      // Fallback: try to get from original if the virtual row doesn't have valid values
+      if (effectiveBeginning < 0 || effectiveEnding >= Model.END_OF_TIME) {
+        const originalId = getOriginalId(i);
+        const slotId = getSlotId(i);
+        const installationId = getInstallationId(i);
+
+        if (originalId && slotId) {
+          const original = dataset.individuals.get(originalId);
+          if (original && original.installations) {
+            // Find THIS specific installation by ID if available
+            let installation = installationId
+              ? original.installations.find((x) => x.id === installationId)
+              : original.installations.find((x) => x.targetId === slotId);
+
+            if (installation) {
+              effectiveBeginning = Math.max(0, installation.beginning ?? 0);
+              effectiveEnding = installation.ending ?? Model.END_OF_TIME;
+            }
           }
         }
       }
@@ -399,16 +435,21 @@ export function clickIndividuals(
 ) {
   const { config, svgElement, individuals, dataset } = ctx;
   individuals.forEach((i) => {
-    const actualIndividual = isInstallationRef(i)
-      ? dataset.individuals.get(getOriginalId(i))
-      : i;
+    // For installation references, pass the virtual individual (with composite ID)
+    // so the click handler can extract the slot ID
+    // For regular individuals, pass as-is
+    const individualToPass = i;
 
-    if (!actualIndividual) return;
-
-    const lclick = (e: MouseEvent) => clickIndividual(actualIndividual);
+    const lclick = (e: MouseEvent) => clickIndividual(individualToPass);
     const rclick = (e: MouseEvent) => {
       e.preventDefault();
-      rightClickIndividual(actualIndividual);
+      // For right-click, we might want the actual individual for editing
+      const actualIndividual = isInstallationRef(i)
+        ? dataset.individuals.get(getOriginalId(i))
+        : i;
+      if (actualIndividual) {
+        rightClickIndividual(actualIndividual);
+      }
     };
 
     svgElement

@@ -8,6 +8,7 @@ import type {
   Maybe,
   Participation,
 } from "./Schema.js";
+import { EntityType } from "./Schema";
 import { EPOCH_END } from "./ActivityLib";
 
 /**
@@ -603,5 +604,100 @@ export class Model {
       activitiesToDelete.forEach((aid) => this.activities.delete(aid));
     }
     this.installations.delete(id);
+  }
+
+  getDisplayIndividuals(): Individual[] {
+    const result: Individual[] = [];
+    const processedSystems = new Set<string>();
+    const addedVirtualIds = new Set<string>(); // Track virtual rows we've already added
+
+    // Helper to add an individual and its nested items
+    const addWithNested = (ind: Individual) => {
+      const entityType = ind.entityType ?? EntityType.Individual;
+
+      // Don't add InstalledComponents at top level - they only appear as virtual rows under slots
+      if (entityType === EntityType.InstalledComponent) {
+        return;
+      }
+
+      result.push(ind);
+
+      // If this is a System, add its SystemComponents
+      if (entityType === EntityType.System) {
+        processedSystems.add(ind.id);
+
+        // Find all SystemComponents that belong to this System
+        this.individuals.forEach((child) => {
+          if (
+            (child.entityType ?? EntityType.Individual) ===
+              EntityType.SystemComponent &&
+            child.parentSystemId === ind.id
+          ) {
+            result.push(child);
+
+            // For each SystemComponent (slot), find InstalledComponents
+            this.individuals.forEach((installedComp) => {
+              if (
+                (installedComp.entityType ?? EntityType.Individual) ===
+                EntityType.InstalledComponent
+              ) {
+                // Check if this InstalledComponent has installations in this slot
+                const installations = installedComp.installations || [];
+                const installationsInSlot = installations.filter(
+                  (inst) => inst.targetId === child.id
+                );
+
+                // Create a SEPARATE virtual row for EACH installation period
+                installationsInSlot.forEach((inst) => {
+                  const virtualId = `${installedComp.id}__installed_in__${child.id}__${inst.id}`;
+
+                  // Skip if already added
+                  if (addedVirtualIds.has(virtualId)) return;
+                  addedVirtualIds.add(virtualId);
+
+                  const virtualIndividual: Individual = {
+                    ...installedComp,
+                    id: virtualId,
+                    name: installedComp.name,
+                    beginning: inst.beginning ?? 0,
+                    ending: inst.ending ?? Model.END_OF_TIME,
+                    // Store the installation ID for reference
+                    _installationId: inst.id,
+                  };
+                  result.push(virtualIndividual);
+                });
+              }
+            });
+          }
+        });
+      }
+    };
+
+    // First, add Systems and their nested items (including virtual installation rows)
+    this.individuals.forEach((ind) => {
+      if ((ind.entityType ?? EntityType.Individual) === EntityType.System) {
+        addWithNested(ind);
+      }
+    });
+
+    // Then add remaining individuals that are NOT:
+    // - Systems (already processed)
+    // - SystemComponents (added under their parent System)
+    // - InstalledComponents (only shown as virtual rows under slots)
+    this.individuals.forEach((ind) => {
+      const entityType = ind.entityType ?? EntityType.Individual;
+      if (
+        entityType !== EntityType.System &&
+        entityType !== EntityType.SystemComponent &&
+        entityType !== EntityType.InstalledComponent
+      ) {
+        // Only add if not already in result
+        if (!result.find((r) => r.id === ind.id)) {
+          result.push(ind);
+        }
+      }
+    });
+
+    return result;
   }
 }

@@ -18,45 +18,34 @@ function getOriginalId(ind: Individual): string {
 // Get the slot ID from an installation reference
 function getSlotId(ind: Individual): string | undefined {
   if (isInstallationRef(ind)) {
-    return ind.id.split("__installed_in__")[1];
+    const parts = ind.id.split("__installed_in__")[1];
+    if (parts) {
+      const subParts = parts.split("__");
+      return subParts[0];
+    }
   }
   return undefined;
 }
 
-// Type for installation draw data
-interface InstallationDrawData {
-  ind: Individual;
-  inst: Installation;
-  refId: string;
-  originalComponent: Individual;
+// Get the installation ID from an installation reference
+function getInstallationId(ind: Individual): string | undefined {
+  if (isInstallationRef(ind)) {
+    const parts = ind.id.split("__installed_in__")[1];
+    if (parts) {
+      const subParts = parts.split("__");
+      return subParts[1];
+    }
+  }
+  return ind._installationId;
 }
 
 export function drawInstallations(ctx: DrawContext) {
-  const { svgElement, individuals, activities, config, dataset } = ctx;
+  const { svgElement, individuals, config, dataset } = ctx;
 
   if (!individuals || individuals.length === 0) return;
-  if (!activities || activities.length === 0) return;
 
-  // Collect installations ONLY for installation reference rows
-  const installationData: InstallationDrawData[] = [];
-
-  individuals.forEach((ind) => {
-    if (!isInstallationRef(ind)) return;
-    const originalId = getOriginalId(ind);
-    const slotId = getSlotId(ind);
-    if (!slotId) return;
-    const originalComponent = dataset.individuals.get(originalId);
-    if (!originalComponent) return;
-
-    const relevant = (originalComponent.installations || []).filter(
-      (inst) => inst.targetId === slotId
-    );
-    relevant.forEach((inst) =>
-      installationData.push({ ind, inst, refId: ind.id, originalComponent })
-    );
-  });
-
-  if (installationData.length === 0) return;
+  // Remove existing installation hatches
+  svgElement.selectAll(".installation-period").remove();
 
   // Create or get the defs element for patterns
   let defs = svgElement.select("defs");
@@ -74,7 +63,6 @@ export function drawInstallations(ctx: DrawContext) {
       .attr("height", 8)
       .attr("patternTransform", "rotate(45)");
 
-    // Background
     pattern
       .append("rect")
       .attr("width", 8)
@@ -82,7 +70,6 @@ export function drawInstallations(ctx: DrawContext) {
       .attr("fill", "white")
       .attr("fill-opacity", 0.3);
 
-    // Diagonal lines
     pattern
       .append("line")
       .attr("x1", 0)
@@ -93,30 +80,27 @@ export function drawInstallations(ctx: DrawContext) {
       .attr("stroke-width", 1.5);
   }
 
-  // Draw hatched area using the same path as the individual (chevron shape)
-  // This clips the hatch to match exactly
-  svgElement
-    .selectAll(".installation-period")
-    .data(
-      installationData,
-      (d: InstallationDrawData) => `${d.refId}:${d.inst.id}`
-    )
-    .join("path")
-    .attr("class", "installation-period")
-    .attr("d", (d: InstallationDrawData) => {
-      // Get the path data from the individual element
-      const escapedId = CSS.escape("i" + d.refId);
-      const node = svgElement
-        .select("#" + escapedId)
-        .node() as SVGPathElement | null;
-      if (node) {
-        // Copy the exact path from the individual shape
-        return node.getAttribute("d") || "";
-      }
-      return "";
-    })
-    .attr("fill", "url(#diagonal-hatch)")
-    .attr("stroke", "none")
-    .attr("pointer-events", "none")
-    .raise();
+  // For each installation reference row, draw a hatched overlay matching the chevron shape
+  individuals.forEach((ind) => {
+    if (!isInstallationRef(ind)) return;
+
+    // Get the path data from the individual element
+    const escapedId = CSS.escape("i" + ind.id);
+    const node = svgElement
+      .select("#" + escapedId)
+      .node() as SVGPathElement | null;
+    if (!node) return;
+
+    const pathData = node.getAttribute("d");
+    if (!pathData) return;
+
+    // Draw hatch overlay using the same path as the individual
+    svgElement
+      .append("path")
+      .attr("class", "installation-period")
+      .attr("d", pathData)
+      .attr("fill", "url(#diagonal-hatch)")
+      .attr("stroke", "none")
+      .attr("pointer-events", "none");
+  });
 }

@@ -40,10 +40,35 @@ function isInstallationRef(ind: Individual): boolean {
   return ind.id.includes("__installed_in__");
 }
 
+// Get the original component ID from an installation reference
+function getOriginalId(ind: Individual): string {
+  if (isInstallationRef(ind)) {
+    return ind.id.split("__installed_in__")[0];
+  }
+  return ind.id;
+}
+
 // Get the slot ID from an installation reference
 function getSlotId(ind: Individual): string | undefined {
   if (isInstallationRef(ind)) {
-    return ind.id.split("__installed_in__")[1];
+    const rest = ind.id.split("__installed_in__")[1];
+    if (rest) {
+      // Format: slotId__installationId or just slotId (old format)
+      const parts = rest.split("__");
+      return parts[0];
+    }
+  }
+  return undefined;
+}
+
+// Get the installation ID from an installation reference
+function getInstallationId(ind: Individual): string | undefined {
+  if (isInstallationRef(ind)) {
+    const rest = ind.id.split("__installed_in__")[1];
+    if (rest) {
+      const parts = rest.split("__");
+      return parts[1]; // installationId is the second part
+    }
   }
   return undefined;
 }
@@ -93,37 +118,66 @@ const SetActivity = (props: Props) => {
     const individualsArray = Array.from(dataset.individuals.values());
 
     // Helper to get the hierarchy label for an individual
-    const getHierarchyLabel = (ind: Individual): string => {
+    const getHierarchyLabel = (
+      ind: Individual,
+      installation?: { beginning: number; ending: number }
+    ): string => {
       const entityType = ind.entityType ?? EntityType.Individual;
 
-      // For installation references, build full path: System - Slot - Component (installed component)
+      // For installation references, build full path: System - Slot - Component (time range)
       if (isInstallationRef(ind)) {
+        const originalId = getOriginalId(ind);
         const slotId = getSlotId(ind);
+        const installationId = getInstallationId(ind);
+
         if (slotId) {
           const slot = dataset.individuals.get(slotId);
-          if (slot) {
+          const originalComponent = dataset.individuals.get(originalId);
+
+          if (slot && originalComponent) {
+            // Get time range from the installation
+            let timeRange = "";
+            if (installation) {
+              const endStr =
+                installation.ending >= Model.END_OF_TIME
+                  ? "∞"
+                  : installation.ending;
+              timeRange = ` (${installation.beginning}-${endStr})`;
+            } else if (originalComponent.installations) {
+              const inst = originalComponent.installations.find(
+                (i) => i.id === installationId
+              );
+              if (inst) {
+                const endStr =
+                  (inst.ending ?? Model.END_OF_TIME) >= Model.END_OF_TIME
+                    ? "∞"
+                    : inst.ending;
+                timeRange = ` (${inst.beginning ?? 0}-${endStr})`;
+              }
+            }
+
             // Find the parent system of the slot
             if (slot.parentSystemId) {
               const system = dataset.individuals.get(slot.parentSystemId);
               if (system) {
-                return `${system.name} - ${slot.name} - ${ind.name} (installed component)`;
+                return `${system.name} → ${slot.name} → ${originalComponent.name}${timeRange}`;
               }
             }
-            return `${slot.name} - ${ind.name} (installed component)`;
+            return `${slot.name} → ${originalComponent.name}${timeRange}`;
           }
         }
         return `${ind.name} (installed component)`;
       }
 
-      // For SystemComponents, show: System - Component (system component slot)
+      // For SystemComponents, show: System → Component (slot)
       if (entityType === EntityType.SystemComponent) {
         if (ind.parentSystemId) {
           const parent = dataset.individuals.get(ind.parentSystemId);
           if (parent) {
-            return `${parent.name} - ${ind.name} (system component slot)`;
+            return `${parent.name} → ${ind.name} (slot)`;
           }
         }
-        return `${ind.name} (system component slot)`;
+        return `${ind.name} (slot)`;
       }
 
       // For Systems
@@ -131,17 +185,18 @@ const SetActivity = (props: Props) => {
         return `${ind.name} (system)`;
       }
 
-      // For InstalledComponents at top level (shouldn't be selectable, but just in case)
+      // For InstalledComponents at top level (for management, not participation)
       if (entityType === EntityType.InstalledComponent) {
-        return `${ind.name} (installed component - not installed)`;
+        return `${ind.name} (component - click to manage installations)`;
       }
 
       // For regular individuals
-      return `${ind.name} (individual)`;
+      return ind.name;
     };
 
     const result: IndividualOption[] = [];
     const visited = new Set<string>();
+    const addedVirtualIds = new Set<string>();
 
     const addWithDescendants = (ind: Individual) => {
       if (visited.has(ind.id)) return;
@@ -149,15 +204,17 @@ const SetActivity = (props: Props) => {
 
       const entityType = ind.entityType ?? EntityType.Individual;
 
-      // Skip top-level InstalledComponents - only their installation refs can participate
+      // Skip top-level InstalledComponents - they can't participate directly
+      // Only their installation period rows can participate
       if (entityType === EntityType.InstalledComponent) {
         // Don't add - will be added as installation refs under slots
-      } else {
-        result.push({
-          ...ind,
-          displayLabel: getHierarchyLabel(ind),
-        });
+        return;
       }
+
+      result.push({
+        ...ind,
+        displayLabel: getHierarchyLabel(ind),
+      });
 
       // Find SystemComponent children
       const children: Individual[] = [];
@@ -188,21 +245,34 @@ const SetActivity = (props: Props) => {
         installedHere
           .sort((a, b) => a.name.localeCompare(b.name))
           .forEach((ic) => {
-            // Find the specific installation for this slot
-            const installation = ic.installations?.find(
+            // Get ALL installations for this component in this slot
+            const installationsInSlot = (ic.installations || []).filter(
               (inst) => inst.targetId === ind.id
             );
 
-            const installRef: IndividualOption = {
-              ...ic,
-              id: `${ic.id}__installed_in__${ind.id}`,
-              // Use the actual installation period, not fixed values
-              beginning: installation?.beginning ?? -1,
-              ending: installation?.ending ?? Model.END_OF_TIME,
-              displayLabel: "", // Will be set below
-            };
-            installRef.displayLabel = getHierarchyLabel(installRef);
-            result.push(installRef);
+            // Create a SEPARATE virtual row for EACH installation period
+            installationsInSlot.forEach((inst) => {
+              // Format: componentId__installed_in__slotId__installationId
+              const virtualId = `${ic.id}__installed_in__${ind.id}__${inst.id}`;
+
+              // Skip if already added
+              if (addedVirtualIds.has(virtualId)) return;
+              addedVirtualIds.add(virtualId);
+
+              const installRef: IndividualOption = {
+                ...ic,
+                id: virtualId,
+                beginning: inst.beginning ?? 0,
+                ending: inst.ending ?? Model.END_OF_TIME,
+                _installationId: inst.id,
+                displayLabel: "", // Will be set below
+              };
+              installRef.displayLabel = getHierarchyLabel(installRef, {
+                beginning: inst.beginning ?? 0,
+                ending: inst.ending ?? Model.END_OF_TIME,
+              });
+              result.push(installRef);
+            });
           });
       }
     };
@@ -212,7 +282,7 @@ const SetActivity = (props: Props) => {
       const entityType = ind.entityType ?? EntityType.Individual;
       if (entityType === EntityType.System) return true;
       if (entityType === EntityType.Individual) return true;
-      if (entityType === EntityType.InstalledComponent) return false;
+      if (entityType === EntityType.InstalledComponent) return false; // Skip - only shown as virtual rows
       if (entityType === EntityType.SystemComponent) {
         if (!ind.parentSystemId) return true;
         const parentExists = individualsArray.some(
@@ -585,6 +655,41 @@ const SetActivity = (props: Props) => {
     setShowParentModal(false);
   };
 
+  // Filter individuals based on time overlap with the current activity
+  const eligibleParticipants = useMemo<IndividualOption[]>(() => {
+    const actStart = inputs.beginning;
+    const actEnd = inputs.ending;
+
+    // Helper to check time overlap
+    const hasTimeOverlap = (ind: IndividualOption): boolean => {
+      // For installation references, use their specific time period
+      const indStart = ind.beginning >= 0 ? ind.beginning : 0;
+      const indEnd = ind.ending < Model.END_OF_TIME ? ind.ending : Infinity;
+
+      // Check overlap: activity must start before individual ends AND activity must end after individual starts
+      const overlaps = actStart < indEnd && actEnd > indStart;
+
+      return overlaps;
+    };
+
+    return individualsWithLabels.filter((ind) => {
+      // Always include non-installation individuals (Systems, SystemComponents, regular Individuals)
+      // as they typically span the full timeline
+      if (!isInstallationRef(ind)) {
+        const entityType = ind.entityType ?? EntityType.Individual;
+        // For regular individuals with explicit time bounds, check overlap
+        if (ind.beginning >= 0 && ind.ending < Model.END_OF_TIME) {
+          return hasTimeOverlap(ind);
+        }
+        // Otherwise, always include (they span full timeline)
+        return true;
+      }
+
+      // For installation references, strictly check time overlap
+      return hasTimeOverlap(ind);
+    });
+  }, [individualsWithLabels, inputs.beginning, inputs.ending]);
+
   return (
     <>
       <Button
@@ -785,15 +890,28 @@ const SetActivity = (props: Props) => {
                 className="form-control"
               />
             </Form.Group>
+
+            {/* UPDATED: Use eligibleParticipants instead of individualsWithLabels */}
             <Form.Group className="mb-3" controlId="formParticipants">
-              <Form.Label>Participants</Form.Label>
+              <Form.Label>
+                Participants
+                {eligibleParticipants.length < individualsWithLabels.length && (
+                  <small className="text-muted ms-2">
+                    (filtered by activity time {inputs.beginning}-
+                    {inputs.ending})
+                  </small>
+                )}
+              </Form.Label>
               <Select<IndividualOption, true>
                 defaultValue={getSelectedIndividuals()}
                 isMulti
-                options={individualsWithLabels}
+                options={eligibleParticipants}
                 getOptionLabel={(option) => option.displayLabel}
                 getOptionValue={(option) => option.id}
                 onChange={handleChangeMultiselect}
+                noOptionsMessage={() =>
+                  "No participants available for this time range"
+                }
               />
             </Form.Group>
           </Form>

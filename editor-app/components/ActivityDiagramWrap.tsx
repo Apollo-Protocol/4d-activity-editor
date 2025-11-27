@@ -68,6 +68,10 @@ export default function ActivityDiagramWrap() {
   const [selectedInstalledComponent, setSelectedInstalledComponent] = useState<
     Individual | undefined
   >(undefined);
+  // Add state for target slot ID (when clicking on a specific installation row)
+  const [targetSlotId, setTargetSlotId] = useState<string | undefined>(
+    undefined
+  );
 
   useEffect(() => {
     if (dirty) window.addEventListener("beforeunload", beforeUnloadHandler);
@@ -113,17 +117,37 @@ export default function ActivityDiagramWrap() {
   };
 
   const clickIndividual = (i: Individual) => {
-    // If it's an InstalledComponent, open the special editor
+    // Check if this is an installation reference (virtual row)
+    // Format: componentId__installed_in__slotId__installationId
+    if (i.id.includes("__installed_in__")) {
+      const originalId = i.id.split("__installed_in__")[0];
+      const rest = i.id.split("__installed_in__")[1];
+      const [slotId, installationId] = rest.split("__");
+
+      const originalComponent = dataset.individuals.get(originalId);
+
+      if (originalComponent) {
+        setSelectedInstalledComponent(originalComponent);
+        setTargetSlotId(slotId);
+        // Optionally, you could also pass the specific installationId
+        setShowInstalledComponentEditor(true);
+        return;
+      }
+    }
+
+    // If it's an InstalledComponent (the parent), show all installations
     if (
       (i.entityType ?? EntityType.Individual) === EntityType.InstalledComponent
     ) {
       setSelectedInstalledComponent(i);
+      setTargetSlotId(undefined); // Show all installations
       setShowInstalledComponentEditor(true);
-    } else {
-      // For other types, open the regular editor
-      setSelectedIndividual(i);
-      setShowIndividual(true);
+      return;
     }
+
+    // For other types, open the regular editor
+    setSelectedIndividual(i);
+    setShowIndividual(true);
   };
   const clickActivity = (a: Activity) => {
     setSelectedActivity(a);
@@ -152,6 +176,7 @@ export default function ActivityDiagramWrap() {
   const sortedIndividuals = useMemo(() => {
     const result: Individual[] = [];
     const visited = new Set<string>();
+    const addedVirtualIds = new Set<string>(); // Track virtual rows we've already added
 
     // Recursive function to add an individual and its descendants
     const addWithDescendants = (ind: Individual) => {
@@ -190,21 +215,38 @@ export default function ActivityDiagramWrap() {
           return ic.installations.some((inst) => inst.targetId === ind.id);
         });
 
-        // Add these as "installation references"
+        // Add these as "installation references" - ONE ROW PER INSTALLATION PERIOD
         installedHere
           .sort((a, b) => a.name.localeCompare(b.name))
           .forEach((ic) => {
-            // Create a reference entry with composite ID
-            // The ID format is: originalId__installed_in__slotId
-            const installRef: Individual = {
-              ...ic,
-              id: `${ic.id}__installed_in__${ind.id}`,
-              // Keep beginning/ending as the full timeline for the row shape
-              // The actual installation period will be drawn by DrawInstallations
-              beginning: -1,
-              ending: Model.END_OF_TIME,
-            };
-            result.push(installRef);
+            // Get all installations for this slot
+            const installationsInThisSlot = (ic.installations || []).filter(
+              (inst) => inst.targetId === ind.id
+            );
+
+            // Create a SEPARATE virtual row for EACH installation period
+            installationsInThisSlot.forEach((inst) => {
+              // Format: componentId__installed_in__slotId__installationId
+              const virtualId = `${ic.id}__installed_in__${ind.id}__${inst.id}`;
+
+              // Skip if already added
+              if (addedVirtualIds.has(virtualId)) return;
+              addedVirtualIds.add(virtualId);
+
+              const installRef: Individual = {
+                ...ic,
+                id: virtualId,
+                name: `${ic.name} (${inst.beginning ?? 0}-${
+                  inst.ending ?? "∞"
+                })`,
+                // Use the installation's time period for this specific row
+                beginning: inst.beginning ?? 0,
+                ending: inst.ending ?? Model.END_OF_TIME,
+                // Store the installation ID for reference
+                _installationId: inst.id,
+              };
+              result.push(installRef);
+            });
           });
       }
     };
@@ -250,7 +292,8 @@ export default function ActivityDiagramWrap() {
       .sort((a, b) => a.name.localeCompare(b.name))
       .forEach((sc) => addWithDescendants(sc));
 
-    // 3. Add InstalledComponents (physical objects shown at top level)
+    // 3. Add InstalledComponents at top level (so they can be edited/clicked)
+    //    These are the "parent" entries - their virtual installation rows appear under slots
     installedComponents
       .sort((a, b) => a.name.localeCompare(b.name))
       .forEach((ic) => {
@@ -415,6 +458,7 @@ export default function ActivityDiagramWrap() {
         setIndividual={setIndividual}
         dataset={dataset}
         updateDataset={updateDataset}
+        targetSlotId={targetSlotId}
       />
     </>
   );

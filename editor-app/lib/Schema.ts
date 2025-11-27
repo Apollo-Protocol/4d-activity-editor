@@ -8,6 +8,9 @@ import type { Kind } from "./Model";
 export { Maybe };
 export type Id = string;
 
+// Type alias for individual types (references Kind from Model)
+export type IndividualType = Kind;
+
 /**
  * A spatio-temporal extent is a thing that exists in the world.
  */
@@ -48,12 +51,20 @@ export interface Installation {
 /**
  * An individual is a person, place, or thing that participates in an activity.
  */
-export interface Individual extends STExtent {
-  beginsWithParticipant: boolean;
-  endsWithParticipant: boolean;
+export interface Individual {
+  id: string;
+  name: string;
+  type: IndividualType;
+  description?: string;
+  beginning: number;
+  ending: number;
+  beginsWithParticipant?: boolean;
+  endsWithParticipant?: boolean;
   entityType?: EntityType;
-  parentSystemId?: Id;
+  parentSystemId?: string;
   installations?: Installation[];
+  // Internal: used for virtual installation rows to reference the specific installation
+  _installationId?: string;
 }
 
 // Note: beginning/ending are inherited from STExtent

@@ -4,11 +4,12 @@ import React, {
   useRef,
   useState,
   useEffect,
+  useMemo,
 } from "react";
 import Button from "react-bootstrap/Button";
 import Modal from "react-bootstrap/Modal";
 import Form from "react-bootstrap/Form";
-import { Activity, Participation } from "@/lib/Schema";
+import { Activity, Participation, Individual, EntityType } from "@/lib/Schema";
 import { InputGroup } from "react-bootstrap";
 import { v4 as uuidv4 } from "uuid";
 import { Model } from "@/lib/Model";
@@ -46,6 +47,69 @@ const SetParticipation = (props: Props) => {
   const [editingRoleId, setEditingRoleId] = useState<string | null>(null);
   const [editingRoleValue, setEditingRoleValue] = useState("");
   const roleDropdownRef = useRef<HTMLDivElement | null>(null);
+
+  // Build available participants including virtual installation rows
+  const availableParticipants = useMemo(() => {
+    const result: Individual[] = [];
+    const addedIds = new Set<string>();
+    const individuals = Array.from(dataset.individuals.values());
+
+    // Helper to add individual if not already added
+    const addIfNew = (ind: Individual) => {
+      if (!addedIds.has(ind.id)) {
+        addedIds.add(ind.id);
+        result.push(ind);
+      }
+    };
+
+    // Add regular individuals (not InstalledComponents - those only appear as virtual rows)
+    individuals.forEach((ind) => {
+      const entityType = ind.entityType ?? EntityType.Individual;
+
+      // Skip InstalledComponents - they participate via their virtual installation rows
+      if (entityType === EntityType.InstalledComponent) {
+        return;
+      }
+
+      // Add Systems, SystemComponents, and regular Individuals
+      addIfNew(ind);
+    });
+
+    // Add virtual installation rows for each InstalledComponent's installation periods
+    individuals.forEach((ind) => {
+      const entityType = ind.entityType ?? EntityType.Individual;
+
+      if (entityType === EntityType.InstalledComponent && ind.installations) {
+        // Create a SEPARATE virtual row for EACH installation period
+        ind.installations.forEach((inst) => {
+          // Format: componentId__installed_in__slotId__installationId
+          const virtualId = `${ind.id}__installed_in__${inst.targetId}__${inst.id}`;
+
+          const slot = dataset.individuals.get(inst.targetId);
+          const slotName = slot?.name || inst.targetId;
+          const endStr =
+            (inst.ending ?? Model.END_OF_TIME) >= Model.END_OF_TIME
+              ? "∞"
+              : inst.ending;
+
+          const virtualIndividual: Individual = {
+            ...ind,
+            id: virtualId,
+            name: `${ind.name} in ${slotName} (${
+              inst.beginning ?? 0
+            }-${endStr})`,
+            beginning: inst.beginning ?? 0,
+            ending: inst.ending ?? Model.END_OF_TIME,
+            _installationId: inst.id,
+          };
+
+          addIfNew(virtualIndividual);
+        });
+      }
+    });
+
+    return result;
+  }, [dataset]);
 
   // click outside to close role dropdown
   useEffect(() => {
@@ -204,29 +268,96 @@ const SetParticipation = (props: Props) => {
   };
   // ----- end role helpers -----
 
-  // Helper function to check overlap
-  const hasOverlap = (
-    aStart: number,
-    aEnd: number,
-    iStart: number,
-    iEnd: number
-  ): boolean => {
-    return aStart < iEnd && aEnd > iStart;
+  // Helper to get display name for an individual (including virtual rows)
+  const getDisplayName = (ind: Individual): string => {
+    // Check if this is an installation reference
+    if (ind.id.includes("__installed_in__")) {
+      const originalId = ind.id.split("__installed_in__")[0];
+      const rest = ind.id.split("__installed_in__")[1];
+      const parts = rest.split("__");
+      const slotId = parts[0];
+      const installationId = parts[1];
+
+      const originalComponent = dataset.individuals.get(originalId);
+      const slot = dataset.individuals.get(slotId);
+
+      if (originalComponent && slot) {
+        // Find the installation to show its time period
+        const installation = originalComponent.installations?.find(
+          (inst) => inst.id === installationId
+        );
+        if (installation) {
+          const endStr =
+            (installation.ending ?? Model.END_OF_TIME) >= Model.END_OF_TIME
+              ? "∞"
+              : installation.ending;
+          return `${originalComponent.name} in ${slot.name} (${installation.beginning}-${endStr})`;
+        }
+        return `${originalComponent.name} in ${slot.name}`;
+      }
+    }
+    return ind.name;
   };
 
-  // Helper to get overlap range
-  const getOverlapRange = (
-    aStart: number,
-    aEnd: number,
-    iStart: number,
-    iEnd: number
-  ): { start: number; end: number } | null => {
-    if (!hasOverlap(aStart, aEnd, iStart, iEnd)) return null;
-    return {
-      start: Math.max(aStart, iStart),
-      end: Math.min(aEnd, iEnd),
-    };
+  // Get participant name from ID (handles virtual IDs)
+  const getParticipantName = (participantId: string): string => {
+    // First try to find in available participants (includes virtual rows)
+    const found = availableParticipants.find((p) => p.id === participantId);
+    if (found) {
+      return getDisplayName(found);
+    }
+
+    // Fallback: try to parse virtual ID
+    if (participantId.includes("__installed_in__")) {
+      const originalId = participantId.split("__installed_in__")[0];
+      const rest = participantId.split("__installed_in__")[1];
+      const parts = rest.split("__");
+      const slotId = parts[0];
+      const installationId = parts[1];
+
+      const originalComponent = dataset.individuals.get(originalId);
+      const slot = dataset.individuals.get(slotId);
+
+      if (originalComponent && slot) {
+        const installation = originalComponent.installations?.find(
+          (inst) => inst.id === installationId
+        );
+        if (installation) {
+          const endStr =
+            (installation.ending ?? Model.END_OF_TIME) >= Model.END_OF_TIME
+              ? "∞"
+              : installation.ending;
+          return `${originalComponent.name} in ${slot.name} (${installation.beginning}-${endStr})`;
+        }
+        return `${originalComponent.name} in ${slot.name}`;
+      }
+    }
+
+    // Final fallback: try dataset
+    const ind = dataset.individuals.get(participantId);
+    return ind?.name || participantId;
   };
+
+  // Helper to check if participant overlaps with activity time
+  const hasTimeOverlap = (ind: Individual): boolean => {
+    if (!selectedActivity) return true;
+
+    const actStart = selectedActivity.beginning;
+    const actEnd = selectedActivity.ending;
+
+    // For virtual installation rows, use their specific time period
+    const indStart = ind.beginning >= 0 ? ind.beginning : 0;
+    const indEnd =
+      ind.ending < Model.END_OF_TIME ? ind.ending : Model.END_OF_TIME;
+
+    // Check overlap
+    return actStart < indEnd && actEnd > indStart;
+  };
+
+  // Filter participants that overlap with activity time
+  const eligibleParticipants = useMemo(() => {
+    return availableParticipants.filter(hasTimeOverlap);
+  }, [availableParticipants, selectedActivity]);
 
   return (
     <>
@@ -236,6 +367,18 @@ const SetParticipation = (props: Props) => {
         </Modal.Header>
         <Modal.Body>
           <Form onSubmit={handleAdd}>
+            {/* Show current participant */}
+            {selectedParticipation && (
+              <Form.Group className="mb-3">
+                <Form.Label>Participant</Form.Label>
+                <Form.Control
+                  type="text"
+                  value={getParticipantName(selectedParticipation.individualId)}
+                  disabled
+                />
+              </Form.Group>
+            )}
+
             <Form.Group className="mb-3" controlId="formParticipationRole">
               <Form.Label>Role</Form.Label>
               <div
@@ -256,8 +399,8 @@ const SetParticipation = (props: Props) => {
 
                 {roleOpen && (
                   <div
-                    className="card mt-1"
-                    style={{ maxHeight: 300, overflow: "hidden" }}
+                    className="card mt-1 position-absolute w-100"
+                    style={{ maxHeight: 300, overflow: "hidden", zIndex: 1051 }}
                   >
                     <div className="card-body p-2 border-bottom">
                       <input

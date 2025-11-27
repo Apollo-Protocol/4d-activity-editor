@@ -167,10 +167,10 @@ const SetIndividual = (props: Props) => {
       name: inputs.name || "Unnamed",
       description: inputs.description || "",
       type: inputs.type,
-      beginning: -1,
-      ending: Model.END_OF_TIME,
-      beginsWithParticipant: inputs.beginsWithParticipant ?? false,
-      endsWithParticipant: inputs.endsWithParticipant ?? false,
+      beginning: inputs.beginning ?? -1, // Use the value from inputs, not hardcoded -1
+      ending: inputs.ending ?? Model.END_OF_TIME, // Use the value from inputs, not hardcoded END_OF_TIME
+      beginsWithParticipant: beginsWithParticipant, // Use the state variable
+      endsWithParticipant: endsWithParticipant, // Use the state variable
       entityType: inputs.entityType ?? EntityType.Individual,
       parentSystemId: inputs.parentSystemId,
       installations: inputs.installations ?? [],

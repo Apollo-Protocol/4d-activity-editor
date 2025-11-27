@@ -134,6 +134,7 @@ export function drawIndividuals(ctx: DrawContext) {
     return svgElement;
   }
 
+  // Calculate time range from activities
   let startOfTime = Math.min(...activities.map((a) => a.beginning));
   let endOfTime = Math.max(...activities.map((a) => a.ending));
 
@@ -207,19 +208,15 @@ export function drawIndividuals(ctx: DrawContext) {
       if (effectiveBeginning < 0 && i.parentSystemId) {
         const parentSystem = dataset.individuals.get(i.parentSystemId);
         if (parentSystem) {
-          // Use parent's beginning, or startOfTime if parent also extends before
           effectiveBeginning =
             parentSystem.beginning >= 0 ? parentSystem.beginning : startOfTime;
         } else {
-          // No parent found, use startOfTime
           effectiveBeginning = startOfTime;
         }
       } else if (effectiveBeginning < 0) {
-        // No parent, use startOfTime
         effectiveBeginning = startOfTime;
       }
 
-      // Same for ending
       if (effectiveEnding >= Model.END_OF_TIME && i.parentSystemId) {
         const parentSystem = dataset.individuals.get(i.parentSystemId);
         if (parentSystem && parentSystem.ending < Model.END_OF_TIME) {
@@ -246,16 +243,17 @@ export function drawIndividuals(ctx: DrawContext) {
       }
     }
 
-    // Calculate nesting level (kept for reference but NOT used to modify time)
+    // Calculate nesting level
     const nestingLevel = getNestingLevel(i, dataset);
 
-    // DO NOT modify effectiveBeginning for nesting
-    // All rectangles start at their actual time position
-    // Nesting is shown visually by the row order and icons only
-
-    // start = true means flat left edge (begins within view)
+    // start = true means flat left edge (begins within view or after startOfTime)
     // start = false means left chevron (extends before view)
+    // For "begins with participant": if beginning > startOfTime, start = true and there's a gap
     const start = effectiveBeginning >= startOfTime;
+
+    // stop = true means flat right edge (ends within view or before endOfTime)
+    // stop = false means right chevron (extends after view)
+    // For "ends with participant": if ending < endOfTime, stop = true and there's a gap
     const stop = effectiveEnding <= endOfTime;
 
     // Calculate x position based on time (all items aligned to timeline)
@@ -288,7 +286,7 @@ export function drawIndividuals(ctx: DrawContext) {
         (endOfTime - effectiveEnding) * timeInterval -
         config.layout.individual.temporalMargin;
     } else {
-      // Has both start and end
+      // Has both start and end - "begins with participant" AND/OR "ends with participant"
       w = (effectiveEnding - effectiveBeginning) * timeInterval;
     }
 
@@ -310,6 +308,8 @@ export function drawIndividuals(ctx: DrawContext) {
       const { x, y, w, h, start, stop, nestingLevel } = layout.get(i.id)!;
 
       // Determine if we need left chevron
+      // Only for items that extend before view (start === false)
+      // OR for nested SystemComponents/InstalledComponents (nestingLevel > 0)
       const includeLeftChevron = !start || nestingLevel > 0;
 
       // Adjust x and width for nested items that need a left chevron

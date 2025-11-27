@@ -140,6 +140,56 @@ function getNestingLevel(ind: Individual, dataset: Model): number {
   return level;
 }
 
+// Helper to determine if we should draw a separator after this individual
+function shouldDrawSeparatorAfter(
+  ind: Individual,
+  nextInd: Individual | undefined,
+  dataset: Model
+): boolean {
+  const entityType = ind.entityType ?? EntityType.Individual;
+
+  // If there's no next individual, no separator needed
+  if (!nextInd) return false;
+
+  const nextEntityType = nextInd.entityType ?? EntityType.Individual;
+
+  // Case 1: Current is an installation reference
+  if (isInstallationRef(ind)) {
+    const currentSlotId = getSlotId(ind);
+
+    // If next is also an installation reference
+    if (isInstallationRef(nextInd)) {
+      const nextSlotId = getSlotId(nextInd);
+      // Draw separator if they're in different slots
+      return currentSlotId !== nextSlotId;
+    }
+
+    // If next is a SystemComponent (new slot) or something else entirely
+    return true;
+  }
+
+  // Case 2: Current is a SystemComponent (slot)
+  if (entityType === EntityType.SystemComponent) {
+    // If next is an installation in THIS slot, no separator yet
+    if (isInstallationRef(nextInd)) {
+      const nextSlotId = getSlotId(nextInd);
+      if (nextSlotId === ind.id) {
+        return false; // Installation belongs to this slot, no separator
+      }
+    }
+
+    // If next is another SystemComponent in the same system, draw separator
+    if (nextEntityType === EntityType.SystemComponent) {
+      return ind.parentSystemId === nextInd.parentSystemId;
+    }
+
+    // If we're leaving the system entirely, draw separator
+    return true;
+  }
+
+  return false;
+}
+
 export function drawIndividuals(ctx: DrawContext) {
   const { config, svgElement, activities, dataset } = ctx;
   const individuals = ctx.individuals;
@@ -379,7 +429,62 @@ export function drawIndividuals(ctx: DrawContext) {
     .attr("stroke-width", config.presentation.individual.strokeWidth)
     .attr("fill", config.presentation.individual.fill);
 
+  // Draw separators between SystemComponent groups
+  drawGroupSeparators(ctx, individuals, layout, config);
+
   return svgElement;
+}
+
+// Draw separator lines between SystemComponent groups (slot + its installations)
+function drawGroupSeparators(
+  ctx: DrawContext,
+  individuals: Individual[],
+  layout: Map<string, Layout>,
+  config: ConfigData
+) {
+  const { svgElement, dataset } = ctx;
+
+  // Remove existing separators
+  svgElement.selectAll(".group-separator").remove();
+
+  const separatorPositions: { y: number; x1: number; x2: number }[] = [];
+
+  // Calculate the full width for separators
+  const individualLabelsEnabled =
+    config.labels.individual.enabled && keepIndividualLabels(individuals);
+  const x1 = config.layout.individual.xMargin;
+  const x2 =
+    config.viewPort.x * config.viewPort.zoom - config.layout.individual.xMargin;
+
+  for (let i = 0; i < individuals.length; i++) {
+    const ind = individuals[i];
+    const nextInd = individuals[i + 1];
+
+    if (shouldDrawSeparatorAfter(ind, nextInd, dataset)) {
+      const layoutData = layout.get(ind.id);
+      if (layoutData) {
+        // Position the separator below this individual
+        const y =
+          layoutData.y + layoutData.h + config.layout.individual.gap / 2;
+        separatorPositions.push({ y, x1, x2 });
+      }
+    }
+  }
+
+  // Draw the separators
+  svgElement
+    .selectAll(".group-separator")
+    .data(separatorPositions)
+    .join("line")
+    .attr("class", "group-separator")
+    .attr("x1", (d: { y: number; x1: number; x2: number }) => d.x1)
+    .attr("y1", (d: { y: number; x1: number; x2: number }) => d.y)
+    .attr("x2", (d: { y: number; x1: number; x2: number }) => d.x2)
+    .attr("y2", (d: { y: number; x1: number; x2: number }) => d.y)
+    .attr("stroke", "#d1d5db") // Light gray color
+    .attr("stroke-width", 1)
+    .attr("stroke-dasharray", "4,4") // Dashed line
+    .attr("opacity", 0.8);
 }
 
 export function hoverIndividuals(ctx: DrawContext) {

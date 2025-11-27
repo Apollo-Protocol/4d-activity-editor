@@ -519,13 +519,13 @@ const SetIndividual = (props: Props) => {
   return (
     <>
       <Button variant="primary" onClick={() => setShow(true)} className="mx-1">
-        Add Individual
+        Add Entity
       </Button>
 
       <Modal show={show} onHide={handleClose} onShow={handleShow}>
         <Modal.Header closeButton>
           <Modal.Title>
-            {selectedIndividual ? "Edit Individual" : "Add Individual"}
+            {selectedIndividual ? "Edit Entity" : "Add Entity"}
           </Modal.Title>
         </Modal.Header>
         <Modal.Body>

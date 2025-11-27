@@ -54,17 +54,16 @@ export interface Installation {
 export interface Individual {
   id: string;
   name: string;
-  type: IndividualType;
   description?: string;
+  type?: Kind;
   beginning: number;
   ending: number;
+  entityType?: EntityType;
+  parentSystemId?: string; // For SystemComponents - reference to parent System
+  installations?: Installation[]; // For InstalledComponents - where they're installed
+  _installationId?: string; // For virtual rows - the specific installation ID
   beginsWithParticipant?: boolean;
   endsWithParticipant?: boolean;
-  entityType?: EntityType;
-  parentSystemId?: string;
-  installations?: Installation[];
-  // Internal: used for virtual installation rows to reference the specific installation
-  _installationId?: string;
 }
 
 // Note: beginning/ending are inherited from STExtent

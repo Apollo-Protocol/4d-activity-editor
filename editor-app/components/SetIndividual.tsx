@@ -552,27 +552,121 @@ const SetIndividual = (props: Props) => {
               />
             </Form.Group>
 
-            {/* Begins/Ends with participant */}
-            <Form.Group className="mb-3">
-              <Form.Check
-                type="switch"
-                name="beginsWithParticipant"
-                label="Begins With Participant"
-                disabled={!individualHasParticipants}
-                checked={beginsWithParticipant}
-                onChange={handleBeginsWithParticipant}
-              />
-            </Form.Group>
-            <Form.Group className="mb-3">
-              <Form.Check
-                type="switch"
-                name="endsWithParticipant"
-                label="Ends With Participant"
-                disabled={!individualHasParticipants}
-                checked={endsWithParticipant}
-                onChange={handleEndsWithParticipant}
-              />
-            </Form.Group>
+            {/* Begins/Ends with participant - for Individual type only */}
+            {(inputs.entityType === EntityType.Individual ||
+              !inputs.entityType) && (
+              <>
+                <Form.Group className="mb-3">
+                  <Form.Check
+                    type="switch"
+                    name="beginsWithParticipant"
+                    label="Begins With Participant"
+                    disabled={!individualHasParticipants}
+                    checked={beginsWithParticipant}
+                    onChange={handleBeginsWithParticipant}
+                  />
+                </Form.Group>
+                <Form.Group className="mb-3">
+                  <Form.Check
+                    type="switch"
+                    name="endsWithParticipant"
+                    label="Ends With Participant"
+                    disabled={!individualHasParticipants}
+                    checked={endsWithParticipant}
+                    onChange={handleEndsWithParticipant}
+                  />
+                </Form.Group>
+              </>
+            )}
+
+            {/* Show beginning/ending for Systems */}
+            {inputs.entityType === EntityType.System && (
+              <>
+                <Form.Group className="mb-3" controlId="formSystemBeginning">
+                  <Form.Label>Beginning</Form.Label>
+                  <Form.Control
+                    type="number"
+                    name="beginning"
+                    value={inputs.beginning >= 0 ? inputs.beginning : ""}
+                    onChange={(e) => {
+                      const val =
+                        e.target.value === "" ? -1 : Number(e.target.value);
+                      setInputs({ ...inputs, beginning: val });
+                      setDirty(true);
+                    }}
+                    placeholder="Leave empty to span full timeline"
+                    min="0"
+                  />
+                </Form.Group>
+                <Form.Group className="mb-3" controlId="formSystemEnding">
+                  <Form.Label>Ending</Form.Label>
+                  <Form.Control
+                    type="number"
+                    name="ending"
+                    value={
+                      inputs.ending < Model.END_OF_TIME ? inputs.ending : ""
+                    }
+                    onChange={(e) => {
+                      const val =
+                        e.target.value === ""
+                          ? Model.END_OF_TIME
+                          : Number(e.target.value);
+                      setInputs({ ...inputs, ending: val });
+                      setDirty(true);
+                    }}
+                    placeholder="Leave empty to span full timeline"
+                    min="1"
+                  />
+                </Form.Group>
+              </>
+            )}
+
+            {/* Show beginning/ending for SystemComponents */}
+            {inputs.entityType === EntityType.SystemComponent && (
+              <>
+                <Form.Group className="mb-3" controlId="formBeginning">
+                  <Form.Label>
+                    Beginning (optional - inherits from parent System if not
+                    set)
+                  </Form.Label>
+                  <Form.Control
+                    type="number"
+                    name="beginning"
+                    value={inputs.beginning >= 0 ? inputs.beginning : ""}
+                    onChange={(e) => {
+                      const val =
+                        e.target.value === "" ? -1 : Number(e.target.value);
+                      setInputs({ ...inputs, beginning: val });
+                      setDirty(true);
+                    }}
+                    placeholder="Inherits from parent system"
+                    min="0"
+                  />
+                </Form.Group>
+                <Form.Group className="mb-3" controlId="formEnding">
+                  <Form.Label>
+                    Ending (optional - inherits from parent System if not set)
+                  </Form.Label>
+                  <Form.Control
+                    type="number"
+                    name="ending"
+                    value={
+                      inputs.ending < Model.END_OF_TIME ? inputs.ending : ""
+                    }
+                    onChange={(e) => {
+                      const val =
+                        e.target.value === ""
+                          ? Model.END_OF_TIME
+                          : Number(e.target.value);
+                      setInputs({ ...inputs, ending: val });
+                      setDirty(true);
+                    }}
+                    placeholder="Inherits from parent system"
+                    min="1"
+                  />
+                </Form.Group>
+              </>
+            )}
 
             {/* Note for InstalledComponents */}
             {(inputs.entityType ?? EntityType.Individual) ===

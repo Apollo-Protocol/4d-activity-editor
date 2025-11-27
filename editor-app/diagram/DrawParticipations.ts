@@ -29,7 +29,42 @@ function getOriginalAndSlot(
   return { originalId, slotId, installationId };
 }
 
-// Updated to use installation ID when available for precise matching
+// Add helper to get slot effective time bounds
+function getSlotEffectiveTimeBounds(
+  slotId: string,
+  dataset: any
+): { beginning: number; ending: number } {
+  const slot = dataset.individuals.get(slotId);
+  if (!slot) {
+    return { beginning: 0, ending: Model.END_OF_TIME };
+  }
+
+  let beginning = slot.beginning;
+  let ending = slot.ending;
+
+  // Inherit from parent system if not set
+  if (beginning < 0 && slot.parentSystemId) {
+    const parentSystem = dataset.individuals.get(slot.parentSystemId);
+    if (parentSystem) {
+      beginning = parentSystem.beginning >= 0 ? parentSystem.beginning : 0;
+    } else {
+      beginning = 0;
+    }
+  } else if (beginning < 0) {
+    beginning = 0;
+  }
+
+  if (ending >= Model.END_OF_TIME && slot.parentSystemId) {
+    const parentSystem = dataset.individuals.get(slot.parentSystemId);
+    if (parentSystem && parentSystem.ending < Model.END_OF_TIME) {
+      ending = parentSystem.ending;
+    }
+  }
+
+  return { beginning, ending };
+}
+
+// Update getVisibleInterval to also respect slot bounds:
 function getVisibleInterval(
   activityStart: number,
   activityEnd: number,
@@ -42,33 +77,41 @@ function getVisibleInterval(
     return { start: activityStart, end: activityEnd };
   }
 
-  // This is an installed component - crop to installation period
+  // This is an installed component - crop to installation period AND slot bounds
   const original = dataset.individuals.get(ref.originalId);
   if (!original || !original.installations) {
     return { start: activityStart, end: activityEnd };
   }
 
-  // Find the specific installation - prefer by ID if available, otherwise by slot
+  // Find the specific installation
   let inst;
   if (ref.installationId) {
     inst = original.installations.find((i: any) => i.id === ref.installationId);
   }
-
-  // Fallback to slot-based lookup if no installation ID or not found
   if (!inst) {
     inst = original.installations.find((i: any) => i.targetId === ref.slotId);
   }
-
   if (!inst) {
     return { start: activityStart, end: activityEnd };
   }
 
+  // Get installation bounds
   const instStart = Math.max(0, inst.beginning ?? 0);
   const instEnd = inst.ending ?? Model.END_OF_TIME;
 
-  // Compute overlap
-  const visibleStart = Math.max(activityStart, instStart);
-  const visibleEnd = Math.min(activityEnd, instEnd);
+  // Get slot bounds
+  const slotBounds = getSlotEffectiveTimeBounds(ref.slotId, dataset);
+
+  // Compute the most restrictive bounds (intersection of all three)
+  // 1. Activity time
+  // 2. Installation time
+  // 3. Slot time
+  const visibleStart = Math.max(activityStart, instStart, slotBounds.beginning);
+  const visibleEnd = Math.min(
+    activityEnd,
+    instEnd,
+    slotBounds.ending < Model.END_OF_TIME ? slotBounds.ending : activityEnd
+  );
 
   return { start: visibleStart, end: visibleEnd };
 }

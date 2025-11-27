@@ -655,40 +655,75 @@ const SetActivity = (props: Props) => {
     setShowParentModal(false);
   };
 
-  // Filter individuals based on time overlap with the current activity
+  // Add helper function to get slot effective bounds
+  const getSlotEffectiveTimeBounds = (
+    slotId: string
+  ): { beginning: number; ending: number } => {
+    const slot = dataset.individuals.get(slotId);
+    if (!slot) {
+      return { beginning: 0, ending: Model.END_OF_TIME };
+    }
+
+    let beginning = slot.beginning;
+    let ending = slot.ending;
+
+    if (beginning < 0 && slot.parentSystemId) {
+      const parentSystem = dataset.individuals.get(slot.parentSystemId);
+      if (parentSystem) {
+        beginning = parentSystem.beginning >= 0 ? parentSystem.beginning : 0;
+      } else {
+        beginning = 0;
+      }
+    } else if (beginning < 0) {
+      beginning = 0;
+    }
+
+    if (ending >= Model.END_OF_TIME && slot.parentSystemId) {
+      const parentSystem = dataset.individuals.get(slot.parentSystemId);
+      if (parentSystem && parentSystem.ending < Model.END_OF_TIME) {
+        ending = parentSystem.ending;
+      }
+    }
+
+    return { beginning, ending };
+  };
+
+  // Update eligibleParticipants to also check slot bounds
   const eligibleParticipants = useMemo<IndividualOption[]>(() => {
     const actStart = inputs.beginning;
     const actEnd = inputs.ending;
 
-    // Helper to check time overlap
     const hasTimeOverlap = (ind: IndividualOption): boolean => {
-      // For installation references, use their specific time period
-      const indStart = ind.beginning >= 0 ? ind.beginning : 0;
-      const indEnd = ind.ending < Model.END_OF_TIME ? ind.ending : Infinity;
+      let indStart = ind.beginning >= 0 ? ind.beginning : 0;
+      let indEnd = ind.ending < Model.END_OF_TIME ? ind.ending : Infinity;
 
-      // Check overlap: activity must start before individual ends AND activity must end after individual starts
-      const overlaps = actStart < indEnd && actEnd > indStart;
+      // For installation references, also constrain to slot bounds
+      if (isInstallationRef(ind)) {
+        const slotId = getSlotId(ind);
+        if (slotId) {
+          const slotBounds = getSlotEffectiveTimeBounds(slotId);
+          indStart = Math.max(indStart, slotBounds.beginning);
+          if (slotBounds.ending < Model.END_OF_TIME) {
+            indEnd = Math.min(indEnd, slotBounds.ending);
+          }
+        }
+      }
 
-      return overlaps;
+      // Check overlap
+      return actStart < indEnd && actEnd > indStart;
     };
 
     return individualsWithLabels.filter((ind) => {
-      // Always include non-installation individuals (Systems, SystemComponents, regular Individuals)
-      // as they typically span the full timeline
       if (!isInstallationRef(ind)) {
         const entityType = ind.entityType ?? EntityType.Individual;
-        // For regular individuals with explicit time bounds, check overlap
         if (ind.beginning >= 0 && ind.ending < Model.END_OF_TIME) {
           return hasTimeOverlap(ind);
         }
-        // Otherwise, always include (they span full timeline)
         return true;
       }
-
-      // For installation references, strictly check time overlap
       return hasTimeOverlap(ind);
     });
-  }, [individualsWithLabels, inputs.beginning, inputs.ending]);
+  }, [individualsWithLabels, inputs.beginning, inputs.ending, dataset]);
 
   return (
     <>

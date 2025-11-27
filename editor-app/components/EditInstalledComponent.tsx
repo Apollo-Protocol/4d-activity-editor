@@ -11,7 +11,6 @@ interface Props {
   setIndividual: (individual: Individual) => void;
   dataset: Model;
   updateDataset?: (updater: (d: Model) => void) => void;
-  // Optional: specific slot ID to filter installations (when clicking on an installed component row)
   targetSlotId?: string;
 }
 
@@ -30,29 +29,54 @@ const EditInstalledComponent = (props: Props) => {
     []
   );
   const [allInstallations, setAllInstallations] = useState<Installation[]>([]);
-
-  // Track removed installations to clean up participations on save
   const [removedInstallations, setRemovedInstallations] = useState<
     Installation[]
   >([]);
-
-  // Validation errors
   const [errors, setErrors] = useState<string[]>([]);
-
-  // Track raw input values for better UX (allows empty fields while typing)
   const [rawInputs, setRawInputs] = useState<
     Map<string, { beginning: string; ending: string }>
   >(new Map());
-
-  // Whether we're showing all installations or just filtered ones
   const [showAll, setShowAll] = useState(false);
+
+  // Helper function to get effective slot time bounds
+  const getSlotTimeBounds = (
+    slotId: string
+  ): { beginning: number; ending: number; slotName: string } => {
+    const slot = dataset.individuals.get(slotId);
+    if (!slot) {
+      return { beginning: 0, ending: Model.END_OF_TIME, slotName: slotId };
+    }
+
+    let beginning = slot.beginning;
+    let ending = slot.ending;
+
+    // If slot doesn't have explicit bounds, inherit from parent system
+    if (beginning < 0 && slot.parentSystemId) {
+      const parentSystem = dataset.individuals.get(slot.parentSystemId);
+      if (parentSystem) {
+        beginning = parentSystem.beginning >= 0 ? parentSystem.beginning : 0;
+      } else {
+        beginning = 0;
+      }
+    } else if (beginning < 0) {
+      beginning = 0;
+    }
+
+    if (ending >= Model.END_OF_TIME && slot.parentSystemId) {
+      const parentSystem = dataset.individuals.get(slot.parentSystemId);
+      if (parentSystem && parentSystem.ending < Model.END_OF_TIME) {
+        ending = parentSystem.ending;
+      }
+    }
+
+    return { beginning, ending, slotName: slot.name };
+  };
 
   useEffect(() => {
     if (individual && individual.installations) {
       const allInst = [...individual.installations];
       setAllInstallations(allInst);
 
-      // If a specific slot is targeted, filter to just installations for that slot
       if (targetSlotId) {
         const filtered = allInst.filter(
           (inst) => inst.targetId === targetSlotId
@@ -64,7 +88,6 @@ const EditInstalledComponent = (props: Props) => {
         setShowAll(true);
       }
 
-      // Initialize raw inputs for all installations
       const inputs = new Map<string, { beginning: string; ending: string }>();
       allInst.forEach((inst) => {
         inputs.set(inst.id, {
@@ -98,10 +121,18 @@ const EditInstalledComponent = (props: Props) => {
       const beginningStr = raw?.beginning ?? String(inst.beginning);
       const endingStr = raw?.ending ?? String(inst.ending);
 
-      const slotName = getSlotName(inst.targetId) || `Row ${idx + 1}`;
+      const slotInfo = inst.targetId
+        ? getSlotTimeBounds(inst.targetId)
+        : {
+            beginning: 0,
+            ending: Model.END_OF_TIME,
+            slotName: `Row ${idx + 1}`,
+          };
+      const slotName = slotInfo.slotName;
 
       if (!inst.targetId) {
         newErrors.push(`${slotName}: Please select a target slot.`);
+        return;
       }
 
       if (beginningStr.trim() === "") {
@@ -125,6 +156,18 @@ const EditInstalledComponent = (props: Props) => {
         if (beginning >= ending) {
           newErrors.push(`${slotName}: "From" must be less than "Until".`);
         }
+
+        // Validate against slot bounds
+        if (beginning < slotInfo.beginning) {
+          newErrors.push(
+            `${slotName}: "From" (${beginning}) cannot be before slot starts (${slotInfo.beginning}).`
+          );
+        }
+        if (slotInfo.ending < Model.END_OF_TIME && ending > slotInfo.ending) {
+          newErrors.push(
+            `${slotName}: "Until" (${ending}) cannot be after slot ends (${slotInfo.ending}).`
+          );
+        }
       }
     });
 
@@ -144,17 +187,17 @@ const EditInstalledComponent = (props: Props) => {
 
     bySlot.forEach((installations, slotId) => {
       if (installations.length < 2) return;
-      const slotName = getSlotName(slotId);
+      const slotInfo = getSlotTimeBounds(slotId);
 
       // Sort by beginning time
-      installations.sort((a, b) => a.beginning - b.ending);
+      installations.sort((a, b) => (a.beginning ?? 0) - (b.beginning ?? 0));
 
       for (let i = 0; i < installations.length - 1; i++) {
         const current = installations[i];
         const next = installations[i + 1];
-        if (current.ending > next.beginning) {
+        if ((current.ending ?? 0) > (next.beginning ?? 0)) {
           newErrors.push(
-            `${slotName}: Periods overlap (${current.beginning}-${current.ending} and ${next.beginning}-${next.ending}).`
+            `${slotInfo.slotName}: Periods overlap (${current.beginning}-${current.ending} and ${next.beginning}-${next.ending}).`
           );
         }
       }
@@ -171,7 +214,6 @@ const EditInstalledComponent = (props: Props) => {
       return;
     }
 
-    // Parse raw inputs into final values
     const updatedInstallations = localInstallations.map((inst) => {
       const raw = rawInputs.get(inst.id);
       return {
@@ -181,40 +223,29 @@ const EditInstalledComponent = (props: Props) => {
       };
     });
 
-    // Merge with existing installations
     let finalInstallations: Installation[];
 
     if (targetSlotId && !showAll) {
-      // We're editing installations for a specific slot only
-      // Keep installations for OTHER slots, add/update installations for THIS slot
       const keptFromOtherSlots = allInstallations.filter(
         (i) => i.targetId !== targetSlotId
       );
-
-      // Remove any that were marked for removal
       const removedIds = new Set(removedInstallations.map((i) => i.id));
       const filteredUpdated = updatedInstallations.filter(
         (i) => !removedIds.has(i.id)
       );
-
       finalInstallations = [...keptFromOtherSlots, ...filteredUpdated];
     } else {
-      // We're showing all, so just use the updated list (minus removed)
       const removedIds = new Set(removedInstallations.map((i) => i.id));
       finalInstallations = updatedInstallations.filter(
         (i) => !removedIds.has(i.id)
       );
     }
 
-    console.log("Saving installations:", finalInstallations);
-
     if (updateDataset) {
       updateDataset((d: Model) => {
-        // Clean up participations for removed installations
         removedInstallations.forEach((removedInst) => {
-          const participationKey = `${individual.id}__installed_in__${removedInst.targetId}`;
+          const participationKey = `${individual.id}__installed_in__${removedInst.targetId}__${removedInst.id}`;
 
-          const activitiesToDelete: string[] = [];
           d.activities.forEach((activity) => {
             const parts = activity.participations;
             if (!parts) return;
@@ -224,11 +255,8 @@ const EditInstalledComponent = (props: Props) => {
                 parts.delete(participationKey);
                 d.activities.set(activity.id, activity);
               }
-              if (parts.size === 0) activitiesToDelete.push(activity.id);
             }
           });
-
-          activitiesToDelete.forEach((aid) => d.activities.delete(aid));
         });
 
         const updated: Individual = {
@@ -249,21 +277,32 @@ const EditInstalledComponent = (props: Props) => {
   };
 
   const addInstallation = () => {
-    // When adding a new installation, use the targetSlotId if we're in filtered mode
+    // Get slot bounds if we have a target slot
+    const slotBounds = targetSlotId
+      ? getSlotTimeBounds(targetSlotId)
+      : { beginning: 0, ending: 10 };
+
+    const defaultBeginning = slotBounds.beginning;
+    const defaultEnding =
+      slotBounds.ending < Model.END_OF_TIME
+        ? slotBounds.ending
+        : defaultBeginning + 10;
+
     const newInst: Installation = {
       id: uuidv4(),
       componentId: individual?.id || "",
-      targetId: targetSlotId || "", // Pre-fill with current slot if filtering
-      beginning: 0,
-      ending: 10,
+      targetId: targetSlotId || "",
+      beginning: defaultBeginning,
+      ending: defaultEnding,
     };
-
-    console.log("Adding new installation:", newInst);
 
     setLocalInstallations((prev) => [...prev, newInst]);
     setRawInputs((prev) => {
       const next = new Map(prev);
-      next.set(newInst.id, { beginning: "0", ending: "10" });
+      next.set(newInst.id, {
+        beginning: String(defaultBeginning),
+        ending: String(defaultEnding),
+      });
       return next;
     });
   };
@@ -339,11 +378,40 @@ const EditInstalledComponent = (props: Props) => {
     return slot.name;
   };
 
+  // Helper to check if a value is outside slot bounds
+  const isOutsideSlotBounds = (
+    instId: string,
+    field: "beginning" | "ending"
+  ): boolean => {
+    const inst = localInstallations.find((i) => i.id === instId);
+    if (!inst || !inst.targetId) return false;
+
+    const raw = rawInputs.get(instId);
+    const value = parseInt(
+      field === "beginning" ? raw?.beginning ?? "" : raw?.ending ?? "",
+      10
+    );
+    if (isNaN(value)) return false;
+
+    const slotBounds = getSlotTimeBounds(inst.targetId);
+
+    if (field === "beginning") {
+      return value < slotBounds.beginning;
+    } else {
+      return slotBounds.ending < Model.END_OF_TIME && value > slotBounds.ending;
+    }
+  };
+
   if (!individual) return null;
 
   const isFiltered = !!targetSlotId && !showAll;
   const totalInstallations = allInstallations.length;
   const slotName = targetSlotId ? getSlotName(targetSlotId) : "";
+
+  // Get slot bounds for display
+  const targetSlotBounds = targetSlotId
+    ? getSlotTimeBounds(targetSlotId)
+    : null;
 
   const modalTitle = isFiltered
     ? `Edit Installation: ${individual.name} in ${slotName}`
@@ -369,6 +437,20 @@ const EditInstalledComponent = (props: Props) => {
               ← Show all {totalInstallations} installations
             </Button>
           </div>
+        )}
+
+        {/* Show slot time bounds if filtering by slot */}
+        {isFiltered && targetSlotBounds && (
+          <Alert variant="info" className="py-2">
+            <strong>Slot availability:</strong> {targetSlotBounds.beginning} -{" "}
+            {targetSlotBounds.ending >= Model.END_OF_TIME
+              ? "∞"
+              : targetSlotBounds.ending}
+            <br />
+            <small className="text-muted">
+              Installation periods must be within these bounds.
+            </small>
+          </Alert>
         )}
 
         <p className="text-muted mb-3">
@@ -423,6 +505,20 @@ const EditInstalledComponent = (props: Props) => {
                     ending: String(inst.ending),
                   };
 
+                  // Get slot bounds for this installation
+                  const instSlotBounds = inst.targetId
+                    ? getSlotTimeBounds(inst.targetId)
+                    : null;
+
+                  const beginningOutOfBounds = isOutsideSlotBounds(
+                    inst.id,
+                    "beginning"
+                  );
+                  const endingOutOfBounds = isOutsideSlotBounds(
+                    inst.id,
+                    "ending"
+                  );
+
                   return (
                     <tr key={inst.id}>
                       <td className="text-center text-muted">{idx + 1}</td>
@@ -431,13 +527,33 @@ const EditInstalledComponent = (props: Props) => {
                           <Form.Select
                             size="sm"
                             value={inst.targetId}
-                            onChange={(e) =>
+                            onChange={(e) => {
                               updateInstallation(
                                 inst.id,
                                 "targetId",
                                 e.target.value
-                              )
-                            }
+                              );
+                              // Reset times to slot defaults when changing slot
+                              if (e.target.value) {
+                                const newSlotBounds = getSlotTimeBounds(
+                                  e.target.value
+                                );
+                                const newEnding =
+                                  newSlotBounds.ending < Model.END_OF_TIME
+                                    ? newSlotBounds.ending
+                                    : newSlotBounds.beginning + 10;
+                                updateRawInput(
+                                  inst.id,
+                                  "beginning",
+                                  String(newSlotBounds.beginning)
+                                );
+                                updateRawInput(
+                                  inst.id,
+                                  "ending",
+                                  String(newEnding)
+                                );
+                              }
+                            }}
                             className={!inst.targetId ? "border-warning" : ""}
                           >
                             <option value="">-- Select slot --</option>
@@ -449,43 +565,87 @@ const EditInstalledComponent = (props: Props) => {
                                 );
                                 if (parent) parentName = parent.name + " → ";
                               }
+                              const slotBounds = getSlotTimeBounds(slot.id);
+                              const boundsStr =
+                                slotBounds.ending < Model.END_OF_TIME
+                                  ? ` (${slotBounds.beginning}-${slotBounds.ending})`
+                                  : slotBounds.beginning > 0
+                                  ? ` (${slotBounds.beginning}-∞)`
+                                  : "";
                               return (
                                 <option key={slot.id} value={slot.id}>
                                   {parentName}
                                   {slot.name}
+                                  {boundsStr}
                                 </option>
                               );
                             })}
                           </Form.Select>
+                          {inst.targetId && instSlotBounds && (
+                            <Form.Text className="text-muted">
+                              Available: {instSlotBounds.beginning}-
+                              {instSlotBounds.ending >= Model.END_OF_TIME
+                                ? "∞"
+                                : instSlotBounds.ending}
+                            </Form.Text>
+                          )}
                         </td>
                       )}
                       <td>
                         <Form.Control
                           type="number"
                           size="sm"
-                          min="0"
+                          min={instSlotBounds?.beginning ?? 0}
+                          max={instSlotBounds?.ending ?? undefined}
                           value={raw.beginning}
                           onChange={(e) =>
                             updateRawInput(inst.id, "beginning", e.target.value)
                           }
-                          placeholder="0"
+                          placeholder={String(instSlotBounds?.beginning ?? 0)}
                           className={
-                            raw.beginning === "" ? "border-warning" : ""
+                            raw.beginning === "" || beginningOutOfBounds
+                              ? "border-danger"
+                              : ""
                           }
+                          isInvalid={beginningOutOfBounds}
                         />
+                        {beginningOutOfBounds && instSlotBounds && (
+                          <Form.Text className="text-danger">
+                            Min: {instSlotBounds.beginning}
+                          </Form.Text>
+                        )}
                       </td>
                       <td>
                         <Form.Control
                           type="number"
                           size="sm"
-                          min="1"
+                          min={instSlotBounds?.beginning ?? 1}
+                          max={
+                            instSlotBounds &&
+                            instSlotBounds.ending < Model.END_OF_TIME
+                              ? instSlotBounds.ending
+                              : undefined
+                          }
                           value={raw.ending}
                           onChange={(e) =>
                             updateRawInput(inst.id, "ending", e.target.value)
                           }
-                          placeholder="10"
-                          className={raw.ending === "" ? "border-warning" : ""}
+                          placeholder={String(instSlotBounds?.ending ?? 10)}
+                          className={
+                            raw.ending === "" || endingOutOfBounds
+                              ? "border-danger"
+                              : ""
+                          }
+                          isInvalid={endingOutOfBounds}
                         />
+                        {endingOutOfBounds && instSlotBounds && (
+                          <Form.Text className="text-danger">
+                            Max:{" "}
+                            {instSlotBounds.ending >= Model.END_OF_TIME
+                              ? "∞"
+                              : instSlotBounds.ending}
+                          </Form.Text>
+                        )}
                       </td>
                       <td className="text-center">
                         <Button

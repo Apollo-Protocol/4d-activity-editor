@@ -190,6 +190,36 @@ function shouldDrawSeparatorAfter(
   return false;
 }
 
+// Add helper to get effective time bounds for a slot
+function getSlotEffectiveTimeBounds(
+  slot: Individual,
+  dataset: Model
+): { beginning: number; ending: number } {
+  let beginning = slot.beginning;
+  let ending = slot.ending;
+
+  // Inherit from parent system if not set
+  if (beginning < 0 && slot.parentSystemId) {
+    const parentSystem = dataset.individuals.get(slot.parentSystemId);
+    if (parentSystem) {
+      beginning = parentSystem.beginning >= 0 ? parentSystem.beginning : 0;
+    } else {
+      beginning = 0;
+    }
+  } else if (beginning < 0) {
+    beginning = 0;
+  }
+
+  if (ending >= Model.END_OF_TIME && slot.parentSystemId) {
+    const parentSystem = dataset.individuals.get(slot.parentSystemId);
+    if (parentSystem && parentSystem.ending < Model.END_OF_TIME) {
+      ending = parentSystem.ending;
+    }
+  }
+
+  return { beginning, ending };
+}
+
 export function drawIndividuals(ctx: DrawContext) {
   const { config, svgElement, activities, dataset } = ctx;
   const individuals = ctx.individuals;
@@ -299,33 +329,55 @@ export function drawIndividuals(ctx: DrawContext) {
     }
 
     // For installed components (installation references), use THIS installation's period
+    // BUT constrain to slot's time bounds
     if (isInstallationRef(i)) {
-      // The virtual row already has the correct beginning/ending set from ActivityDiagramWrap
-      // Just use them directly
-      effectiveBeginning = i.beginning >= 0 ? i.beginning : 0;
-      effectiveEnding =
+      const originalId = getOriginalId(i);
+      const slotId = getSlotId(i);
+      const installationId = getInstallationId(i);
+
+      // Get slot bounds first
+      let slotBounds = { beginning: 0, ending: Model.END_OF_TIME };
+      if (slotId) {
+        const slot = dataset.individuals.get(slotId);
+        if (slot) {
+          slotBounds = getSlotEffectiveTimeBounds(slot, dataset);
+        }
+      }
+
+      // Get installation bounds
+      let instBeginning = i.beginning >= 0 ? i.beginning : 0;
+      let instEnding =
         i.ending < Model.END_OF_TIME ? i.ending : Model.END_OF_TIME;
 
       // Fallback: try to get from original if the virtual row doesn't have valid values
-      if (effectiveBeginning < 0 || effectiveEnding >= Model.END_OF_TIME) {
-        const originalId = getOriginalId(i);
-        const slotId = getSlotId(i);
-        const installationId = getInstallationId(i);
-
+      if (instBeginning < 0 || instEnding >= Model.END_OF_TIME) {
         if (originalId && slotId) {
           const original = dataset.individuals.get(originalId);
           if (original && original.installations) {
-            // Find THIS specific installation by ID if available
             let installation = installationId
               ? original.installations.find((x) => x.id === installationId)
               : original.installations.find((x) => x.targetId === slotId);
 
             if (installation) {
-              effectiveBeginning = Math.max(0, installation.beginning ?? 0);
-              effectiveEnding = installation.ending ?? Model.END_OF_TIME;
+              instBeginning = Math.max(0, installation.beginning ?? 0);
+              instEnding = installation.ending ?? Model.END_OF_TIME;
             }
           }
         }
+      }
+
+      // Constrain installation to slot bounds
+      effectiveBeginning = Math.max(instBeginning, slotBounds.beginning);
+      effectiveEnding = Math.min(
+        instEnding,
+        slotBounds.ending < Model.END_OF_TIME ? slotBounds.ending : instEnding
+      );
+
+      // Ensure valid range
+      if (effectiveBeginning >= effectiveEnding) {
+        // Installation is outside slot bounds - still show it but mark as invalid
+        effectiveBeginning = instBeginning;
+        effectiveEnding = instEnding;
       }
     }
 
@@ -450,8 +502,6 @@ function drawGroupSeparators(
   const separatorPositions: { y: number; x1: number; x2: number }[] = [];
 
   // Calculate the full width for separators
-  const individualLabelsEnabled =
-    config.labels.individual.enabled && keepIndividualLabels(individuals);
   const x1 = config.layout.individual.xMargin;
   const x2 =
     config.viewPort.x * config.viewPort.zoom - config.layout.individual.xMargin;
@@ -471,20 +521,21 @@ function drawGroupSeparators(
     }
   }
 
-  // Draw the separators
-  svgElement
-    .selectAll(".group-separator")
-    .data(separatorPositions)
-    .join("line")
-    .attr("class", "group-separator")
-    .attr("x1", (d: { y: number; x1: number; x2: number }) => d.x1)
-    .attr("y1", (d: { y: number; x1: number; x2: number }) => d.y)
-    .attr("x2", (d: { y: number; x1: number; x2: number }) => d.x2)
-    .attr("y2", (d: { y: number; x1: number; x2: number }) => d.y)
-    .attr("stroke", "#d1d5db") // Light gray color
-    .attr("stroke-width", 1)
-    .attr("stroke-dasharray", "4,4") // Dashed line
-    .attr("opacity", 0.8);
+  // Draw the separators using append instead of join for better compatibility
+  separatorPositions.forEach((pos, idx) => {
+    svgElement
+      .append("line")
+      .attr("class", "group-separator")
+      .attr("id", `separator-${idx}`)
+      .attr("x1", pos.x1)
+      .attr("y1", pos.y)
+      .attr("x2", pos.x2)
+      .attr("y2", pos.y)
+      .attr("stroke", "#9ca3af") // Gray color
+      .attr("stroke-width", 1)
+      .attr("stroke-dasharray", "6,4") // Dashed line
+      .attr("opacity", 0.6);
+  });
 }
 
 export function hoverIndividuals(ctx: DrawContext) {

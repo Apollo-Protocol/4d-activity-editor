@@ -93,60 +93,27 @@ export function drawInstallations(ctx: DrawContext) {
       .attr("stroke-width", 1.5);
   }
 
-  // Draw hatched area by getting the bounding box of the actual row path
-  // This ensures the hatch exactly covers the drawn individual bar
+  // Draw hatched area using the same path as the individual (chevron shape)
+  // This clips the hatch to match exactly
   svgElement
     .selectAll(".installation-period")
     .data(
       installationData,
       (d: InstallationDrawData) => `${d.refId}:${d.inst.id}`
     )
-    .join("rect")
+    .join("path")
     .attr("class", "installation-period")
-    .attr("x", (d: InstallationDrawData) => {
-      // Get the actual path element for this individual
+    .attr("d", (d: InstallationDrawData) => {
+      // Get the path data from the individual element
       const escapedId = CSS.escape("i" + d.refId);
       const node = svgElement
         .select("#" + escapedId)
-        .node() as SVGGraphicsElement | null;
+        .node() as SVGPathElement | null;
       if (node) {
-        const bbox = node.getBBox();
-        return bbox.x;
+        // Copy the exact path from the individual shape
+        return node.getAttribute("d") || "";
       }
-      return 0;
-    })
-    .attr("y", (d: InstallationDrawData) => {
-      const escapedId = CSS.escape("i" + d.refId);
-      const node = svgElement
-        .select("#" + escapedId)
-        .node() as SVGGraphicsElement | null;
-      if (node) {
-        const bbox = node.getBBox();
-        return bbox.y;
-      }
-      return 0;
-    })
-    .attr("width", (d: InstallationDrawData) => {
-      const escapedId = CSS.escape("i" + d.refId);
-      const node = svgElement
-        .select("#" + escapedId)
-        .node() as SVGGraphicsElement | null;
-      if (node) {
-        const bbox = node.getBBox();
-        return bbox.width;
-      }
-      return 0;
-    })
-    .attr("height", (d: InstallationDrawData) => {
-      const escapedId = CSS.escape("i" + d.refId);
-      const node = svgElement
-        .select("#" + escapedId)
-        .node() as SVGGraphicsElement | null;
-      if (node) {
-        const bbox = node.getBBox();
-        return bbox.height;
-      }
-      return 0;
+      return "";
     })
     .attr("fill", "url(#diagonal-hatch)")
     .attr("stroke", "none")

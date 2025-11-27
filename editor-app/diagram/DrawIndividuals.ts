@@ -308,19 +308,33 @@ export function drawIndividuals(ctx: DrawContext) {
     .attr("id", (d: Individual) => "i" + d["id"])
     .attr("d", (i: Individual) => {
       const { x, y, w, h, start, stop, nestingLevel } = layout.get(i.id)!;
+
+      // Determine if we need left chevron
+      const includeLeftChevron = !start || nestingLevel > 0;
+
+      // Adjust x and width for nested items that need a left chevron
+      // but started within view (start === true)
+      let drawX = x;
+      let drawW = w;
+
+      if (start && nestingLevel > 0) {
+        // Need to make room for the left chevron
+        // Move starting point left and increase width
+        drawX = x - chevOff;
+        drawW = w + chevOff;
+      }
+
+      // Build the path
       const rightChevron = stop
         ? `l 0 ${h}`
         : `l ${chevOff} ${h / 2} ${-chevOff} ${h / 2}`;
-      // show left chevron when item starts before view (start === false)
-      // OR when it's a nested SystemComponent / installation (nestingLevel > 0)
+
       const leftChevron = `l ${chevOff} ${-h / 2} ${-chevOff} ${-h / 2}`;
 
-      const includeLeftChevron = !start || nestingLevel > 0;
-
       return (
-        `M ${x} ${y} l ${w} 0` +
+        `M ${drawX} ${y} l ${drawW} 0` +
         rightChevron +
-        `l ${-w} 0` +
+        `l ${-drawW} 0` +
         (includeLeftChevron ? leftChevron : "") +
         "Z"
       );

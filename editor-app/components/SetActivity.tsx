@@ -315,14 +315,36 @@ const SetActivity = (props: Props) => {
 
   function updateIndividuals(d: Model) {
     d.individuals.forEach((individual) => {
+      const entityType = individual.entityType ?? EntityType.Individual;
+
+      // Only update timing for regular Individuals that have participant-based timing enabled
+      // Do NOT update Systems, SystemComponents, or InstalledComponents - they manage their own timelines
+      if (
+        entityType === EntityType.System ||
+        entityType === EntityType.SystemComponent ||
+        entityType === EntityType.InstalledComponent
+      ) {
+        return; // Skip - these types have their own fixed timelines
+      }
+
+      // For regular Individuals, only update if they have the "begins/ends with participant" flags
       const earliestBeginning = d.earliestParticipantBeginning(individual.id);
       const latestEnding = d.lastParticipantEnding(individual.id);
-      if (individual.beginning >= 0) {
+
+      // Only update beginning if the individual has beginsWithParticipant enabled
+      // (indicated by having a non-negative beginning that should track participations)
+      if (individual.beginsWithParticipant && individual.beginning >= 0) {
         individual.beginning = earliestBeginning ? earliestBeginning : -1;
       }
-      if (individual.ending < Model.END_OF_TIME) {
+
+      // Only update ending if the individual has endsWithParticipant enabled
+      if (
+        individual.endsWithParticipant &&
+        individual.ending < Model.END_OF_TIME
+      ) {
         individual.ending = latestEnding;
       }
+
       d.addIndividual(individual);
     });
   }

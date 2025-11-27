@@ -1,5 +1,5 @@
 import { MouseEvent } from "react";
-import { Activity, Participation } from "@/lib/Schema";
+import { Activity, Participation, EntityType } from "@/lib/Schema";
 import { ConfigData } from "./config";
 import { DrawContext } from "./DrawHelpers";
 import { Model } from "@/lib/Model";
@@ -64,7 +64,7 @@ function getSlotEffectiveTimeBounds(
   return { beginning, ending };
 }
 
-// Update getVisibleInterval to also respect slot bounds:
+// Update getVisibleInterval to also handle SystemComponents and other entities with fixed timelines
 function getVisibleInterval(
   activityStart: number,
   activityEnd: number,
@@ -72,48 +72,108 @@ function getVisibleInterval(
   dataset: any
 ): { start: number; end: number } {
   const ref = getOriginalAndSlot(individualId);
-  if (!ref) {
-    // Normal individual - use full activity interval
+
+  if (ref) {
+    // This is an installed component - crop to installation period AND slot bounds
+    const original = dataset.individuals.get(ref.originalId);
+    if (!original || !original.installations) {
+      return { start: activityStart, end: activityEnd };
+    }
+
+    // Find the specific installation
+    let inst;
+    if (ref.installationId) {
+      inst = original.installations.find(
+        (i: any) => i.id === ref.installationId
+      );
+    }
+    if (!inst) {
+      inst = original.installations.find((i: any) => i.targetId === ref.slotId);
+    }
+    if (!inst) {
+      return { start: activityStart, end: activityEnd };
+    }
+
+    // Get installation bounds
+    const instStart = Math.max(0, inst.beginning ?? 0);
+    const instEnd = inst.ending ?? Model.END_OF_TIME;
+
+    // Get slot bounds
+    const slotBounds = getSlotEffectiveTimeBounds(ref.slotId, dataset);
+
+    // Compute the most restrictive bounds (intersection of all three)
+    const visibleStart = Math.max(
+      activityStart,
+      instStart,
+      slotBounds.beginning
+    );
+    const visibleEnd = Math.min(
+      activityEnd,
+      instEnd,
+      slotBounds.ending < Model.END_OF_TIME ? slotBounds.ending : activityEnd
+    );
+
+    return { start: visibleStart, end: visibleEnd };
+  }
+
+  // Not an installation reference - check if it's a regular individual
+  const individual = dataset.individuals.get(individualId);
+  if (!individual) {
     return { start: activityStart, end: activityEnd };
   }
 
-  // This is an installed component - crop to installation period AND slot bounds
-  const original = dataset.individuals.get(ref.originalId);
-  if (!original || !original.installations) {
+  const entityType = individual.entityType ?? EntityType.Individual;
+
+  // For SystemComponents, clip to their effective time bounds
+  if (entityType === EntityType.SystemComponent) {
+    const slotBounds = getSlotEffectiveTimeBounds(individualId, dataset);
+
+    const visibleStart = Math.max(activityStart, slotBounds.beginning);
+    const visibleEnd = Math.min(
+      activityEnd,
+      slotBounds.ending < Model.END_OF_TIME ? slotBounds.ending : activityEnd
+    );
+
+    return { start: visibleStart, end: visibleEnd };
+  }
+
+  // For Systems, clip to their time bounds if set
+  if (entityType === EntityType.System) {
+    const sysBeginning = individual.beginning >= 0 ? individual.beginning : 0;
+    const sysEnding =
+      individual.ending < Model.END_OF_TIME ? individual.ending : activityEnd;
+
+    const visibleStart = Math.max(activityStart, sysBeginning);
+    const visibleEnd = Math.min(activityEnd, sysEnding);
+
+    return { start: visibleStart, end: visibleEnd };
+  }
+
+  // For InstalledComponents (the parent, not a specific installation),
+  // we shouldn't draw participation on the parent row itself
+  // But if we do, use full activity interval
+  if (entityType === EntityType.InstalledComponent) {
     return { start: activityStart, end: activityEnd };
   }
 
-  // Find the specific installation
-  let inst;
-  if (ref.installationId) {
-    inst = original.installations.find((i: any) => i.id === ref.installationId);
+  // For regular Individuals, check if they have fixed time bounds
+  // Only clip if they have explicit bounds set (not using participant-based timing)
+  if (individual.beginning >= 0 || individual.ending < Model.END_OF_TIME) {
+    const indBeginning = individual.beginning >= 0 ? individual.beginning : 0;
+    const indEnding =
+      individual.ending < Model.END_OF_TIME ? individual.ending : activityEnd;
+
+    // Only clip if NOT using participant-based timing
+    // (beginsWithParticipant/endsWithParticipant means the bounds track activities, so don't clip)
+    if (!individual.beginsWithParticipant && !individual.endsWithParticipant) {
+      const visibleStart = Math.max(activityStart, indBeginning);
+      const visibleEnd = Math.min(activityEnd, indEnding);
+      return { start: visibleStart, end: visibleEnd };
+    }
   }
-  if (!inst) {
-    inst = original.installations.find((i: any) => i.targetId === ref.slotId);
-  }
-  if (!inst) {
-    return { start: activityStart, end: activityEnd };
-  }
 
-  // Get installation bounds
-  const instStart = Math.max(0, inst.beginning ?? 0);
-  const instEnd = inst.ending ?? Model.END_OF_TIME;
-
-  // Get slot bounds
-  const slotBounds = getSlotEffectiveTimeBounds(ref.slotId, dataset);
-
-  // Compute the most restrictive bounds (intersection of all three)
-  // 1. Activity time
-  // 2. Installation time
-  // 3. Slot time
-  const visibleStart = Math.max(activityStart, instStart, slotBounds.beginning);
-  const visibleEnd = Math.min(
-    activityEnd,
-    instEnd,
-    slotBounds.ending < Model.END_OF_TIME ? slotBounds.ending : activityEnd
-  );
-
-  return { start: visibleStart, end: visibleEnd };
+  // Default: use full activity interval
+  return { start: activityStart, end: activityEnd };
 }
 
 export function drawParticipations(ctx: DrawContext) {

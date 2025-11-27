@@ -12,7 +12,7 @@ import Row from "react-bootstrap/Row";
 import Col from "react-bootstrap/Col";
 import Form from "react-bootstrap/Form";
 import { Model } from "../lib/Model";
-import { EntityType, Individual } from "../lib/Schema";
+import { EntityType, Individual, Installation } from "../lib/Schema";
 import { v4 as uuidv4 } from "uuid";
 import { Alert } from "react-bootstrap";
 
@@ -70,6 +70,9 @@ const SetIndividual = (props: Props) => {
   const [editingTypeValue, setEditingTypeValue] = useState("");
   const typeDropdownRef = useRef<HTMLDivElement | null>(null);
 
+  // Check if we're editing (has selected individual) vs adding new
+  const isEditing = !!selectedIndividual;
+
   useEffect(() => {
     if (selectedIndividual) {
       setIndividualHasParticipants(
@@ -77,15 +80,24 @@ const SetIndividual = (props: Props) => {
       );
     }
 
-    if (selectedIndividual && selectedIndividual.beginning > -1) {
-      setBeginsWithParticipant(true);
-    } else {
-      setBeginsWithParticipant(false);
-    }
+    // Only apply beginsWithParticipant/endsWithParticipant logic for regular Individuals
+    const entityType = selectedIndividual?.entityType ?? EntityType.Individual;
 
-    if (selectedIndividual && selectedIndividual.ending < Model.END_OF_TIME) {
-      setEndsWithParticipant(true);
+    if (entityType === EntityType.Individual) {
+      if (selectedIndividual && selectedIndividual.beginning > -1) {
+        setBeginsWithParticipant(true);
+      } else {
+        setBeginsWithParticipant(false);
+      }
+
+      if (selectedIndividual && selectedIndividual.ending < Model.END_OF_TIME) {
+        setEndsWithParticipant(true);
+      } else {
+        setEndsWithParticipant(false);
+      }
     } else {
+      // For non-Individual types, ALWAYS set these to false
+      setBeginsWithParticipant(false);
       setEndsWithParticipant(false);
     }
   }, [selectedIndividual, dataset]);
@@ -112,7 +124,7 @@ const SetIndividual = (props: Props) => {
     if (inputs.beginning === undefined) updateInputs("beginning", -1);
     if (inputs.ending === undefined) updateInputs("ending", Model.END_OF_TIME);
     if (!inputs.installations) updateInputs("installations", []);
-  }, [show]); // when opening the dialog
+  }, [show]);
 
   // Systems AND installed components can contain component slots
   const availableParents = useMemo(
@@ -126,15 +138,19 @@ const SetIndividual = (props: Props) => {
     [dataset]
   );
 
-  // Only SystemComponents can be installation targets (they're the slots!)
-  const availableInstallationTargets = useMemo(
-    () =>
-      Array.from(dataset.individuals.values()).filter(
-        (i) =>
-          (i.entityType ?? EntityType.Individual) === EntityType.SystemComponent
-      ),
-    [dataset]
-  );
+  // Helper to get parent's time bounds for display
+  const getParentBounds = (
+    parentSystemId?: string
+  ): { beginning: number; ending: number } | null => {
+    if (!parentSystemId) return null;
+    const parent = dataset.individuals.get(parentSystemId);
+    if (!parent) return null;
+    return {
+      beginning: parent.beginning >= 0 ? parent.beginning : 0,
+      ending:
+        parent.ending < Model.END_OF_TIME ? parent.ending : Model.END_OF_TIME,
+    };
+  };
 
   const handleClose = () => {
     setShow(false);
@@ -150,7 +166,7 @@ const SetIndividual = (props: Props) => {
 
   const handleShow = () => {
     if (selectedIndividual) {
-      setInputs(selectedIndividual);
+      setInputs({ ...selectedIndividual });
     } else {
       const newDefault = { ...defaultIndividual, id: uuidv4() };
       setInputs(newDefault);
@@ -161,17 +177,58 @@ const SetIndividual = (props: Props) => {
     if (!validateInputs()) return;
 
     const id = inputs.id || uuidv4();
+    const entityType = inputs.entityType ?? EntityType.Individual;
+
+    // Determine beginning/ending
+    let finalBeginning: number;
+    let finalEnding: number;
+
+    if (entityType === EntityType.Individual) {
+      // For regular Individuals, use participant-based timing if enabled
+      if (beginsWithParticipant && selectedIndividual) {
+        const earliest = dataset.earliestParticipantBeginning(
+          selectedIndividual.id
+        );
+        finalBeginning = earliest ?? 0;
+      } else {
+        finalBeginning = inputs.beginning ?? -1;
+      }
+
+      if (endsWithParticipant && selectedIndividual) {
+        const latest = dataset.lastParticipantEnding(selectedIndividual.id);
+        finalEnding = latest ?? Model.END_OF_TIME;
+      } else {
+        finalEnding = inputs.ending ?? Model.END_OF_TIME;
+      }
+    } else if (entityType === EntityType.SystemComponent) {
+      // For SystemComponents:
+      // - When ADDING: use the inputs
+      // - When EDITING: preserve the original values (they're not editable)
+      if (isEditing) {
+        finalBeginning = selectedIndividual!.beginning;
+        finalEnding = selectedIndividual!.ending;
+      } else {
+        finalBeginning = inputs.beginning ?? -1;
+        finalEnding = inputs.ending ?? Model.END_OF_TIME;
+      }
+    } else {
+      // For System and InstalledComponent, span full timeline
+      finalBeginning = -1;
+      finalEnding = Model.END_OF_TIME;
+    }
 
     const newInd: Individual = {
       id: id,
       name: inputs.name || "Unnamed",
       description: inputs.description || "",
       type: inputs.type,
-      beginning: inputs.beginning ?? -1, // Use the value from inputs, not hardcoded -1
-      ending: inputs.ending ?? Model.END_OF_TIME, // Use the value from inputs, not hardcoded END_OF_TIME
-      beginsWithParticipant: beginsWithParticipant, // Use the state variable
-      endsWithParticipant: endsWithParticipant, // Use the state variable
-      entityType: inputs.entityType ?? EntityType.Individual,
+      beginning: finalBeginning,
+      ending: finalEnding,
+      beginsWithParticipant:
+        entityType === EntityType.Individual ? beginsWithParticipant : false,
+      endsWithParticipant:
+        entityType === EntityType.Individual ? endsWithParticipant : false,
+      entityType: entityType,
       parentSystemId: inputs.parentSystemId,
       installations: inputs.installations ?? [],
     };
@@ -195,6 +252,13 @@ const SetIndividual = (props: Props) => {
   };
 
   const handleBeginsWithParticipant = (e: any) => {
+    if (
+      inputs.entityType !== EntityType.Individual &&
+      inputs.entityType !== undefined
+    ) {
+      return;
+    }
+
     const checked = e.target.checked;
     const earliestBeginning = selectedIndividual
       ? dataset.earliestParticipantBeginning(selectedIndividual.id)
@@ -208,6 +272,13 @@ const SetIndividual = (props: Props) => {
   };
 
   const handleEndsWithParticipant = (e: any) => {
+    if (
+      inputs.entityType !== EntityType.Individual &&
+      inputs.entityType !== undefined
+    ) {
+      return;
+    }
+
     const checked = e.target.checked;
     const lastEnding = selectedIndividual
       ? dataset.lastParticipantEnding(selectedIndividual.id)
@@ -224,6 +295,38 @@ const SetIndividual = (props: Props) => {
     if (!inputs.type) {
       runningErrors.push("Type field is required");
     }
+
+    // Validate SystemComponent time bounds when adding
+    if (
+      !isEditing &&
+      inputs.entityType === EntityType.SystemComponent &&
+      inputs.parentSystemId
+    ) {
+      const parentBounds = getParentBounds(inputs.parentSystemId);
+      if (parentBounds) {
+        const slotBeginning = inputs.beginning >= 0 ? inputs.beginning : 0;
+        const slotEnding =
+          inputs.ending < Model.END_OF_TIME ? inputs.ending : Model.END_OF_TIME;
+
+        if (
+          parentBounds.beginning >= 0 &&
+          slotBeginning < parentBounds.beginning
+        ) {
+          runningErrors.push(
+            `Beginning (${slotBeginning}) cannot be before parent's beginning (${parentBounds.beginning})`
+          );
+        }
+        if (
+          parentBounds.ending < Model.END_OF_TIME &&
+          slotEnding > parentBounds.ending
+        ) {
+          runningErrors.push(
+            `Ending (${slotEnding}) cannot be after parent's ending (${parentBounds.ending})`
+          );
+        }
+      }
+    }
+
     if (runningErrors.length === 0) {
       return true;
     } else {
@@ -321,6 +424,13 @@ const SetIndividual = (props: Props) => {
   const cancelEditType = () => {
     setEditingTypeId(null);
     setEditingTypeValue("");
+  };
+
+  // Format time for display
+  const formatTime = (value: number): string => {
+    if (value < 0) return "Start of timeline";
+    if (value >= Model.END_OF_TIME) return "End of timeline";
+    return String(value);
   };
 
   return (
@@ -492,7 +602,7 @@ const SetIndividual = (props: Props) => {
               </div>
             </Form.Group>
 
-            {/* Entity type selection - NO ICONS */}
+            {/* Entity type selection */}
             <Form.Group className="mb-3" controlId="ind-entity-type">
               <Form.Label>Entity type</Form.Label>
               <Form.Select
@@ -500,6 +610,7 @@ const SetIndividual = (props: Props) => {
                 onChange={(e) =>
                   updateInputs("entityType", e.target.value as EntityType)
                 }
+                disabled={isEditing} // Can't change entity type when editing
               >
                 <option value={EntityType.Individual}>Individual</option>
                 <option value={EntityType.System}>System</option>
@@ -510,6 +621,11 @@ const SetIndividual = (props: Props) => {
                   Installed Component (physical object)
                 </option>
               </Form.Select>
+              {isEditing && (
+                <Form.Text className="text-muted">
+                  Entity type cannot be changed after creation.
+                </Form.Text>
+              )}
             </Form.Group>
 
             {/* Parent – for SystemComponents only */}
@@ -522,8 +638,9 @@ const SetIndividual = (props: Props) => {
                   onChange={(e) =>
                     updateInputs("parentSystemId", e.target.value || undefined)
                   }
+                  disabled={isEditing} // Can't change parent when editing
                 >
-                  <option value=""> Select parent </option>
+                  <option value="">Select parent</option>
                   {availableParents.map((p) => {
                     const type =
                       (p.entityType ?? EntityType.Individual) ===
@@ -537,6 +654,11 @@ const SetIndividual = (props: Props) => {
                     );
                   })}
                 </Form.Select>
+                {isEditing && (
+                  <Form.Text className="text-muted">
+                    Parent cannot be changed after creation.
+                  </Form.Text>
+                )}
               </Form.Group>
             )}
 
@@ -579,10 +701,36 @@ const SetIndividual = (props: Props) => {
               </>
             )}
 
-            {/* Show beginning/ending for Systems */}
-            {inputs.entityType === EntityType.System && (
+            {/* SystemComponent time bounds - only when ADDING */}
+            {inputs.entityType === EntityType.SystemComponent && !isEditing && (
               <>
-                <Form.Group className="mb-3" controlId="formSystemBeginning">
+                <Alert variant="info" className="py-2">
+                  <small>
+                    Set the time period when this slot/position exists.
+                    Installed components can only be installed within this
+                    period.
+                    <strong>
+                      {" "}
+                      These values cannot be changed after creation.
+                    </strong>
+                  </small>
+                </Alert>
+
+                {inputs.parentSystemId &&
+                  getParentBounds(inputs.parentSystemId) && (
+                    <Form.Text className="text-muted d-block mb-2">
+                      Parent bounds:{" "}
+                      {formatTime(
+                        getParentBounds(inputs.parentSystemId)!.beginning
+                      )}{" "}
+                      -{" "}
+                      {formatTime(
+                        getParentBounds(inputs.parentSystemId)!.ending
+                      )}
+                    </Form.Text>
+                  )}
+
+                <Form.Group className="mb-3" controlId="formBeginning">
                   <Form.Label>Beginning</Form.Label>
                   <Form.Control
                     type="number"
@@ -594,11 +742,11 @@ const SetIndividual = (props: Props) => {
                       setInputs({ ...inputs, beginning: val });
                       setDirty(true);
                     }}
-                    placeholder="Leave empty to span full timeline"
+                    placeholder="Leave empty to inherit from parent"
                     min="0"
                   />
                 </Form.Group>
-                <Form.Group className="mb-3" controlId="formSystemEnding">
+                <Form.Group className="mb-3" controlId="formEnding">
                   <Form.Label>Ending</Form.Label>
                   <Form.Control
                     type="number"
@@ -614,58 +762,26 @@ const SetIndividual = (props: Props) => {
                       setInputs({ ...inputs, ending: val });
                       setDirty(true);
                     }}
-                    placeholder="Leave empty to span full timeline"
+                    placeholder="Leave empty to inherit from parent"
                     min="1"
                   />
                 </Form.Group>
               </>
             )}
 
-            {/* Show beginning/ending for SystemComponents */}
-            {inputs.entityType === EntityType.SystemComponent && (
-              <>
-                <Form.Group className="mb-3" controlId="formBeginning">
-                  <Form.Label>
-                    Beginning (optional - inherits from parent System if not
-                    set)
-                  </Form.Label>
-                  <Form.Control
-                    type="number"
-                    name="beginning"
-                    value={inputs.beginning >= 0 ? inputs.beginning : ""}
-                    onChange={(e) => {
-                      const val =
-                        e.target.value === "" ? -1 : Number(e.target.value);
-                      setInputs({ ...inputs, beginning: val });
-                      setDirty(true);
-                    }}
-                    placeholder="Inherits from parent system"
-                    min="0"
-                  />
-                </Form.Group>
-                <Form.Group className="mb-3" controlId="formEnding">
-                  <Form.Label>
-                    Ending (optional - inherits from parent System if not set)
-                  </Form.Label>
-                  <Form.Control
-                    type="number"
-                    name="ending"
-                    value={
-                      inputs.ending < Model.END_OF_TIME ? inputs.ending : ""
-                    }
-                    onChange={(e) => {
-                      const val =
-                        e.target.value === ""
-                          ? Model.END_OF_TIME
-                          : Number(e.target.value);
-                      setInputs({ ...inputs, ending: val });
-                      setDirty(true);
-                    }}
-                    placeholder="Inherits from parent system"
-                    min="1"
-                  />
-                </Form.Group>
-              </>
+            {/* SystemComponent time bounds - read-only when EDITING */}
+            {inputs.entityType === EntityType.SystemComponent && isEditing && (
+              <Alert variant="secondary" className="py-2">
+                <small>
+                  <strong>Slot time period:</strong>{" "}
+                  {formatTime(selectedIndividual!.beginning)} -{" "}
+                  {formatTime(selectedIndividual!.ending)}
+                  <br />
+                  <span className="text-muted">
+                    Time bounds cannot be changed after creation.
+                  </span>
+                </small>
+              </Alert>
             )}
 
             {/* Note for InstalledComponents */}

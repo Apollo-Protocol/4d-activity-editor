@@ -126,16 +126,17 @@ const SetIndividual = (props: Props) => {
     if (!inputs.installations) updateInputs("installations", []);
   }, [show]);
 
-  // Systems AND installed components can contain component slots
+  // Only Systems can be parents for SystemComponents (not InstalledComponents)
   const availableParents = useMemo(
     () =>
       Array.from(dataset.individuals.values()).filter(
         (i) =>
-          (i.entityType ?? EntityType.Individual) === EntityType.System ||
-          (i.entityType ?? EntityType.Individual) ===
-            EntityType.InstalledComponent
+          // Must be a System only
+          (i.entityType ?? EntityType.Individual) === EntityType.System &&
+          // Cannot be the same as the item being edited
+          i.id !== inputs.id
       ),
-    [dataset]
+    [dataset, inputs.id]
   );
 
   // Helper to get parent's time bounds for display
@@ -149,6 +150,63 @@ const SetIndividual = (props: Props) => {
       beginning: parent.beginning >= 0 ? parent.beginning : 0,
       ending:
         parent.ending < Model.END_OF_TIME ? parent.ending : Model.END_OF_TIME,
+    };
+  };
+
+  // Helper to check if slot's time bounds fit within a parent's bounds
+  const slotFitsInParent = (
+    slotBeginning: number,
+    slotEnding: number,
+    parentSystemId?: string
+  ): { fits: boolean; message?: string } => {
+    if (!parentSystemId) return { fits: true };
+
+    const parentBounds = getParentBounds(parentSystemId);
+    if (!parentBounds) return { fits: true };
+
+    const effectiveSlotBeginning = slotBeginning >= 0 ? slotBeginning : 0;
+    const effectiveSlotEnding =
+      slotEnding < Model.END_OF_TIME ? slotEnding : Model.END_OF_TIME;
+
+    if (
+      parentBounds.beginning > 0 &&
+      effectiveSlotBeginning < parentBounds.beginning
+    ) {
+      return {
+        fits: false,
+        message: `Slot begins at ${effectiveSlotBeginning} but parent starts at ${parentBounds.beginning}`,
+      };
+    }
+
+    if (
+      parentBounds.ending < Model.END_OF_TIME &&
+      effectiveSlotEnding > parentBounds.ending
+    ) {
+      return {
+        fits: false,
+        message: `Slot ends at ${effectiveSlotEnding} but parent ends at ${parentBounds.ending}`,
+      };
+    }
+
+    return { fits: true };
+  };
+
+  // Check which parents are compatible with current slot bounds
+  const getParentCompatibility = (
+    parentId: string
+  ): { compatible: boolean; reason?: string } => {
+    if (!isEditing || inputs.entityType !== EntityType.SystemComponent) {
+      return { compatible: true };
+    }
+
+    const slotBeginning = selectedIndividual!.beginning;
+    const slotEnding = selectedIndividual!.ending;
+
+    const fitCheck = slotFitsInParent(slotBeginning, slotEnding, parentId);
+
+    return {
+      compatible: fitCheck.fits,
+      reason: fitCheck.message,
     };
   };
 
@@ -296,33 +354,49 @@ const SetIndividual = (props: Props) => {
       runningErrors.push("Type field is required");
     }
 
-    // Validate SystemComponent time bounds when adding
-    if (
-      !isEditing &&
-      inputs.entityType === EntityType.SystemComponent &&
-      inputs.parentSystemId
-    ) {
-      const parentBounds = getParentBounds(inputs.parentSystemId);
-      if (parentBounds) {
-        const slotBeginning = inputs.beginning >= 0 ? inputs.beginning : 0;
-        const slotEnding =
-          inputs.ending < Model.END_OF_TIME ? inputs.ending : Model.END_OF_TIME;
+    // Validate SystemComponent
+    if (inputs.entityType === EntityType.SystemComponent) {
+      // When ADDING: validate slot bounds fit within parent
+      if (!isEditing && inputs.parentSystemId) {
+        const parentBounds = getParentBounds(inputs.parentSystemId);
+        if (parentBounds) {
+          const slotBeginning = inputs.beginning >= 0 ? inputs.beginning : 0;
+          const slotEnding =
+            inputs.ending < Model.END_OF_TIME
+              ? inputs.ending
+              : Model.END_OF_TIME;
 
-        if (
-          parentBounds.beginning >= 0 &&
-          slotBeginning < parentBounds.beginning
-        ) {
-          runningErrors.push(
-            `Beginning (${slotBeginning}) cannot be before parent's beginning (${parentBounds.beginning})`
-          );
+          if (
+            parentBounds.beginning > 0 &&
+            slotBeginning < parentBounds.beginning
+          ) {
+            runningErrors.push(
+              `Beginning (${slotBeginning}) cannot be before parent's beginning (${parentBounds.beginning})`
+            );
+          }
+          if (
+            parentBounds.ending < Model.END_OF_TIME &&
+            slotEnding > parentBounds.ending
+          ) {
+            runningErrors.push(
+              `Ending (${slotEnding}) cannot be after parent's ending (${parentBounds.ending})`
+            );
+          }
         }
-        if (
-          parentBounds.ending < Model.END_OF_TIME &&
-          slotEnding > parentBounds.ending
-        ) {
-          runningErrors.push(
-            `Ending (${slotEnding}) cannot be after parent's ending (${parentBounds.ending})`
-          );
+      }
+
+      // When EDITING: validate existing slot bounds fit within NEW parent
+      if (isEditing && inputs.parentSystemId) {
+        const slotBeginning = selectedIndividual!.beginning;
+        const slotEnding = selectedIndividual!.ending;
+
+        const fitCheck = slotFitsInParent(
+          slotBeginning,
+          slotEnding,
+          inputs.parentSystemId
+        );
+        if (!fitCheck.fits && fitCheck.message) {
+          runningErrors.push(fitCheck.message);
         }
       }
     }
@@ -432,6 +506,15 @@ const SetIndividual = (props: Props) => {
     if (value >= Model.END_OF_TIME) return "End of timeline";
     return String(value);
   };
+
+  // Get current slot bounds for display when editing SystemComponent
+  const currentSlotBounds =
+    isEditing && inputs.entityType === EntityType.SystemComponent
+      ? {
+          beginning: selectedIndividual!.beginning,
+          ending: selectedIndividual!.ending,
+        }
+      : null;
 
   return (
     <>
@@ -628,37 +711,51 @@ const SetIndividual = (props: Props) => {
               )}
             </Form.Group>
 
-            {/* Parent – for SystemComponents only */}
+            {/* Parent – for SystemComponents only - CAN be changed when editing */}
             {(inputs.entityType ?? EntityType.Individual) ===
               EntityType.SystemComponent && (
               <Form.Group className="mb-3" controlId="ind-parent-system">
-                <Form.Label>Parent (System or Installed Object)</Form.Label>
+                <Form.Label>Parent System</Form.Label>
                 <Form.Select
                   value={inputs.parentSystemId ?? ""}
                   onChange={(e) =>
                     updateInputs("parentSystemId", e.target.value || undefined)
                   }
-                  disabled={isEditing} // Can't change parent when editing
                 >
-                  <option value="">Select parent</option>
+                  <option value="">Select parent system</option>
                   {availableParents.map((p) => {
-                    const type =
-                      (p.entityType ?? EntityType.Individual) ===
-                      EntityType.System
-                        ? "[System]"
-                        : "[Installed]";
+                    // Check compatibility when editing
+                    const compat = getParentCompatibility(p.id);
+
+                    // Show parent's time bounds if they have explicit bounds
+                    const parentBounds = getParentBounds(p.id);
+                    let boundsStr = "";
+                    if (parentBounds) {
+                      if (
+                        parentBounds.beginning > 0 ||
+                        parentBounds.ending < Model.END_OF_TIME
+                      ) {
+                        const endStr =
+                          parentBounds.ending < Model.END_OF_TIME
+                            ? parentBounds.ending
+                            : "∞";
+                        boundsStr = ` (${parentBounds.beginning}-${endStr})`;
+                      }
+                    }
+
                     return (
-                      <option key={p.id} value={p.id}>
-                        {type} {p.name}
+                      <option
+                        key={p.id}
+                        value={p.id}
+                        disabled={!compat.compatible}
+                      >
+                        {p.name}
+                        {boundsStr}
+                        {!compat.compatible ? " ⚠️" : ""}
                       </option>
                     );
                   })}
                 </Form.Select>
-                {isEditing && (
-                  <Form.Text className="text-muted">
-                    Parent cannot be changed after creation.
-                  </Form.Text>
-                )}
               </Form.Group>
             )}
 
@@ -767,21 +864,6 @@ const SetIndividual = (props: Props) => {
                   />
                 </Form.Group>
               </>
-            )}
-
-            {/* SystemComponent time bounds - read-only when EDITING */}
-            {inputs.entityType === EntityType.SystemComponent && isEditing && (
-              <Alert variant="secondary" className="py-2">
-                <small>
-                  <strong>Slot time period:</strong>{" "}
-                  {formatTime(selectedIndividual!.beginning)} -{" "}
-                  {formatTime(selectedIndividual!.ending)}
-                  <br />
-                  <span className="text-muted">
-                    Time bounds cannot be changed after creation.
-                  </span>
-                </small>
-              </Alert>
             )}
 
             {/* Note for InstalledComponents */}

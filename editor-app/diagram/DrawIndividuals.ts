@@ -307,12 +307,21 @@ export function drawIndividuals(ctx: DrawContext) {
     .attr("class", "individual")
     .attr("id", (d: Individual) => "i" + d["id"])
     .attr("d", (i: Individual) => {
-      const { x, y, w, h, start, stop } = layout.get(i.id)!;
+      const { x, y, w, h, start, stop, nestingLevel } = layout.get(i.id)!;
+      const rightChevron = stop
+        ? `l 0 ${h}`
+        : `l ${chevOff} ${h / 2} ${-chevOff} ${h / 2}`;
+      // show left chevron when item starts before view (start === false)
+      // OR when it's a nested SystemComponent / installation (nestingLevel > 0)
+      const leftChevron = `l ${chevOff} ${-h / 2} ${-chevOff} ${-h / 2}`;
+
+      const includeLeftChevron = !start || nestingLevel > 0;
+
       return (
         `M ${x} ${y} l ${w} 0` +
-        (stop ? `l 0 ${h}` : `l ${chevOff} ${h / 2} ${-chevOff} ${h / 2}`) +
+        rightChevron +
         `l ${-w} 0` +
-        (start ? "" : `l ${chevOff} ${-h / 2} ${-chevOff} ${-h / 2}`) +
+        (includeLeftChevron ? leftChevron : "") +
         "Z"
       );
     })

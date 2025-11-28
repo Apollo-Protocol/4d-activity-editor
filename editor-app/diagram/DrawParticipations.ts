@@ -10,10 +10,10 @@ function isInstallationRefId(id: string): boolean {
   return id.includes("__installed_in__");
 }
 
-// Updated to handle new format: componentId__installed_in__slotId__installationId
-function getOriginalAndSlot(
+// Updated to handle format: componentId__installed_in__targetId__installationId
+function getOriginalAndTarget(
   id: string
-): { originalId: string; slotId: string; installationId?: string } | null {
+): { originalId: string; targetId: string; installationId?: string } | null {
   if (!isInstallationRefId(id)) return null;
   const parts = id.split("__installed_in__");
   if (parts.length !== 2) return null;
@@ -21,60 +21,63 @@ function getOriginalAndSlot(
   const originalId = parts[0];
   const rest = parts[1];
 
-  // rest could be "slotId" (old format) or "slotId__installationId" (new format)
+  // rest could be "targetId" (old format) or "targetId__installationId" (new format)
   const restParts = rest.split("__");
-  const slotId = restParts[0];
+  const targetId = restParts[0];
   const installationId = restParts.length > 1 ? restParts[1] : undefined;
 
-  return { originalId, slotId, installationId };
+  return { originalId, targetId, installationId };
 }
 
-// Add helper to get slot effective time bounds
-function getSlotEffectiveTimeBounds(
-  slotId: string,
+// Add helper to get target effective time bounds
+function getTargetEffectiveTimeBounds(
+  targetId: string,
   dataset: any
 ): { beginning: number; ending: number } {
-  const slot = dataset.individuals.get(slotId);
-  if (!slot) {
+  const target = dataset.individuals.get(targetId);
+  if (!target) {
     return { beginning: 0, ending: Model.END_OF_TIME };
   }
 
-  let beginning = slot.beginning;
-  let ending = slot.ending;
+  let beginning = target.beginning;
+  let ending = target.ending;
 
-  // Inherit from parent system if not set
-  if (beginning < 0 && slot.parentSystemId) {
-    const parentSystem = dataset.individuals.get(slot.parentSystemId);
-    if (parentSystem) {
-      beginning = parentSystem.beginning >= 0 ? parentSystem.beginning : 0;
-    } else {
-      beginning = 0;
-    }
-  } else if (beginning < 0) {
-    beginning = 0;
-  }
+  const targetType = target.entityType ?? EntityType.Individual;
 
-  if (ending >= Model.END_OF_TIME && slot.parentSystemId) {
-    const parentSystem = dataset.individuals.get(slot.parentSystemId);
-    if (parentSystem && parentSystem.ending < Model.END_OF_TIME) {
-      ending = parentSystem.ending;
+  // If target is a SystemComponent, get bounds from its installation
+  if (targetType === EntityType.SystemComponent) {
+    if (target.installations && target.installations.length > 0) {
+      const inst = target.installations[0];
+      if (beginning < 0) {
+        beginning = inst.beginning >= 0 ? inst.beginning : 0;
+      }
+      if (ending >= Model.END_OF_TIME && inst.ending < Model.END_OF_TIME) {
+        ending = inst.ending;
+      }
     }
   }
+
+  // If target is a System, use its defined bounds
+  if (targetType === EntityType.System) {
+    if (beginning < 0) beginning = 0;
+  }
+
+  if (beginning < 0) beginning = 0;
 
   return { beginning, ending };
 }
 
-// Update getVisibleInterval to also handle SystemComponents and other entities with fixed timelines
+// Update getVisibleInterval to handle SystemComponents and other entities
 function getVisibleInterval(
   activityStart: number,
   activityEnd: number,
   individualId: string,
   dataset: any
 ): { start: number; end: number } {
-  const ref = getOriginalAndSlot(individualId);
+  const ref = getOriginalAndTarget(individualId);
 
   if (ref) {
-    // This is an installed component - crop to installation period AND slot bounds
+    // This is an installation reference - crop to installation period AND target bounds
     const original = dataset.individuals.get(ref.originalId);
     if (!original || !original.installations) {
       return { start: activityStart, end: activityEnd };
@@ -88,7 +91,9 @@ function getVisibleInterval(
       );
     }
     if (!inst) {
-      inst = original.installations.find((i: any) => i.targetId === ref.slotId);
+      inst = original.installations.find(
+        (i: any) => i.targetId === ref.targetId
+      );
     }
     if (!inst) {
       return { start: activityStart, end: activityEnd };
@@ -98,19 +103,21 @@ function getVisibleInterval(
     const instStart = Math.max(0, inst.beginning ?? 0);
     const instEnd = inst.ending ?? Model.END_OF_TIME;
 
-    // Get slot bounds
-    const slotBounds = getSlotEffectiveTimeBounds(ref.slotId, dataset);
+    // Get target bounds
+    const targetBounds = getTargetEffectiveTimeBounds(ref.targetId, dataset);
 
     // Compute the most restrictive bounds (intersection of all three)
     const visibleStart = Math.max(
       activityStart,
       instStart,
-      slotBounds.beginning
+      targetBounds.beginning
     );
     const visibleEnd = Math.min(
       activityEnd,
       instEnd,
-      slotBounds.ending < Model.END_OF_TIME ? slotBounds.ending : activityEnd
+      targetBounds.ending < Model.END_OF_TIME
+        ? targetBounds.ending
+        : activityEnd
     );
 
     return { start: visibleStart, end: visibleEnd };
@@ -124,14 +131,16 @@ function getVisibleInterval(
 
   const entityType = individual.entityType ?? EntityType.Individual;
 
-  // For SystemComponents, clip to their effective time bounds
+  // For SystemComponents, clip to their effective time bounds (from installations)
   if (entityType === EntityType.SystemComponent) {
-    const slotBounds = getSlotEffectiveTimeBounds(individualId, dataset);
+    const targetBounds = getTargetEffectiveTimeBounds(individualId, dataset);
 
-    const visibleStart = Math.max(activityStart, slotBounds.beginning);
+    const visibleStart = Math.max(activityStart, targetBounds.beginning);
     const visibleEnd = Math.min(
       activityEnd,
-      slotBounds.ending < Model.END_OF_TIME ? slotBounds.ending : activityEnd
+      targetBounds.ending < Model.END_OF_TIME
+        ? targetBounds.ending
+        : activityEnd
     );
 
     return { start: visibleStart, end: visibleEnd };
@@ -164,7 +173,6 @@ function getVisibleInterval(
       individual.ending < Model.END_OF_TIME ? individual.ending : activityEnd;
 
     // Only clip if NOT using participant-based timing
-    // (beginsWithParticipant/endsWithParticipant means the bounds track activities, so don't clip)
     if (!individual.beginsWithParticipant && !individual.endsWithParticipant) {
       const visibleStart = Math.max(activityStart, indBeginning);
       const visibleEnd = Math.min(activityEnd, indEnding);
@@ -188,7 +196,7 @@ export function drawParticipations(ctx: DrawContext) {
   if (individuals) {
     individuals.forEach((ind) => {
       if (ind.id.includes("__installed_in__")) {
-        const ref = getOriginalAndSlot(ind.id);
+        const ref = getOriginalAndTarget(ind.id);
         if (ref) {
           const original = dataset.individuals.get(ref.originalId);
           if (original && original.installations) {
@@ -201,7 +209,7 @@ export function drawParticipations(ctx: DrawContext) {
             }
             if (!inst) {
               inst = original.installations.find(
-                (x: any) => x.targetId === ref.slotId
+                (x: any) => x.targetId === ref.targetId
               );
             }
 
@@ -251,7 +259,6 @@ export function drawParticipations(ctx: DrawContext) {
       : 0);
 
   // Prepare parts with extra metadata for layout
-  // Replace the parts construction with this safer version
   const getParticipationArray = (a: Activity): Participation[] => {
     if (!a.participations) return [];
     if (a.participations instanceof Map)

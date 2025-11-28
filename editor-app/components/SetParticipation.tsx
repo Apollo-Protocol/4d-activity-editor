@@ -275,13 +275,13 @@ const SetParticipation = (props: Props) => {
       const originalId = ind.id.split("__installed_in__")[0];
       const rest = ind.id.split("__installed_in__")[1];
       const parts = rest.split("__");
-      const slotId = parts[0];
+      const targetId = parts[0];
       const installationId = parts[1];
 
       const originalComponent = dataset.individuals.get(originalId);
-      const slot = dataset.individuals.get(slotId);
+      const target = dataset.individuals.get(targetId);
 
-      if (originalComponent && slot) {
+      if (originalComponent && target) {
         // Find the installation to show its time period
         const installation = originalComponent.installations?.find(
           (inst) => inst.id === installationId
@@ -291,9 +291,9 @@ const SetParticipation = (props: Props) => {
             (installation.ending ?? Model.END_OF_TIME) >= Model.END_OF_TIME
               ? "∞"
               : installation.ending;
-          return `${originalComponent.name} in ${slot.name} (${installation.beginning}-${endStr})`;
+          return `${originalComponent.name} in ${target.name} (${installation.beginning}-${endStr})`;
         }
-        return `${originalComponent.name} in ${slot.name}`;
+        return `${originalComponent.name} in ${target.name}`;
       }
     }
     return ind.name;
@@ -312,13 +312,13 @@ const SetParticipation = (props: Props) => {
       const originalId = participantId.split("__installed_in__")[0];
       const rest = participantId.split("__installed_in__")[1];
       const parts = rest.split("__");
-      const slotId = parts[0];
+      const targetId = parts[0];
       const installationId = parts[1];
 
       const originalComponent = dataset.individuals.get(originalId);
-      const slot = dataset.individuals.get(slotId);
+      const target = dataset.individuals.get(targetId);
 
-      if (originalComponent && slot) {
+      if (originalComponent && target) {
         const installation = originalComponent.installations?.find(
           (inst) => inst.id === installationId
         );
@@ -327,9 +327,9 @@ const SetParticipation = (props: Props) => {
             (installation.ending ?? Model.END_OF_TIME) >= Model.END_OF_TIME
               ? "∞"
               : installation.ending;
-          return `${originalComponent.name} in ${slot.name} (${installation.beginning}-${endStr})`;
+          return `${originalComponent.name} in ${target.name} (${installation.beginning}-${endStr})`;
         }
-        return `${originalComponent.name} in ${slot.name}`;
+        return `${originalComponent.name} in ${target.name}`;
       }
     }
 

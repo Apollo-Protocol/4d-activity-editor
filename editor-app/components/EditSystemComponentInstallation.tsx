@@ -11,10 +11,10 @@ interface Props {
   setIndividual: (individual: Individual) => void;
   dataset: Model;
   updateDataset?: (updater: (d: Model) => void) => void;
-  targetSlotId?: string;
+  targetSystemId?: string;
 }
 
-const EditInstalledComponent = (props: Props) => {
+const EditSystemComponentInstallation = (props: Props) => {
   const {
     show,
     setShow,
@@ -22,7 +22,7 @@ const EditInstalledComponent = (props: Props) => {
     setIndividual,
     dataset,
     updateDataset,
-    targetSlotId,
+    targetSystemId,
   } = props;
 
   const [localInstallations, setLocalInstallations] = useState<Installation[]>(
@@ -38,42 +38,19 @@ const EditInstalledComponent = (props: Props) => {
   >(new Map());
   const [showAll, setShowAll] = useState(false);
 
-  // Helper function to get effective slot time bounds
-  // Now uses the slot's installation into a System to determine bounds
-  const getSlotTimeBounds = (
-    slotId: string
-  ): { beginning: number; ending: number; slotName: string } => {
-    const slot = dataset.individuals.get(slotId);
-    if (!slot) {
-      return { beginning: 0, ending: Model.END_OF_TIME, slotName: slotId };
+  // Helper function to get effective system time bounds
+  const getSystemTimeBounds = (
+    systemId: string
+  ): { beginning: number; ending: number; systemName: string } => {
+    const system = dataset.individuals.get(systemId);
+    if (!system) {
+      return { beginning: 0, ending: Model.END_OF_TIME, systemName: systemId };
     }
 
-    let beginning = slot.beginning;
-    let ending = slot.ending;
+    let beginning = system.beginning >= 0 ? system.beginning : 0;
+    let ending = system.ending;
 
-    // If slot doesn't have explicit bounds, inherit from its installation into a System
-    if (slot.installations && slot.installations.length > 0) {
-      // Use the union of all installation periods
-      const instBeginnings = slot.installations.map((inst) =>
-        Math.max(0, inst.beginning ?? 0)
-      );
-      const instEndings = slot.installations.map(
-        (inst) => inst.ending ?? Model.END_OF_TIME
-      );
-      const earliestBeginning = Math.min(...instBeginnings);
-      const latestEnding = Math.max(...instEndings);
-
-      if (beginning < 0) {
-        beginning = earliestBeginning;
-      }
-      if (ending >= Model.END_OF_TIME && latestEnding < Model.END_OF_TIME) {
-        ending = latestEnding;
-      }
-    } else if (beginning < 0) {
-      beginning = 0;
-    }
-
-    return { beginning, ending, slotName: slot.name };
+    return { beginning, ending, systemName: system.name };
   };
 
   useEffect(() => {
@@ -81,9 +58,9 @@ const EditInstalledComponent = (props: Props) => {
       const allInst = [...individual.installations];
       setAllInstallations(allInst);
 
-      if (targetSlotId) {
+      if (targetSystemId) {
         const filtered = allInst.filter(
-          (inst) => inst.targetId === targetSlotId
+          (inst) => inst.targetId === targetSystemId
         );
         setLocalInstallations(filtered);
         setShowAll(false);
@@ -104,11 +81,11 @@ const EditInstalledComponent = (props: Props) => {
       setLocalInstallations([]);
       setAllInstallations([]);
       setRawInputs(new Map());
-      setShowAll(!targetSlotId);
+      setShowAll(!targetSystemId);
     }
     setRemovedInstallations([]);
     setErrors([]);
-  }, [individual, show, targetSlotId]);
+  }, [individual, show, targetSystemId]);
 
   const handleClose = () => {
     setShow(false);
@@ -125,26 +102,26 @@ const EditInstalledComponent = (props: Props) => {
       const beginningStr = raw?.beginning ?? String(inst.beginning);
       const endingStr = raw?.ending ?? String(inst.ending);
 
-      const slotInfo = inst.targetId
-        ? getSlotTimeBounds(inst.targetId)
+      const systemInfo = inst.targetId
+        ? getSystemTimeBounds(inst.targetId)
         : {
             beginning: 0,
             ending: Model.END_OF_TIME,
-            slotName: `Row ${idx + 1}`,
+            systemName: `Row ${idx + 1}`,
           };
-      const slotName = slotInfo.slotName;
+      const systemName = systemInfo.systemName;
 
       if (!inst.targetId) {
-        newErrors.push(`${slotName}: Please select a target slot.`);
+        newErrors.push(`${systemName}: Please select a target system.`);
         return;
       }
 
       if (beginningStr.trim() === "") {
-        newErrors.push(`${slotName}: "From" time is required.`);
+        newErrors.push(`${systemName}: "From" time is required.`);
       }
 
       if (endingStr.trim() === "") {
-        newErrors.push(`${slotName}: "Until" time is required.`);
+        newErrors.push(`${systemName}: "Until" time is required.`);
       }
 
       const beginning = parseInt(beginningStr, 10);
@@ -152,31 +129,34 @@ const EditInstalledComponent = (props: Props) => {
 
       if (!isNaN(beginning) && !isNaN(ending)) {
         if (beginning < 0) {
-          newErrors.push(`${slotName}: "From" cannot be negative.`);
+          newErrors.push(`${systemName}: "From" cannot be negative.`);
         }
         if (ending < 1) {
-          newErrors.push(`${slotName}: "Until" must be at least 1.`);
+          newErrors.push(`${systemName}: "Until" must be at least 1.`);
         }
         if (beginning >= ending) {
-          newErrors.push(`${slotName}: "From" must be less than "Until".`);
+          newErrors.push(`${systemName}: "From" must be less than "Until".`);
         }
 
-        // Validate against slot bounds
-        if (beginning < slotInfo.beginning) {
+        // Validate against system bounds
+        if (beginning < systemInfo.beginning) {
           newErrors.push(
-            `${slotName}: "From" (${beginning}) cannot be before slot starts (${slotInfo.beginning}).`
+            `${systemName}: "From" (${beginning}) cannot be before system starts (${systemInfo.beginning}).`
           );
         }
-        if (slotInfo.ending < Model.END_OF_TIME && ending > slotInfo.ending) {
+        if (
+          systemInfo.ending < Model.END_OF_TIME &&
+          ending > systemInfo.ending
+        ) {
           newErrors.push(
-            `${slotName}: "Until" (${ending}) cannot be after slot ends (${slotInfo.ending}).`
+            `${systemName}: "Until" (${ending}) cannot be after system ends (${systemInfo.ending}).`
           );
         }
       }
     });
 
-    // Check for overlapping periods in the same slot
-    const bySlot = new Map<string, Installation[]>();
+    // Check for overlapping periods in the same system
+    const bySystem = new Map<string, Installation[]>();
     localInstallations.forEach((inst) => {
       if (!inst.targetId) return;
       const raw = rawInputs.get(inst.id);
@@ -184,14 +164,14 @@ const EditInstalledComponent = (props: Props) => {
       const ending = parseInt(raw?.ending ?? String(inst.ending), 10);
       if (isNaN(beginning) || isNaN(ending)) return;
 
-      const list = bySlot.get(inst.targetId) || [];
+      const list = bySystem.get(inst.targetId) || [];
       list.push({ ...inst, beginning, ending });
-      bySlot.set(inst.targetId, list);
+      bySystem.set(inst.targetId, list);
     });
 
-    bySlot.forEach((installations, slotId) => {
+    bySystem.forEach((installations, systemId) => {
       if (installations.length < 2) return;
-      const slotInfo = getSlotTimeBounds(slotId);
+      const systemInfo = getSystemTimeBounds(systemId);
 
       // Sort by beginning time
       installations.sort((a, b) => (a.beginning ?? 0) - (b.beginning ?? 0));
@@ -201,7 +181,7 @@ const EditInstalledComponent = (props: Props) => {
         const next = installations[i + 1];
         if ((current.ending ?? 0) > (next.beginning ?? 0)) {
           newErrors.push(
-            `${slotInfo.slotName}: Periods overlap (${current.beginning}-${current.ending} and ${next.beginning}-${next.ending}).`
+            `${systemInfo.systemName}: Periods overlap (${current.beginning}-${current.ending} and ${next.beginning}-${next.ending}).`
           );
         }
       }
@@ -229,15 +209,15 @@ const EditInstalledComponent = (props: Props) => {
 
     let finalInstallations: Installation[];
 
-    if (targetSlotId && !showAll) {
-      const keptFromOtherSlots = allInstallations.filter(
-        (i) => i.targetId !== targetSlotId
+    if (targetSystemId && !showAll) {
+      const keptFromOtherSystems = allInstallations.filter(
+        (i) => i.targetId !== targetSystemId
       );
       const removedIds = new Set(removedInstallations.map((i) => i.id));
       const filteredUpdated = updatedInstallations.filter(
         (i) => !removedIds.has(i.id)
       );
-      finalInstallations = [...keptFromOtherSlots, ...filteredUpdated];
+      finalInstallations = [...keptFromOtherSystems, ...filteredUpdated];
     } else {
       const removedIds = new Set(removedInstallations.map((i) => i.id));
       finalInstallations = updatedInstallations.filter(
@@ -247,6 +227,7 @@ const EditInstalledComponent = (props: Props) => {
 
     if (updateDataset) {
       updateDataset((d: Model) => {
+        // Clean up participations for removed installations
         removedInstallations.forEach((removedInst) => {
           const participationKey = `${individual.id}__installed_in__${removedInst.targetId}__${removedInst.id}`;
 
@@ -281,21 +262,21 @@ const EditInstalledComponent = (props: Props) => {
   };
 
   const addInstallation = () => {
-    // Get slot bounds if we have a target slot
-    const slotBounds = targetSlotId
-      ? getSlotTimeBounds(targetSlotId)
+    // Get system bounds if we have a target system
+    const systemBounds = targetSystemId
+      ? getSystemTimeBounds(targetSystemId)
       : { beginning: 0, ending: 10 };
 
-    const defaultBeginning = slotBounds.beginning;
+    const defaultBeginning = systemBounds.beginning;
     const defaultEnding =
-      slotBounds.ending < Model.END_OF_TIME
-        ? slotBounds.ending
+      systemBounds.ending < Model.END_OF_TIME
+        ? systemBounds.ending
         : defaultBeginning + 10;
 
     const newInst: Installation = {
       id: uuidv4(),
       componentId: individual?.id || "",
-      targetId: targetSlotId || "",
+      targetId: targetSystemId || "",
       beginning: defaultBeginning,
       ending: defaultEnding,
     };
@@ -364,37 +345,20 @@ const EditInstalledComponent = (props: Props) => {
     }
   };
 
-  // Get available slots (SystemComponents)
-  const availableSlots = Array.from(dataset.individuals.values()).filter(
-    (ind) =>
-      (ind.entityType ?? EntityType.Individual) === EntityType.SystemComponent
+  // Get available systems
+  const availableSystems = Array.from(dataset.individuals.values()).filter(
+    (ind) => (ind.entityType ?? EntityType.Individual) === EntityType.System
   );
 
-  // Helper to get slot name with system
-  const getSlotDisplayName = (slotId: string): string => {
-    if (!slotId) return "";
-    const slot = availableSlots.find((s) => s.id === slotId);
-    if (!slot) return slotId;
-
-    // Find which system(s) this slot is installed in
-    if (slot.installations && slot.installations.length > 0) {
-      const systemIds = Array.from(
-        new Set(slot.installations.map((inst) => inst.targetId))
-      );
-      const systemNames = systemIds
-        .map((sysId) => {
-          const system = dataset.individuals.get(sysId);
-          return system?.name ?? sysId;
-        })
-        .join(", ");
-      return `${slot.name} (in ${systemNames})`;
-    }
-
-    return slot.name;
+  // Helper to get system name
+  const getSystemName = (systemId: string): string => {
+    if (!systemId) return "";
+    const system = availableSystems.find((s) => s.id === systemId);
+    return system?.name ?? systemId;
   };
 
-  // Helper to check if a value is outside slot bounds
-  const isOutsideSlotBounds = (
+  // Helper to check if a value is outside system bounds
+  const isOutsideSystemBounds = (
     instId: string,
     field: "beginning" | "ending"
   ): boolean => {
@@ -408,28 +372,30 @@ const EditInstalledComponent = (props: Props) => {
     );
     if (isNaN(value)) return false;
 
-    const slotBounds = getSlotTimeBounds(inst.targetId);
+    const systemBounds = getSystemTimeBounds(inst.targetId);
 
     if (field === "beginning") {
-      return value < slotBounds.beginning;
+      return value < systemBounds.beginning;
     } else {
-      return slotBounds.ending < Model.END_OF_TIME && value > slotBounds.ending;
+      return (
+        systemBounds.ending < Model.END_OF_TIME && value > systemBounds.ending
+      );
     }
   };
 
   if (!individual) return null;
 
-  const isFiltered = !!targetSlotId && !showAll;
+  const isFiltered = !!targetSystemId && !showAll;
   const totalInstallations = allInstallations.length;
-  const slotName = targetSlotId ? getSlotDisplayName(targetSlotId) : "";
+  const systemName = targetSystemId ? getSystemName(targetSystemId) : "";
 
-  // Get slot bounds for display
-  const targetSlotBounds = targetSlotId
-    ? getSlotTimeBounds(targetSlotId)
+  // Get system bounds for display
+  const targetSystemBounds = targetSystemId
+    ? getSystemTimeBounds(targetSystemId)
     : null;
 
   const modalTitle = isFiltered
-    ? `Edit Installation: ${individual.name} in ${slotName}`
+    ? `Edit Installation: ${individual.name} in ${systemName}`
     : `Edit All Installations: ${individual.name}`;
 
   return (
@@ -454,13 +420,14 @@ const EditInstalledComponent = (props: Props) => {
           </div>
         )}
 
-        {/* Show slot time bounds if filtering by slot */}
-        {isFiltered && targetSlotBounds && (
+        {/* Show system time bounds if filtering by system */}
+        {isFiltered && targetSystemBounds && (
           <Alert variant="info" className="py-2">
-            <strong>Slot availability:</strong> {targetSlotBounds.beginning} -{" "}
-            {targetSlotBounds.ending >= Model.END_OF_TIME
+            <strong>System availability:</strong> {targetSystemBounds.beginning}{" "}
+            -{" "}
+            {targetSystemBounds.ending >= Model.END_OF_TIME
               ? "∞"
-              : targetSlotBounds.ending}
+              : targetSystemBounds.ending}
             <br />
             <small className="text-muted">
               Installation periods must be within these bounds.
@@ -470,8 +437,8 @@ const EditInstalledComponent = (props: Props) => {
 
         <p className="text-muted mb-3">
           {isFiltered
-            ? `Manage installation periods for this component in "${slotName}". You can have multiple non-overlapping periods (e.g., installed from 0-5, removed, then reinstalled from 8-15).`
-            : "Manage all installation periods for this component across different slots."}
+            ? `Manage installation periods for this system component in "${systemName}". You can have multiple non-overlapping periods.`
+            : "Manage all installation periods for this system component across different systems."}
         </p>
 
         {localInstallations.length === 0 ? (
@@ -479,8 +446,8 @@ const EditInstalledComponent = (props: Props) => {
             <p className="text-muted mb-3">
               No installations configured.
               {isFiltered
-                ? ` Add a period when this component is installed in "${slotName}".`
-                : " Add an installation to place this component in a slot."}
+                ? ` Add a period when this component is installed in "${systemName}".`
+                : " Add an installation to place this component in a system."}
             </p>
             <Button variant="primary" onClick={addInstallation}>
               + Add Installation Period
@@ -496,7 +463,7 @@ const EditInstalledComponent = (props: Props) => {
                   </th>
                   {!isFiltered && (
                     <th style={{ width: "35%" }}>
-                      Target Slot <span className="text-danger">*</span>
+                      Target System <span className="text-danger">*</span>
                     </th>
                   )}
                   <th style={{ width: isFiltered ? "30%" : "20%" }}>
@@ -520,16 +487,16 @@ const EditInstalledComponent = (props: Props) => {
                     ending: String(inst.ending),
                   };
 
-                  // Get slot bounds for this installation
-                  const instSlotBounds = inst.targetId
-                    ? getSlotTimeBounds(inst.targetId)
+                  // Get system bounds for this installation
+                  const instSystemBounds = inst.targetId
+                    ? getSystemTimeBounds(inst.targetId)
                     : null;
 
-                  const beginningOutOfBounds = isOutsideSlotBounds(
+                  const beginningOutOfBounds = isOutsideSystemBounds(
                     inst.id,
                     "beginning"
                   );
-                  const endingOutOfBounds = isOutsideSlotBounds(
+                  const endingOutOfBounds = isOutsideSystemBounds(
                     inst.id,
                     "ending"
                   );
@@ -548,19 +515,19 @@ const EditInstalledComponent = (props: Props) => {
                                 "targetId",
                                 e.target.value
                               );
-                              // Reset times to slot defaults when changing slot
+                              // Reset times to system defaults when changing system
                               if (e.target.value) {
-                                const newSlotBounds = getSlotTimeBounds(
+                                const newSystemBounds = getSystemTimeBounds(
                                   e.target.value
                                 );
                                 const newEnding =
-                                  newSlotBounds.ending < Model.END_OF_TIME
-                                    ? newSlotBounds.ending
-                                    : newSlotBounds.beginning + 10;
+                                  newSystemBounds.ending < Model.END_OF_TIME
+                                    ? newSystemBounds.ending
+                                    : newSystemBounds.beginning + 10;
                                 updateRawInput(
                                   inst.id,
                                   "beginning",
-                                  String(newSlotBounds.beginning)
+                                  String(newSystemBounds.beginning)
                                 );
                                 updateRawInput(
                                   inst.id,
@@ -571,29 +538,31 @@ const EditInstalledComponent = (props: Props) => {
                             }}
                             className={!inst.targetId ? "border-warning" : ""}
                           >
-                            <option value="">-- Select slot --</option>
-                            {availableSlots.map((slot) => {
-                              const slotBounds = getSlotTimeBounds(slot.id);
+                            <option value="">-- Select system --</option>
+                            {availableSystems.map((system) => {
+                              const systemBounds = getSystemTimeBounds(
+                                system.id
+                              );
                               const boundsStr =
-                                slotBounds.ending < Model.END_OF_TIME
-                                  ? ` (${slotBounds.beginning}-${slotBounds.ending})`
-                                  : slotBounds.beginning > 0
-                                  ? ` (${slotBounds.beginning}-∞)`
+                                systemBounds.ending < Model.END_OF_TIME
+                                  ? ` (${systemBounds.beginning}-${systemBounds.ending})`
+                                  : systemBounds.beginning > 0
+                                  ? ` (${systemBounds.beginning}-∞)`
                                   : "";
                               return (
-                                <option key={slot.id} value={slot.id}>
-                                  {getSlotDisplayName(slot.id)}
+                                <option key={system.id} value={system.id}>
+                                  {system.name}
                                   {boundsStr}
                                 </option>
                               );
                             })}
                           </Form.Select>
-                          {inst.targetId && instSlotBounds && (
+                          {inst.targetId && instSystemBounds && (
                             <Form.Text className="text-muted">
-                              Available: {instSlotBounds.beginning}-
-                              {instSlotBounds.ending >= Model.END_OF_TIME
+                              Available: {instSystemBounds.beginning}-
+                              {instSystemBounds.ending >= Model.END_OF_TIME
                                 ? "∞"
-                                : instSlotBounds.ending}
+                                : instSystemBounds.ending}
                             </Form.Text>
                           )}
                         </td>
@@ -602,13 +571,13 @@ const EditInstalledComponent = (props: Props) => {
                         <Form.Control
                           type="number"
                           size="sm"
-                          min={instSlotBounds?.beginning ?? 0}
-                          max={instSlotBounds?.ending ?? undefined}
+                          min={instSystemBounds?.beginning ?? 0}
+                          max={instSystemBounds?.ending ?? undefined}
                           value={raw.beginning}
                           onChange={(e) =>
                             updateRawInput(inst.id, "beginning", e.target.value)
                           }
-                          placeholder={String(instSlotBounds?.beginning ?? 0)}
+                          placeholder={String(instSystemBounds?.beginning ?? 0)}
                           className={
                             raw.beginning === "" || beginningOutOfBounds
                               ? "border-danger"
@@ -616,9 +585,9 @@ const EditInstalledComponent = (props: Props) => {
                           }
                           isInvalid={beginningOutOfBounds}
                         />
-                        {beginningOutOfBounds && instSlotBounds && (
+                        {beginningOutOfBounds && instSystemBounds && (
                           <Form.Text className="text-danger">
-                            Min: {instSlotBounds.beginning}
+                            Min: {instSystemBounds.beginning}
                           </Form.Text>
                         )}
                       </td>
@@ -626,18 +595,18 @@ const EditInstalledComponent = (props: Props) => {
                         <Form.Control
                           type="number"
                           size="sm"
-                          min={instSlotBounds?.beginning ?? 1}
+                          min={instSystemBounds?.beginning ?? 1}
                           max={
-                            instSlotBounds &&
-                            instSlotBounds.ending < Model.END_OF_TIME
-                              ? instSlotBounds.ending
+                            instSystemBounds &&
+                            instSystemBounds.ending < Model.END_OF_TIME
+                              ? instSystemBounds.ending
                               : undefined
                           }
                           value={raw.ending}
                           onChange={(e) =>
                             updateRawInput(inst.id, "ending", e.target.value)
                           }
-                          placeholder={String(instSlotBounds?.ending ?? 10)}
+                          placeholder={String(instSystemBounds?.ending ?? 10)}
                           className={
                             raw.ending === "" || endingOutOfBounds
                               ? "border-danger"
@@ -645,12 +614,12 @@ const EditInstalledComponent = (props: Props) => {
                           }
                           isInvalid={endingOutOfBounds}
                         />
-                        {endingOutOfBounds && instSlotBounds && (
+                        {endingOutOfBounds && instSystemBounds && (
                           <Form.Text className="text-danger">
                             Max:{" "}
-                            {instSlotBounds.ending >= Model.END_OF_TIME
+                            {instSystemBounds.ending >= Model.END_OF_TIME
                               ? "∞"
-                              : instSlotBounds.ending}
+                              : instSystemBounds.ending}
                           </Form.Text>
                         )}
                       </td>
@@ -681,9 +650,10 @@ const EditInstalledComponent = (props: Props) => {
           </>
         )}
 
-        {availableSlots.length === 0 && !isFiltered && (
+        {availableSystems.length === 0 && !isFiltered && (
           <Alert variant="warning" className="mt-3 mb-0">
-            No slots available. Create a System Component first to define slots.
+            No systems available. Create a System first to install this
+            component.
           </Alert>
         )}
 
@@ -703,7 +673,7 @@ const EditInstalledComponent = (props: Props) => {
           {isFiltered
             ? `${localInstallations.length} period${
                 localInstallations.length !== 1 ? "s" : ""
-              } in this slot`
+              } in this system`
             : `${localInstallations.length} total installation${
                 localInstallations.length !== 1 ? "s" : ""
               }`}
@@ -721,4 +691,4 @@ const EditInstalledComponent = (props: Props) => {
   );
 };
 
-export default EditInstalledComponent;
+export default EditSystemComponentInstallation;

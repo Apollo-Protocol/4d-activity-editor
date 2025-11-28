@@ -28,6 +28,7 @@ import React from "react";
 import Card from "react-bootstrap/Card";
 import DiagramLegend from "./DiagramLegend";
 import EditInstalledComponent from "./EditInstalledComponent";
+import EditSystemComponentInstallation from "./EditSystemComponentInstallation";
 import EntityTypeLegend from "./EntityTypeLegend";
 
 const beforeUnloadHandler = (ev: BeforeUnloadEvent) => {
@@ -62,14 +63,25 @@ export default function ActivityDiagramWrap() {
   const [showConfigModal, setShowConfigModal] = useState(false);
   const [showSortIndividuals, setShowSortIndividuals] = useState(false);
 
-  // Add new state for the InstalledComponent editor
+  // State for the InstalledComponent editor
   const [showInstalledComponentEditor, setShowInstalledComponentEditor] =
     useState(false);
   const [selectedInstalledComponent, setSelectedInstalledComponent] = useState<
     Individual | undefined
   >(undefined);
-  // Add state for target slot ID (when clicking on a specific installation row)
+  // State for target slot ID (when clicking on a specific installation row)
   const [targetSlotId, setTargetSlotId] = useState<string | undefined>(
+    undefined
+  );
+
+  // State for the SystemComponent editor
+  const [showSystemComponentEditor, setShowSystemComponentEditor] =
+    useState(false);
+  const [selectedSystemComponent, setSelectedSystemComponent] = useState<
+    Individual | undefined
+  >(undefined);
+  // State for target system ID (when clicking on a specific installation row)
+  const [targetSystemId, setTargetSystemId] = useState<string | undefined>(
     undefined
   );
 
@@ -118,24 +130,45 @@ export default function ActivityDiagramWrap() {
 
   const clickIndividual = (i: Individual) => {
     // Check if this is an installation reference (virtual row)
-    // Format: componentId__installed_in__slotId__installationId
+    // Format: componentId__installed_in__targetId__installationId
     if (i.id.includes("__installed_in__")) {
       const originalId = i.id.split("__installed_in__")[0];
       const rest = i.id.split("__installed_in__")[1];
-      const [slotId, installationId] = rest.split("__");
+      const [targetId, installationId] = rest.split("__");
 
       const originalComponent = dataset.individuals.get(originalId);
 
       if (originalComponent) {
-        setSelectedInstalledComponent(originalComponent);
-        setTargetSlotId(slotId);
-        // Optionally, you could also pass the specific installationId
-        setShowInstalledComponentEditor(true);
-        return;
+        const originalType =
+          originalComponent.entityType ?? EntityType.Individual;
+
+        if (originalType === EntityType.SystemComponent) {
+          // SystemComponent installed in System
+          setSelectedSystemComponent(originalComponent);
+          setTargetSystemId(targetId);
+          setShowSystemComponentEditor(true);
+          return;
+        } else if (originalType === EntityType.InstalledComponent) {
+          // InstalledComponent installed in SystemComponent
+          setSelectedInstalledComponent(originalComponent);
+          setTargetSlotId(targetId);
+          setShowInstalledComponentEditor(true);
+          return;
+        }
       }
     }
 
-    // If it's an InstalledComponent (the parent), show all installations
+    // If it's a SystemComponent (the parent), show installation editor
+    if (
+      (i.entityType ?? EntityType.Individual) === EntityType.SystemComponent
+    ) {
+      setSelectedSystemComponent(i);
+      setTargetSystemId(undefined); // Show all installations
+      setShowSystemComponentEditor(true);
+      return;
+    }
+
+    // If it's an InstalledComponent (the parent), show installation editor
     if (
       (i.entityType ?? EntityType.Individual) === EntityType.InstalledComponent
     ) {
@@ -145,7 +178,7 @@ export default function ActivityDiagramWrap() {
       return;
     }
 
-    // For other types, open the regular editor
+    // For other types (System, Individual), open the regular editor
     setSelectedIndividual(i);
     setShowIndividual(true);
   };
@@ -171,150 +204,10 @@ export default function ActivityDiagramWrap() {
     );
   };
 
-  // Sort individuals to show nested hierarchy
-  // InstalledComponents appear BOTH at top-level AND under their installation targets
+  // Use the Model's getDisplayIndividuals method for sorting
   const sortedIndividuals = useMemo(() => {
-    const result: Individual[] = [];
-    const visited = new Set<string>();
-    const addedVirtualIds = new Set<string>(); // Track virtual rows we've already added
-
-    // Recursive function to add an individual and its descendants
-    const addWithDescendants = (ind: Individual) => {
-      if (visited.has(ind.id)) return;
-      visited.add(ind.id);
-      result.push(ind);
-
-      // Find children of this individual
-      const children: Individual[] = [];
-
-      // 1. SystemComponents whose parent is this individual
-      individualsArray.forEach((child) => {
-        const childEntityType = child.entityType ?? EntityType.Individual;
-        if (
-          childEntityType === EntityType.SystemComponent &&
-          child.parentSystemId === ind.id
-        ) {
-          children.push(child);
-        }
-      });
-
-      // Sort children by name and add them
-      children
-        .sort((a, b) => a.name.localeCompare(b.name))
-        .forEach((child) => addWithDescendants(child));
-
-      // 2. After adding SystemComponent children, check if this IS a SystemComponent
-      //    If so, find InstalledComponents that are installed into this slot
-      const indEntityType = ind.entityType ?? EntityType.Individual;
-      if (indEntityType === EntityType.SystemComponent) {
-        // Find all InstalledComponents that have an installation targeting this slot
-        const installedHere = individualsArray.filter((ic) => {
-          const icType = ic.entityType ?? EntityType.Individual;
-          if (icType !== EntityType.InstalledComponent) return false;
-          if (!ic.installations || ic.installations.length === 0) return false;
-          return ic.installations.some((inst) => inst.targetId === ind.id);
-        });
-
-        // Add these as "installation references" - ONE ROW PER INSTALLATION PERIOD
-        installedHere
-          .sort((a, b) => a.name.localeCompare(b.name))
-          .forEach((ic) => {
-            // Get all installations for this slot
-            const installationsInThisSlot = (ic.installations || []).filter(
-              (inst) => inst.targetId === ind.id
-            );
-
-            // Create a SEPARATE virtual row for EACH installation period
-            installationsInThisSlot.forEach((inst) => {
-              // Format: componentId__installed_in__slotId__installationId
-              const virtualId = `${ic.id}__installed_in__${ind.id}__${inst.id}`;
-
-              // Skip if already added
-              if (addedVirtualIds.has(virtualId)) return;
-              addedVirtualIds.add(virtualId);
-
-              const installRef: Individual = {
-                ...ic,
-                id: virtualId,
-                name: `${ic.name} (${inst.beginning ?? 0}-${
-                  inst.ending ?? "∞"
-                })`,
-                // Use the installation's time period for this specific row
-                beginning: inst.beginning ?? 0,
-                ending: inst.ending ?? Model.END_OF_TIME,
-                // Store the installation ID for reference
-                _installationId: inst.id,
-              };
-              result.push(installRef);
-            });
-          });
-      }
-    };
-
-    // Separate entities into groups
-    const systems: Individual[] = [];
-    const installedComponents: Individual[] = [];
-    const regularIndividuals: Individual[] = [];
-    const orphanedSystemComponents: Individual[] = [];
-
-    individualsArray.forEach((ind) => {
-      const entityType = ind.entityType ?? EntityType.Individual;
-
-      if (entityType === EntityType.System) {
-        systems.push(ind);
-      } else if (entityType === EntityType.InstalledComponent) {
-        installedComponents.push(ind);
-      } else if (entityType === EntityType.SystemComponent) {
-        // SystemComponents without a valid parent are orphans (show at top level)
-        if (!ind.parentSystemId) {
-          orphanedSystemComponents.push(ind);
-        } else {
-          const parentExists = individualsArray.some(
-            (i) => i.id === ind.parentSystemId
-          );
-          if (!parentExists) {
-            orphanedSystemComponents.push(ind);
-          }
-          // Otherwise, they will be added as children of their parent
-        }
-      } else if (entityType === EntityType.Individual) {
-        regularIndividuals.push(ind);
-      }
-    });
-
-    // 1. Add Systems first (with their nested SystemComponents and InstalledComponents)
-    systems
-      .sort((a, b) => a.name.localeCompare(b.name))
-      .forEach((sys) => addWithDescendants(sys));
-
-    // 2. Add orphaned SystemComponents (if any)
-    orphanedSystemComponents
-      .sort((a, b) => a.name.localeCompare(b.name))
-      .forEach((sc) => addWithDescendants(sc));
-
-    // 3. Add InstalledComponents at top level (so they can be edited/clicked)
-    //    These are the "parent" entries - their virtual installation rows appear under slots
-    installedComponents
-      .sort((a, b) => a.name.localeCompare(b.name))
-      .forEach((ic) => {
-        if (!visited.has(ic.id)) {
-          visited.add(ic.id);
-          result.push(ic);
-        }
-      });
-
-    // 4. Add regular Individuals last (sorted alphabetically)
-    regularIndividuals
-      .sort((a, b) => a.name.localeCompare(b.name))
-      .forEach((ind) => {
-        if (!visited.has(ind.id)) {
-          visited.add(ind.id);
-          result.push(ind);
-        }
-      });
-
-    return result;
-  }, [individualsArray]);
+    return dataset.getDisplayIndividuals();
+  }, [dataset]);
 
   // Build an array of activities from the dataset so it can be filtered below
   const activitiesArray = Array.from(dataset.activities.values());
@@ -360,7 +253,7 @@ export default function ActivityDiagramWrap() {
           <Col>
             <ActivityDiagram
               dataset={dataset}
-              configData={config}
+              configData={configData}
               activityContext={activityContext}
               setActivityContext={setActivityContext}
               clickIndividual={clickIndividual}
@@ -450,7 +343,7 @@ export default function ActivityDiagramWrap() {
         </Row>
       </Container>
 
-      {/* Add the new InstalledComponent editor modal */}
+      {/* InstalledComponent editor modal */}
       <EditInstalledComponent
         show={showInstalledComponentEditor}
         setShow={setShowInstalledComponentEditor}
@@ -459,6 +352,17 @@ export default function ActivityDiagramWrap() {
         dataset={dataset}
         updateDataset={updateDataset}
         targetSlotId={targetSlotId}
+      />
+
+      {/* SystemComponent editor modal */}
+      <EditSystemComponentInstallation
+        show={showSystemComponentEditor}
+        setShow={setShowSystemComponentEditor}
+        individual={selectedSystemComponent}
+        setIndividual={setIndividual}
+        dataset={dataset}
+        updateDataset={updateDataset}
+        targetSystemId={targetSystemId}
       />
     </>
   );

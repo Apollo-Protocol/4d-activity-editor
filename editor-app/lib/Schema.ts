@@ -35,15 +35,17 @@ export interface Activity extends STExtent {
 export enum EntityType {
   Individual = "individual",
   System = "system",
-  SystemComponent = "systemComponent", // A slot/position within a system or installed object
-  InstalledComponent = "installedComponent", // A physical object that occupies a slot
+  SystemComponent = "systemComponent", // A slot/position that can be installed into a System
+  InstalledComponent = "installedComponent", // A physical object that can be installed into a SystemComponent
 }
 
-// Installation - just a temporal relationship record
+// Installation - a temporal relationship record
+// - SystemComponent installs into System
+// - InstalledComponent installs into SystemComponent
 export interface Installation {
   id: Id;
-  componentId: Id; // The physical object being installed
-  targetId: Id; // The SystemComponent (slot) it's installed into
+  componentId: Id; // The entity being installed (SystemComponent or InstalledComponent)
+  targetId: Id; // The target (System for SystemComponent, SystemComponent for InstalledComponent)
   beginning: number;
   ending: number;
 }
@@ -59,16 +61,20 @@ export interface Individual {
   beginning: number;
   ending: number;
   entityType?: EntityType;
-  parentSystemId?: string; // For SystemComponents - reference to parent System
-  installations?: Installation[]; // For InstalledComponents - where they're installed
+  // installations array is used by both SystemComponent and InstalledComponent
+  // - SystemComponent: installations into Systems
+  // - InstalledComponent: installations into SystemComponents
+  installations?: Installation[];
   _installationId?: string; // For virtual rows - the specific installation ID
   beginsWithParticipant?: boolean;
   endsWithParticipant?: boolean;
+  _nestingLevel?: number;
+  _isVirtualRow?: boolean;
 }
 
 // Note: beginning/ending are inherited from STExtent
-// For Individual, System, SystemComponent: use -1 and END_OF_TIME to span full diagram
-// For InstalledComponent: use actual lifecycle times
+// For Individual, System, SystemComponent, InstalledComponent: use -1 and END_OF_TIME to span full diagram
+// Actual temporal bounds come from installation periods
 
 /**
  * A participation is a relationship between an individual and an activity that it particiaptes in.

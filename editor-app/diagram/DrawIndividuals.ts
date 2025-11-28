@@ -29,19 +29,16 @@ function isInstallationRef(ind: Individual): boolean {
 // Get the original ID from an installation reference
 function getOriginalId(ind: Individual): string {
   if (isInstallationRef(ind)) {
-    // Format: componentId__installed_in__slotId__installationId
     return ind.id.split("__installed_in__")[0];
   }
   return ind.id;
 }
 
-// Get the slot ID from an installation reference
-function getSlotId(ind: Individual): string | undefined {
+// Get the target ID from an installation reference
+function getTargetId(ind: Individual): string | undefined {
   if (isInstallationRef(ind)) {
-    // Format: componentId__installed_in__slotId__installationId
     const parts = ind.id.split("__installed_in__")[1];
     if (parts) {
-      // Split by __ to get slotId (first part) and installationId (second part)
       const subParts = parts.split("__");
       return subParts[0];
     }
@@ -52,188 +49,155 @@ function getSlotId(ind: Individual): string | undefined {
 // Get the installation ID from an installation reference
 function getInstallationId(ind: Individual): string | undefined {
   if (isInstallationRef(ind)) {
-    // Format: componentId__installed_in__slotId__installationId
     const parts = ind.id.split("__installed_in__")[1];
     if (parts) {
       const subParts = parts.split("__");
-      return subParts[1]; // installationId is after slotId
+      return subParts[1];
     }
   }
-  // Also check the _installationId field
   return ind._installationId;
 }
 
-// Helper function to get icon for entity type
-function getEntityIcon(ind: Individual): string {
-  const entityType = ind.entityType ?? EntityType.Individual;
+// Get the nesting level for indentation (uses _nestingLevel property)
+function getNestingLevel(ind: Individual): number {
+  return ind._nestingLevel ?? 0;
+}
 
-  if (isInstallationRef(ind)) {
-    return "⬡"; // hexagon for installed component reference
+// Check if this is a virtual row (installation reference)
+function isVirtualRow(ind: Individual): boolean {
+  return ind._isVirtualRow === true;
+}
+
+// Helper function to get icon for entity type
+function getEntityIcon(ind: Individual, dataset: Model): string {
+  let entityType = ind.entityType ?? EntityType.Individual;
+
+  // If it's a virtual row, look up the original entity to get the correct icon
+  if (isVirtualRow(ind)) {
+    const originalId = getOriginalId(ind);
+    const original = dataset.individuals.get(originalId);
+    if (original) {
+      entityType = original.entityType ?? EntityType.Individual;
+    }
   }
 
   switch (entityType) {
     case EntityType.System:
-      return "▣"; // filled square for system
+      return "▣"; // Filled square with border
     case EntityType.SystemComponent:
-      return "◈"; // diamond for system component
+      return "◈"; // Diamond
     case EntityType.InstalledComponent:
-      return "⬢"; // hexagon for installed component
-    case EntityType.Individual:
+      return "●"; // Filled circle
     default:
-      return "○"; // circle for individual
+      return "○"; // Hollow circle for regular individuals
   }
 }
 
-// Calculate nesting level for visual gap
-function getNestingLevel(ind: Individual, dataset: Model): number {
-  let level = 0;
-  let currentId: string | undefined = undefined;
-  const visited = new Set<string>();
+// Helper function to get effective time bounds for a target (System or SystemComponent)
+function getTargetEffectiveTimeBounds(
+  targetId: string,
+  dataset: Model
+): { beginning: number; ending: number } {
+  const target = dataset.individuals.get(targetId);
+  if (!target) {
+    return { beginning: 0, ending: Model.END_OF_TIME };
+  }
 
-  const entityType = ind.entityType ?? EntityType.Individual;
+  let beginning = target.beginning;
+  let ending = target.ending;
 
-  // Installation references get nested based on their target slot
-  if (isInstallationRef(ind)) {
-    const slotId = getSlotId(ind);
-    if (slotId) {
-      currentId = slotId;
-      while (currentId && !visited.has(currentId)) {
-        visited.add(currentId);
-        level++;
-        const parent = dataset.individuals.get(currentId);
-        if (!parent) break;
-        const parentType = parent.entityType ?? EntityType.Individual;
-        if (parentType === EntityType.SystemComponent) {
-          currentId = parent.parentSystemId;
-        } else {
-          break;
-        }
+  const targetType = target.entityType ?? EntityType.Individual;
+
+  // If target is a SystemComponent, get bounds from its installation into a System
+  if (targetType === EntityType.SystemComponent) {
+    if (target.installations && target.installations.length > 0) {
+      const instBeginnings = target.installations.map((inst) =>
+        Math.max(0, inst.beginning ?? 0)
+      );
+      const instEndings = target.installations.map(
+        (inst) => inst.ending ?? Model.END_OF_TIME
+      );
+      const earliestBeginning = Math.min(...instBeginnings);
+      const latestEnding = Math.max(...instEndings);
+
+      if (beginning < 0) {
+        beginning = earliestBeginning;
       }
-    }
-    return level;
-  }
-
-  // SystemComponents get nested based on parentSystemId
-  if (entityType === EntityType.SystemComponent) {
-    currentId = ind.parentSystemId;
-  } else {
-    return 0;
-  }
-
-  // Walk up the parent chain
-  while (currentId && !visited.has(currentId)) {
-    visited.add(currentId);
-    level++;
-
-    const parent = dataset.individuals.get(currentId);
-    if (!parent) break;
-
-    const parentType = parent.entityType ?? EntityType.Individual;
-
-    if (parentType === EntityType.SystemComponent) {
-      currentId = parent.parentSystemId;
-    } else {
-      break; // Systems don't have parents
+      if (ending >= Model.END_OF_TIME && latestEnding < Model.END_OF_TIME) {
+        ending = latestEnding;
+      }
+    } else if (beginning < 0) {
+      beginning = 0;
     }
   }
 
-  return level;
+  // If target is a System, use its defined bounds
+  if (targetType === EntityType.System) {
+    if (beginning < 0) beginning = 0;
+  }
+
+  if (beginning < 0) beginning = 0;
+
+  return { beginning, ending };
 }
 
-// Helper to determine if we should draw a separator after this individual
+// Determine if a separator should be drawn after this individual
 function shouldDrawSeparatorAfter(
-  ind: Individual,
-  nextInd: Individual | undefined,
+  current: Individual,
+  next: Individual | undefined,
   dataset: Model
 ): boolean {
-  const entityType = ind.entityType ?? EntityType.Individual;
+  if (!next) return false;
 
-  // If there's no next individual, no separator needed
-  if (!nextInd) return false;
+  const currentLevel = getNestingLevel(current);
+  const nextLevel = getNestingLevel(next);
 
-  const nextEntityType = nextInd.entityType ?? EntityType.Individual;
-
-  // Case 1: Current is an installation reference
-  if (isInstallationRef(ind)) {
-    const currentSlotId = getSlotId(ind);
-
-    // If next is also an installation reference
-    if (isInstallationRef(nextInd)) {
-      const nextSlotId = getSlotId(nextInd);
-      // Draw separator if they're in different slots
-      return currentSlotId !== nextSlotId;
+  // Draw separator when transitioning from nested items back to top level
+  if (currentLevel > 0 && nextLevel === 0) {
+    const nextType = next.entityType ?? EntityType.Individual;
+    if (
+      nextType === EntityType.SystemComponent ||
+      nextType === EntityType.InstalledComponent ||
+      nextType === EntityType.Individual
+    ) {
+      return true;
     }
-
-    // If next is a SystemComponent (new slot) or something else entirely
-    return true;
   }
-
-  // Case 2: Current is a SystemComponent (slot)
-  if (entityType === EntityType.SystemComponent) {
-    // If next is an installation in THIS slot, no separator yet
-    if (isInstallationRef(nextInd)) {
-      const nextSlotId = getSlotId(nextInd);
-      if (nextSlotId === ind.id) {
-        return false; // Installation belongs to this slot, no separator
-      }
-    }
-
-    // If next is another SystemComponent in the same system, draw separator
-    if (nextEntityType === EntityType.SystemComponent) {
-      return ind.parentSystemId === nextInd.parentSystemId;
-    }
-
-    // If we're leaving the system entirely, draw separator
-    return true;
-  }
-
   return false;
 }
 
-// Add helper to get effective time bounds for a slot
-function getSlotEffectiveTimeBounds(
-  slot: Individual,
-  dataset: Model
-): { beginning: number; ending: number } {
-  let beginning = slot.beginning;
-  let ending = slot.ending;
-
-  // Inherit from parent system if not set
-  if (beginning < 0 && slot.parentSystemId) {
-    const parentSystem = dataset.individuals.get(slot.parentSystemId);
-    if (parentSystem) {
-      beginning = parentSystem.beginning >= 0 ? parentSystem.beginning : 0;
-    } else {
-      beginning = 0;
-    }
-  } else if (beginning < 0) {
-    beginning = 0;
+// Ensure the hatch pattern exists in the SVG defs
+function ensureHatchPattern(svgElement: any) {
+  let defs = svgElement.select("defs");
+  if (defs.empty()) {
+    defs = svgElement.append("defs");
   }
 
-  if (ending >= Model.END_OF_TIME && slot.parentSystemId) {
-    const parentSystem = dataset.individuals.get(slot.parentSystemId);
-    if (parentSystem && parentSystem.ending < Model.END_OF_TIME) {
-      ending = parentSystem.ending;
-    }
+  if (defs.select("#diagonalHatch").empty()) {
+    defs
+      .append("pattern")
+      .attr("id", "diagonalHatch")
+      .attr("patternUnits", "userSpaceOnUse")
+      .attr("width", 8)
+      .attr("height", 8)
+      .append("path")
+      .attr("d", "M-2,2 l4,-4 M0,8 l8,-8 M6,10 l4,-4")
+      .attr("stroke", "#6b7280") // Gray stroke
+      .attr("stroke-width", 1)
+      .attr("opacity", 0.5);
   }
-
-  return { beginning, ending };
 }
 
 export function drawIndividuals(ctx: DrawContext) {
   const { config, svgElement, activities, dataset } = ctx;
   const individuals = ctx.individuals;
 
-  console.log(
-    "DrawIndividuals received individuals:",
-    individuals.length,
-    individuals.map((i) => i.name)
-  );
-
   if (!individuals || individuals.length === 0) {
-    console.warn("No individuals to draw!");
     return svgElement;
   }
+
+  // Ensure pattern exists for Installed Components
+  ensureHatchPattern(svgElement);
 
   // Calculate time range from activities
   let startOfTime = Math.min(...activities.map((a) => a.beginning));
@@ -243,16 +207,16 @@ export function drawIndividuals(ctx: DrawContext) {
   for (const ind of individuals) {
     if (isInstallationRef(ind)) {
       const originalId = getOriginalId(ind);
-      const slotId = getSlotId(ind);
-      if (originalId && slotId) {
+      const targetId = getTargetId(ind);
+      if (originalId && targetId) {
         const original = dataset.individuals.get(originalId);
         if (original && original.installations) {
-          // Get ALL installations for this component in this slot
-          const installationsForSlot = original.installations.filter(
-            (x) => x.targetId === slotId
+          // Get ALL installations for this component in this target
+          const installationsForTarget = original.installations.filter(
+            (x) => x.targetId === targetId
           );
 
-          for (const inst of installationsForSlot) {
+          for (const inst of installationsForTarget) {
             const instBeginning = Math.max(0, inst.beginning ?? 0);
             if (instBeginning < startOfTime) startOfTime = instBeginning;
             if (
@@ -300,63 +264,31 @@ export function drawIndividuals(ctx: DrawContext) {
   let next_y =
     config.layout.individual.topMargin + config.layout.individual.gap;
   for (const i of individuals) {
-    // Determine effective beginning/ending for drawing
     let effectiveBeginning = i.beginning;
     let effectiveEnding = i.ending;
 
-    const entityType = i.entityType ?? EntityType.Individual;
-
-    // For SystemComponents, inherit time from parent System if beginning is < 0
-    if (entityType === EntityType.SystemComponent) {
-      if (effectiveBeginning < 0 && i.parentSystemId) {
-        const parentSystem = dataset.individuals.get(i.parentSystemId);
-        if (parentSystem) {
-          effectiveBeginning =
-            parentSystem.beginning >= 0 ? parentSystem.beginning : startOfTime;
-        } else {
-          effectiveBeginning = startOfTime;
-        }
-      } else if (effectiveBeginning < 0) {
-        effectiveBeginning = startOfTime;
-      }
-
-      if (effectiveEnding >= Model.END_OF_TIME && i.parentSystemId) {
-        const parentSystem = dataset.individuals.get(i.parentSystemId);
-        if (parentSystem && parentSystem.ending < Model.END_OF_TIME) {
-          effectiveEnding = parentSystem.ending;
-        }
-      }
-    }
-
-    // For installed components (installation references), use THIS installation's period
-    // BUT constrain to slot's time bounds
+    // For installation references (virtual rows)
     if (isInstallationRef(i)) {
       const originalId = getOriginalId(i);
-      const slotId = getSlotId(i);
+      const targetId = getTargetId(i);
       const installationId = getInstallationId(i);
 
-      // Get slot bounds first
-      let slotBounds = { beginning: 0, ending: Model.END_OF_TIME };
-      if (slotId) {
-        const slot = dataset.individuals.get(slotId);
-        if (slot) {
-          slotBounds = getSlotEffectiveTimeBounds(slot, dataset);
-        }
+      let targetBounds = { beginning: 0, ending: Model.END_OF_TIME };
+      if (targetId) {
+        targetBounds = getTargetEffectiveTimeBounds(targetId, dataset);
       }
 
-      // Get installation bounds
       let instBeginning = i.beginning >= 0 ? i.beginning : 0;
       let instEnding =
         i.ending < Model.END_OF_TIME ? i.ending : Model.END_OF_TIME;
 
-      // Fallback: try to get from original if the virtual row doesn't have valid values
       if (instBeginning < 0 || instEnding >= Model.END_OF_TIME) {
-        if (originalId && slotId) {
+        if (originalId && targetId) {
           const original = dataset.individuals.get(originalId);
           if (original && original.installations) {
             let installation = installationId
               ? original.installations.find((x) => x.id === installationId)
-              : original.installations.find((x) => x.targetId === slotId);
+              : original.installations.find((x) => x.targetId === targetId);
 
             if (installation) {
               instBeginning = Math.max(0, installation.beginning ?? 0);
@@ -366,71 +298,51 @@ export function drawIndividuals(ctx: DrawContext) {
         }
       }
 
-      // Constrain installation to slot bounds
-      effectiveBeginning = Math.max(instBeginning, slotBounds.beginning);
+      effectiveBeginning = Math.max(instBeginning, targetBounds.beginning);
       effectiveEnding = Math.min(
         instEnding,
-        slotBounds.ending < Model.END_OF_TIME ? slotBounds.ending : instEnding
+        targetBounds.ending < Model.END_OF_TIME
+          ? targetBounds.ending
+          : instEnding
       );
 
-      // Ensure valid range
       if (effectiveBeginning >= effectiveEnding) {
-        // Installation is outside slot bounds - still show it but mark as invalid
         effectiveBeginning = instBeginning;
         effectiveEnding = instEnding;
       }
     }
 
-    // Calculate nesting level
-    const nestingLevel = getNestingLevel(i, dataset);
-
-    // start = true means flat left edge (begins within view or after startOfTime)
-    // start = false means left chevron (extends before view)
-    // For "begins with participant": if beginning > startOfTime, start = true and there's a gap
+    const nestingLevel = getNestingLevel(i);
     const start = effectiveBeginning >= startOfTime;
-
-    // stop = true means flat right edge (ends within view or before endOfTime)
-    // stop = false means right chevron (extends after view)
-    // For "ends with participant": if ending < endOfTime, stop = true and there's a gap
     const stop = effectiveEnding <= endOfTime;
 
-    // Calculate x position based on time (all items aligned to timeline)
     let x: number;
     if (start) {
-      // Starts within view - position based on time
       x = lhs_x + timeInterval * (effectiveBeginning - startOfTime);
     } else {
-      // Extends before view - chevron on left
       x = config.layout.individual.xMargin - chevOff;
     }
 
     const y = next_y;
     next_y = y + config.layout.individual.height + config.layout.individual.gap;
 
-    // Calculate width based on time
     let w: number;
     if (!start && !stop) {
-      // Extends both directions
       w = fullWidth;
     } else if (start && !stop) {
-      // Has start, extends to end
       w =
         (endOfTime - effectiveBeginning) * timeInterval +
         config.layout.individual.temporalMargin;
     } else if (!start && stop) {
-      // Extends before, has end
       w =
         fullWidth -
         (endOfTime - effectiveEnding) * timeInterval -
         config.layout.individual.temporalMargin;
     } else {
-      // Has both start and end - "begins with participant" AND/OR "ends with participant"
       w = (effectiveEnding - effectiveBeginning) * timeInterval;
     }
 
-    // Ensure minimum width
     if (w < 20) w = 20;
-
     const h = config.layout.individual.height;
 
     layout.set(i.id, { x, y, w, h, start, stop, nestingLevel });
@@ -443,26 +355,11 @@ export function drawIndividuals(ctx: DrawContext) {
     .attr("class", "individual")
     .attr("id", (d: Individual) => "i" + d["id"])
     .attr("d", (i: Individual) => {
-      const { x, y, w, h, start, stop, nestingLevel } = layout.get(i.id)!;
+      const { x, y, w, h, start, stop } = layout.get(i.id)!;
 
-      // Determine if we need left chevron
-      // Only for items that extend before view (start === false)
-      // OR for nested SystemComponents/InstalledComponents (nestingLevel > 0)
-      const includeLeftChevron = !start || nestingLevel > 0;
+      // REMOVED: Indentation logic for the bar.
+      // Bars now align to time/left margin regardless of nesting level.
 
-      // Adjust x and width for nested items that need a left chevron
-      // but started within view (start === true)
-      let drawX = x;
-      let drawW = w;
-
-      if (start && nestingLevel > 0) {
-        // Need to make room for the left chevron
-        // Move starting point left and increase width
-        drawX = x - chevOff;
-        drawW = w + chevOff;
-      }
-
-      // Build the path
       const rightChevron = stop
         ? `l 0 ${h}`
         : `l ${chevOff} ${h / 2} ${-chevOff} ${h / 2}`;
@@ -470,24 +367,33 @@ export function drawIndividuals(ctx: DrawContext) {
       const leftChevron = `l ${chevOff} ${-h / 2} ${-chevOff} ${-h / 2}`;
 
       return (
-        `M ${drawX} ${y} l ${drawW} 0` +
-        rightChevron +
-        `l ${-drawW} 0` +
-        (includeLeftChevron ? leftChevron : "") +
-        "Z"
+        `M ${x} ${y} l ${w} 0` + rightChevron + `l ${-w} 0` + leftChevron + "Z"
       );
     })
     .attr("stroke", config.presentation.individual.stroke)
     .attr("stroke-width", config.presentation.individual.strokeWidth)
-    .attr("fill", config.presentation.individual.fill);
+    .attr("fill", (d: Individual) => {
+      // Apply hatch pattern ONLY to Installed Component virtual rows
+      if (isVirtualRow(d)) {
+        const originalId = getOriginalId(d);
+        const original = dataset.individuals.get(originalId);
+        const type = original?.entityType ?? EntityType.Individual;
 
-  // Draw separators between SystemComponent groups
+        if (type === EntityType.InstalledComponent) {
+          return "url(#diagonalHatch)";
+        }
+      }
+      // System Components and others get solid fill
+      return config.presentation.individual.fill;
+    });
+
+  // Draw separators between groups
   drawGroupSeparators(ctx, individuals, layout, config);
 
   return svgElement;
 }
 
-// Draw separator lines between SystemComponent groups (slot + its installations)
+// Draw separator lines between groups
 function drawGroupSeparators(
   ctx: DrawContext,
   individuals: Individual[],
@@ -521,7 +427,7 @@ function drawGroupSeparators(
     }
   }
 
-  // Draw the separators using append instead of join for better compatibility
+  // Draw the separators
   separatorPositions.forEach((pos, idx) => {
     svgElement
       .append("line")
@@ -573,8 +479,14 @@ function individualTooltip(individual: Individual) {
   let tip = "<strong>Individual</strong>";
 
   if (isInstallationRef(individual)) {
-    tip = "<strong>Installed Component</strong>";
-    tip += "<br/><em>(Installation instance)</em>";
+    const originalType = individual.entityType ?? EntityType.Individual;
+    if (originalType === EntityType.SystemComponent) {
+      tip = "<strong>System Component</strong>";
+      tip += "<br/><em>(Installation instance)</em>";
+    } else {
+      tip = "<strong>Installed Component</strong>";
+      tip += "<br/><em>(Installation instance)</em>";
+    }
   }
 
   if (individual.name) tip += "<br/> Name: " + individual.name;
@@ -592,7 +504,7 @@ export function clickIndividuals(
   const { config, svgElement, individuals, dataset } = ctx;
   individuals.forEach((i) => {
     // For installation references, pass the virtual individual (with composite ID)
-    // so the click handler can extract the slot ID
+    // so the click handler can extract the target ID
     // For regular individuals, pass as-is
     const individualToPass = i;
 
@@ -635,17 +547,22 @@ export function labelIndividuals(ctx: DrawContext) {
     config.layout.individual.height / 2 +
     config.labels.individual.topMargin;
 
-  // Draw icons (all aligned left - no indent)
+  // Draw icons with indentation to show hierarchy
   svgElement
     .selectAll(".individualIcon")
     .data(individuals.values())
     .join("text")
     .attr("class", "individualIcon")
     .attr("id", (i: Individual) => `ii${i.id}`)
-    .attr(
-      "x",
-      config.layout.individual.xMargin + config.labels.individual.leftMargin
-    )
+    .attr("x", (i: Individual) => {
+      const nestingLevel = getNestingLevel(i);
+      const indent = nestingLevel * 20; // Indent icons
+      return (
+        config.layout.individual.xMargin +
+        config.labels.individual.leftMargin +
+        indent
+      );
+    })
     .attr("y", (i: Individual, idx: number) => {
       return (
         config.layout.individual.topMargin +
@@ -658,22 +575,26 @@ export function labelIndividuals(ctx: DrawContext) {
     .attr("text-anchor", "start")
     .attr("font-family", "Arial, sans-serif")
     .attr("font-size", config.labels.individual.fontSize)
-    .attr("fill", "#374151") // Dark gray for icons
-    .text((d: Individual) => getEntityIcon(d));
+    .attr("fill", "#374151")
+    .text((d: Individual) => getEntityIcon(d, dataset)); // Pass dataset to get correct icon
 
-  // Draw labels (all aligned left after icon - no indent)
+  // Draw labels with indentation
   svgElement
     .selectAll(".individualLabel")
     .data(individuals.values())
     .join("text")
     .attr("class", "individualLabel")
     .attr("id", (i: Individual) => `il${i.id}`)
-    .attr(
-      "x",
-      config.layout.individual.xMargin +
+    .attr("x", (i: Individual) => {
+      const nestingLevel = getNestingLevel(i);
+      const indent = nestingLevel * 20; // Indent labels
+      return (
+        config.layout.individual.xMargin +
         config.labels.individual.leftMargin +
-        16
-    )
+        16 +
+        indent
+      );
+    })
     .attr("y", () => {
       const oldY = y;
       y = y + config.layout.individual.height + config.layout.individual.gap;
@@ -682,7 +603,7 @@ export function labelIndividuals(ctx: DrawContext) {
     .attr("text-anchor", "start")
     .attr("font-family", "Roboto, Arial, sans-serif")
     .attr("font-size", config.labels.individual.fontSize)
-    .attr("fill", "#111827") // Dark color for text
+    .attr("fill", "#111827")
     .text((d: Individual) => {
       let label = d.name;
       if (label.length > config.labels.individual.maxChars - 2) {

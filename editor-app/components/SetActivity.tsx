@@ -48,12 +48,12 @@ function getOriginalId(ind: Individual): string {
   return ind.id;
 }
 
-// Get the slot ID from an installation reference
-function getSlotId(ind: Individual): string | undefined {
+// Get the target ID (System for SystemComponent, SystemComponent for InstalledComponent) from an installation reference
+function getTargetId(ind: Individual): string | undefined {
   if (isInstallationRef(ind)) {
     const rest = ind.id.split("__installed_in__")[1];
     if (rest) {
-      // Format: slotId__installationId or just slotId (old format)
+      // Format: targetId__installationId or just targetId (old format)
       const parts = rest.split("__");
       return parts[0];
     }
@@ -113,189 +113,201 @@ const SetActivity = (props: Props) => {
   const [showParentModal, setShowParentModal] = useState(false);
   const [selectedParentId, setSelectedParentId] = useState<string | null>(null);
 
+  // Helper to get effective time bounds for a target (System or SystemComponent)
+  const getTargetEffectiveTimeBounds = (
+    targetId: string
+  ): { beginning: number; ending: number } => {
+    const target = dataset.individuals.get(targetId);
+    if (!target) {
+      return { beginning: 0, ending: Model.END_OF_TIME };
+    }
+
+    let beginning = target.beginning;
+    let ending = target.ending;
+
+    const targetType = target.entityType ?? EntityType.Individual;
+
+    // If target is a SystemComponent, get bounds from its installation into a System
+    if (targetType === EntityType.SystemComponent) {
+      if (target.installations && target.installations.length > 0) {
+        // Use the union of all installation periods
+        const instBeginnings = target.installations.map((inst) =>
+          Math.max(0, inst.beginning ?? 0)
+        );
+        const instEndings = target.installations.map(
+          (inst) => inst.ending ?? Model.END_OF_TIME
+        );
+        const earliestBeginning = Math.min(...instBeginnings);
+        const latestEnding = Math.max(...instEndings);
+
+        if (beginning < 0) {
+          beginning = earliestBeginning;
+        }
+        if (ending >= Model.END_OF_TIME && latestEnding < Model.END_OF_TIME) {
+          ending = latestEnding;
+        }
+      } else if (beginning < 0) {
+        beginning = 0;
+      }
+    }
+
+    // If target is a System, use its defined bounds
+    if (targetType === EntityType.System) {
+      if (beginning < 0) beginning = 0;
+    }
+
+    if (beginning < 0) beginning = 0;
+
+    return { beginning, ending };
+  };
+
   // Build the individuals list with proper labels for the Select component
   const individualsWithLabels = useMemo<IndividualOption[]>(() => {
-    const individualsArray = Array.from(dataset.individuals.values());
-
-    // Helper to get the hierarchy label for an individual
-    const getHierarchyLabel = (
-      ind: Individual,
-      installation?: { beginning: number; ending: number }
-    ): string => {
-      const entityType = ind.entityType ?? EntityType.Individual;
-
-      // For installation references, build full path: System - Slot - Component (time range)
-      if (isInstallationRef(ind)) {
-        const originalId = getOriginalId(ind);
-        const slotId = getSlotId(ind);
-        const installationId = getInstallationId(ind);
-
-        if (slotId) {
-          const slot = dataset.individuals.get(slotId);
-          const originalComponent = dataset.individuals.get(originalId);
-
-          if (slot && originalComponent) {
-            // Get time range from the installation
-            let timeRange = "";
-            if (installation) {
-              const endStr =
-                installation.ending >= Model.END_OF_TIME
-                  ? "∞"
-                  : installation.ending;
-              timeRange = ` (${installation.beginning}-${endStr})`;
-            } else if (originalComponent.installations) {
-              const inst = originalComponent.installations.find(
-                (i) => i.id === installationId
-              );
-              if (inst) {
-                const endStr =
-                  (inst.ending ?? Model.END_OF_TIME) >= Model.END_OF_TIME
-                    ? "∞"
-                    : inst.ending;
-                timeRange = ` (${inst.beginning ?? 0}-${endStr})`;
-              }
-            }
-
-            // Find the parent system of the slot
-            if (slot.parentSystemId) {
-              const system = dataset.individuals.get(slot.parentSystemId);
-              if (system) {
-                return `${system.name} → ${slot.name} → ${originalComponent.name}${timeRange}`;
-              }
-            }
-            return `${slot.name} → ${originalComponent.name}${timeRange}`;
-          }
-        }
-        return `${ind.name} (installed component)`;
-      }
-
-      // For SystemComponents, show: System → Component (slot)
-      if (entityType === EntityType.SystemComponent) {
-        if (ind.parentSystemId) {
-          const parent = dataset.individuals.get(ind.parentSystemId);
-          if (parent) {
-            return `${parent.name} → ${ind.name} (slot)`;
-          }
-        }
-        return `${ind.name} (slot)`;
-      }
-
-      // For Systems
-      if (entityType === EntityType.System) {
-        return `${ind.name} (system)`;
-      }
-
-      // For InstalledComponents at top level (for management, not participation)
-      if (entityType === EntityType.InstalledComponent) {
-        return `${ind.name} (component - click to manage installations)`;
-      }
-
-      // For regular individuals
-      return ind.name;
-    };
-
     const result: IndividualOption[] = [];
-    const visited = new Set<string>();
-    const addedVirtualIds = new Set<string>();
+    const addedIds = new Set<string>();
 
-    const addWithDescendants = (ind: Individual) => {
-      if (visited.has(ind.id)) return;
-      visited.add(ind.id);
+    // Helper to create an option
+    const addOption = (
+      ind: Individual,
+      overrideId?: string,
+      overrideName?: string,
+      installation?: { beginning: number; ending: number; id: string }
+    ) => {
+      const id = overrideId || ind.id;
+      if (addedIds.has(id)) return;
+      addedIds.add(id);
 
-      const entityType = ind.entityType ?? EntityType.Individual;
+      let displayLabel = overrideName || ind.name;
 
-      // Skip top-level InstalledComponents - they can't participate directly
-      // Only their installation period rows can participate
-      if (entityType === EntityType.InstalledComponent) {
-        // Don't add - will be added as installation refs under slots
-        return;
+      // Add timing info if it's an installation
+      if (installation) {
+        const endStr =
+          installation.ending >= Model.END_OF_TIME ? "∞" : installation.ending;
+        // If the name doesn't already contain timing info, add it
+        if (!displayLabel.includes(`(${installation.beginning}-`)) {
+          displayLabel += ` (${installation.beginning}-${endStr})`;
+        }
       }
 
       result.push({
         ...ind,
-        displayLabel: getHierarchyLabel(ind),
+        id: id,
+        name: overrideName || ind.name, // Keep name clean for display in chip
+        displayLabel: displayLabel, // Full label for dropdown
+        beginning: installation ? installation.beginning : ind.beginning,
+        ending: installation ? installation.ending : ind.ending,
+        _installationId: installation ? installation.id : undefined,
       });
-
-      // Find SystemComponent children
-      const children: Individual[] = [];
-      individualsArray.forEach((child) => {
-        const childEntityType = child.entityType ?? EntityType.Individual;
-        if (
-          childEntityType === EntityType.SystemComponent &&
-          child.parentSystemId === ind.id
-        ) {
-          children.push(child);
-        }
-      });
-
-      children
-        .sort((a, b) => a.name.localeCompare(b.name))
-        .forEach((child) => addWithDescendants(child));
-
-      // Add installation references for SystemComponents
-      const indEntityType = ind.entityType ?? EntityType.Individual;
-      if (indEntityType === EntityType.SystemComponent) {
-        const installedHere = individualsArray.filter((ic) => {
-          const icType = ic.entityType ?? EntityType.Individual;
-          if (icType !== EntityType.InstalledComponent) return false;
-          if (!ic.installations || ic.installations.length === 0) return false;
-          return ic.installations.some((inst) => inst.targetId === ind.id);
-        });
-
-        installedHere
-          .sort((a, b) => a.name.localeCompare(b.name))
-          .forEach((ic) => {
-            // Get ALL installations for this component in this slot
-            const installationsInSlot = (ic.installations || []).filter(
-              (inst) => inst.targetId === ind.id
-            );
-
-            // Create a SEPARATE virtual row for EACH installation period
-            installationsInSlot.forEach((inst) => {
-              // Format: componentId__installed_in__slotId__installationId
-              const virtualId = `${ic.id}__installed_in__${ind.id}__${inst.id}`;
-
-              // Skip if already added
-              if (addedVirtualIds.has(virtualId)) return;
-              addedVirtualIds.add(virtualId);
-
-              const installRef: IndividualOption = {
-                ...ic,
-                id: virtualId,
-                beginning: inst.beginning ?? 0,
-                ending: inst.ending ?? Model.END_OF_TIME,
-                _installationId: inst.id,
-                displayLabel: "", // Will be set below
-              };
-              installRef.displayLabel = getHierarchyLabel(installRef, {
-                beginning: inst.beginning ?? 0,
-                ending: inst.ending ?? Model.END_OF_TIME,
-              });
-              result.push(installRef);
-            });
-          });
-      }
     };
 
-    // Start with top-level items
-    const topLevel = individualsArray.filter((ind) => {
+    // Collect all entities by type
+    const systems: Individual[] = [];
+    const systemComponents: Individual[] = [];
+    const installedComponents: Individual[] = [];
+    const regularIndividuals: Individual[] = [];
+
+    dataset.individuals.forEach((ind) => {
       const entityType = ind.entityType ?? EntityType.Individual;
-      if (entityType === EntityType.System) return true;
-      if (entityType === EntityType.Individual) return true;
-      if (entityType === EntityType.InstalledComponent) return false; // Skip - only shown as virtual rows
-      if (entityType === EntityType.SystemComponent) {
-        if (!ind.parentSystemId) return true;
-        const parentExists = individualsArray.some(
-          (i) => i.id === ind.parentSystemId
-        );
-        return !parentExists;
+      switch (entityType) {
+        case EntityType.System:
+          systems.push(ind);
+          break;
+        case EntityType.SystemComponent:
+          systemComponents.push(ind);
+          break;
+        case EntityType.InstalledComponent:
+          installedComponents.push(ind);
+          break;
+        default:
+          regularIndividuals.push(ind);
+          break;
       }
-      return false;
     });
 
-    topLevel
-      .sort((a, b) => a.name.localeCompare(b.name))
-      .forEach((ind) => addWithDescendants(ind));
+    // Sort each group
+    const sortByName = (a: Individual, b: Individual) =>
+      a.name.localeCompare(b.name);
+    systems.sort(sortByName);
+    systemComponents.sort(sortByName);
+    installedComponents.sort(sortByName);
+    regularIndividuals.sort(sortByName);
+
+    // 1. Systems and their nested hierarchy (matching Model.getDisplayIndividuals)
+    systems.forEach((system) => {
+      // Add System
+      addOption(system, undefined, `${system.name} (System)`);
+
+      // Find SystemComponents installed in this System
+      systemComponents.forEach((sc) => {
+        const installations = sc.installations || [];
+        const installationsInSystem = installations.filter(
+          (inst) => inst.targetId === system.id
+        );
+
+        installationsInSystem.sort(
+          (a, b) => (a.beginning ?? 0) - (b.beginning ?? 0)
+        );
+
+        installationsInSystem.forEach((inst) => {
+          const virtualId = `${sc.id}__installed_in__${system.id}__${inst.id}`;
+          const label = `${system.name} → ${sc.name}`;
+
+          addOption(sc, virtualId, label, {
+            beginning: inst.beginning ?? 0,
+            ending: inst.ending ?? Model.END_OF_TIME,
+            id: inst.id,
+          });
+
+          // Under this SystemComponent virtual row, add InstalledComponents
+          installedComponents.forEach((ic) => {
+            const icInstallations = ic.installations || [];
+            const installationsInSlot = icInstallations.filter(
+              (icInst) => icInst.targetId === sc.id
+            );
+
+            installationsInSlot.sort(
+              (a, b) => (a.beginning ?? 0) - (b.beginning ?? 0)
+            );
+
+            installationsInSlot.forEach((icInst) => {
+              // Check overlap with the SystemComponent's installation in the System
+              const scStart = inst.beginning ?? 0;
+              const scEnd = inst.ending ?? Model.END_OF_TIME;
+              const icStart = icInst.beginning ?? 0;
+              const icEnd = icInst.ending ?? Model.END_OF_TIME;
+
+              if (icStart < scEnd && icEnd > scStart) {
+                // Use context suffix to allow same IC installation to appear under multiple SC occurrences
+                const contextSuffix = `__ctx_${inst.id}`;
+                const icVirtualId = `${ic.id}__installed_in__${sc.id}__${icInst.id}${contextSuffix}`;
+                const icLabel = `${system.name} → ${sc.name} → ${ic.name}`;
+
+                addOption(ic, icVirtualId, icLabel, {
+                  beginning: icInst.beginning ?? 0,
+                  ending: icInst.ending ?? Model.END_OF_TIME,
+                  id: icInst.id,
+                });
+              }
+            });
+          });
+        });
+      });
+    });
+
+    // 2. SystemComponents (top level)
+    systemComponents.forEach((sc) => {
+      addOption(sc, undefined, `${sc.name} (System Component - Top Level)`);
+    });
+
+    // 3. InstalledComponents (top level)
+    installedComponents.forEach((ic) => {
+      addOption(ic, undefined, `${ic.name} (Installed Component - Top Level)`);
+    });
+
+    // 4. Regular Individuals
+    regularIndividuals.forEach((ind) => {
+      addOption(ind);
+    });
 
     return result;
   }, [dataset]);
@@ -332,7 +344,6 @@ const SetActivity = (props: Props) => {
       const latestEnding = d.lastParticipantEnding(individual.id);
 
       // Only update beginning if the individual has beginsWithParticipant enabled
-      // (indicated by having a non-negative beginning that should track participations)
       if (individual.beginsWithParticipant && individual.beginning >= 0) {
         individual.beginning = earliestBeginning ? earliestBeginning : -1;
       }
@@ -497,36 +508,56 @@ const SetActivity = (props: Props) => {
       inputs.participations.forEach((participation, participantId) => {
         if (isInstallationRef({ id: participantId } as Individual)) {
           const originalId = participantId.split("__installed_in__")[0];
-          const slotId = participantId.split("__installed_in__")[1];
+          const rest = participantId.split("__installed_in__")[1];
+          const parts = rest.split("__");
+          const targetId = parts[0];
+          const installationId = parts[1];
 
-          const installedComponent = dataset.individuals.get(originalId);
-          if (installedComponent?.installations) {
-            const installation = installedComponent.installations.find(
-              (inst) => inst.targetId === slotId
-            );
+          const component = dataset.individuals.get(originalId);
+          if (component?.installations) {
+            // Find the specific installation
+            const installation = installationId
+              ? component.installations.find(
+                  (inst) => inst.id === installationId
+                )
+              : component.installations.find(
+                  (inst) => inst.targetId === targetId
+                );
 
             if (installation) {
               const installStart = installation.beginning ?? 0;
               const installEnd = installation.ending ?? Model.END_OF_TIME;
 
+              // Get target bounds to further constrain
+              const targetBounds = getTargetEffectiveTimeBounds(targetId);
+              const effectiveStart = Math.max(
+                installStart,
+                targetBounds.beginning
+              );
+              const effectiveEnd = Math.min(
+                installEnd,
+                targetBounds.ending < Model.END_OF_TIME
+                  ? targetBounds.ending
+                  : installEnd
+              );
+
               // Only error if there's NO overlap at all
-              // Partial overlap is allowed - the participation will be cropped visually
               if (
                 !hasOverlap(
                   inputs.beginning,
                   inputs.ending,
-                  installStart,
-                  installEnd
+                  effectiveStart,
+                  effectiveEnd
                 )
               ) {
-                const slot = dataset.individuals.get(slotId);
-                const slotName = slot?.name ?? slotId;
+                const target = dataset.individuals.get(targetId);
+                const targetName = target?.name ?? targetId;
                 runningErrors.push(
                   `Activity timing (${inputs.beginning}-${inputs.ending}) has no overlap with installation period ` +
                     `of "${
-                      installedComponent.name
-                    }" in "${slotName}" (${installStart}-${
-                      installEnd === Model.END_OF_TIME ? "∞" : installEnd
+                      component.name
+                    }" in "${targetName}" (${effectiveStart}-${
+                      effectiveEnd === Model.END_OF_TIME ? "∞" : effectiveEnd
                     })`
                 );
               }
@@ -677,40 +708,7 @@ const SetActivity = (props: Props) => {
     setShowParentModal(false);
   };
 
-  // Add helper function to get slot effective bounds
-  const getSlotEffectiveTimeBounds = (
-    slotId: string
-  ): { beginning: number; ending: number } => {
-    const slot = dataset.individuals.get(slotId);
-    if (!slot) {
-      return { beginning: 0, ending: Model.END_OF_TIME };
-    }
-
-    let beginning = slot.beginning;
-    let ending = slot.ending;
-
-    if (beginning < 0 && slot.parentSystemId) {
-      const parentSystem = dataset.individuals.get(slot.parentSystemId);
-      if (parentSystem) {
-        beginning = parentSystem.beginning >= 0 ? parentSystem.beginning : 0;
-      } else {
-        beginning = 0;
-      }
-    } else if (beginning < 0) {
-      beginning = 0;
-    }
-
-    if (ending >= Model.END_OF_TIME && slot.parentSystemId) {
-      const parentSystem = dataset.individuals.get(slot.parentSystemId);
-      if (parentSystem && parentSystem.ending < Model.END_OF_TIME) {
-        ending = parentSystem.ending;
-      }
-    }
-
-    return { beginning, ending };
-  };
-
-  // Update eligibleParticipants to also check slot bounds
+  // Update eligibleParticipants to check target bounds via installations
   const eligibleParticipants = useMemo<IndividualOption[]>(() => {
     const actStart = inputs.beginning;
     const actEnd = inputs.ending;
@@ -719,14 +717,14 @@ const SetActivity = (props: Props) => {
       let indStart = ind.beginning >= 0 ? ind.beginning : 0;
       let indEnd = ind.ending < Model.END_OF_TIME ? ind.ending : Infinity;
 
-      // For installation references, also constrain to slot bounds
+      // For installation references, also constrain to target bounds
       if (isInstallationRef(ind)) {
-        const slotId = getSlotId(ind);
-        if (slotId) {
-          const slotBounds = getSlotEffectiveTimeBounds(slotId);
-          indStart = Math.max(indStart, slotBounds.beginning);
-          if (slotBounds.ending < Model.END_OF_TIME) {
-            indEnd = Math.min(indEnd, slotBounds.ending);
+        const targetId = getTargetId(ind);
+        if (targetId) {
+          const targetBounds = getTargetEffectiveTimeBounds(targetId);
+          indStart = Math.max(indStart, targetBounds.beginning);
+          if (targetBounds.ending < Model.END_OF_TIME) {
+            indEnd = Math.min(indEnd, targetBounds.ending);
           }
         }
       }

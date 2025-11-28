@@ -121,6 +121,11 @@ export class Model {
       });
     });
 
+    // Deep clone central installations map
+    this.installations.forEach((inst, id) => {
+      newModel.installations.set(id, { ...inst });
+    });
+
     this.roles
       .filter((r) => !r.isCoreHqdm)
       .forEach((r) => {
@@ -174,6 +179,13 @@ export class Model {
       );
     } else {
       this.individuals.set(individual.id, individual);
+
+      // Also mirror any inline installations into the central map
+      if (individual.installations) {
+        individual.installations.forEach((inst) => {
+          this.installations.set(inst.id, inst);
+        });
+      }
     }
   }
 
@@ -199,7 +211,7 @@ export class Model {
     // Remove the individual itself
     this.individuals.delete(id);
 
-    // Remove installations that target this id (slot removed)
+    // Remove installations that target this id (e.g., slot or system removed)
     this.individuals.forEach((ind) => {
       if (ind.installations) {
         ind.installations = ind.installations.filter(
@@ -236,17 +248,22 @@ export class Model {
             toRemove.push(key);
             return;
           }
-          // Remove if installed component or slot is being deleted, or if either is missing
+          // Remove if installed component, slot, or system is being deleted
           if (typeof key === "string" && key.includes("__installed_in__")) {
-            const [originalId, slotId] = key.split("__installed_in__");
-            if (originalId === id || slotId === id) {
+            const parts = key.split("__installed_in__");
+            const originalId = parts[0];
+            const rest = parts[1];
+            // rest could be "targetId" or "targetId__installationId"
+            const targetId = rest.split("__")[0];
+
+            if (originalId === id || targetId === id) {
               toRemove.push(key);
               return;
             }
             // Defensive: remove if either referenced individual is missing
             if (
               !this.individuals.has(originalId) ||
-              !this.individuals.has(slotId)
+              !this.individuals.has(targetId)
             ) {
               toRemove.push(key);
               return;
@@ -272,15 +289,19 @@ export class Model {
               return;
             }
             if (k.includes("__installed_in__")) {
-              const [originalId, slotId] = k.split("__installed_in__");
-              if (originalId === id || slotId === id) {
+              const partsSplit = k.split("__installed_in__");
+              const originalId = partsSplit[0];
+              const rest = partsSplit[1];
+              const targetId = rest.split("__")[0];
+
+              if (originalId === id || targetId === id) {
                 delete (parts as any)[k];
                 return;
               }
               // Defensive: remove if either referenced individual is missing
               if (
                 !this.individuals.has(originalId) ||
-                !this.individuals.has(slotId)
+                !this.individuals.has(targetId)
               ) {
                 delete (parts as any)[k];
                 return;
@@ -535,7 +556,6 @@ export class Model {
 
   // Persist/update an individual as usual
   setIndividual(individual: Individual) {
-    // ...existing code to put into this.individuals...
     this.individuals.set(individual.id, individual);
 
     // Also mirror any inline installations into the central map
@@ -571,26 +591,32 @@ export class Model {
       }
 
       // Clean up any participations that reference this installation
-      // The participation key format is: componentId__installed_in__targetId
-      const participationKey = `${inst.componentId}__installed_in__${inst.targetId}`;
-
+      // The participation key format is: componentId__installed_in__targetId__installationId
       const activitiesToDelete: string[] = [];
       this.activities.forEach((activity) => {
         const parts = activity.participations;
         if (!parts) return;
 
         if (parts instanceof Map) {
-          if (parts.has(participationKey)) {
-            parts.delete(participationKey);
-            this.activities.set(activity.id, activity);
-          }
+          const toRemove: string[] = [];
+          parts.forEach((_, key) => {
+            // Check if this participation key references the deleted installation
+            if (key.includes(`__${id}`)) {
+              toRemove.push(key);
+            }
+          });
+          toRemove.forEach((k) => parts.delete(k));
+          this.activities.set(activity.id, activity);
           if (parts.size === 0) activitiesToDelete.push(activity.id);
         } else {
           try {
-            if ((parts as any)[participationKey]) {
-              delete (parts as any)[participationKey];
-              this.activities.set(activity.id, activity);
-            }
+            const keys = Object.keys(parts as any);
+            keys.forEach((k) => {
+              if (k.includes(`__${id}`)) {
+                delete (parts as any)[k];
+              }
+            });
+            this.activities.set(activity.id, activity);
             if (Object.keys(parts as any).length === 0) {
               activitiesToDelete.push(activity.id);
             }
@@ -606,96 +632,160 @@ export class Model {
     this.installations.delete(id);
   }
 
+  /**
+   * Get the list of individuals to display in the diagram.
+   *
+   * Display order:
+   * 1. Systems (top level, no indent)
+   *    - Virtual rows for SystemComponents installed in it (indented level 1)
+   *      - Virtual rows for InstalledComponents in those slots (indented level 2)
+   * 2. SystemComponents - actual entities (top level, no indent)
+   * 3. InstalledComponents - actual entities (top level, no indent)
+   * 4. Regular Individuals (top level, no indent)
+   */
   getDisplayIndividuals(): Individual[] {
     const result: Individual[] = [];
-    const processedSystems = new Set<string>();
-    const addedVirtualIds = new Set<string>(); // Track virtual rows we've already added
+    const addedVirtualIds = new Set<string>();
 
-    // Helper to add an individual and its nested items
-    const addWithNested = (ind: Individual) => {
-      const entityType = ind.entityType ?? EntityType.Individual;
+    // Collect all entities by type
+    const systems: Individual[] = [];
+    const systemComponents: Individual[] = [];
+    const installedComponents: Individual[] = [];
+    const regularIndividuals: Individual[] = [];
 
-      // Don't add InstalledComponents at top level - they only appear as virtual rows under slots
-      if (entityType === EntityType.InstalledComponent) {
-        return;
-      }
-
-      result.push(ind);
-
-      // If this is a System, add its SystemComponents
-      if (entityType === EntityType.System) {
-        processedSystems.add(ind.id);
-
-        // Find all SystemComponents that belong to this System
-        this.individuals.forEach((child) => {
-          if (
-            (child.entityType ?? EntityType.Individual) ===
-              EntityType.SystemComponent &&
-            child.parentSystemId === ind.id
-          ) {
-            result.push(child);
-
-            // For each SystemComponent (slot), find InstalledComponents
-            this.individuals.forEach((installedComp) => {
-              if (
-                (installedComp.entityType ?? EntityType.Individual) ===
-                EntityType.InstalledComponent
-              ) {
-                // Check if this InstalledComponent has installations in this slot
-                const installations = installedComp.installations || [];
-                const installationsInSlot = installations.filter(
-                  (inst) => inst.targetId === child.id
-                );
-
-                // Create a SEPARATE virtual row for EACH installation period
-                installationsInSlot.forEach((inst) => {
-                  const virtualId = `${installedComp.id}__installed_in__${child.id}__${inst.id}`;
-
-                  // Skip if already added
-                  if (addedVirtualIds.has(virtualId)) return;
-                  addedVirtualIds.add(virtualId);
-
-                  const virtualIndividual: Individual = {
-                    ...installedComp,
-                    id: virtualId,
-                    name: installedComp.name,
-                    beginning: inst.beginning ?? 0,
-                    ending: inst.ending ?? Model.END_OF_TIME,
-                    // Store the installation ID for reference
-                    _installationId: inst.id,
-                  };
-                  result.push(virtualIndividual);
-                });
-              }
-            });
-          }
-        });
-      }
-    };
-
-    // First, add Systems and their nested items (including virtual installation rows)
     this.individuals.forEach((ind) => {
-      if ((ind.entityType ?? EntityType.Individual) === EntityType.System) {
-        addWithNested(ind);
+      const entityType = ind.entityType ?? EntityType.Individual;
+      switch (entityType) {
+        case EntityType.System:
+          systems.push(ind);
+          break;
+        case EntityType.SystemComponent:
+          systemComponents.push(ind);
+          break;
+        case EntityType.InstalledComponent:
+          installedComponents.push(ind);
+          break;
+        default:
+          regularIndividuals.push(ind);
+          break;
       }
     });
 
-    // Then add remaining individuals that are NOT:
-    // - Systems (already processed)
-    // - SystemComponents (added under their parent System)
-    // - InstalledComponents (only shown as virtual rows under slots)
-    this.individuals.forEach((ind) => {
-      const entityType = ind.entityType ?? EntityType.Individual;
-      if (
-        entityType !== EntityType.System &&
-        entityType !== EntityType.SystemComponent &&
-        entityType !== EntityType.InstalledComponent
-      ) {
-        // Only add if not already in result
-        if (!result.find((r) => r.id === ind.id)) {
-          result.push(ind);
-        }
-      }
+    // Sort each group alphabetically
+    systems.sort((a, b) => a.name.localeCompare(b.name));
+    systemComponents.sort((a, b) => a.name.localeCompare(b.name));
+    installedComponents.sort((a, b) => a.name.localeCompare(b.name));
+    regularIndividuals.sort((a, b) => a.name.localeCompare(b.name));
+
+    // 1. Add Systems with their nested VIRTUAL rows
+    systems.forEach((system) => {
+      // Add the System itself (top level)
+      result.push({
+        ...system,
+        _nestingLevel: 0,
+      });
+
+      // Find SystemComponents installed in this System and create VIRTUAL rows
+      systemComponents.forEach((sc) => {
+        const installations = sc.installations || [];
+        const installationsInSystem = installations.filter(
+          (inst) => inst.targetId === system.id
+        );
+
+        // Sort installations by time
+        installationsInSystem.sort(
+          (a, b) => (a.beginning ?? 0) - (b.beginning ?? 0)
+        );
+
+        // Create a VIRTUAL row for each installation period
+        installationsInSystem.forEach((inst) => {
+          const virtualId = `${sc.id}__installed_in__${system.id}__${inst.id}`;
+          if (addedVirtualIds.has(virtualId)) return;
+          addedVirtualIds.add(virtualId);
+
+          // Create virtual row for SystemComponent in System (nested level 1)
+          const scVirtualRow: Individual = {
+            ...sc,
+            id: virtualId,
+            name: sc.name,
+            beginning: inst.beginning ?? 0,
+            ending: inst.ending ?? Model.END_OF_TIME,
+            _installationId: inst.id,
+            _nestingLevel: 1, // Nested under System
+            _isVirtualRow: true,
+          };
+          result.push(scVirtualRow);
+
+          // Under this SystemComponent virtual row, add InstalledComponent VIRTUAL rows
+          installedComponents.forEach((ic) => {
+            const icInstallations = ic.installations || [];
+            const installationsInSlot = icInstallations.filter(
+              (icInst) => icInst.targetId === sc.id
+            );
+
+            installationsInSlot.sort(
+              (a, b) => (a.beginning ?? 0) - (b.beginning ?? 0)
+            );
+
+            installationsInSlot.forEach((icInst) => {
+              // Check overlap with the SystemComponent's installation in the System
+              const scStart = inst.beginning ?? 0;
+              const scEnd = inst.ending ?? Model.END_OF_TIME;
+              const icStart = icInst.beginning ?? 0;
+              const icEnd = icInst.ending ?? Model.END_OF_TIME;
+
+              // Only show if there's time overlap
+              if (icStart < scEnd && icEnd > scStart) {
+                // Use context suffix to allow same IC installation to appear under multiple SC occurrences
+                const contextSuffix = `__ctx_${inst.id}`;
+                const icVirtualId = `${ic.id}__installed_in__${sc.id}__${icInst.id}${contextSuffix}`;
+
+                if (addedVirtualIds.has(icVirtualId)) return;
+                addedVirtualIds.add(icVirtualId);
+
+                const icVirtualRow: Individual = {
+                  ...ic,
+                  id: icVirtualId,
+                  name: ic.name,
+                  beginning: icInst.beginning ?? 0,
+                  ending: icInst.ending ?? Model.END_OF_TIME,
+                  _installationId: icInst.id,
+                  _nestingLevel: 2, // Nested under SystemComponent virtual row
+                  _isVirtualRow: true,
+                };
+                result.push(icVirtualRow);
+              }
+            });
+          });
+        });
+      });
+    });
+
+    // 2. Add SystemComponents - actual entities (top level, NOT nested)
+    systemComponents.forEach((sc) => {
+      result.push({
+        ...sc,
+        _nestingLevel: 0,
+        _isVirtualRow: false,
+      });
+    });
+
+    // 3. Add InstalledComponents - actual entities (top level, NOT nested)
+    installedComponents.forEach((ic) => {
+      result.push({
+        ...ic,
+        _nestingLevel: 0,
+        _isVirtualRow: false,
+      });
+    });
+
+    // 4. Add regular Individuals (top level)
+    regularIndividuals.forEach((ind) => {
+      result.push({
+        ...ind,
+        _nestingLevel: 0,
+        _isVirtualRow: false,
+      });
     });
 
     return result;

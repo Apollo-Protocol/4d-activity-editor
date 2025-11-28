@@ -7,7 +7,7 @@ interface EntityLegendItem {
   description?: string;
 }
 
-const entityTypes: EntityLegendItem[] = [
+export const entityTypes: EntityLegendItem[] = [
   { icon: "▣", label: "System", description: "A system containing components" },
   {
     icon: "◈",
@@ -23,6 +23,11 @@ const entityTypes: EntityLegendItem[] = [
     icon: "⬡",
     label: "Installed (in system comp)",
     description: "Component installed in a system component",
+  },
+  {
+    icon: "◇",
+    label: "Installed (system)",
+    description: "System component installed in a system",
   },
   { icon: "O", label: "Individual", description: "A regular individual" },
 ];

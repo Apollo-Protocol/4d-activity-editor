@@ -8,6 +8,7 @@ import {
   removeLabelIfItOverlaps,
 } from "./DrawHelpers";
 import { ConfigData } from "./config";
+import { entityTypes } from "@/components/EntityTypeLegend"; // use legend as source of truth
 
 let mouseOverElement: any | null = null;
 
@@ -79,8 +80,11 @@ function isVirtualRow(ind: Individual): boolean {
   return ind._isVirtualRow === true;
 }
 
-// Helper function to get icon for entity type
+// Helper function to get icon for entity type (use EntityTypeLegend source)
 function getEntityIcon(ind: Individual, dataset: Model): string {
+  const findIcon = (label: string) =>
+    entityTypes.find((e) => e.label === label)?.icon ?? "";
+
   let entityType = ind.entityType ?? EntityType.Individual;
 
   // If it's a virtual row, look up the original entity to get the correct icon
@@ -88,19 +92,34 @@ function getEntityIcon(ind: Individual, dataset: Model): string {
     const originalId = getOriginalId(ind);
     const original = dataset.individuals.get(originalId);
     if (original) {
-      entityType = original.entityType ?? EntityType.Individual;
+      const origType = original.entityType ?? EntityType.Individual;
+
+      // For a SystemComponent virtual row (system-installed instance), use the
+      // explicit "Installed (system)" icon from the legend.
+      if (origType === EntityType.SystemComponent) {
+        return findIcon("Installed (system)");
+      }
+
+      // For an InstalledComponent virtual row (installed into a system component),
+      // use the "Installed (in system comp)" icon from the legend.
+      if (origType === EntityType.InstalledComponent) {
+        return findIcon("Installed (in system comp)");
+      }
+
+      // Otherwise fall back to the original's type below
+      entityType = origType;
     }
   }
 
   switch (entityType) {
     case EntityType.System:
-      return "▣"; // Filled square with border
+      return findIcon("System");
     case EntityType.SystemComponent:
-      return "◈"; // Diamond
+      return findIcon("System Component");
     case EntityType.InstalledComponent:
-      return "●"; // Filled circle
+      return findIcon("Installed Component");
     default:
-      return "○"; // Hollow circle for regular individuals
+      return findIcon("Individual");
   }
 }
 
@@ -177,28 +196,6 @@ function shouldDrawSeparatorAfter(
   return false;
 }
 
-// Ensure the hatch pattern exists in the SVG defs
-function ensureHatchPattern(svgElement: any) {
-  let defs = svgElement.select("defs");
-  if (defs.empty()) {
-    defs = svgElement.append("defs");
-  }
-
-  if (defs.select("#diagonalHatch").empty()) {
-    defs
-      .append("pattern")
-      .attr("id", "diagonalHatch")
-      .attr("patternUnits", "userSpaceOnUse")
-      .attr("width", 8)
-      .attr("height", 8)
-      .append("path")
-      .attr("d", "M-2,2 l4,-4 M0,8 l8,-8 M6,10 l4,-4")
-      .attr("stroke", "#6b7280") // Gray stroke
-      .attr("stroke-width", 1)
-      .attr("opacity", 0.5);
-  }
-}
-
 export function drawIndividuals(ctx: DrawContext) {
   const { config, svgElement, activities, dataset } = ctx;
   const individuals = ctx.individuals;
@@ -206,9 +203,6 @@ export function drawIndividuals(ctx: DrawContext) {
   if (!individuals || individuals.length === 0) {
     return svgElement;
   }
-
-  // Ensure pattern exists for Installed Components
-  ensureHatchPattern(svgElement);
 
   // Calculate time range from activities
   let startOfTime = Math.min(...activities.map((a) => a.beginning));
@@ -388,16 +382,10 @@ export function drawIndividuals(ctx: DrawContext) {
     .attr("id", (d: Individual) => "i" + d["id"])
     .attr("d", (i: Individual) => {
       const { x, y, w, h, start, stop } = layout.get(i.id)!;
-
-      // REMOVED: Indentation logic for the bar.
-      // Bars now align to time/left margin regardless of nesting level.
-
       const rightChevron = stop
         ? `l 0 ${h}`
         : `l ${chevOff} ${h / 2} ${-chevOff} ${h / 2}`;
-
       const leftChevron = `l ${chevOff} ${-h / 2} ${-chevOff} ${-h / 2}`;
-
       return (
         `M ${x} ${y} l ${w} 0` + rightChevron + `l ${-w} 0` + leftChevron + "Z"
       );
@@ -405,17 +393,7 @@ export function drawIndividuals(ctx: DrawContext) {
     .attr("stroke", config.presentation.individual.stroke)
     .attr("stroke-width", config.presentation.individual.strokeWidth)
     .attr("fill", (d: Individual) => {
-      // Apply hatch pattern ONLY to Installed Component virtual rows
-      if (isVirtualRow(d)) {
-        const originalId = getOriginalId(d);
-        const original = dataset.individuals.get(originalId);
-        const type = original?.entityType ?? EntityType.Individual;
-
-        if (type === EntityType.InstalledComponent) {
-          return "url(#diagonalHatch)";
-        }
-      }
-      // System Components and others get solid fill
+      // No hatch; fill uses presentation config for all rows
       return config.presentation.individual.fill;
     });
 

@@ -58,6 +58,17 @@ function getInstallationId(ind: Individual): string | undefined {
   return ind._installationId;
 }
 
+// Get the context installation ID (parent installation) from an installation reference
+function getContextInstallationId(ind: Individual): string | undefined {
+  if (isInstallationRef(ind)) {
+    const parts = ind.id.split("__ctx_");
+    if (parts.length > 1) {
+      return parts[1];
+    }
+  }
+  return undefined;
+}
+
 // Get the nesting level for indentation (uses _nestingLevel property)
 function getNestingLevel(ind: Individual): number {
   return ind._nestingLevel ?? 0;
@@ -272,9 +283,30 @@ export function drawIndividuals(ctx: DrawContext) {
       const originalId = getOriginalId(i);
       const targetId = getTargetId(i);
       const installationId = getInstallationId(i);
+      const contextInstallationId = getContextInstallationId(i);
 
       let targetBounds = { beginning: 0, ending: Model.END_OF_TIME };
-      if (targetId) {
+      let foundContext = false;
+
+      // Try to get bounds from the specific parent installation context
+      if (contextInstallationId && targetId) {
+        const target = dataset.individuals.get(targetId);
+        if (target && target.installations) {
+          const parentInst = target.installations.find(
+            (inst) => inst.id === contextInstallationId
+          );
+          if (parentInst) {
+            targetBounds = {
+              beginning: parentInst.beginning ?? 0,
+              ending: parentInst.ending ?? Model.END_OF_TIME,
+            };
+            foundContext = true;
+          }
+        }
+      }
+
+      // Fallback to generic target bounds if no context found
+      if (!foundContext && targetId) {
         targetBounds = getTargetEffectiveTimeBounds(targetId, dataset);
       }
 

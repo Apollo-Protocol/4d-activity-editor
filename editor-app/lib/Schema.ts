@@ -44,10 +44,14 @@ export enum EntityType {
 // - InstalledComponent installs into SystemComponent
 export interface Installation {
   id: Id;
-  componentId: Id; // The entity being installed (SystemComponent or InstalledComponent)
-  targetId: Id; // The target (System for SystemComponent, SystemComponent for InstalledComponent)
-  beginning: number;
-  ending: number;
+  componentId: Id; // The component being installed
+  targetId: Id; // Where it's installed (System for SC, SystemComponent for IC)
+  beginning?: number;
+  ending?: number;
+  // For InstalledComponents: specifies which System this installation is valid for
+  systemContextId?: Id;
+  // For InstalledComponents: specifies which SC installation this IC installation belongs to
+  scInstallationContextId?: Id;
 }
 
 /**

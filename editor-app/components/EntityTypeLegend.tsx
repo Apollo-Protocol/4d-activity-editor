@@ -21,8 +21,8 @@ const entityTypes: EntityLegendItem[] = [
   },
   {
     icon: "⬡",
-    label: "Installed (in slot)",
-    description: "Component installed in a slot",
+    label: "Installed (in system comp)",
+    description: "Component installed in a system component",
   },
   { icon: "O", label: "Individual", description: "A regular individual" },
 ];

@@ -634,14 +634,11 @@ export class Model {
 
   /**
    * Get the list of individuals to display in the diagram.
-   *
-   * Display order:
-   * 1. Systems (top level, no indent)
-   *    - Virtual rows for SystemComponents installed in it (indented level 1)
-   *      - Virtual rows for InstalledComponents in those slots (indented level 2)
-   * 2. SystemComponents - actual entities (top level, no indent)
-   * 3. InstalledComponents - actual entities (top level, no indent)
-   * 4. Regular Individuals (top level, no indent)
+   */
+  // ...existing code up to getDisplayIndividuals...
+
+  /**
+   * Get the list of individuals to display in the diagram.
    */
   getDisplayIndividuals(): Individual[] {
     const result: Individual[] = [];
@@ -683,35 +680,39 @@ export class Model {
       result.push({
         ...system,
         _nestingLevel: 0,
+        _isVirtualRow: false,
       });
 
       // Find SystemComponents installed in this System and create VIRTUAL rows
       systemComponents.forEach((sc) => {
-        const installations = sc.installations || [];
-        const installationsInSystem = installations.filter(
+        const scInstallations = sc.installations || [];
+        const installationsInThisSystem = scInstallations.filter(
           (inst) => inst.targetId === system.id
         );
 
         // Sort installations by time
-        installationsInSystem.sort(
+        installationsInThisSystem.sort(
           (a, b) => (a.beginning ?? 0) - (b.beginning ?? 0)
         );
 
-        // Create a VIRTUAL row for each installation period
-        installationsInSystem.forEach((inst) => {
-          const virtualId = `${sc.id}__installed_in__${system.id}__${inst.id}`;
-          if (addedVirtualIds.has(virtualId)) return;
-          addedVirtualIds.add(virtualId);
+        // Create a VIRTUAL row for each installation period of this SystemComponent in this System
+        installationsInThisSystem.forEach((scInst) => {
+          const scVirtualId = `${sc.id}__installed_in__${system.id}__${scInst.id}`;
+          if (addedVirtualIds.has(scVirtualId)) return;
+          addedVirtualIds.add(scVirtualId);
+
+          const scStart = scInst.beginning ?? 0;
+          const scEnd = scInst.ending ?? Model.END_OF_TIME;
 
           // Create virtual row for SystemComponent in System (nested level 1)
           const scVirtualRow: Individual = {
             ...sc,
-            id: virtualId,
+            id: scVirtualId,
             name: sc.name,
-            beginning: inst.beginning ?? 0,
-            ending: inst.ending ?? Model.END_OF_TIME,
-            _installationId: inst.id,
-            _nestingLevel: 1, // Nested under System
+            beginning: scStart,
+            ending: scEnd,
+            _installationId: scInst.id,
+            _nestingLevel: 1,
             _isVirtualRow: true,
           };
           result.push(scVirtualRow);
@@ -719,38 +720,71 @@ export class Model {
           // Under this SystemComponent virtual row, add InstalledComponent VIRTUAL rows
           installedComponents.forEach((ic) => {
             const icInstallations = ic.installations || [];
-            const installationsInSlot = icInstallations.filter(
+
+            // Filter to only installations targeting THIS SystemComponent
+            const installationsInThisSC = icInstallations.filter(
               (icInst) => icInst.targetId === sc.id
             );
 
-            installationsInSlot.sort(
-              (a, b) => (a.beginning ?? 0) - (b.beginning ?? 0)
-            );
+            installationsInThisSC.forEach((icInst) => {
+              // STRICT CHECK: Only show this IC under this System if:
+              // 1. scInstallationContextId matches this SC installation, OR
+              // 2. systemContextId matches this System, OR
+              // 3. NEITHER is set AND this is the ONLY system where this SC is installed
 
-            installationsInSlot.forEach((icInst) => {
-              // Check overlap with the SystemComponent's installation in the System
-              const scStart = inst.beginning ?? 0;
-              const scEnd = inst.ending ?? Model.END_OF_TIME;
+              const hasScInstContext = !!icInst.scInstallationContextId;
+              const hasSystemContext = !!icInst.systemContextId;
+
+              if (hasScInstContext) {
+                // If scInstallationContextId is set, it MUST match this SC installation
+                if (icInst.scInstallationContextId !== scInst.id) {
+                  return; // Skip - this IC is for a different SC installation
+                }
+              } else if (hasSystemContext) {
+                // If systemContextId is set (but not scInstallationContextId), it MUST match this System
+                if (icInst.systemContextId !== system.id) {
+                  return; // Skip - this IC is for a different System
+                }
+              } else {
+                // Neither context is set - this is a legacy installation
+                // Only show it if this SC is installed in ONLY ONE system
+                // (to avoid duplicating across all systems)
+                const allScInstallations = sc.installations || [];
+                const uniqueSystemIds = new Set(
+                  allScInstallations.map((inst) => inst.targetId)
+                );
+
+                if (uniqueSystemIds.size > 1) {
+                  // SC is in multiple systems, and IC has no context
+                  // Don't show it anywhere to avoid confusion
+                  // User needs to edit the IC and set the context
+                  return;
+                }
+              }
+
               const icStart = icInst.beginning ?? 0;
               const icEnd = icInst.ending ?? Model.END_OF_TIME;
 
-              // Only show if there's time overlap
-              if (icStart < scEnd && icEnd > scStart) {
-                // Use context suffix to allow same IC installation to appear under multiple SC occurrences
-                const contextSuffix = `__ctx_${inst.id}`;
-                const icVirtualId = `${ic.id}__installed_in__${sc.id}__${icInst.id}${contextSuffix}`;
+              // Check temporal overlap
+              const hasOverlap = icStart < scEnd && icEnd > scStart;
+
+              if (hasOverlap) {
+                const icVirtualId = `${ic.id}__installed_in__${sc.id}__${icInst.id}__ctx_${scInst.id}`;
 
                 if (addedVirtualIds.has(icVirtualId)) return;
                 addedVirtualIds.add(icVirtualId);
+
+                const displayStart = Math.max(icStart, scStart);
+                const displayEnd = Math.min(icEnd, scEnd);
 
                 const icVirtualRow: Individual = {
                   ...ic,
                   id: icVirtualId,
                   name: ic.name,
-                  beginning: icInst.beginning ?? 0,
-                  ending: icInst.ending ?? Model.END_OF_TIME,
+                  beginning: displayStart,
+                  ending: displayEnd,
                   _installationId: icInst.id,
-                  _nestingLevel: 2, // Nested under SystemComponent virtual row
+                  _nestingLevel: 2,
                   _isVirtualRow: true,
                 };
                 result.push(icVirtualRow);

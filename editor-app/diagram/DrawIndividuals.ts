@@ -615,7 +615,21 @@ export function labelIndividuals(ctx: DrawContext) {
     .attr("font-size", config.labels.individual.fontSize)
     .attr("fill", "#111827")
     .text((d: Individual) => {
-      let label = d.name;
+      // Truncate labels for virtual SystemComponent or virtual InstalledComponent to 6 chars + "..."
+      let label = d.name ?? "";
+      if (isVirtualRow(d)) {
+        const originalId = getOriginalId(d);
+        const original = dataset.individuals.get(originalId);
+        const origType = original?.entityType ?? EntityType.Individual;
+        if (
+          (origType === EntityType.SystemComponent ||
+            origType === EntityType.InstalledComponent) &&
+          label.length > 6
+        ) {
+          return label.substring(0, 6) + "...";
+        }
+      }
+
       if (label.length > config.labels.individual.maxChars - 2) {
         label = label.substring(0, config.labels.individual.maxChars - 2);
         label += "...";

@@ -51,7 +51,7 @@ const EntityTypeLegend = () => {
                 width: 20,
                 height: 20,
                 marginRight: 8,
-                fontSize: 14,
+                fontSize: 20,
 
                 fontFamily: "Arial, sans-serif",
               }}

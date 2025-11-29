@@ -229,6 +229,18 @@ const EditInstalledComponent = (props: Props) => {
       // Validate that if a slot is selected, a System context is also selected
       // (if the slot is installed in multiple systems)
       const systemsForSlot = getSystemsForSlot(inst.targetId);
+
+      // Auto-fill system context if only one option exists
+      if (systemsForSlot.length === 1 && !inst.systemContextId) {
+        // This will be handled during save, but we need the context for validation
+        const autoSystemId = systemsForSlot[0].id;
+        inst.systemContextId = autoSystemId;
+        const scInst = getScInstallationForSystem(inst.targetId, autoSystemId);
+        if (scInst) {
+          inst.scInstallationContextId = scInst.id;
+        }
+      }
+
       if (systemsForSlot.length > 1 && !inst.systemContextId) {
         newErrors.push(
           `${slotName}: Please select which System this installation belongs to.`
@@ -328,10 +340,20 @@ const EditInstalledComponent = (props: Props) => {
 
       // Get the SC installation ID for the system context
       let scInstallationContextId = inst.scInstallationContextId;
-      if (inst.targetId && inst.systemContextId && !scInstallationContextId) {
+      let systemContextId = inst.systemContextId;
+
+      // Auto-fill system context if only one option
+      if (inst.targetId && !systemContextId) {
+        const systemsForSlot = getSystemsForSlot(inst.targetId);
+        if (systemsForSlot.length === 1) {
+          systemContextId = systemsForSlot[0].id;
+        }
+      }
+
+      if (inst.targetId && systemContextId && !scInstallationContextId) {
         const scInst = getScInstallationForSystem(
           inst.targetId,
-          inst.systemContextId
+          systemContextId
         );
         if (scInst) {
           scInstallationContextId = scInst.id;
@@ -342,6 +364,7 @@ const EditInstalledComponent = (props: Props) => {
         ...inst,
         beginning: parseInt(raw?.beginning ?? String(inst.beginning), 10) || 0,
         ending: parseInt(raw?.ending ?? String(inst.ending), 10) || 10,
+        systemContextId,
         scInstallationContextId,
       };
     });
@@ -413,10 +436,23 @@ const EditInstalledComponent = (props: Props) => {
 
     // Get the SC installation ID if we have both slot and system context
     let scInstallationContextId: string | undefined;
-    if (targetSlotId && targetSystemId) {
-      const scInst = getScInstallationForSystem(targetSlotId, targetSystemId);
-      if (scInst) {
-        scInstallationContextId = scInst.id;
+    let systemContextId: string | undefined = targetSystemId;
+
+    if (targetSlotId) {
+      // If we have a target slot, check if there's only one system - auto-select it
+      const systemsForSlot = getSystemsForSlot(targetSlotId);
+      if (systemsForSlot.length === 1 && !systemContextId) {
+        systemContextId = systemsForSlot[0].id;
+      }
+
+      if (systemContextId) {
+        const scInst = getScInstallationForSystem(
+          targetSlotId,
+          systemContextId
+        );
+        if (scInst) {
+          scInstallationContextId = scInst.id;
+        }
       }
     }
 
@@ -426,7 +462,7 @@ const EditInstalledComponent = (props: Props) => {
       targetId: targetSlotId || "",
       beginning: defaultBeginning,
       ending: defaultEnding,
-      systemContextId: targetSystemId,
+      systemContextId: systemContextId,
       scInstallationContextId,
     };
 
@@ -590,7 +626,14 @@ const EditInstalledComponent = (props: Props) => {
             ? `Manage installation periods for this component in "${slotName}"${
                 systemName ? ` within "${systemName}"` : ""
               }. You can have multiple non-overlapping periods.`
-            : "Manage all installation periods for this component across different slots."}
+            : `Manage all installation periods for this component across different slots.`}
+          {!isFiltered && availableSlots.length === 0 && (
+            <>
+              {" "}
+              System Components must be installed in a System before they can
+              receive Installed Components.{" "}
+            </>
+          )}
         </p>
 
         {/* Always show the table structure */}
@@ -874,13 +917,6 @@ const EditInstalledComponent = (props: Props) => {
             Period
           </Button>
         </div>
-
-        {availableSlots.length === 0 && !isFiltered && (
-          <Alert variant="warning" className="mt-3 mb-0">
-            No slots available. System Components must be installed in a System
-            before they can receive Installed Components.
-          </Alert>
-        )}
 
         {errors.length > 0 && (
           <Alert variant="danger" className="mt-3 mb-0">

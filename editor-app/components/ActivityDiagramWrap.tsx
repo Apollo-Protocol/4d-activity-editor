@@ -184,7 +184,7 @@ export default function ActivityDiagramWrap() {
 
       if (entityType === EntityType.SystemComponent) {
         // Virtual SystemComponent - open installation editor for this system
-        setSelectedIndividual(originalIndividual);
+        setSelectedSystemComponent(originalIndividual);
         setTargetSystemId(targetId);
         setShowSystemComponentEditor(true);
       } else if (entityType === EntityType.InstalledComponent) {
@@ -207,7 +207,7 @@ export default function ActivityDiagramWrap() {
           }
         }
 
-        setSelectedIndividual(originalIndividual);
+        setSelectedInstalledComponent(originalIndividual);
         setTargetSlotId(targetId);
         setTargetSystemId(systemId);
         setShowInstalledComponentEditor(true);

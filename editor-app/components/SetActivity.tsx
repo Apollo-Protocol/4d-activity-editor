@@ -294,15 +294,11 @@ const SetActivity = (props: Props) => {
       });
     });
 
-    // 2. SystemComponents (top level)
-    systemComponents.forEach((sc) => {
-      addOption(sc, undefined, `${sc.name} (System Component - Top Level)`);
-    });
+    // 2. DO NOT add top-level SystemComponents - they should only be selectable via their installations
+    // (Removed: systemComponents.forEach...)
 
-    // 3. InstalledComponents (top level)
-    installedComponents.forEach((ic) => {
-      addOption(ic, undefined, `${ic.name} (Installed Component - Top Level)`);
-    });
+    // 3. DO NOT add top-level InstalledComponents - they should only be selectable via their installations
+    // (Removed: installedComponents.forEach...)
 
     // 4. Regular Individuals
     regularIndividuals.forEach((ind) => {

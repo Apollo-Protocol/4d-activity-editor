@@ -20,6 +20,8 @@ interface Layout {
   start: boolean;
   stop: boolean;
   nestingLevel: number;
+  showLeftChevron: boolean;
+  showRightChevron: boolean;
 }
 
 // Helper to check if this is an "installation reference" (virtual row)
@@ -339,6 +341,28 @@ export function drawIndividuals(ctx: DrawContext) {
     }
 
     const nestingLevel = getNestingLevel(i);
+
+    // Determine chevron visibility
+    let showLeftChevron: boolean;
+    let showRightChevron: boolean;
+
+    if (isVirtualRow(i)) {
+      // Virtual rows (SystemComponent or InstalledComponent installations):
+      // - Left chevron: only if beginning is 0
+      // - Right chevron: only if ending is END_OF_TIME (no defined end)
+      showLeftChevron = effectiveBeginning === 0;
+      showRightChevron = effectiveEnding >= Model.END_OF_TIME;
+    } else {
+      // Regular individuals:
+      // - Left chevron: not if beginsWithParticipant is true, otherwise based on time range
+      // - Right chevron: not if endsWithParticipant is true, otherwise based on time range
+      const startsBeforeRange = effectiveBeginning < startOfTime;
+      const endsAfterRange = effectiveEnding > endOfTime;
+
+      showLeftChevron = startsBeforeRange && !i.beginsWithParticipant;
+      showRightChevron = endsAfterRange && !i.endsWithParticipant;
+    }
+
     const start = effectiveBeginning >= startOfTime;
     const stop = effectiveEnding <= endOfTime;
 
@@ -346,7 +370,7 @@ export function drawIndividuals(ctx: DrawContext) {
     if (start) {
       x = lhs_x + timeInterval * (effectiveBeginning - startOfTime);
     } else {
-      x = config.layout.individual.xMargin - chevOff;
+      x = config.layout.individual.xMargin - (showLeftChevron ? chevOff : 0);
     }
 
     const y = next_y;
@@ -371,7 +395,17 @@ export function drawIndividuals(ctx: DrawContext) {
     if (w < 20) w = 20;
     const h = config.layout.individual.height;
 
-    layout.set(i.id, { x, y, w, h, start, stop, nestingLevel });
+    layout.set(i.id, {
+      x,
+      y,
+      w,
+      h,
+      start,
+      stop,
+      nestingLevel,
+      showLeftChevron,
+      showRightChevron,
+    });
   }
 
   svgElement
@@ -381,19 +415,25 @@ export function drawIndividuals(ctx: DrawContext) {
     .attr("class", "individual")
     .attr("id", (d: Individual) => "i" + d["id"])
     .attr("d", (i: Individual) => {
-      const { x, y, w, h, start, stop } = layout.get(i.id)!;
-      const rightChevron = stop
-        ? `l 0 ${h}`
-        : `l ${chevOff} ${h / 2} ${-chevOff} ${h / 2}`;
-      const leftChevron = `l ${chevOff} ${-h / 2} ${-chevOff} ${-h / 2}`;
-      return (
-        `M ${x} ${y} l ${w} 0` + rightChevron + `l ${-w} 0` + leftChevron + "Z"
-      );
+      const { x, y, w, h, showLeftChevron, showRightChevron } = layout.get(
+        i.id
+      )!;
+
+      // Right side: chevron or flat
+      const rightSide = showRightChevron
+        ? `l ${chevOff} ${h / 2} ${-chevOff} ${h / 2}`
+        : `l 0 ${h}`;
+
+      // Left side: chevron or flat
+      const leftSide = showLeftChevron
+        ? `l ${chevOff} ${-h / 2} ${-chevOff} ${-h / 2}`
+        : `l 0 ${-h}`;
+
+      return `M ${x} ${y} l ${w} 0` + rightSide + `l ${-w} 0` + leftSide + "Z";
     })
     .attr("stroke", config.presentation.individual.stroke)
     .attr("stroke-width", config.presentation.individual.strokeWidth)
     .attr("fill", (d: Individual) => {
-      // No hatch; fill uses presentation config for all rows
       return config.presentation.individual.fill;
     });
 

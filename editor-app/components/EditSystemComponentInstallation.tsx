@@ -100,7 +100,7 @@ const EditSystemComponentInstallation = (props: Props) => {
     localInstallations.forEach((inst, idx) => {
       const raw = rawInputs.get(inst.id);
       const beginningStr = raw?.beginning ?? String(inst.beginning);
-      const endingStr = raw?.ending ?? String(inst.ending);
+      const endingStr = raw?.ending ?? String(inst.ending ?? "");
 
       const systemInfo = inst.targetId
         ? getSystemTimeBounds(inst.targetId)
@@ -120,22 +120,16 @@ const EditSystemComponentInstallation = (props: Props) => {
         newErrors.push(`${systemName}: "From" time is required.`);
       }
 
-      if (endingStr.trim() === "") {
-        newErrors.push(`${systemName}: "Until" time is required.`);
-      }
+      // "Until" is now optional - if empty, it will inherit from system or use END_OF_TIME
+      // No validation error for empty ending
 
       const beginning = parseInt(beginningStr, 10);
-      const ending = parseInt(endingStr, 10);
+      const ending =
+        endingStr.trim() === "" ? Model.END_OF_TIME : parseInt(endingStr, 10);
 
-      if (!isNaN(beginning) && !isNaN(ending)) {
+      if (!isNaN(beginning)) {
         if (beginning < 0) {
           newErrors.push(`${systemName}: "From" cannot be negative.`);
-        }
-        if (ending < 1) {
-          newErrors.push(`${systemName}: "Until" must be at least 1.`);
-        }
-        if (beginning >= ending) {
-          newErrors.push(`${systemName}: "From" must be less than "Until".`);
         }
 
         // Validate against system bounds
@@ -144,6 +138,16 @@ const EditSystemComponentInstallation = (props: Props) => {
             `${systemName}: "From" (${beginning}) cannot be before system starts (${systemInfo.beginning}).`
           );
         }
+      }
+
+      if (endingStr.trim() !== "" && !isNaN(ending)) {
+        if (ending < 1) {
+          newErrors.push(`${systemName}: "Until" must be at least 1.`);
+        }
+        if (beginning >= ending) {
+          newErrors.push(`${systemName}: "From" must be less than "Until".`);
+        }
+
         if (
           systemInfo.ending < Model.END_OF_TIME &&
           ending > systemInfo.ending
@@ -161,8 +165,10 @@ const EditSystemComponentInstallation = (props: Props) => {
       if (!inst.targetId) return;
       const raw = rawInputs.get(inst.id);
       const beginning = parseInt(raw?.beginning ?? String(inst.beginning), 10);
-      const ending = parseInt(raw?.ending ?? String(inst.ending), 10);
-      if (isNaN(beginning) || isNaN(ending)) return;
+      const endingStr = raw?.ending ?? String(inst.ending ?? "");
+      const ending =
+        endingStr.trim() === "" ? Model.END_OF_TIME : parseInt(endingStr, 10);
+      if (isNaN(beginning)) return;
 
       const list = bySystem.get(inst.targetId) || [];
       list.push({ ...inst, beginning, ending });
@@ -179,9 +185,11 @@ const EditSystemComponentInstallation = (props: Props) => {
       for (let i = 0; i < installations.length - 1; i++) {
         const current = installations[i];
         const next = installations[i + 1];
-        if ((current.ending ?? 0) > (next.beginning ?? 0)) {
+        if ((current.ending ?? Model.END_OF_TIME) > (next.beginning ?? 0)) {
           newErrors.push(
-            `${systemInfo.systemName}: Periods overlap (${current.beginning}-${current.ending} and ${next.beginning}-${next.ending}).`
+            `${systemInfo.systemName}: Periods overlap (${current.beginning}-${
+              current.ending ?? "∞"
+            } and ${next.beginning}-${next.ending ?? "∞"}).`
           );
         }
       }
@@ -200,10 +208,16 @@ const EditSystemComponentInstallation = (props: Props) => {
 
     const updatedInstallations = localInstallations.map((inst) => {
       const raw = rawInputs.get(inst.id);
+      const beginningValue =
+        parseInt(raw?.beginning ?? String(inst.beginning), 10) || 0;
+      const endingStr = raw?.ending ?? String(inst.ending ?? "");
+      const endingValue =
+        endingStr.trim() === "" ? Model.END_OF_TIME : parseInt(endingStr, 10);
+
       return {
         ...inst,
-        beginning: parseInt(raw?.beginning ?? String(inst.beginning), 10) || 0,
-        ending: parseInt(raw?.ending ?? String(inst.ending), 10) || 10,
+        beginning: beginningValue,
+        ending: endingValue,
       };
     });
 
@@ -265,13 +279,11 @@ const EditSystemComponentInstallation = (props: Props) => {
     // Get system bounds if we have a target system
     const systemBounds = targetSystemId
       ? getSystemTimeBounds(targetSystemId)
-      : { beginning: 0, ending: 10 };
+      : { beginning: 0, ending: Model.END_OF_TIME };
 
     const defaultBeginning = systemBounds.beginning;
-    const defaultEnding =
-      systemBounds.ending < Model.END_OF_TIME
-        ? systemBounds.ending
-        : defaultBeginning + 10;
+    // Leave ending undefined/empty so it inherits from system
+    const defaultEnding = undefined;
 
     const newInst: Installation = {
       id: uuidv4(),
@@ -286,7 +298,7 @@ const EditSystemComponentInstallation = (props: Props) => {
       const next = new Map(prev);
       next.set(newInst.id, {
         beginning: String(defaultBeginning),
-        ending: String(defaultEnding),
+        ending: "", // Empty string means inherit from system
       });
       return next;
     });
@@ -366,10 +378,13 @@ const EditSystemComponentInstallation = (props: Props) => {
     if (!inst || !inst.targetId) return false;
 
     const raw = rawInputs.get(instId);
-    const value = parseInt(
-      field === "beginning" ? raw?.beginning ?? "" : raw?.ending ?? "",
-      10
-    );
+    const valueStr =
+      field === "beginning" ? raw?.beginning ?? "" : raw?.ending ?? "";
+
+    // If ending is empty, it's valid (inherits from system)
+    if (field === "ending" && valueStr.trim() === "") return false;
+
+    const value = parseInt(valueStr, 10);
     if (isNaN(value)) return false;
 
     const systemBounds = getSystemTimeBounds(inst.targetId);
@@ -606,12 +621,13 @@ const EditSystemComponentInstallation = (props: Props) => {
                           onChange={(e) =>
                             updateRawInput(inst.id, "ending", e.target.value)
                           }
-                          placeholder={String(instSystemBounds?.ending ?? 10)}
-                          className={
-                            raw.ending === "" || endingOutOfBounds
-                              ? "border-danger"
-                              : ""
+                          placeholder={
+                            instSystemBounds &&
+                            instSystemBounds.ending < Model.END_OF_TIME
+                              ? String(instSystemBounds.ending)
+                              : "∞ (inherit from system)"
                           }
+                          className={endingOutOfBounds ? "border-danger" : ""}
                           isInvalid={endingOutOfBounds}
                         />
                         {endingOutOfBounds && instSystemBounds && (
@@ -620,6 +636,11 @@ const EditSystemComponentInstallation = (props: Props) => {
                             {instSystemBounds.ending >= Model.END_OF_TIME
                               ? "∞"
                               : instSystemBounds.ending}
+                          </Form.Text>
+                        )}
+                        {!endingOutOfBounds && raw.ending.trim() === "" && (
+                          <Form.Text className="text-muted">
+                            Will inherit from system
                           </Form.Text>
                         )}
                       </td>

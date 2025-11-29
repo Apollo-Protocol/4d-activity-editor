@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { Button, Modal, Form, Table, Alert } from "react-bootstrap";
 import { v4 as uuidv4 } from "uuid";
 import { Individual, Installation, EntityType } from "@/lib/Schema";
@@ -45,11 +45,27 @@ const EditInstalledComponent = (props: Props) => {
     (ind) => (ind.entityType ?? EntityType.Individual) === EntityType.System
   );
 
-  // Get available slots (SystemComponents)
-  const availableSlots = Array.from(dataset.individuals.values()).filter(
-    (ind) =>
-      (ind.entityType ?? EntityType.Individual) === EntityType.SystemComponent
-  );
+  // Get available slots (SystemComponents) - but only show them if they're NOT in the filtered list
+  // When in filtered mode (targetSlotId is set), we don't show the slot selector
+  const availableSlots = useMemo(() => {
+    if (targetSlotId) {
+      // In filtered mode, only return the target slot
+      const slot = dataset.individuals.get(targetSlotId);
+      return slot ? [slot] : [];
+    }
+
+    // In unfiltered mode, return all SystemComponents that have installations
+    // (Only virtual SystemComponent rows can be installation targets)
+    return Array.from(dataset.individuals.values()).filter((ind) => {
+      if (
+        (ind.entityType ?? EntityType.Individual) !== EntityType.SystemComponent
+      ) {
+        return false;
+      }
+      // Only show SystemComponents that are installed somewhere
+      return ind.installations && ind.installations.length > 0;
+    });
+  }, [dataset, targetSlotId]);
 
   // Helper to get Systems where a slot is installed
   const getSystemsForSlot = (slotId: string): Individual[] => {
@@ -193,6 +209,21 @@ const EditInstalledComponent = (props: Props) => {
       if (!inst.targetId) {
         newErrors.push(`${slotName}: Please select a target slot.`);
         return;
+      }
+
+      // Validate that a slot is selected AND it must be a virtual row (installed SystemComponent)
+      const slot = dataset.individuals.get(inst.targetId);
+      if (slot) {
+        const slotType = slot.entityType ?? EntityType.Individual;
+        if (slotType === EntityType.SystemComponent) {
+          // Check if this SystemComponent has any installations
+          if (!slot.installations || slot.installations.length === 0) {
+            newErrors.push(
+              `${slotName}: Cannot install into an uninstalled SystemComponent. The SystemComponent must be installed in a System first.`
+            );
+            return;
+          }
+        }
       }
 
       // Validate that if a slot is selected, a System context is also selected
@@ -891,7 +922,8 @@ const EditInstalledComponent = (props: Props) => {
 
         {availableSlots.length === 0 && !isFiltered && (
           <Alert variant="warning" className="mt-3 mb-0">
-            No slots available. Create a System Component first to define slots.
+            No slots available. System Components must be installed in a System
+            before they can receive Installed Components.
           </Alert>
         )}
 

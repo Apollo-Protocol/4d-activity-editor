@@ -30,6 +30,36 @@ interface Props {
   onOpenInstalledComponentInstallation?: (individual: Individual) => void;
 }
 
+// Get entity type display info
+const getEntityTypeInfo = (type: EntityType) => {
+  switch (type) {
+    case EntityType.System:
+      return {
+        label: "System",
+        icon: "▣",
+        description: "A container for slots/positions",
+      };
+    case EntityType.SystemComponent:
+      return {
+        label: "System Component",
+        icon: "◈",
+        description: "A position that can be installed into Systems",
+      };
+    case EntityType.InstalledComponent:
+      return {
+        label: "Installed Component",
+        icon: "⬢",
+        description: "A physical object that can be installed into slots",
+      };
+    default:
+      return {
+        label: "Individual",
+        icon: "○",
+        description: "A person, place, or thing",
+      };
+  }
+};
+
 const SetIndividual = (props: Props) => {
   const {
     deleteIndividual,
@@ -225,6 +255,11 @@ const SetIndividual = (props: Props) => {
     updateInputs(e.target.name, e.target.value);
   };
 
+  const handleEntityTypeChange = (newType: EntityType) => {
+    if (isEditing) return; // Can't change entity type when editing
+    updateInputs("entityType", newType);
+  };
+
   const handleBeginsWithParticipant = (e: any) => {
     if (
       inputs.entityType !== EntityType.Individual &&
@@ -389,6 +424,13 @@ const SetIndividual = (props: Props) => {
   // Get installation count for display
   const installationCount = inputs.installations?.length ?? 0;
 
+  // Check entity type flags
+  const isSystem = currentEntityType === EntityType.System;
+  const isSystemComponent = currentEntityType === EntityType.SystemComponent;
+  const isInstalledComponent =
+    currentEntityType === EntityType.InstalledComponent;
+  const isRegularIndividual = currentEntityType === EntityType.Individual;
+
   return (
     <>
       <Button variant="primary" onClick={() => setShow(true)} className="mx-1">
@@ -408,6 +450,44 @@ const SetIndividual = (props: Props) => {
               handleAdd();
             }}
           >
+            {/* Entity Type Selector - Button Style */}
+            <Form.Group className="mb-3">
+              <Form.Label>Entity Type</Form.Label>
+              <div className="d-flex flex-wrap gap-2">
+                {[
+                  EntityType.Individual,
+                  EntityType.System,
+                  EntityType.SystemComponent,
+                  EntityType.InstalledComponent,
+                ].map((type) => {
+                  const info = getEntityTypeInfo(type);
+                  const isSelected = currentEntityType === type;
+                  return (
+                    <Button
+                      key={type}
+                      variant={isSelected ? "primary" : "outline-secondary"}
+                      size="sm"
+                      onClick={() => handleEntityTypeChange(type)}
+                      title={info.description}
+                      disabled={isEditing}
+                      style={{
+                        opacity: isEditing && !isSelected ? 0.5 : 1,
+                      }}
+                    >
+                      <span style={{ marginRight: 4 }}>{info.icon}</span>
+                      {info.label}
+                    </Button>
+                  );
+                })}
+              </div>
+              <Form.Text className="text-muted">
+                {getEntityTypeInfo(currentEntityType).description}
+                {isEditing && (
+                  <span className="ms-1">(Cannot change after creation)</span>
+                )}
+              </Form.Text>
+            </Form.Group>
+
             {/* Name */}
             <Form.Group className="mb-3" controlId="formIndividualName">
               <Form.Label>Name</Form.Label>
@@ -442,7 +522,11 @@ const SetIndividual = (props: Props) => {
                 {typeOpen && (
                   <div
                     className="card mt-1 position-absolute w-100"
-                    style={{ maxHeight: 300, overflow: "hidden" }}
+                    style={{
+                      maxHeight: 300,
+                      overflow: "hidden",
+                      zIndex: 1051,
+                    }}
                   >
                     <div className="card-body p-2 border-bottom">
                       <input
@@ -558,32 +642,6 @@ const SetIndividual = (props: Props) => {
               </div>
             </Form.Group>
 
-            {/* Entity type selection */}
-            <Form.Group className="mb-3" controlId="ind-entity-type">
-              <Form.Label>Entity type</Form.Label>
-              <Form.Select
-                value={inputs.entityType ?? EntityType.Individual}
-                onChange={(e) =>
-                  updateInputs("entityType", e.target.value as EntityType)
-                }
-                disabled={isEditing} // Can't change entity type when editing
-              >
-                <option value={EntityType.Individual}>Individual</option>
-                <option value={EntityType.System}>System</option>
-                <option value={EntityType.SystemComponent}>
-                  System Component (slot/position)
-                </option>
-                <option value={EntityType.InstalledComponent}>
-                  Installed Component (physical object)
-                </option>
-              </Form.Select>
-              {isEditing && (
-                <Form.Text className="text-muted">
-                  Entity type cannot be changed after creation.
-                </Form.Text>
-              )}
-            </Form.Group>
-
             {/* Description */}
             <Form.Group className="mb-3" controlId="formIndividualDescription">
               <Form.Label>Description</Form.Label>
@@ -597,8 +655,7 @@ const SetIndividual = (props: Props) => {
             </Form.Group>
 
             {/* Begins/Ends with participant - for Individual type only */}
-            {(inputs.entityType === EntityType.Individual ||
-              !inputs.entityType) && (
+            {isRegularIndividual && (
               <>
                 <Form.Group className="mb-3">
                   <Form.Check
@@ -624,7 +681,7 @@ const SetIndividual = (props: Props) => {
             )}
 
             {/* Installations section for SystemComponents */}
-            {currentEntityType === EntityType.SystemComponent && isEditing && (
+            {isSystemComponent && isEditing && (
               <div className="mb-3 p-3 border rounded bg-light">
                 <div className="d-flex justify-content-between align-items-center">
                   <div>
@@ -652,56 +709,59 @@ const SetIndividual = (props: Props) => {
             )}
 
             {/* Installations section for InstalledComponents */}
-            {currentEntityType === EntityType.InstalledComponent &&
-              isEditing && (
-                <div className="mb-3 p-3 border rounded bg-light">
-                  <div className="d-flex justify-content-between align-items-center">
-                    <div>
-                      <strong>Installations</strong>
-                      <p className="text-muted mb-0 small">
-                        {installationCount === 0
-                          ? "Not installed in any slot yet."
-                          : `Installed in ${installationCount} slot${
-                              installationCount !== 1 ? "s" : ""
-                            }.`}
-                      </p>
-                    </div>
-                    <Button
-                      variant="outline-primary"
-                      size="sm"
-                      onClick={handleManageInstallations}
-                      disabled={!onOpenInstalledComponentInstallation}
-                    >
+            {isInstalledComponent && isEditing && (
+              <div className="mb-3 p-3 border rounded bg-light">
+                <div className="d-flex justify-content-between align-items-center">
+                  <div>
+                    <strong>Installations</strong>
+                    <p className="text-muted mb-0 small">
                       {installationCount === 0
-                        ? "Add Installation"
-                        : "Manage Installations"}
-                    </Button>
+                        ? "Not installed in any slot yet."
+                        : `Installed in ${installationCount} slot${
+                            installationCount !== 1 ? "s" : ""
+                          }.`}
+                    </p>
                   </div>
+                  <Button
+                    variant="outline-primary"
+                    size="sm"
+                    onClick={handleManageInstallations}
+                    disabled={!onOpenInstalledComponentInstallation}
+                  >
+                    {installationCount === 0
+                      ? "Add Installation"
+                      : "Manage Installations"}
+                  </Button>
                 </div>
-              )}
-
-            {/* Note for new SystemComponents */}
-            {currentEntityType === EntityType.SystemComponent && !isEditing && (
-              <Alert variant="info" className="py-2">
-                <small>
-                  After saving, you can add installations to specify when this
-                  component is installed in a system.
-                </small>
-              </Alert>
+              </div>
             )}
 
-            {/* Note for new InstalledComponents */}
-            {currentEntityType === EntityType.InstalledComponent &&
-              !isEditing && (
-                <Alert variant="info" className="py-2">
-                  <small>
-                    After saving, you can add installations to specify when this
-                    component is installed in a slot. Note: System Components
-                    must be installed in a System first before they can receive
-                    Installed Components.
-                  </small>
-                </Alert>
-              )}
+            {/* Info for non-Individual types when adding */}
+            {!isRegularIndividual && !isEditing && (
+              <Alert variant="info" className="mt-3">
+                {isSystem && (
+                  <>
+                    <strong>Systems</strong> are containers. After creating this
+                    System, you can install System Components (slots) into it.
+                  </>
+                )}
+                {isSystemComponent && (
+                  <>
+                    <strong>System Components</strong> (slots) can be installed
+                    into Systems. After creating this, click on it in the
+                    diagram to manage its installations.
+                  </>
+                )}
+                {isInstalledComponent && (
+                  <>
+                    <strong>Installed Components</strong> are physical objects
+                    that can be installed into System Components (slots). After
+                    creating this, click on it in the diagram to manage its
+                    installations.
+                  </>
+                )}
+              </Alert>
+            )}
           </Form>
         </Modal.Body>
 

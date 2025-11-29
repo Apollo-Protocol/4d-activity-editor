@@ -27,9 +27,6 @@ export default function Document() {
             <Main />
             <NextScript />
           </div>
-          <div style={{ height: "2em" }}>
-            <Footer />
-          </div>
         </div>
       </body>
     </Html>

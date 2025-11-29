@@ -23,3 +23,46 @@
 .amrc-fixme {
   color: black;
 }
+
+/* Navbar styling */
+.navbar .nav-link {
+  padding: 0.5rem 1rem !important;
+  font-weight: 500;
+  color: #495057 !important;
+  transition: color 0.15s ease-in-out;
+}
+
+.navbar .nav-link:hover {
+  color: #0d6efd !important;
+}
+
+.navbar .dropdown-menu {
+  border: none;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  border-radius: 8px;
+}
+
+.navbar .dropdown-item {
+  padding: 0.5rem 1rem;
+  font-size: 0.9rem;
+}
+
+.navbar .dropdown-item:hover {
+  background-color: #f8f9fa;
+}
+
+/* Footer link hover */
+footer a:hover {
+  color: #60a5fa !important;
+  opacity: 1 !important;
+}
+
+/* Ensure content doesn't get hidden behind sticky navbar */
+html {
+  scroll-padding-top: 80px;
+}
+
+/* Body base styling */
+body {
+  font-family: "Roboto", sans-serif;
+}

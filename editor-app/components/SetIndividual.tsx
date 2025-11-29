@@ -25,6 +25,9 @@ interface Props {
   setSelectedIndividual: Dispatch<SetStateAction<Individual | undefined>>;
   dataset: Model;
   updateDataset: Dispatch<Dispatch<Model>>;
+  // NEW: Callbacks to open installation modals
+  onOpenSystemComponentInstallation?: (individual: Individual) => void;
+  onOpenInstalledComponentInstallation?: (individual: Individual) => void;
 }
 
 const SetIndividual = (props: Props) => {
@@ -37,6 +40,8 @@ const SetIndividual = (props: Props) => {
     setSelectedIndividual,
     dataset,
     updateDataset,
+    onOpenSystemComponentInstallation,
+    onOpenInstalledComponentInstallation,
   } = props;
 
   let defaultIndividual: Individual = {
@@ -71,6 +76,13 @@ const SetIndividual = (props: Props) => {
 
   // Check if we're editing (has selected individual) vs adding new
   const isEditing = !!selectedIndividual;
+
+  // Get the current entity type
+  const currentEntityType = inputs.entityType ?? EntityType.Individual;
+
+  // Check if this entity has installations
+  const hasInstallations =
+    inputs.installations && inputs.installations.length > 0;
 
   useEffect(() => {
     if (selectedIndividual) {
@@ -266,6 +278,23 @@ const SetIndividual = (props: Props) => {
     }
   };
 
+  // Handler for opening installations modal
+  const handleManageInstallations = () => {
+    // First save the current entity if dirty
+    if (dirty) {
+      handleAdd();
+    } else {
+      handleClose();
+    }
+
+    // Then open the appropriate installations modal
+    if (currentEntityType === EntityType.SystemComponent) {
+      onOpenSystemComponentInstallation?.(inputs);
+    } else if (currentEntityType === EntityType.InstalledComponent) {
+      onOpenInstalledComponentInstallation?.(inputs);
+    }
+  };
+
   // Helper functions for custom type selector
   const filteredTypes = dataset.individualTypes.filter((t) =>
     t.name.toLowerCase().includes(typeSearch.toLowerCase())
@@ -356,6 +385,9 @@ const SetIndividual = (props: Props) => {
     setEditingTypeId(null);
     setEditingTypeValue("");
   };
+
+  // Get installation count for display
+  const installationCount = inputs.installations?.length ?? 0;
 
   return (
     <>
@@ -591,28 +623,82 @@ const SetIndividual = (props: Props) => {
               </>
             )}
 
-            {/* Note for SystemComponents */}
-            {(inputs.entityType ?? EntityType.Individual) ===
-              EntityType.SystemComponent &&
-              selectedIndividual && (
-                <Alert variant="info" className="py-2">
-                  <small>
-                    To manage installation periods (when this component is
-                    installed in a system), save this and then click on the
-                    component in the diagram.
-                  </small>
-                </Alert>
+            {/* Installations section for SystemComponents */}
+            {currentEntityType === EntityType.SystemComponent && isEditing && (
+              <div className="mb-3 p-3 border rounded bg-light">
+                <div className="d-flex justify-content-between align-items-center">
+                  <div>
+                    <strong>Installations</strong>
+                    <p className="text-muted mb-0 small">
+                      {installationCount === 0
+                        ? "Not installed in any system yet."
+                        : `Installed in ${installationCount} system${
+                            installationCount !== 1 ? "s" : ""
+                          }.`}
+                    </p>
+                  </div>
+                  <Button
+                    variant="outline-primary"
+                    size="sm"
+                    onClick={handleManageInstallations}
+                    disabled={!onOpenSystemComponentInstallation}
+                  >
+                    {installationCount === 0
+                      ? "Add Installation"
+                      : "Manage Installations"}
+                  </Button>
+                </div>
+              </div>
+            )}
+
+            {/* Installations section for InstalledComponents */}
+            {currentEntityType === EntityType.InstalledComponent &&
+              isEditing && (
+                <div className="mb-3 p-3 border rounded bg-light">
+                  <div className="d-flex justify-content-between align-items-center">
+                    <div>
+                      <strong>Installations</strong>
+                      <p className="text-muted mb-0 small">
+                        {installationCount === 0
+                          ? "Not installed in any slot yet."
+                          : `Installed in ${installationCount} slot${
+                              installationCount !== 1 ? "s" : ""
+                            }.`}
+                      </p>
+                    </div>
+                    <Button
+                      variant="outline-primary"
+                      size="sm"
+                      onClick={handleManageInstallations}
+                      disabled={!onOpenInstalledComponentInstallation}
+                    >
+                      {installationCount === 0
+                        ? "Add Installation"
+                        : "Manage Installations"}
+                    </Button>
+                  </div>
+                </div>
               )}
 
-            {/* Note for InstalledComponents */}
-            {(inputs.entityType ?? EntityType.Individual) ===
-              EntityType.InstalledComponent &&
-              selectedIndividual && (
+            {/* Note for new SystemComponents */}
+            {currentEntityType === EntityType.SystemComponent && !isEditing && (
+              <Alert variant="info" className="py-2">
+                <small>
+                  After saving, you can add installations to specify when this
+                  component is installed in a system.
+                </small>
+              </Alert>
+            )}
+
+            {/* Note for new InstalledComponents */}
+            {currentEntityType === EntityType.InstalledComponent &&
+              !isEditing && (
                 <Alert variant="info" className="py-2">
                   <small>
-                    To manage installation periods (when this component is
-                    installed in a slot), save this and then click on the
-                    component in the diagram.
+                    After saving, you can add installations to specify when this
+                    component is installed in a slot. Note: System Components
+                    must be installed in a System first before they can receive
+                    Installed Components.
                   </small>
                 </Alert>
               )}

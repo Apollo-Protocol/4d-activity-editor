@@ -85,6 +85,44 @@ export default function ActivityDiagramWrap() {
     undefined
   );
 
+  // State for SystemComponent installation modal
+  const [
+    showEditSystemComponentInstallation,
+    setShowEditSystemComponentInstallation,
+  ] = useState(false);
+  const [
+    selectedIndividualForScInstallation,
+    setSelectedIndividualForScInstallation,
+  ] = useState<Individual | undefined>();
+  const [targetSystemIdForScInstallation, setTargetSystemIdForScInstallation] =
+    useState<string | undefined>();
+
+  // State for InstalledComponent installation modal
+  const [showEditInstalledComponent, setShowEditInstalledComponent] =
+    useState(false);
+  const [
+    selectedIndividualForIcInstallation,
+    setSelectedIndividualForIcInstallation,
+  ] = useState<Individual | undefined>();
+  const [targetSlotIdForIcInstallation, setTargetSlotIdForIcInstallation] =
+    useState<string | undefined>();
+  const [targetSystemIdForIcInstallation, setTargetSystemIdForIcInstallation] =
+    useState<string | undefined>();
+
+  // Add callbacks for opening installation modals from SetIndividual
+  const handleOpenSystemComponentInstallation = (individual: Individual) => {
+    setSelectedSystemComponent(individual);
+    setTargetSystemId(undefined); // Show all systems
+    setShowSystemComponentEditor(true);
+  };
+
+  const handleOpenInstalledComponentInstallation = (individual: Individual) => {
+    setSelectedInstalledComponent(individual);
+    setTargetSlotId(undefined); // Show all slots
+    setTargetSystemId(undefined);
+    setShowInstalledComponentEditor(true);
+  };
+
   useEffect(() => {
     if (dirty) window.addEventListener("beforeunload", beforeUnloadHandler);
     else window.removeEventListener("beforeunload", beforeUnloadHandler);
@@ -128,59 +166,60 @@ export default function ActivityDiagramWrap() {
     updateDataset((d: Model) => d.addActivity(activity));
   };
 
-  const clickIndividual = (i: Individual) => {
-    // Check if this is an installation reference (virtual row)
-    // Format: componentId__installed_in__targetId__installationId
-    if (i.id.includes("__installed_in__")) {
+  const clickIndividual = (i: any) => {
+    // Check if this is a virtual row (installation reference)
+    const isVirtual = i.id.includes("__installed_in__");
+
+    if (isVirtual) {
+      // This is a virtual row - open the installation editor
       const originalId = i.id.split("__installed_in__")[0];
       const rest = i.id.split("__installed_in__")[1];
-      const [targetId, installationId] = rest.split("__");
+      const parts = rest.split("__");
+      const targetId = parts[0];
 
-      const originalComponent = dataset.individuals.get(originalId);
+      const originalIndividual = dataset.individuals.get(originalId);
+      if (!originalIndividual) return;
 
-      if (originalComponent) {
-        const originalType =
-          originalComponent.entityType ?? EntityType.Individual;
+      const entityType = originalIndividual.entityType ?? EntityType.Individual;
 
-        if (originalType === EntityType.SystemComponent) {
-          // SystemComponent installed in System
-          setSelectedSystemComponent(originalComponent);
-          setTargetSystemId(targetId);
-          setShowSystemComponentEditor(true);
-          return;
-        } else if (originalType === EntityType.InstalledComponent) {
-          // InstalledComponent installed in SystemComponent
-          setSelectedInstalledComponent(originalComponent);
-          setTargetSlotId(targetId);
-          setShowInstalledComponentEditor(true);
-          return;
+      if (entityType === EntityType.SystemComponent) {
+        // Virtual SystemComponent - open installation editor for this system
+        setSelectedIndividual(originalIndividual);
+        setTargetSystemId(targetId);
+        setShowSystemComponentEditor(true);
+      } else if (entityType === EntityType.InstalledComponent) {
+        // Virtual InstalledComponent - open installation editor for this slot
+        // Extract the system context from the virtual ID if present
+        const contextMatch = i.id.match(/__ctx_([^_]+)$/);
+        const contextId = contextMatch ? contextMatch[1] : undefined;
+
+        // Find the system ID from the context
+        let systemId: string | undefined;
+        if (contextId && targetId) {
+          const targetSc = dataset.individuals.get(targetId);
+          if (targetSc?.installations) {
+            const scInst = targetSc.installations.find(
+              (inst) => inst.id === contextId
+            );
+            if (scInst) {
+              systemId = scInst.targetId;
+            }
+          }
         }
+
+        setSelectedIndividual(originalIndividual);
+        setTargetSlotId(targetId);
+        setTargetSystemId(systemId);
+        setShowInstalledComponentEditor(true);
       }
-    }
+    } else {
+      // This is a top-level entity - open the entity editor
+      const individual = dataset.individuals.get(i.id);
+      if (!individual) return;
 
-    // If it's a SystemComponent (the parent), show installation editor
-    if (
-      (i.entityType ?? EntityType.Individual) === EntityType.SystemComponent
-    ) {
-      setSelectedSystemComponent(i);
-      setTargetSystemId(undefined); // Show all installations
-      setShowSystemComponentEditor(true);
-      return;
+      setSelectedIndividual(individual);
+      setShowIndividual(true);
     }
-
-    // If it's an InstalledComponent (the parent), show installation editor
-    if (
-      (i.entityType ?? EntityType.Individual) === EntityType.InstalledComponent
-    ) {
-      setSelectedInstalledComponent(i);
-      setTargetSlotId(undefined); // Show all installations
-      setShowInstalledComponentEditor(true);
-      return;
-    }
-
-    // For other types (System, Individual), open the regular editor
-    setSelectedIndividual(i);
-    setShowIndividual(true);
   };
   const clickActivity = (a: Activity) => {
     setSelectedActivity(a);
@@ -279,6 +318,12 @@ export default function ActivityDiagramWrap() {
               setSelectedIndividual={setSelectedIndividual}
               dataset={dataset}
               updateDataset={updateDataset}
+              onOpenSystemComponentInstallation={
+                handleOpenSystemComponentInstallation
+              }
+              onOpenInstalledComponentInstallation={
+                handleOpenInstalledComponentInstallation
+              }
             />
             <SetActivity
               show={showActivity}

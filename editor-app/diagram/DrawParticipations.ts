@@ -377,7 +377,6 @@ export function drawParticipations(ctx: DrawContext) {
 
   const maxRectHeight = Math.min(36, config.layout.individual.height);
   const rx = 4;
-  const strokeWidth = 1;
   const fillOpacity = 0.85;
 
   // Remove old rects
@@ -402,6 +401,9 @@ export function drawParticipations(ctx: DrawContext) {
     const laneHeight = maxRectHeight / seg.totalLanes;
     const gap = seg.totalLanes > 1 ? 1 : 0;
 
+    // Adjust stroke width based on number of lanes - thinner for split lanes
+    const strokeWidth = seg.totalLanes > 1 ? 0.5 : 1;
+
     // Center the group of lanes in the row
     const groupY = box.y + (box.height - maxRectHeight) / 2;
     const laneY = groupY + seg.laneIndex * laneHeight;
@@ -409,6 +411,14 @@ export function drawParticipations(ctx: DrawContext) {
     const colorIndex =
       seg.activityIndex % config.presentation.activity.fill.length;
     const fillColor = config.presentation.activity.fill[colorIndex];
+
+    // Adjust border radius based on number of lanes - smaller for split lanes
+    let rectRx = rx;
+    if (seg.totalLanes === 2) {
+      rectRx = 2;
+    } else if (seg.totalLanes > 2) {
+      rectRx = 1;
+    }
 
     svgElement
       .append("rect")
@@ -421,8 +431,8 @@ export function drawParticipations(ctx: DrawContext) {
       .attr("y", laneY)
       .attr("width", Math.max(0, segWidth))
       .attr("height", laneHeight - gap)
-      .attr("rx", seg.totalLanes > 2 ? 1 : rx)
-      .attr("ry", seg.totalLanes > 2 ? 1 : rx)
+      .attr("rx", rectRx)
+      .attr("ry", rectRx)
       .attr("fill", fillColor)
       .attr("fill-opacity", fillOpacity)
       .attr("stroke", darkenHex(fillColor, 0.28))

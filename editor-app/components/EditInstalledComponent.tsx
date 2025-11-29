@@ -585,26 +585,6 @@ const EditInstalledComponent = (props: Props) => {
           </div>
         )}
 
-        {/* Show slot time bounds if filtering by slot */}
-        {isFiltered && targetSlotBounds && (
-          <Alert variant="info" className="py-2">
-            <strong>Slot availability:</strong> {targetSlotBounds.beginning} -{" "}
-            {targetSlotBounds.ending >= Model.END_OF_TIME
-              ? "∞"
-              : targetSlotBounds.ending}
-            {systemName && (
-              <>
-                <br />
-                <strong>System:</strong> {systemName}
-              </>
-            )}
-            <br />
-            <small className="text-muted">
-              Installation periods must be within these bounds.
-            </small>
-          </Alert>
-        )}
-
         <p className="text-muted mb-3">
           {isFiltered
             ? `Manage installation periods for this component in "${slotName}"${
@@ -613,312 +593,287 @@ const EditInstalledComponent = (props: Props) => {
             : "Manage all installation periods for this component across different slots."}
         </p>
 
-        {localInstallations.length === 0 ? (
-          <div className="text-center py-4 border rounded bg-light">
-            <p className="text-muted mb-3">
-              No installations configured.
-              {isFiltered
-                ? ` Add a period when this component is installed in "${slotName}".`
-                : " Add an installation to place this component in a slot."}
-            </p>
-            <Button variant="primary" onClick={addInstallation}>
-              + Add Installation Period
-            </Button>
-          </div>
-        ) : (
-          <>
-            <Table bordered hover responsive size="sm">
-              <thead className="table-light">
-                <tr>
-                  <th style={{ width: "5%" }} className="text-center">
-                    #
+        {/* Always show the table structure */}
+        <Table bordered hover responsive size="sm">
+          <thead className="table-light">
+            <tr>
+              <th style={{ width: "5%" }} className="text-center">
+                #
+              </th>
+              {!isFiltered && (
+                <>
+                  <th style={{ width: "25%" }}>
+                    Target Slot <span className="text-danger">*</span>
                   </th>
+                  <th style={{ width: "20%" }}>
+                    System Context <span className="text-danger">*</span>
+                  </th>
+                </>
+              )}
+              <th style={{ width: isFiltered ? "30%" : "15%" }}>
+                From <span className="text-danger">*</span>
+              </th>
+              <th style={{ width: isFiltered ? "30%" : "15%" }}>
+                Until <span className="text-danger">*</span>
+              </th>
+              <th
+                style={{ width: isFiltered ? "35%" : "15%" }}
+                className="text-center"
+              >
+                Actions
+              </th>
+            </tr>
+          </thead>
+          <tbody>
+            {localInstallations.map((inst, idx) => {
+              const raw = rawInputs.get(inst.id) || {
+                beginning: String(inst.beginning),
+                ending: String(inst.ending),
+              };
+
+              // Get Systems where this slot is installed
+              const systemsForSlot = inst.targetId
+                ? getSystemsForSlot(inst.targetId)
+                : [];
+
+              // Get slot bounds for this installation
+              const instSlotBounds = inst.targetId
+                ? getSlotTimeBoundsForSystem(
+                    inst.targetId,
+                    inst.systemContextId
+                  )
+                : null;
+
+              const beginningOutOfBounds = isOutsideSlotBounds(
+                inst.id,
+                "beginning"
+              );
+              const endingOutOfBounds = isOutsideSlotBounds(inst.id, "ending");
+
+              return (
+                <tr key={inst.id}>
+                  <td className="text-center text-muted">{idx + 1}</td>
                   {!isFiltered && (
                     <>
-                      <th style={{ width: "25%" }}>
-                        Target Slot <span className="text-danger">*</span>
-                      </th>
-                      <th style={{ width: "20%" }}>
-                        System Context <span className="text-danger">*</span>
-                      </th>
+                      <td>
+                        <Form.Select
+                          size="sm"
+                          value={inst.targetId}
+                          onChange={(e) => {
+                            const newSlotId = e.target.value;
+                            updateInstallation(inst.id, "targetId", newSlotId);
+                            // Clear system context when changing slot
+                            updateInstallation(
+                              inst.id,
+                              "systemContextId",
+                              undefined
+                            );
+                            updateInstallation(
+                              inst.id,
+                              "scInstallationContextId",
+                              undefined
+                            );
+                            // Reset times to slot defaults when changing slot
+                            if (newSlotId) {
+                              const newSlotBounds =
+                                getSlotTimeBounds(newSlotId);
+                              const newEnding =
+                                newSlotBounds.ending < Model.END_OF_TIME
+                                  ? newSlotBounds.ending
+                                  : newSlotBounds.beginning + 10;
+                              updateRawInput(
+                                inst.id,
+                                "beginning",
+                                String(newSlotBounds.beginning)
+                              );
+                              updateRawInput(
+                                inst.id,
+                                "ending",
+                                String(newEnding)
+                              );
+                            }
+                          }}
+                          className={!inst.targetId ? "border-warning" : ""}
+                        >
+                          <option value="">-- Select slot --</option>
+                          {availableSlots.map((slot) => (
+                            <option key={slot.id} value={slot.id}>
+                              {slot.name}
+                            </option>
+                          ))}
+                        </Form.Select>
+                      </td>
+                      <td>
+                        <Form.Select
+                          size="sm"
+                          value={inst.systemContextId || ""}
+                          onChange={(e) => {
+                            const newSystemId = e.target.value || undefined;
+                            updateInstallation(
+                              inst.id,
+                              "systemContextId",
+                              newSystemId
+                            );
+                            // Set the SC installation context ID
+                            if (inst.targetId && newSystemId) {
+                              const scInst = getScInstallationForSystem(
+                                inst.targetId,
+                                newSystemId
+                              );
+                              updateInstallation(
+                                inst.id,
+                                "scInstallationContextId",
+                                scInst?.id
+                              );
+                              // Update times to match system context
+                              const newBounds = getSlotTimeBoundsForSystem(
+                                inst.targetId,
+                                newSystemId
+                              );
+                              const newEnding =
+                                newBounds.ending < Model.END_OF_TIME
+                                  ? newBounds.ending
+                                  : newBounds.beginning + 10;
+                              updateRawInput(
+                                inst.id,
+                                "beginning",
+                                String(newBounds.beginning)
+                              );
+                              updateRawInput(
+                                inst.id,
+                                "ending",
+                                String(newEnding)
+                              );
+                            } else {
+                              updateInstallation(
+                                inst.id,
+                                "scInstallationContextId",
+                                undefined
+                              );
+                            }
+                          }}
+                          disabled={!inst.targetId}
+                          className={
+                            inst.targetId &&
+                            systemsForSlot.length > 1 &&
+                            !inst.systemContextId
+                              ? "border-warning"
+                              : ""
+                          }
+                        >
+                          <option value="">
+                            {systemsForSlot.length === 0
+                              ? "-- Slot not installed --"
+                              : systemsForSlot.length === 1
+                              ? systemsForSlot[0].name
+                              : "-- Select System --"}
+                          </option>
+                          {systemsForSlot.length > 1 &&
+                            systemsForSlot.map((sys) => {
+                              const scInst = getScInstallationForSystem(
+                                inst.targetId,
+                                sys.id
+                              );
+                              const boundsStr = scInst
+                                ? ` (${scInst.beginning ?? 0}-${
+                                    scInst.ending ?? "∞"
+                                  })`
+                                : "";
+                              return (
+                                <option key={sys.id} value={sys.id}>
+                                  {sys.name}
+                                  {boundsStr}
+                                </option>
+                              );
+                            })}
+                        </Form.Select>
+                        {inst.targetId &&
+                          systemsForSlot.length === 1 &&
+                          !inst.systemContextId && (
+                            <Form.Text className="text-muted">
+                              Auto: {systemsForSlot[0].name}
+                            </Form.Text>
+                          )}
+                      </td>
                     </>
                   )}
-                  <th style={{ width: isFiltered ? "30%" : "15%" }}>
-                    From <span className="text-danger">*</span>
-                  </th>
-                  <th style={{ width: isFiltered ? "30%" : "15%" }}>
-                    Until <span className="text-danger">*</span>
-                  </th>
-                  <th
-                    style={{ width: isFiltered ? "35%" : "15%" }}
-                    className="text-center"
-                  >
-                    Actions
-                  </th>
+                  <td>
+                    <Form.Control
+                      type="number"
+                      size="sm"
+                      min={instSlotBounds?.beginning ?? 0}
+                      max={instSlotBounds?.ending ?? undefined}
+                      value={raw.beginning}
+                      onChange={(e) =>
+                        updateRawInput(inst.id, "beginning", e.target.value)
+                      }
+                      placeholder={String(instSlotBounds?.beginning ?? 0)}
+                      className={
+                        raw.beginning === "" || beginningOutOfBounds
+                          ? "border-danger"
+                          : ""
+                      }
+                      isInvalid={beginningOutOfBounds}
+                    />
+                    {beginningOutOfBounds && instSlotBounds && (
+                      <Form.Text className="text-danger">
+                        Min: {instSlotBounds.beginning}
+                      </Form.Text>
+                    )}
+                  </td>
+                  <td>
+                    <Form.Control
+                      type="number"
+                      size="sm"
+                      min={instSlotBounds?.beginning ?? 1}
+                      max={
+                        instSlotBounds &&
+                        instSlotBounds.ending < Model.END_OF_TIME
+                          ? instSlotBounds.ending
+                          : undefined
+                      }
+                      value={raw.ending}
+                      onChange={(e) =>
+                        updateRawInput(inst.id, "ending", e.target.value)
+                      }
+                      placeholder={String(instSlotBounds?.ending ?? 10)}
+                      className={
+                        raw.ending === "" || endingOutOfBounds
+                          ? "border-danger"
+                          : ""
+                      }
+                      isInvalid={endingOutOfBounds}
+                    />
+                    {endingOutOfBounds && instSlotBounds && (
+                      <Form.Text className="text-danger">
+                        Max:{" "}
+                        {instSlotBounds.ending >= Model.END_OF_TIME
+                          ? "∞"
+                          : instSlotBounds.ending}
+                      </Form.Text>
+                    )}
+                  </td>
+                  <td className="text-center">
+                    <Button
+                      variant="outline-danger"
+                      size="sm"
+                      onClick={() => removeInstallation(inst.id)}
+                    >
+                      Remove
+                    </Button>
+                  </td>
                 </tr>
-              </thead>
-              <tbody>
-                {localInstallations.map((inst, idx) => {
-                  const raw = rawInputs.get(inst.id) || {
-                    beginning: String(inst.beginning),
-                    ending: String(inst.ending),
-                  };
+              );
+            })}
+          </tbody>
+        </Table>
 
-                  // Get Systems where this slot is installed
-                  const systemsForSlot = inst.targetId
-                    ? getSystemsForSlot(inst.targetId)
-                    : [];
-
-                  // Get slot bounds for this installation
-                  const instSlotBounds = inst.targetId
-                    ? getSlotTimeBoundsForSystem(
-                        inst.targetId,
-                        inst.systemContextId
-                      )
-                    : null;
-
-                  const beginningOutOfBounds = isOutsideSlotBounds(
-                    inst.id,
-                    "beginning"
-                  );
-                  const endingOutOfBounds = isOutsideSlotBounds(
-                    inst.id,
-                    "ending"
-                  );
-
-                  return (
-                    <tr key={inst.id}>
-                      <td className="text-center text-muted">{idx + 1}</td>
-                      {!isFiltered && (
-                        <>
-                          <td>
-                            <Form.Select
-                              size="sm"
-                              value={inst.targetId}
-                              onChange={(e) => {
-                                const newSlotId = e.target.value;
-                                updateInstallation(
-                                  inst.id,
-                                  "targetId",
-                                  newSlotId
-                                );
-                                // Clear system context when changing slot
-                                updateInstallation(
-                                  inst.id,
-                                  "systemContextId",
-                                  undefined
-                                );
-                                updateInstallation(
-                                  inst.id,
-                                  "scInstallationContextId",
-                                  undefined
-                                );
-                                // Reset times to slot defaults when changing slot
-                                if (newSlotId) {
-                                  const newSlotBounds =
-                                    getSlotTimeBounds(newSlotId);
-                                  const newEnding =
-                                    newSlotBounds.ending < Model.END_OF_TIME
-                                      ? newSlotBounds.ending
-                                      : newSlotBounds.beginning + 10;
-                                  updateRawInput(
-                                    inst.id,
-                                    "beginning",
-                                    String(newSlotBounds.beginning)
-                                  );
-                                  updateRawInput(
-                                    inst.id,
-                                    "ending",
-                                    String(newEnding)
-                                  );
-                                }
-                              }}
-                              className={!inst.targetId ? "border-warning" : ""}
-                            >
-                              <option value="">-- Select slot --</option>
-                              {availableSlots.map((slot) => (
-                                <option key={slot.id} value={slot.id}>
-                                  {slot.name}
-                                </option>
-                              ))}
-                            </Form.Select>
-                          </td>
-                          <td>
-                            <Form.Select
-                              size="sm"
-                              value={inst.systemContextId || ""}
-                              onChange={(e) => {
-                                const newSystemId = e.target.value || undefined;
-                                updateInstallation(
-                                  inst.id,
-                                  "systemContextId",
-                                  newSystemId
-                                );
-                                // Set the SC installation context ID
-                                if (inst.targetId && newSystemId) {
-                                  const scInst = getScInstallationForSystem(
-                                    inst.targetId,
-                                    newSystemId
-                                  );
-                                  updateInstallation(
-                                    inst.id,
-                                    "scInstallationContextId",
-                                    scInst?.id
-                                  );
-                                  // Update times to match system context
-                                  const newBounds = getSlotTimeBoundsForSystem(
-                                    inst.targetId,
-                                    newSystemId
-                                  );
-                                  const newEnding =
-                                    newBounds.ending < Model.END_OF_TIME
-                                      ? newBounds.ending
-                                      : newBounds.beginning + 10;
-                                  updateRawInput(
-                                    inst.id,
-                                    "beginning",
-                                    String(newBounds.beginning)
-                                  );
-                                  updateRawInput(
-                                    inst.id,
-                                    "ending",
-                                    String(newEnding)
-                                  );
-                                } else {
-                                  updateInstallation(
-                                    inst.id,
-                                    "scInstallationContextId",
-                                    undefined
-                                  );
-                                }
-                              }}
-                              disabled={!inst.targetId}
-                              className={
-                                inst.targetId &&
-                                systemsForSlot.length > 1 &&
-                                !inst.systemContextId
-                                  ? "border-warning"
-                                  : ""
-                              }
-                            >
-                              <option value="">
-                                {systemsForSlot.length === 0
-                                  ? "-- Slot not installed --"
-                                  : systemsForSlot.length === 1
-                                  ? systemsForSlot[0].name
-                                  : "-- Select System --"}
-                              </option>
-                              {systemsForSlot.length > 1 &&
-                                systemsForSlot.map((sys) => {
-                                  const scInst = getScInstallationForSystem(
-                                    inst.targetId,
-                                    sys.id
-                                  );
-                                  const boundsStr = scInst
-                                    ? ` (${scInst.beginning ?? 0}-${
-                                        scInst.ending ?? "∞"
-                                      })`
-                                    : "";
-                                  return (
-                                    <option key={sys.id} value={sys.id}>
-                                      {sys.name}
-                                      {boundsStr}
-                                    </option>
-                                  );
-                                })}
-                            </Form.Select>
-                            {inst.targetId &&
-                              systemsForSlot.length === 1 &&
-                              !inst.systemContextId && (
-                                <Form.Text className="text-muted">
-                                  Auto: {systemsForSlot[0].name}
-                                </Form.Text>
-                              )}
-                          </td>
-                        </>
-                      )}
-                      <td>
-                        <Form.Control
-                          type="number"
-                          size="sm"
-                          min={instSlotBounds?.beginning ?? 0}
-                          max={instSlotBounds?.ending ?? undefined}
-                          value={raw.beginning}
-                          onChange={(e) =>
-                            updateRawInput(inst.id, "beginning", e.target.value)
-                          }
-                          placeholder={String(instSlotBounds?.beginning ?? 0)}
-                          className={
-                            raw.beginning === "" || beginningOutOfBounds
-                              ? "border-danger"
-                              : ""
-                          }
-                          isInvalid={beginningOutOfBounds}
-                        />
-                        {beginningOutOfBounds && instSlotBounds && (
-                          <Form.Text className="text-danger">
-                            Min: {instSlotBounds.beginning}
-                          </Form.Text>
-                        )}
-                      </td>
-                      <td>
-                        <Form.Control
-                          type="number"
-                          size="sm"
-                          min={instSlotBounds?.beginning ?? 1}
-                          max={
-                            instSlotBounds &&
-                            instSlotBounds.ending < Model.END_OF_TIME
-                              ? instSlotBounds.ending
-                              : undefined
-                          }
-                          value={raw.ending}
-                          onChange={(e) =>
-                            updateRawInput(inst.id, "ending", e.target.value)
-                          }
-                          placeholder={String(instSlotBounds?.ending ?? 10)}
-                          className={
-                            raw.ending === "" || endingOutOfBounds
-                              ? "border-danger"
-                              : ""
-                          }
-                          isInvalid={endingOutOfBounds}
-                        />
-                        {endingOutOfBounds && instSlotBounds && (
-                          <Form.Text className="text-danger">
-                            Max:{" "}
-                            {instSlotBounds.ending >= Model.END_OF_TIME
-                              ? "∞"
-                              : instSlotBounds.ending}
-                          </Form.Text>
-                        )}
-                      </td>
-                      <td className="text-center">
-                        <Button
-                          variant="outline-danger"
-                          size="sm"
-                          onClick={() => removeInstallation(inst.id)}
-                        >
-                          Remove
-                        </Button>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </Table>
-
-            <div className="mt-3">
-              <Button
-                variant="outline-primary"
-                size="sm"
-                onClick={addInstallation}
-              >
-                + Add Another Period
-              </Button>
-            </div>
-          </>
-        )}
+        <div className="mt-3">
+          <Button variant="outline-primary" size="sm" onClick={addInstallation}>
+            + Add {localInstallations.length > 0 ? "Another " : ""}Installation
+            Period
+          </Button>
+        </div>
 
         {availableSlots.length === 0 && !isFiltered && (
           <Alert variant="warning" className="mt-3 mb-0">

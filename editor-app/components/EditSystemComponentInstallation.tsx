@@ -435,241 +435,196 @@ const EditSystemComponentInstallation = (props: Props) => {
           </div>
         )}
 
-        {/* Show system time bounds if filtering by system */}
-        {isFiltered && targetSystemBounds && (
-          <Alert variant="info" className="py-2">
-            <strong>System availability:</strong> {targetSystemBounds.beginning}{" "}
-            -{" "}
-            {targetSystemBounds.ending >= Model.END_OF_TIME
-              ? "∞"
-              : targetSystemBounds.ending}
-            <br />
-            <small className="text-muted">
-              Installation periods must be within these bounds.
-            </small>
-          </Alert>
-        )}
-
         <p className="text-muted mb-3">
           {isFiltered
             ? `Manage installation periods for this system component in "${systemName}". You can have multiple non-overlapping periods.`
             : "Manage all installation periods for this system component across different systems."}
         </p>
 
-        {localInstallations.length === 0 ? (
-          <div className="text-center py-4 border rounded bg-light">
-            <p className="text-muted mb-3">
-              No installations configured.
-              {isFiltered
-                ? ` Add a period when this component is installed in "${systemName}".`
-                : " Add an installation to place this component in a system."}
-            </p>
-            <Button variant="primary" onClick={addInstallation}>
-              + Add Installation Period
-            </Button>
-          </div>
-        ) : (
-          <>
-            <Table bordered hover responsive size="sm">
-              <thead className="table-light">
-                <tr>
-                  <th style={{ width: "5%" }} className="text-center">
-                    #
-                  </th>
-                  {!isFiltered && (
-                    <th style={{ width: "35%" }}>
-                      Target System <span className="text-danger">*</span>
-                    </th>
-                  )}
-                  <th style={{ width: isFiltered ? "30%" : "20%" }}>
-                    From <span className="text-danger">*</span>
-                  </th>
-                  <th style={{ width: isFiltered ? "30%" : "20%" }}>
-                    Until <span className="text-danger">*</span>
-                  </th>
-                  <th
-                    style={{ width: isFiltered ? "35%" : "20%" }}
-                    className="text-center"
-                  >
-                    Actions
-                  </th>
-                </tr>
-              </thead>
-              <tbody>
-                {localInstallations.map((inst, idx) => {
-                  const raw = rawInputs.get(inst.id) || {
-                    beginning: String(inst.beginning),
-                    ending: String(inst.ending),
-                  };
-
-                  // Get system bounds for this installation
-                  const instSystemBounds = inst.targetId
-                    ? getSystemTimeBounds(inst.targetId)
-                    : null;
-
-                  const beginningOutOfBounds = isOutsideSystemBounds(
-                    inst.id,
-                    "beginning"
-                  );
-                  const endingOutOfBounds = isOutsideSystemBounds(
-                    inst.id,
-                    "ending"
-                  );
-
-                  return (
-                    <tr key={inst.id}>
-                      <td className="text-center text-muted">{idx + 1}</td>
-                      {!isFiltered && (
-                        <td>
-                          <Form.Select
-                            size="sm"
-                            value={inst.targetId}
-                            onChange={(e) => {
-                              updateInstallation(
-                                inst.id,
-                                "targetId",
-                                e.target.value
-                              );
-                              // Reset times to system defaults when changing system
-                              if (e.target.value) {
-                                const newSystemBounds = getSystemTimeBounds(
-                                  e.target.value
-                                );
-                                const newEnding =
-                                  newSystemBounds.ending < Model.END_OF_TIME
-                                    ? newSystemBounds.ending
-                                    : newSystemBounds.beginning + 10;
-                                updateRawInput(
-                                  inst.id,
-                                  "beginning",
-                                  String(newSystemBounds.beginning)
-                                );
-                                updateRawInput(
-                                  inst.id,
-                                  "ending",
-                                  String(newEnding)
-                                );
-                              }
-                            }}
-                            className={!inst.targetId ? "border-warning" : ""}
-                          >
-                            <option value="">-- Select system --</option>
-                            {availableSystems.map((system) => {
-                              const systemBounds = getSystemTimeBounds(
-                                system.id
-                              );
-                              const boundsStr =
-                                systemBounds.ending < Model.END_OF_TIME
-                                  ? ` (${systemBounds.beginning}-${systemBounds.ending})`
-                                  : systemBounds.beginning > 0
-                                  ? ` (${systemBounds.beginning}-∞)`
-                                  : "";
-                              return (
-                                <option key={system.id} value={system.id}>
-                                  {system.name}
-                                  {boundsStr}
-                                </option>
-                              );
-                            })}
-                          </Form.Select>
-                          {inst.targetId && instSystemBounds && (
-                            <Form.Text className="text-muted">
-                              Available: {instSystemBounds.beginning}-
-                              {instSystemBounds.ending >= Model.END_OF_TIME
-                                ? "∞"
-                                : instSystemBounds.ending}
-                            </Form.Text>
-                          )}
-                        </td>
-                      )}
-                      <td>
-                        <Form.Control
-                          type="number"
-                          size="sm"
-                          min={instSystemBounds?.beginning ?? 0}
-                          max={instSystemBounds?.ending ?? undefined}
-                          value={raw.beginning}
-                          onChange={(e) =>
-                            updateRawInput(inst.id, "beginning", e.target.value)
-                          }
-                          placeholder={String(instSystemBounds?.beginning ?? 0)}
-                          className={
-                            raw.beginning === "" || beginningOutOfBounds
-                              ? "border-danger"
-                              : ""
-                          }
-                          isInvalid={beginningOutOfBounds}
-                        />
-                        {beginningOutOfBounds && instSystemBounds && (
-                          <Form.Text className="text-danger">
-                            Min: {instSystemBounds.beginning}
-                          </Form.Text>
-                        )}
-                      </td>
-                      <td>
-                        <Form.Control
-                          type="number"
-                          size="sm"
-                          min={instSystemBounds?.beginning ?? 1}
-                          max={
-                            instSystemBounds &&
-                            instSystemBounds.ending < Model.END_OF_TIME
-                              ? instSystemBounds.ending
-                              : undefined
-                          }
-                          value={raw.ending}
-                          onChange={(e) =>
-                            updateRawInput(inst.id, "ending", e.target.value)
-                          }
-                          placeholder={
-                            instSystemBounds &&
-                            instSystemBounds.ending < Model.END_OF_TIME
-                              ? String(instSystemBounds.ending)
-                              : "∞ (inherit from system)"
-                          }
-                          className={endingOutOfBounds ? "border-danger" : ""}
-                          isInvalid={endingOutOfBounds}
-                        />
-                        {endingOutOfBounds && instSystemBounds && (
-                          <Form.Text className="text-danger">
-                            Max:{" "}
-                            {instSystemBounds.ending >= Model.END_OF_TIME
-                              ? "∞"
-                              : instSystemBounds.ending}
-                          </Form.Text>
-                        )}
-                        {!endingOutOfBounds && raw.ending.trim() === "" && (
-                          <Form.Text className="text-muted">
-                            Will inherit from system
-                          </Form.Text>
-                        )}
-                      </td>
-                      <td className="text-center">
-                        <Button
-                          variant="outline-danger"
-                          size="sm"
-                          onClick={() => removeInstallation(inst.id)}
-                        >
-                          Remove
-                        </Button>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </Table>
-
-            <div className="mt-3">
-              <Button
-                variant="outline-primary"
-                size="sm"
-                onClick={addInstallation}
+        {/* Always show the table structure */}
+        <Table bordered hover responsive size="sm">
+          <thead className="table-light">
+            <tr>
+              <th style={{ width: "5%" }} className="text-center">
+                #
+              </th>
+              {!isFiltered && (
+                <th style={{ width: "35%" }}>
+                  Target System <span className="text-danger">*</span>
+                </th>
+              )}
+              <th style={{ width: isFiltered ? "30%" : "20%" }}>
+                From <span className="text-danger">*</span>
+              </th>
+              <th style={{ width: isFiltered ? "30%" : "20%" }}>Until</th>
+              <th
+                style={{ width: isFiltered ? "35%" : "20%" }}
+                className="text-center"
               >
-                + Add Another Period
-              </Button>
-            </div>
-          </>
-        )}
+                Actions
+              </th>
+            </tr>
+          </thead>
+          <tbody>
+            {localInstallations.map((inst, idx) => {
+              const raw = rawInputs.get(inst.id) || {
+                beginning: String(inst.beginning),
+                ending: String(inst.ending ?? ""),
+              };
+
+              // Get system bounds for this installation
+              const instSystemBounds = inst.targetId
+                ? getSystemTimeBounds(inst.targetId)
+                : null;
+
+              const beginningOutOfBounds = isOutsideSystemBounds(
+                inst.id,
+                "beginning"
+              );
+              const endingOutOfBounds = isOutsideSystemBounds(
+                inst.id,
+                "ending"
+              );
+
+              return (
+                <tr key={inst.id}>
+                  <td className="text-center text-muted">{idx + 1}</td>
+                  {!isFiltered && (
+                    <td>
+                      <Form.Select
+                        size="sm"
+                        value={inst.targetId}
+                        onChange={(e) => {
+                          updateInstallation(
+                            inst.id,
+                            "targetId",
+                            e.target.value
+                          );
+                          // Reset times to system defaults when changing system
+                          if (e.target.value) {
+                            const newSystemBounds = getSystemTimeBounds(
+                              e.target.value
+                            );
+                            updateRawInput(
+                              inst.id,
+                              "beginning",
+                              String(newSystemBounds.beginning)
+                            );
+                            updateRawInput(inst.id, "ending", "");
+                          }
+                        }}
+                        className={!inst.targetId ? "border-warning" : ""}
+                      >
+                        <option value="">-- Select system --</option>
+                        {availableSystems.map((system) => {
+                          const systemBounds = getSystemTimeBounds(system.id);
+                          const boundsStr =
+                            systemBounds.ending < Model.END_OF_TIME
+                              ? ` (${systemBounds.beginning}-${systemBounds.ending})`
+                              : systemBounds.beginning > 0
+                              ? ` (${systemBounds.beginning}-∞)`
+                              : "";
+                          return (
+                            <option key={system.id} value={system.id}>
+                              {system.name}
+                              {boundsStr}
+                            </option>
+                          );
+                        })}
+                      </Form.Select>
+                      {inst.targetId && instSystemBounds && (
+                        <Form.Text className="text-muted">
+                          Available: {instSystemBounds.beginning}-
+                          {instSystemBounds.ending >= Model.END_OF_TIME
+                            ? "∞"
+                            : instSystemBounds.ending}
+                        </Form.Text>
+                      )}
+                    </td>
+                  )}
+                  <td>
+                    <Form.Control
+                      type="number"
+                      size="sm"
+                      min={instSystemBounds?.beginning ?? 0}
+                      max={instSystemBounds?.ending ?? undefined}
+                      value={raw.beginning}
+                      onChange={(e) =>
+                        updateRawInput(inst.id, "beginning", e.target.value)
+                      }
+                      placeholder={String(instSystemBounds?.beginning ?? 0)}
+                      className={
+                        raw.beginning === "" || beginningOutOfBounds
+                          ? "border-danger"
+                          : ""
+                      }
+                      isInvalid={beginningOutOfBounds}
+                    />
+                    {beginningOutOfBounds && instSystemBounds && (
+                      <Form.Text className="text-danger">
+                        Min: {instSystemBounds.beginning}
+                      </Form.Text>
+                    )}
+                  </td>
+                  <td>
+                    <Form.Control
+                      type="number"
+                      size="sm"
+                      min={instSystemBounds?.beginning ?? 1}
+                      max={
+                        instSystemBounds &&
+                        instSystemBounds.ending < Model.END_OF_TIME
+                          ? instSystemBounds.ending
+                          : undefined
+                      }
+                      value={raw.ending}
+                      onChange={(e) =>
+                        updateRawInput(inst.id, "ending", e.target.value)
+                      }
+                      placeholder={
+                        instSystemBounds &&
+                        instSystemBounds.ending < Model.END_OF_TIME
+                          ? String(instSystemBounds.ending)
+                          : "∞ (optional)"
+                      }
+                      className={endingOutOfBounds ? "border-danger" : ""}
+                      isInvalid={endingOutOfBounds}
+                    />
+                    {endingOutOfBounds && instSystemBounds && (
+                      <Form.Text className="text-danger">
+                        Max:{" "}
+                        {instSystemBounds.ending >= Model.END_OF_TIME
+                          ? "∞"
+                          : instSystemBounds.ending}
+                      </Form.Text>
+                    )}
+                    {!endingOutOfBounds && raw.ending.trim() === "" && (
+                      <Form.Text className="text-muted">
+                        Will inherit from system
+                      </Form.Text>
+                    )}
+                  </td>
+                  <td className="text-center">
+                    <Button
+                      variant="outline-danger"
+                      size="sm"
+                      onClick={() => removeInstallation(inst.id)}
+                    >
+                      Remove
+                    </Button>
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </Table>
+
+        <div className="mt-3">
+          <Button variant="outline-primary" size="sm" onClick={addInstallation}>
+            + Add {localInstallations.length > 0 ? "Another " : ""}Installation
+            Period
+          </Button>
+        </div>
 
         {availableSystems.length === 0 && !isFiltered && (
           <Alert variant="warning" className="mt-3 mb-0">

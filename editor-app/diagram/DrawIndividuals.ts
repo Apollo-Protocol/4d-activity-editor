@@ -210,8 +210,25 @@ export function drawIndividuals(ctx: DrawContext) {
   let startOfTime = Math.min(...activities.map((a) => a.beginning));
   let endOfTime = Math.max(...activities.map((a) => a.ending));
 
-  // Expand time range to include installed components' actual installation periods
+  // If no activities, use a default range
+  if (activities.length === 0 || !isFinite(startOfTime)) {
+    startOfTime = 0;
+  }
+  if (activities.length === 0 || !isFinite(endOfTime)) {
+    endOfTime = 10; // Default end time when no activities
+  }
+
+  // Expand time range to include all individuals (including virtual rows)
   for (const ind of individuals) {
+    // For regular individuals with defined bounds
+    if (ind.beginning >= 0 && ind.beginning < startOfTime) {
+      startOfTime = ind.beginning;
+    }
+    if (ind.ending < Model.END_OF_TIME && ind.ending > endOfTime) {
+      endOfTime = ind.ending;
+    }
+
+    // For installation references, also check their installation periods
     if (isInstallationRef(ind)) {
       const originalId = getOriginalId(ind);
       const targetId = getTargetId(ind);
@@ -236,6 +253,11 @@ export function drawIndividuals(ctx: DrawContext) {
         }
       }
     }
+  }
+
+  // Ensure we have a valid duration (at least 1)
+  if (endOfTime <= startOfTime) {
+    endOfTime = startOfTime + 10;
   }
 
   let duration = endOfTime - startOfTime;

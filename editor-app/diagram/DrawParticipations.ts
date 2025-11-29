@@ -266,16 +266,17 @@ export function drawParticipations(ctx: DrawContext) {
     return a.participations as Participation[];
   };
 
-  const parts: {
+  // Build participation data with visible intervals
+  interface PartData {
     activity: Activity;
     participation: Participation;
     activityIndex: number;
-    lane?: number;
-    totalLanes?: number;
-  }[] = [];
+    visStart: number;
+    visEnd: number;
+  }
 
-  // Build parts but skip any participation whose individual row is missing
-  // or which has no visible interval after cropping to installation window.
+  const parts: PartData[] = [];
+
   activities.forEach((a, idx) => {
     const pa = getParticipationArray(a);
     pa.forEach((p) => {
@@ -294,13 +295,19 @@ export function drawParticipations(ctx: DrawContext) {
       );
       if (vis.end <= vis.start) return; // fully outside -> skip
 
-      parts.push({ activity: a, participation: p, activityIndex: idx });
+      parts.push({
+        activity: a,
+        participation: p,
+        activityIndex: idx,
+        visStart: vis.start,
+        visEnd: vis.end,
+      });
     });
   });
 
-  // --- Overlap Detection & Lane Assignment ---
-  // 1. Group by individual
-  const byIndividual = new Map<string, typeof parts>();
+  // --- Time-Segment Based Lane Assignment ---
+  // Group by individual
+  const byIndividual = new Map<string, PartData[]>();
   parts.forEach((p) => {
     const id = p.participation.individualId;
     if (!byIndividual.has(id)) {
@@ -309,119 +316,126 @@ export function drawParticipations(ctx: DrawContext) {
     byIndividual.get(id)!.push(p);
   });
 
-  // 2. Calculate lanes for each individual
-  byIndividual.forEach((items) => {
-    // Sort by start time
-    items.sort((a, b) => a.activity.beginning - b.activity.beginning);
+  // For each individual, calculate time segments and draw rects
+  interface SegmentRect {
+    activity: Activity;
+    participation: Participation;
+    activityIndex: number;
+    segStart: number;
+    segEnd: number;
+    laneIndex: number;
+    totalLanes: number;
+    individualId: string;
+  }
 
-    const lanes: number[] = []; // tracks the end time of the last item in each lane
+  const segmentRects: SegmentRect[] = [];
 
-    items.forEach((item) => {
-      let placed = false;
-      // Try to place in existing lane
-      for (let i = 0; i < lanes.length; i++) {
-        // If this lane is free (last item ended before this one starts)
-        if (lanes[i] <= item.activity.beginning) {
-          item.lane = i;
-          lanes[i] = item.activity.ending;
-          placed = true;
-          break;
-        }
-      }
-      // Create new lane if needed
-      if (!placed) {
-        item.lane = lanes.length;
-        lanes.push(item.activity.ending);
-      }
+  byIndividual.forEach((items, indId) => {
+    if (items.length === 0) return;
+
+    // Collect all time boundaries for this individual
+    const timePoints = new Set<number>();
+    items.forEach((p) => {
+      timePoints.add(p.visStart);
+      timePoints.add(p.visEnd);
     });
+    const sortedTimes = Array.from(timePoints).sort((a, b) => a - b);
 
-    // Store total lanes count on each item for height calculation
-    const totalLanes = lanes.length;
-    items.forEach((item) => (item.totalLanes = totalLanes));
+    // For each time segment, find overlapping activities
+    for (let i = 0; i < sortedTimes.length - 1; i++) {
+      const segStart = sortedTimes[i];
+      const segEnd = sortedTimes[i + 1];
+
+      // Find activities that overlap with this segment
+      const overlapping = items.filter(
+        (p) => p.visStart < segEnd && p.visEnd > segStart
+      );
+
+      if (overlapping.length === 0) continue;
+
+      const totalLanes = overlapping.length;
+
+      // Sort overlapping by activity start time for consistent lane assignment
+      overlapping.sort((a, b) => a.activity.beginning - b.activity.beginning);
+
+      // Assign lanes for this segment
+      overlapping.forEach((p, laneIndex) => {
+        segmentRects.push({
+          activity: p.activity,
+          participation: p.participation,
+          activityIndex: p.activityIndex,
+          segStart,
+          segEnd,
+          laneIndex,
+          totalLanes,
+          individualId: indId,
+        });
+      });
+    }
   });
   // -------------------------------------------
 
-  const maxRectHeight = Math.min(36, config.layout.individual.height); // max glass height
-  const rx = 4; // border-radius
+  const maxRectHeight = Math.min(36, config.layout.individual.height);
+  const rx = 4;
   const strokeWidth = 1;
   const fillOpacity = 0.85;
 
-  svgElement
-    .selectAll(".participation-rect")
-    .data(parts, (d: any) => `${d.activity.id}:${d.participation.individualId}`)
-    .join("rect")
-    .attr("class", "participation-rect")
-    .attr(
-      "id",
-      (d: any) => `p_${d.activity.id}_${d.participation.individualId}`
-    )
-    .attr("x", (d: any) => {
-      const { start, end } = getVisibleInterval(
-        d.activity.beginning,
-        d.activity.ending,
-        d.participation.individualId,
-        dataset
-      );
-      // If no visible portion, move offscreen
-      if (end <= start) return -99999;
-      return xBase + timeInterval * (start - startOfTime);
-    })
-    .attr("width", (d: any) => {
-      const { start, end } = getVisibleInterval(
-        d.activity.beginning,
-        d.activity.ending,
-        d.participation.individualId,
-        dataset
-      );
-      const width = (end - start) * timeInterval;
-      return Math.max(0, width);
-    })
-    .attr("y", (d: any) => {
-      const node = svgElement
-        .select("#i" + CSS.escape(d.participation.individualId))
-        .node();
-      if (!node) return 0;
-      const box = (node as SVGGraphicsElement).getBBox();
+  // Remove old rects
+  svgElement.selectAll(".participation-rect").remove();
 
-      const totalLanes = d.totalLanes || 1;
-      const laneIndex = d.lane || 0;
+  // Draw segment rects
+  segmentRects.forEach((seg) => {
+    const node = svgElement
+      .select("#i" + CSS.escape(seg.individualId))
+      .node() as SVGGraphicsElement | null;
+    if (!node) return;
 
-      // Calculate height per lane
-      const laneHeight = maxRectHeight / totalLanes;
+    const box = node.getBBox();
 
-      // Center the group of lanes in the row
-      const groupY = box.y + (box.height - maxRectHeight) / 2;
+    // Calculate x position for this segment
+    const segX = xBase + timeInterval * (seg.segStart - startOfTime);
+    const segWidth = timeInterval * (seg.segEnd - seg.segStart);
 
-      return groupY + laneIndex * laneHeight;
-    })
-    .attr("height", (d: any) => {
-      const totalLanes = d.totalLanes || 1;
-      // Add a tiny gap if multiple lanes, unless it makes them too small
-      const gap = totalLanes > 1 ? 1 : 0;
-      return maxRectHeight / totalLanes - gap;
-    })
-    .attr("rx", (d: any) => (d.totalLanes && d.totalLanes > 2 ? 1 : rx)) // reduce radius if thin
-    .attr("ry", (d: any) => (d.totalLanes && d.totalLanes > 2 ? 1 : rx))
-    .attr(
-      "fill",
-      (d: any) =>
-        config.presentation.activity.fill[
-          d.activityIndex % config.presentation.activity.fill.length
-        ]
-    )
-    .attr("fill-opacity", fillOpacity)
-    .attr("stroke", (d: any) =>
-      darkenHex(
-        config.presentation.activity.fill[
-          d.activityIndex % config.presentation.activity.fill.length
-        ],
-        0.28
+    if (segWidth <= 0) return;
+
+    // Calculate lane height for this segment
+    const laneHeight = maxRectHeight / seg.totalLanes;
+    const gap = seg.totalLanes > 1 ? 1 : 0;
+
+    // Center the group of lanes in the row
+    const groupY = box.y + (box.height - maxRectHeight) / 2;
+    const laneY = groupY + seg.laneIndex * laneHeight;
+
+    const colorIndex =
+      seg.activityIndex % config.presentation.activity.fill.length;
+    const fillColor = config.presentation.activity.fill[colorIndex];
+
+    svgElement
+      .append("rect")
+      .attr("class", "participation-rect")
+      .attr(
+        "id",
+        `p_${seg.activity.id}_${seg.individualId}_${seg.segStart}_${seg.segEnd}`
       )
-    )
-    .attr("stroke-width", strokeWidth)
-    .attr("opacity", 1);
+      .attr("x", segX)
+      .attr("y", laneY)
+      .attr("width", Math.max(0, segWidth))
+      .attr("height", laneHeight - gap)
+      .attr("rx", seg.totalLanes > 2 ? 1 : rx)
+      .attr("ry", seg.totalLanes > 2 ? 1 : rx)
+      .attr("fill", fillColor)
+      .attr("fill-opacity", fillOpacity)
+      .attr("stroke", darkenHex(fillColor, 0.28))
+      .attr("stroke-width", strokeWidth)
+      .attr("opacity", 1)
+      .datum({
+        activity: seg.activity,
+        participation: seg.participation,
+        activityIndex: seg.activityIndex,
+      });
+  });
 
-  // Add hover behavior using the same pattern as original
+  // Add hover behavior
   hoverParticipations(ctx);
 
   return svgElement;

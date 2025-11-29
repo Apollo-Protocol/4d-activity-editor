@@ -476,22 +476,6 @@ function drawGroupSeparators(
       }
     }
   }
-
-  // Draw the separators
-  separatorPositions.forEach((pos, idx) => {
-    svgElement
-      .append("line")
-      .attr("class", "group-separator")
-      .attr("id", `separator-${idx}`)
-      .attr("x1", pos.x1)
-      .attr("y1", pos.y)
-      .attr("x2", pos.x2)
-      .attr("y2", pos.y)
-      .attr("stroke", "#9ca3af") // Gray color
-      .attr("stroke-width", 1)
-      .attr("stroke-dasharray", "6,4") // Dashed line
-      .attr("opacity", 0.6);
-  });
 }
 
 export function hoverIndividuals(ctx: DrawContext) {

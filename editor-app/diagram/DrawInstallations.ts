@@ -40,7 +40,75 @@ function getInstallationId(ind: Individual): string | undefined {
 }
 
 export function drawInstallations(ctx: DrawContext) {
-  // Hatch overlay removed — legend icons indicate installed status.
-  // This function intentionally left as a no-op to avoid drawing hatch patterns.
-  return;
+  const { svgElement, individuals, config, dataset } = ctx;
+
+  if (!individuals || individuals.length === 0) return;
+
+  // Remove existing installation hatches
+  svgElement.selectAll(".installation-period").remove();
+
+  // Create or get the defs element for patterns
+  let defs = svgElement.select("defs");
+  if (defs.empty()) {
+    defs = svgElement.append("defs");
+  }
+
+  // Create diagonal hatch pattern if it doesn't exist
+  if (defs.select("#diagonal-hatch").empty()) {
+    const pattern = defs
+      .append("pattern")
+      .attr("id", "diagonal-hatch")
+      .attr("patternUnits", "userSpaceOnUse")
+      .attr("width", 8)
+      .attr("height", 8)
+      .attr("patternTransform", "rotate(45)");
+
+    pattern
+      .append("rect")
+      .attr("width", 8)
+      .attr("height", 8)
+      .attr("fill", "white")
+      .attr("fill-opacity", 0.1);
+
+    pattern
+      .append("line")
+      .attr("x1", 0)
+      .attr("y1", 0)
+      .attr("x2", 0)
+      .attr("y2", 8)
+      .attr("stroke", "#374151")
+      .attr("stroke-width", 1);
+  }
+
+  // For each InstalledComponent installation reference row, draw a hatched overlay matching the chevron shape
+  individuals.forEach((ind) => {
+    if (!isInstallationRef(ind)) return;
+
+    // Only apply hatch to InstalledComponent virtual rows, not SystemComponent
+    const entityType = ind.entityType ?? EntityType.Individual;
+    if (entityType !== EntityType.InstalledComponent) return;
+
+    // Get the path data from the individual element
+    const escapedId = CSS.escape("i" + ind.id);
+    const node = svgElement
+      .select("#" + escapedId)
+      .node() as SVGPathElement | null;
+    if (!node) return;
+
+    const pathData = node.getAttribute("d");
+    if (!pathData) return;
+
+    // Remove dashed border on the original element (if present)
+    svgElement.select("#" + escapedId).attr("stroke-dasharray", null);
+
+    // Draw hatch overlay using the same path as the individual
+    svgElement
+      .append("path")
+      .attr("class", "installation-period")
+      .attr("d", pathData)
+      .attr("fill", "url(#diagonal-hatch)")
+      .attr("stroke", "none")
+      .attr("stroke-dasharray", null)
+      .attr("pointer-events", "none");
+  });
 }

@@ -10,13 +10,9 @@ function Footer() {
       style={{
         backgroundColor: "rgba(255, 255, 255, 0.98)",
         backdropFilter: "blur(10px)",
-        boxShadow: "0 -2px 8px rgba(0, 0, 0, 0.08)",
+        boxShadow: "0 2px 8px rgba(0, 0, 0, 0.08)",
         padding: "1.5rem 0",
-        position: "fixed",
-        bottom: 0,
-        left: 0,
-        right: 0,
-        zIndex: 1020,
+        flexShrink: 0,
       }}
     >
       <div className="container-fluid px-4">

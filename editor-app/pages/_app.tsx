@@ -18,8 +18,10 @@ export default function App({ Component, pageProps }: AppProps) {
       <main
         style={{
           flex: 1,
-          marginTop: "1.5rem",
-          paddingBottom: "10rem", // Space for fixed footer
+          display: "flex",
+          flexDirection: "column",
+          justifyContent: "center",
+          padding: "1.5rem",
         }}
       >
         <Component {...pageProps} />

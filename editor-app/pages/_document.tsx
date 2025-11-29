@@ -19,15 +19,8 @@ export default function Document() {
         />
       </Head>
       <body>
-        <div
-          id="page-container"
-          style={{ position: "relative", minHeight: "100vh" }}
-        >
-          <div id="content-wrap" style={{ paddingBottom: "2rem" }}>
-            <Main />
-            <NextScript />
-          </div>
-        </div>
+        <Main />
+        <NextScript />
       </body>
     </Html>
   );

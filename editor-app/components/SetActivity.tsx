@@ -12,7 +12,7 @@ import Form from "react-bootstrap/Form";
 import ListGroup from "react-bootstrap/ListGroup";
 import Alert from "react-bootstrap/Alert";
 import { v4 as uuidv4 } from "uuid";
-import Select, { MultiValue } from "react-select";
+import Select, { MultiValue, GroupBase } from "react-select";
 import {
   Individual,
   Id,
@@ -74,6 +74,12 @@ function getInstallationId(ind: Individual): string | undefined {
 
 // Define the option type for the Select component
 type IndividualOption = Individual & { displayLabel: string };
+
+// Group type for react-select
+interface OptionGroup extends GroupBase<IndividualOption> {
+  label: string;
+  options: IndividualOption[];
+}
 
 const SetActivity = (props: Props) => {
   const {
@@ -192,6 +198,92 @@ const SetActivity = (props: Props) => {
 
     return result;
   }, [dataset]);
+
+  // Build grouped options for react-select
+  const groupedOptions = useMemo<OptionGroup[]>(() => {
+    const groups: OptionGroup[] = [];
+
+    // Get display individuals to maintain proper order
+    const displayIndividuals = dataset.getDisplayIndividuals();
+
+    // Track which systems have been processed
+    const systemGroups: Map<string, IndividualOption[]> = new Map();
+    const topLevelSCs: IndividualOption[] = [];
+    const topLevelICs: IndividualOption[] = [];
+    const regularIndividuals: IndividualOption[] = [];
+
+    displayIndividuals.forEach((ind) => {
+      const entityType = ind.entityType ?? EntityType.Individual;
+
+      // Find the matching option from individualsWithLabels
+      const option = individualsWithLabels.find((o) => o.id === ind.id);
+      if (!option) return;
+
+      if (entityType === EntityType.System && !ind._isVirtualRow) {
+        // System - create a new group
+        systemGroups.set(ind.id, [option]);
+      } else if (ind._isVirtualRow && ind._parentPath) {
+        // Virtual row (nested component) - add to parent system's group
+        const rootSystemId = ind._parentPath.split("__")[0];
+        const systemGroup = systemGroups.get(rootSystemId);
+        if (systemGroup) {
+          systemGroup.push(option);
+        }
+      } else if (
+        entityType === EntityType.SystemComponent &&
+        !ind._isVirtualRow
+      ) {
+        // Top-level SC (not installed anywhere)
+        topLevelSCs.push(option);
+      } else if (
+        entityType === EntityType.InstalledComponent &&
+        !ind._isVirtualRow
+      ) {
+        // Top-level IC (not installed anywhere)
+        topLevelICs.push(option);
+      } else if (entityType === EntityType.Individual) {
+        // Regular individual
+        regularIndividuals.push(option);
+      }
+    });
+
+    // Add system groups
+    systemGroups.forEach((options, systemId) => {
+      const system = dataset.individuals.get(systemId);
+      if (system && options.length > 0) {
+        groups.push({
+          label: `${system.name} (System)`,
+          options: options,
+        });
+      }
+    });
+
+    // Add top-level SCs if any
+    if (topLevelSCs.length > 0) {
+      groups.push({
+        label: "◇ System Components (Uninstalled)",
+        options: topLevelSCs,
+      });
+    }
+
+    // Add top-level ICs if any
+    if (topLevelICs.length > 0) {
+      groups.push({
+        label: "● Installed Components (Uninstalled)",
+        options: topLevelICs,
+      });
+    }
+
+    // Add regular individuals if any
+    if (regularIndividuals.length > 0) {
+      groups.push({
+        label: "○ Individuals",
+        options: regularIndividuals,
+      });
+    }
+
+    return groups;
+  }, [individualsWithLabels, dataset]);
 
   // Safe local ancestor check
   const isAncestorLocal = (
@@ -568,31 +660,37 @@ const SetActivity = (props: Props) => {
     setShowParentModal(false);
   };
 
-  // Filter eligible participants by activity time
-  const eligibleParticipants = useMemo<IndividualOption[]>(() => {
+  // Filter eligible participants by activity time - now returns grouped options
+  const eligibleGroupedOptions = useMemo<OptionGroup[]>(() => {
     const actStart = inputs.beginning;
     const actEnd = inputs.ending;
 
-    return individualsWithLabels.filter((ind) => {
-      let indStart = ind.beginning >= 0 ? ind.beginning : 0;
-      let indEnd = ind.ending < Model.END_OF_TIME ? ind.ending : Infinity;
+    // Filter each group's options based on time overlap
+    return groupedOptions
+      .map((group) => ({
+        ...group,
+        options: group.options.filter((ind) => {
+          let indStart = ind.beginning >= 0 ? ind.beginning : 0;
+          let indEnd = ind.ending < Model.END_OF_TIME ? ind.ending : Infinity;
 
-      // For installation references, also constrain to target bounds
-      if (isInstallationRef(ind)) {
-        const targetId = getTargetId(ind);
-        if (targetId) {
-          const targetBounds = getTargetEffectiveTimeBounds(targetId);
-          indStart = Math.max(indStart, targetBounds.beginning);
-          if (targetBounds.ending < Model.END_OF_TIME) {
-            indEnd = Math.min(indEnd, targetBounds.ending);
+          // For installation references, also constrain to target bounds
+          if (isInstallationRef(ind)) {
+            const targetId = getTargetId(ind);
+            if (targetId) {
+              const targetBounds = getTargetEffectiveTimeBounds(targetId);
+              indStart = Math.max(indStart, targetBounds.beginning);
+              if (targetBounds.ending < Model.END_OF_TIME) {
+                indEnd = Math.min(indEnd, targetBounds.ending);
+              }
+            }
           }
-        }
-      }
 
-      // Check overlap
-      return actStart < indEnd && actEnd > indStart;
-    });
-  }, [individualsWithLabels, inputs.beginning, inputs.ending, dataset]);
+          // Check overlap
+          return actStart < indEnd && actEnd > indStart;
+        }),
+      }))
+      .filter((group) => group.options.length > 0); // Remove empty groups
+  }, [groupedOptions, inputs.beginning, inputs.ending, dataset]);
 
   return (
     <>
@@ -798,23 +896,31 @@ const SetActivity = (props: Props) => {
             <Form.Group className="mb-3" controlId="formParticipants">
               <Form.Label>
                 Participants
-                {eligibleParticipants.length < individualsWithLabels.length && (
+                {eligibleGroupedOptions.reduce(
+                  (sum, g) => sum + g.options.length,
+                  0
+                ) < individualsWithLabels.length && (
                   <small className="text-muted ms-2">
                     (filtered by activity time {inputs.beginning}-
                     {inputs.ending})
                   </small>
                 )}
               </Form.Label>
-              <Select<IndividualOption, true>
+              <Select<IndividualOption, true, OptionGroup>
                 defaultValue={getSelectedIndividuals()}
                 isMulti
-                options={eligibleParticipants}
+                options={eligibleGroupedOptions}
                 getOptionLabel={(option) => option.displayLabel}
                 getOptionValue={(option) => option.id}
                 onChange={handleChangeMultiselect}
                 noOptionsMessage={() =>
                   "No participants available for this time range"
                 }
+                formatGroupLabel={(group) => (
+                  <div style={{ fontWeight: "bold", color: "#333" }}>
+                    {group.label}
+                  </div>
+                )}
               />
             </Form.Group>
           </Form>

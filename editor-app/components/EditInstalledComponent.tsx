@@ -698,7 +698,7 @@ const EditInstalledComponent = (props: Props) => {
                         <option value="">-- Select slot --</option>
                         {Array.from(slotsBySystem.entries()).map(
                           ([sysName, slots]) => (
-                            <optgroup key={sysName} label={`🔲 ${sysName}`}>
+                            <optgroup key={sysName} label={`${sysName}`}>
                               {slots.map((slot) => {
                                 const indent = "  ".repeat(
                                   slot.nestingLevel - 1

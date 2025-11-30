@@ -22,6 +22,7 @@ export default function App({ Component, pageProps }: AppProps) {
           flexDirection: "column",
           justifyContent: "center",
           padding: "1.5rem",
+          paddingTop: "100px", // Account for fixed navbar height (~70px + some margin)
         }}
       >
         <Component {...pageProps} />

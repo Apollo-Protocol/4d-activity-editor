@@ -510,9 +510,7 @@ export default function EditSystemComponentInstallation({
   return (
     <Modal show={show} onHide={onHide} size="lg">
       <Modal.Header closeButton>
-        <Modal.Title>
-          Edit Installations for <Badge bg="info">{individual.name}</Badge>
-        </Modal.Title>
+        <Modal.Title>Edit Installations for {individual.name}</Modal.Title>
       </Modal.Header>
       <Modal.Body>
         <p className="text-muted mb-3">
@@ -561,7 +559,7 @@ export default function EditSystemComponentInstallation({
                         }
                       >
                         <option value="">-- Select target --</option>
-                        <optgroup label="🔲 Systems">
+                        <optgroup label="Systems">
                           {systemTargets.map((target) => {
                             const boundsStr =
                               target.bounds.ending < Model.END_OF_TIME
@@ -581,7 +579,7 @@ export default function EditSystemComponentInstallation({
                           })}
                         </optgroup>
                         {scTargets.length > 0 && (
-                          <optgroup label="◇ System Components (Nested)">
+                          <optgroup label="System Components (Nested)">
                             {scTargets.map((target) => {
                               const boundsStr =
                                 target.bounds.ending < Model.END_OF_TIME
@@ -607,8 +605,8 @@ export default function EditSystemComponentInstallation({
                           <small>
                             {targetOption.entityType ===
                             EntityType.SystemComponent
-                              ? "◇ "
-                              : "🔲 "}
+                              ? " "
+                              : " "}
                             Available: {targetOption.bounds.beginning}-
                             {targetOption.bounds.ending >= Model.END_OF_TIME
                               ? "∞"

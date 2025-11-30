@@ -606,6 +606,16 @@ export function labelIndividuals(ctx: DrawContext) {
   // Update the indent calculation for deeper nesting
   const INDENT_PER_LEVEL = 14; // pixels per nesting level
 
+  // Helper to get font size based on nesting level
+  const getFontSize = (ind: Individual): string => {
+    const nestingLevel = ind._nestingLevel ?? getNestingLevel(ind);
+    if (nestingLevel > 0) {
+      // For nested entities, use smaller font (half size)
+      return "0.65em";
+    }
+    return config.labels.individual.fontSize;
+  };
+
   // Draw icons with indentation to show hierarchy
   svgElement
     .selectAll(".individualIcon")
@@ -633,7 +643,7 @@ export function labelIndividuals(ctx: DrawContext) {
     })
     .attr("text-anchor", "start")
     .attr("font-family", "Arial, sans-serif")
-    .attr("font-size", config.labels.individual.fontSize)
+    .attr("font-size", (d: Individual) => getFontSize(d))
     .attr("fill", "#374151")
     .text((d: Individual) => getEntityIcon(d, dataset)); // Pass dataset to get correct icon
 
@@ -661,27 +671,20 @@ export function labelIndividuals(ctx: DrawContext) {
     })
     .attr("text-anchor", "start")
     .attr("font-family", "Roboto, Arial, sans-serif")
-    .attr("font-size", config.labels.individual.fontSize)
+    .attr("font-size", (d: Individual) => getFontSize(d))
     .attr("fill", "#111827")
     .text((d: Individual) => {
-      // Truncate labels for virtual SystemComponent or virtual InstalledComponent to 6 chars + "..."
       let label = d.name ?? "";
-      if (isVirtualRow(d)) {
-        const originalId = getOriginalId(d);
-        const original = dataset.individuals.get(originalId);
-        const origType = original?.entityType ?? EntityType.Individual;
-        if (
-          (origType === EntityType.SystemComponent ||
-            origType === EntityType.InstalledComponent) &&
-          label.length > 6
-        ) {
-          return label.substring(0, 6) + "...";
-        }
-      }
 
-      if (label.length > config.labels.individual.maxChars - 2) {
-        label = label.substring(0, config.labels.individual.maxChars - 2);
-        label += "...";
+      // For nested entities, allow longer labels since font is smaller
+      const nestingLevel = d._nestingLevel ?? getNestingLevel(d);
+      const maxChars =
+        nestingLevel > 0
+          ? config.labels.individual.maxChars + 10 // Allow more chars for smaller font
+          : config.labels.individual.maxChars;
+
+      if (label.length > maxChars - 2) {
+        label = label.substring(0, maxChars - 2) + "...";
       }
       return label;
     })

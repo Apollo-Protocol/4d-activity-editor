@@ -8,7 +8,6 @@ import {
   removeLabelIfItOverlaps,
 } from "./DrawHelpers";
 import { ConfigData } from "./config";
-import { entityTypes } from "@/components/EntityTypeLegend"; // use legend as source of truth
 
 let mouseOverElement: any | null = null;
 
@@ -82,46 +81,63 @@ function isVirtualRow(ind: Individual): boolean {
   return ind._isVirtualRow === true;
 }
 
-// Helper function to get icon for entity type (use EntityTypeLegend source)
+/**
+ * Get the appropriate icon for an entity based on its type and installation context.
+ *
+ * Icon system:
+ * - ▣  System (square with fill - contains component slots)
+ * - ◇  System Component - uninstalled (empty diamond)
+ * - ◆  SC in System (filled diamond - installed directly in system)
+ * - ◈  SC in SC (diamond variant - nested in another SC)
+ * - ⬡  Installed Component - uninstalled (empty hexagon)
+ * - ⬢  IC in SC (filled hexagon - installed in a system component)
+ * - ○  Individual (circle)
+ */
 function getEntityIcon(ind: Individual, dataset: Model): string {
-  const findIcon = (label: string) =>
-    entityTypes.find((e) => e.label === label)?.icon ?? "";
+  const entityType = ind.entityType ?? EntityType.Individual;
+  const isVirtual = ind._isVirtualRow === true;
+  const parentPath = ind._parentPath ?? "";
 
-  let entityType = ind.entityType ?? EntityType.Individual;
-
-  // If it's a virtual row, look up the original entity to get the correct icon
-  if (isVirtualRow(ind)) {
-    const originalId = getOriginalId(ind);
+  // If it's a virtual row, determine the icon based on what it is and where it's installed
+  if (isVirtual) {
+    const originalId = ind.id.split("__installed_in__")[0];
     const original = dataset.individuals.get(originalId);
+
     if (original) {
       const origType = original.entityType ?? EntityType.Individual;
 
-      // For a SystemComponent virtual row (system-installed instance), use the
-      // explicit "Installed (system)" icon from the legend.
       if (origType === EntityType.SystemComponent) {
-        return findIcon("Installed (system)");
+        // SC installed somewhere
+        // Check if it's installed in another SC (nested) or directly in a System
+        const pathParts = parentPath.split("__").filter(Boolean);
+
+        if (pathParts.length > 1) {
+          // Nested in another SC (path has more than just the system)
+          // e.g., path = "systemId__scId" means this SC is in another SC
+          return "◈"; // SC in SC
+        } else {
+          // Directly in a System (path only has systemId)
+          return "◆"; // SC in System
+        }
       }
 
-      // For an InstalledComponent virtual row (installed into a system component),
-      // use the "Installed (in system comp)" icon from the legend.
       if (origType === EntityType.InstalledComponent) {
-        return findIcon("Installed (in system comp)");
+        // IC installed in an SC
+        return "⬢"; // IC in SC (filled hexagon)
       }
-
-      // Otherwise fall back to the original's type below
-      entityType = origType;
     }
   }
 
+  // Top-level (non-virtual) entities
   switch (entityType) {
     case EntityType.System:
-      return findIcon("System");
+      return "▣"; // System (square with fill)
     case EntityType.SystemComponent:
-      return findIcon("System Component");
+      return "◇"; // SC uninstalled (empty diamond)
     case EntityType.InstalledComponent:
-      return findIcon("Installed Component");
+      return "⬡"; // IC uninstalled (empty hexagon)
     default:
-      return findIcon("Individual");
+      return "○"; // Individual (circle)
   }
 }
 
@@ -539,9 +555,22 @@ function individualTooltip(individual: Individual) {
     if (originalType === EntityType.SystemComponent) {
       tip = "<strong>System Component</strong>";
       tip += "<br/><em>(Installation instance)</em>";
-    } else {
+    } else if (originalType === EntityType.InstalledComponent) {
       tip = "<strong>Installed Component</strong>";
       tip += "<br/><em>(Installation instance)</em>";
+    }
+  } else {
+    const entityType = individual.entityType ?? EntityType.Individual;
+    switch (entityType) {
+      case EntityType.System:
+        tip = "<strong>System</strong>";
+        break;
+      case EntityType.SystemComponent:
+        tip = "<strong>System Component</strong>";
+        break;
+      case EntityType.InstalledComponent:
+        tip = "<strong>Installed Component</strong>";
+        break;
     }
   }
 
@@ -645,7 +674,7 @@ export function labelIndividuals(ctx: DrawContext) {
     .attr("font-family", "Arial, sans-serif")
     .attr("font-size", (d: Individual) => getFontSize(d))
     .attr("fill", "#374151")
-    .text((d: Individual) => getEntityIcon(d, dataset)); // Pass dataset to get correct icon
+    .text((d: Individual) => getEntityIcon(d, dataset));
 
   // Draw labels with indentation
   svgElement
@@ -656,7 +685,7 @@ export function labelIndividuals(ctx: DrawContext) {
     .attr("id", (i: Individual) => `il${i.id}`)
     .attr("x", (i: Individual) => {
       const nestingLevel = getNestingLevel(i);
-      const indent = nestingLevel * 20; // Indent labels
+      const indent = nestingLevel * INDENT_PER_LEVEL;
       return (
         config.layout.individual.xMargin +
         config.labels.individual.leftMargin +

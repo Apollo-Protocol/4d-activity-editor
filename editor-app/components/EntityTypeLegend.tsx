@@ -8,28 +8,41 @@ interface EntityLegendItem {
 }
 
 export const entityTypes: EntityLegendItem[] = [
-  { icon: "▣", label: "System", description: "A system containing components" },
   {
-    icon: "◈",
-    label: "System Component",
-    description: "A slot within a system",
-  },
-  {
-    icon: "⬢",
-    label: "Installed Component",
-    description: "A physical component",
-  },
-  {
-    icon: "⬡",
-    label: "Installed (in system comp)",
-    description: "Component installed in a system component",
+    icon: "▣",
+    label: "System",
+    description: "A system containing component slots",
   },
   {
     icon: "◇",
-    label: "Installed (system)",
-    description: "System component installed in a system",
+    label: "System Component",
+    description: "A slot/role within a system (uninstalled)",
   },
-  { icon: "O", label: "Individual", description: "A regular individual" },
+  {
+    icon: "◆",
+    label: "SC in System",
+    description: "A system component installed in a system",
+  },
+  {
+    icon: "◈",
+    label: "SC in SC",
+    description: "A system component nested inside another system component",
+  },
+  {
+    icon: "⬡",
+    label: "Installed Component",
+    description: "A physical component (uninstalled)",
+  },
+  {
+    icon: "⬢",
+    label: "IC in SC",
+    description: "An installed component in a system component slot",
+  },
+  {
+    icon: "○",
+    label: "Individual",
+    description: "A regular individual entity",
+  },
 ];
 
 const EntityTypeLegend = () => {
@@ -51,8 +64,7 @@ const EntityTypeLegend = () => {
                 width: 20,
                 height: 20,
                 marginRight: 8,
-                fontSize: 20,
-
+                fontSize: 18,
                 fontFamily: "Arial, sans-serif",
               }}
             >

@@ -603,6 +603,9 @@ export function labelIndividuals(ctx: DrawContext) {
     config.layout.individual.height / 2 +
     config.labels.individual.topMargin;
 
+  // Update the indent calculation for deeper nesting
+  const INDENT_PER_LEVEL = 14; // pixels per nesting level
+
   // Draw icons with indentation to show hierarchy
   svgElement
     .selectAll(".individualIcon")
@@ -611,8 +614,8 @@ export function labelIndividuals(ctx: DrawContext) {
     .attr("class", "individualIcon")
     .attr("id", (i: Individual) => `ii${i.id}`)
     .attr("x", (i: Individual) => {
-      const nestingLevel = getNestingLevel(i);
-      const indent = nestingLevel * 20; // Indent icons
+      const nestingLevel = i._nestingLevel ?? getNestingLevel(i);
+      const indent = nestingLevel * INDENT_PER_LEVEL;
       return (
         config.layout.individual.xMargin +
         config.labels.individual.leftMargin +

@@ -34,6 +34,45 @@ export interface Plot {
   height: number;
 }
 
+// Helper to get all ancestor IDs from a virtual row ID (handles nested SCs)
+function getAncestorIds(id: string, dataset: Model): Set<string> {
+  const ancestors = new Set<string>();
+
+  if (id.includes("__installed_in__")) {
+    const parts = id.split("__installed_in__");
+    const originalId = parts[0];
+
+    // Add the original component ID
+    ancestors.add(originalId);
+
+    // Parse through the chain of __installed_in__ to find all targets
+    let remaining = parts.slice(1).join("__installed_in__");
+    while (remaining) {
+      const targetId = remaining.split("__")[0];
+      ancestors.add(targetId);
+
+      // Get the target's parents too
+      const target = dataset.individuals.get(targetId);
+      if (target && target.installations) {
+        target.installations.forEach((inst) => {
+          if (inst.targetId) {
+            ancestors.add(inst.targetId);
+          }
+        });
+      }
+
+      // Move to next level if exists
+      const nextInstalled = remaining.indexOf("__installed_in__");
+      if (nextInstalled === -1) break;
+      remaining = remaining.substring(
+        nextInstalled + "__installed_in__".length
+      );
+    }
+  }
+
+  return ancestors;
+}
+
 // Helper to get parent IDs that should be kept visible when filtering (bottom-to-top only)
 // When a CHILD has activity, keep its PARENTS visible
 // But NOT the reverse - if only parent has activity, don't automatically keep children
@@ -46,26 +85,9 @@ function getParentIdsToKeep(
   participatingIds.forEach((id) => {
     // Check if this is a virtual row (installation reference)
     if (id.includes("__installed_in__")) {
-      const parts = id.split("__installed_in__");
-      const originalId = parts[0];
-      const rest = parts[1];
-      const targetId = rest.split("__")[0];
-
-      // Virtual row has activity - keep its target (parent) visible
-      parentsToKeep.add(targetId);
-
-      // If target is a SystemComponent, also keep its parent System
-      const target = dataset.individuals.get(targetId);
-      if (target) {
-        const targetType = target.entityType ?? EntityType.Individual;
-        if (targetType === EntityType.SystemComponent && target.installations) {
-          target.installations.forEach((inst) => {
-            if (inst.targetId) {
-              parentsToKeep.add(inst.targetId);
-            }
-          });
-        }
-      }
+      // Get all ancestors from the virtual row ID
+      const ancestors = getAncestorIds(id, dataset);
+      ancestors.forEach((ancestorId) => parentsToKeep.add(ancestorId));
     } else {
       // Regular individual - check if it's an InstalledComponent or SystemComponent
       const individual = dataset.individuals.get(id);
@@ -73,30 +95,67 @@ function getParentIdsToKeep(
         const entityType = individual.entityType ?? EntityType.Individual;
 
         if (entityType === EntityType.InstalledComponent) {
-          // InstalledComponent has activity - keep parent SystemComponents and their parent Systems
+          // InstalledComponent has activity - keep parent SystemComponents and their ancestors
           if (individual.installations) {
             individual.installations.forEach((inst) => {
               if (inst.targetId) {
                 parentsToKeep.add(inst.targetId);
 
-                // Get the SystemComponent's parent System
-                const sc = dataset.individuals.get(inst.targetId);
-                if (sc && sc.installations) {
-                  sc.installations.forEach((scInst) => {
-                    if (scInst.targetId) {
-                      parentsToKeep.add(scInst.targetId);
-                    }
-                  });
-                }
+                // Recursively get the parent's parents
+                const addParentChain = (targetId: string) => {
+                  const target = dataset.individuals.get(targetId);
+                  if (target && target.installations) {
+                    target.installations.forEach((parentInst) => {
+                      if (parentInst.targetId) {
+                        parentsToKeep.add(parentInst.targetId);
+                        // Continue up the chain for nested SystemComponents
+                        const parentTarget = dataset.individuals.get(
+                          parentInst.targetId
+                        );
+                        if (parentTarget) {
+                          const parentType =
+                            parentTarget.entityType ?? EntityType.Individual;
+                          if (parentType === EntityType.SystemComponent) {
+                            addParentChain(parentInst.targetId);
+                          }
+                        }
+                      }
+                    });
+                  }
+                };
+                addParentChain(inst.targetId);
               }
             });
           }
         } else if (entityType === EntityType.SystemComponent) {
-          // SystemComponent has activity - keep parent Systems
+          // SystemComponent has activity - keep parent Systems and parent SystemComponents
           if (individual.installations) {
             individual.installations.forEach((inst) => {
               if (inst.targetId) {
                 parentsToKeep.add(inst.targetId);
+
+                // If parent is also a SystemComponent, get its parents too
+                const addParentChain = (targetId: string) => {
+                  const target = dataset.individuals.get(targetId);
+                  if (target && target.installations) {
+                    target.installations.forEach((parentInst) => {
+                      if (parentInst.targetId) {
+                        parentsToKeep.add(parentInst.targetId);
+                        const parentTarget = dataset.individuals.get(
+                          parentInst.targetId
+                        );
+                        if (parentTarget) {
+                          const parentType =
+                            parentTarget.entityType ?? EntityType.Individual;
+                          if (parentType === EntityType.SystemComponent) {
+                            addParentChain(parentInst.targetId);
+                          }
+                        }
+                      }
+                    });
+                  }
+                };
+                addParentChain(inst.targetId);
               }
             });
           }
@@ -184,6 +243,17 @@ export function drawActivityDiagram(
 
         // Or if this specific virtual row ID directly participates
         if (participating.has(i.id)) return true;
+
+        // Check if this virtual row is an ancestor of a participating entity
+        // This handles nested SystemComponent visibility
+        for (const pId of Array.from(participating)) {
+          if (
+            pId.includes(i.id) ||
+            pId.includes(`__installed_in__${originalId}__`)
+          ) {
+            return true;
+          }
+        }
       }
 
       return false;

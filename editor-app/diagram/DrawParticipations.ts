@@ -10,23 +10,41 @@ function isInstallationRefId(id: string): boolean {
   return id.includes("__installed_in__");
 }
 
-// Updated to handle format: componentId__installed_in__targetId__installationId
+// Updated to handle nested format: componentId__installed_in__targetId__installationId__ctx_scInstId
 function getOriginalAndTarget(
   id: string
-): { originalId: string; targetId: string; installationId?: string } | null {
+): {
+  originalId: string;
+  targetId: string;
+  installationId?: string;
+  contextId?: string;
+} | null {
   if (!isInstallationRefId(id)) return null;
+
   const parts = id.split("__installed_in__");
-  if (parts.length !== 2) return null;
+  if (parts.length < 2) return null;
 
   const originalId = parts[0];
-  const rest = parts[1];
+  let rest = parts.slice(1).join("__installed_in__"); // Handle nested __installed_in__
 
-  // rest could be "targetId" (old format) or "targetId__installationId" (new format)
+  // Parse the rest which could be:
+  // - targetId (old format)
+  // - targetId__installationId (new format)
+  // - targetId__installationId__ctx_scInstId (with context)
+
+  // First, extract context if present
+  let contextId: string | undefined;
+  const ctxIndex = rest.indexOf("__ctx_");
+  if (ctxIndex !== -1) {
+    contextId = rest.substring(ctxIndex + 6); // After "__ctx_"
+    rest = rest.substring(0, ctxIndex);
+  }
+
   const restParts = rest.split("__");
   const targetId = restParts[0];
   const installationId = restParts.length > 1 ? restParts[1] : undefined;
 
-  return { originalId, targetId, installationId };
+  return { originalId, targetId, installationId, contextId };
 }
 
 // Add helper to get target effective time bounds

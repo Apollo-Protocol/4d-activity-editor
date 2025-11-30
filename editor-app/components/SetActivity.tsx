@@ -48,12 +48,11 @@ function getOriginalId(ind: Individual): string {
   return ind.id;
 }
 
-// Get the target ID (System for SystemComponent, SystemComponent for InstalledComponent) from an installation reference
+// Get the target ID from an installation reference
 function getTargetId(ind: Individual): string | undefined {
   if (isInstallationRef(ind)) {
     const rest = ind.id.split("__installed_in__")[1];
     if (rest) {
-      // Format: targetId__installationId or just targetId (old format)
       const parts = rest.split("__");
       return parts[0];
     }
@@ -67,7 +66,7 @@ function getInstallationId(ind: Individual): string | undefined {
     const rest = ind.id.split("__installed_in__")[1];
     if (rest) {
       const parts = rest.split("__");
-      return parts[1]; // installationId is the second part
+      return parts[1];
     }
   }
   return undefined;
@@ -104,7 +103,7 @@ const SetActivity = (props: Props) => {
   const [errors, setErrors] = useState<string[]>([]);
   const [dirty, setDirty] = useState(false);
 
-  // Custom activity-type selector state (search / create / inline edit)
+  // Custom activity-type selector state
   const [typeOpen, setTypeOpen] = useState(false);
   const [typeSearch, setTypeSearch] = useState("");
   const [editingTypeId, setEditingTypeId] = useState<string | null>(null);
@@ -113,202 +112,88 @@ const SetActivity = (props: Props) => {
   const [showParentModal, setShowParentModal] = useState(false);
   const [selectedParentId, setSelectedParentId] = useState<string | null>(null);
 
-  // Helper to get effective time bounds for a target (System or SystemComponent)
+  // Helper to get effective time bounds for a target
   const getTargetEffectiveTimeBounds = (
     targetId: string
   ): { beginning: number; ending: number } => {
-    const target = dataset.individuals.get(targetId);
-    if (!target) {
-      return { beginning: 0, ending: Model.END_OF_TIME };
-    }
-
-    let beginning = target.beginning;
-    let ending = target.ending;
-
-    const targetType = target.entityType ?? EntityType.Individual;
-
-    // If target is a SystemComponent, get bounds from its installation into a System
-    if (targetType === EntityType.SystemComponent) {
-      if (target.installations && target.installations.length > 0) {
-        // Use the union of all installation periods
-        const instBeginnings = target.installations.map((inst) =>
-          Math.max(0, inst.beginning ?? 0)
-        );
-        const instEndings = target.installations.map(
-          (inst) => inst.ending ?? Model.END_OF_TIME
-        );
-        const earliestBeginning = Math.min(...instBeginnings);
-        const latestEnding = Math.max(...instEndings);
-
-        if (beginning < 0) {
-          beginning = earliestBeginning;
-        }
-        if (ending >= Model.END_OF_TIME && latestEnding < Model.END_OF_TIME) {
-          ending = latestEnding;
-        }
-      } else if (beginning < 0) {
-        beginning = 0;
-      }
-    }
-
-    // If target is a System, use its defined bounds
-    if (targetType === EntityType.System) {
-      if (beginning < 0) beginning = 0;
-    }
-
-    if (beginning < 0) beginning = 0;
-
-    return { beginning, ending };
+    return dataset.getTargetTimeBounds(targetId);
   };
 
-  // Build the individuals list with proper labels for the Select component
+  // Build the individuals list using getDisplayIndividuals() which handles all nesting
   const individualsWithLabels = useMemo<IndividualOption[]>(() => {
     const result: IndividualOption[] = [];
     const addedIds = new Set<string>();
 
-    // Helper to create an option
-    const addOption = (
-      ind: Individual,
-      overrideId?: string,
-      overrideName?: string,
-      installation?: { beginning: number; ending: number; id: string }
-    ) => {
-      const id = overrideId || ind.id;
-      if (addedIds.has(id)) return;
-      addedIds.add(id);
+    // Get all display individuals from the Model (includes all virtual rows)
+    const displayIndividuals = dataset.getDisplayIndividuals();
 
-      let displayLabel = overrideName || ind.name;
+    displayIndividuals.forEach((ind) => {
+      // Skip if already added
+      if (addedIds.has(ind.id)) return;
 
-      // Add timing info if it's an installation
-      if (installation) {
-        const endStr =
-          installation.ending >= Model.END_OF_TIME ? "∞" : installation.ending;
-        // If the name doesn't already contain timing info, add it
-        if (!displayLabel.includes(`(${installation.beginning}-`)) {
-          displayLabel += ` (${installation.beginning}-${endStr})`;
+      const entityType = ind.entityType ?? EntityType.Individual;
+
+      // Skip top-level SystemComponents/InstalledComponents that have installations
+      // (they will appear as virtual rows)
+      if (!ind._isVirtualRow) {
+        if (entityType === EntityType.SystemComponent) {
+          const original = dataset.individuals.get(ind.id);
+          if (original?.installations && original.installations.length > 0) {
+            return;
+          }
+        }
+        if (entityType === EntityType.InstalledComponent) {
+          const original = dataset.individuals.get(ind.id);
+          if (original?.installations && original.installations.length > 0) {
+            return;
+          }
         }
       }
 
+      // Build display label
+      let displayLabel = ind.name;
+
+      if (ind._isVirtualRow && ind._parentPath) {
+        // Build hierarchical label from parent path
+        const pathParts = ind._parentPath.split("__").filter(Boolean);
+        const pathNames: string[] = [];
+
+        pathParts.forEach((partId) => {
+          const part = dataset.individuals.get(partId);
+          if (part) {
+            pathNames.push(part.name);
+          }
+        });
+
+        // Get the original component name
+        const originalId = ind.id.split("__installed_in__")[0];
+        const original = dataset.individuals.get(originalId);
+        const originalName = original?.name || ind.name;
+
+        if (pathNames.length > 0) {
+          displayLabel = `${pathNames.join(" → ")} → ${originalName}`;
+        } else {
+          displayLabel = originalName;
+        }
+
+        // Add timing info
+        const endStr = ind.ending >= Model.END_OF_TIME ? "∞" : ind.ending;
+        displayLabel += ` (${ind.beginning}-${endStr})`;
+      } else if (entityType === EntityType.System) {
+        displayLabel = `${ind.name} (System)`;
+      }
+
+      addedIds.add(ind.id);
       result.push({
         ...ind,
-        id: id,
-        name: overrideName || ind.name, // Keep name clean for display in chip
-        displayLabel: displayLabel, // Full label for dropdown
-        beginning: installation ? installation.beginning : ind.beginning,
-        ending: installation ? installation.ending : ind.ending,
-        _installationId: installation ? installation.id : undefined,
+        displayLabel,
       });
-    };
-
-    // Collect all entities by type
-    const systems: Individual[] = [];
-    const systemComponents: Individual[] = [];
-    const installedComponents: Individual[] = [];
-    const regularIndividuals: Individual[] = [];
-
-    dataset.individuals.forEach((ind) => {
-      const entityType = ind.entityType ?? EntityType.Individual;
-      switch (entityType) {
-        case EntityType.System:
-          systems.push(ind);
-          break;
-        case EntityType.SystemComponent:
-          systemComponents.push(ind);
-          break;
-        case EntityType.InstalledComponent:
-          installedComponents.push(ind);
-          break;
-        default:
-          regularIndividuals.push(ind);
-          break;
-      }
-    });
-
-    // Sort each group
-    const sortByName = (a: Individual, b: Individual) =>
-      a.name.localeCompare(b.name);
-    systems.sort(sortByName);
-    systemComponents.sort(sortByName);
-    installedComponents.sort(sortByName);
-    regularIndividuals.sort(sortByName);
-
-    // 1. Systems and their nested hierarchy (matching Model.getDisplayIndividuals)
-    systems.forEach((system) => {
-      // Add System
-      addOption(system, undefined, `${system.name} (System)`);
-
-      // Find SystemComponents installed in this System
-      systemComponents.forEach((sc) => {
-        const installations = sc.installations || [];
-        const installationsInSystem = installations.filter(
-          (inst) => inst.targetId === system.id
-        );
-
-        installationsInSystem.sort(
-          (a, b) => (a.beginning ?? 0) - (b.beginning ?? 0)
-        );
-
-        installationsInSystem.forEach((inst) => {
-          const virtualId = `${sc.id}__installed_in__${system.id}__${inst.id}`;
-          const label = `${system.name} → ${sc.name}`;
-
-          addOption(sc, virtualId, label, {
-            beginning: inst.beginning ?? 0,
-            ending: inst.ending ?? Model.END_OF_TIME,
-            id: inst.id,
-          });
-
-          // Under this SystemComponent virtual row, add InstalledComponents
-          installedComponents.forEach((ic) => {
-            const icInstallations = ic.installations || [];
-            const installationsInSlot = icInstallations.filter(
-              (icInst) => icInst.targetId === sc.id
-            );
-
-            installationsInSlot.sort(
-              (a, b) => (a.beginning ?? 0) - (b.beginning ?? 0)
-            );
-
-            installationsInSlot.forEach((icInst) => {
-              // Check overlap with the SystemComponent's installation in the System
-              const scStart = inst.beginning ?? 0;
-              const scEnd = inst.ending ?? Model.END_OF_TIME;
-              const icStart = icInst.beginning ?? 0;
-              const icEnd = icInst.ending ?? Model.END_OF_TIME;
-
-              if (icStart < scEnd && icEnd > scStart) {
-                // Use context suffix to allow same IC installation to appear under multiple SC occurrences
-                const contextSuffix = `__ctx_${inst.id}`;
-                const icVirtualId = `${ic.id}__installed_in__${sc.id}__${icInst.id}${contextSuffix}`;
-                const icLabel = `${system.name} → ${sc.name} → ${ic.name}`;
-
-                addOption(ic, icVirtualId, icLabel, {
-                  beginning: icInst.beginning ?? 0,
-                  ending: icInst.ending ?? Model.END_OF_TIME,
-                  id: icInst.id,
-                });
-              }
-            });
-          });
-        });
-      });
-    });
-
-    // 2. DO NOT add top-level SystemComponents - they should only be selectable via their installations
-    // (Removed: systemComponents.forEach...)
-
-    // 3. DO NOT add top-level InstalledComponents - they should only be selectable via their installations
-    // (Removed: installedComponents.forEach...)
-
-    // 4. Regular Individuals
-    regularIndividuals.forEach((ind) => {
-      addOption(ind);
     });
 
     return result;
   }, [dataset]);
 
-  // Safe local ancestor check (walks partOf chain). Avoids depending on Model.isAncestor.
+  // Safe local ancestor check
   const isAncestorLocal = (
     ancestorId: string,
     descendantId: string
@@ -325,26 +210,21 @@ const SetActivity = (props: Props) => {
     d.individuals.forEach((individual) => {
       const entityType = individual.entityType ?? EntityType.Individual;
 
-      // Only update timing for regular Individuals that have participant-based timing enabled
-      // Do NOT update Systems, SystemComponents, or InstalledComponents - they manage their own timelines
       if (
         entityType === EntityType.System ||
         entityType === EntityType.SystemComponent ||
         entityType === EntityType.InstalledComponent
       ) {
-        return; // Skip - these types have their own fixed timelines
+        return;
       }
 
-      // For regular Individuals, only update if they have the "begins/ends with participant" flags
       const earliestBeginning = d.earliestParticipantBeginning(individual.id);
       const latestEnding = d.lastParticipantEnding(individual.id);
 
-      // Only update beginning if the individual has beginsWithParticipant enabled
       if (individual.beginsWithParticipant && individual.beginning >= 0) {
         individual.beginning = earliestBeginning ? earliestBeginning : -1;
       }
 
-      // Only update ending if the individual has endsWithParticipant enabled
       if (
         individual.endsWithParticipant &&
         individual.ending < Model.END_OF_TIME
@@ -417,7 +297,6 @@ const SetActivity = (props: Props) => {
     setActivityContext(inputs.id);
   };
 
-  /* React only calls change handlers if the value has really changed. */
   const updateInputs = (key: string, value: any) => {
     setInputs({ ...inputs, [key]: value });
     setDirty(true);
@@ -455,7 +334,6 @@ const SetActivity = (props: Props) => {
       selectedActivity.participations,
       ([key]) => key
     );
-    // Find matching individuals from our labeled list
     const participatingIndividuals = individualsWithLabels.filter(
       (participant) => {
         return individualIds.includes(participant.id);
@@ -466,22 +344,19 @@ const SetActivity = (props: Props) => {
 
   const validateInputs = () => {
     let runningErrors: string[] = [];
-    //Name
+
     if (!inputs.name) {
       runningErrors.push("Name field is required");
     }
-    //Type
     if (!inputs.type) {
       runningErrors.push("Type field is required");
     }
-    //Ending and beginning
     if (inputs.ending - inputs.beginning <= 0) {
       runningErrors.push("Ending must be after beginning");
     }
     if (inputs.ending >= Model.END_OF_TIME) {
       runningErrors.push("Ending cannot be greater than " + Model.END_OF_TIME);
     }
-    //Participant count
     if (
       inputs.participations === undefined ||
       inputs.participations?.size < 1
@@ -489,7 +364,6 @@ const SetActivity = (props: Props) => {
       runningErrors.push("Select at least one participant");
     }
 
-    // Helper function to check if there's ANY overlap between two time ranges
     const hasOverlap = (
       aStart: number,
       aEnd: number,
@@ -499,7 +373,6 @@ const SetActivity = (props: Props) => {
       return aStart < iEnd && aEnd > iStart;
     };
 
-    // Validate activity timing against installed component installation periods
     if (inputs.participations) {
       inputs.participations.forEach((participation, participantId) => {
         if (isInstallationRef({ id: participantId } as Individual)) {
@@ -511,7 +384,6 @@ const SetActivity = (props: Props) => {
 
           const component = dataset.individuals.get(originalId);
           if (component?.installations) {
-            // Find the specific installation
             const installation = installationId
               ? component.installations.find(
                   (inst) => inst.id === installationId
@@ -524,7 +396,6 @@ const SetActivity = (props: Props) => {
               const installStart = installation.beginning ?? 0;
               const installEnd = installation.ending ?? Model.END_OF_TIME;
 
-              // Get target bounds to further constrain
               const targetBounds = getTargetEffectiveTimeBounds(targetId);
               const effectiveStart = Math.max(
                 installStart,
@@ -537,7 +408,6 @@ const SetActivity = (props: Props) => {
                   : installEnd
               );
 
-              // Only error if there's NO overlap at all
               if (
                 !hasOverlap(
                   inputs.beginning,
@@ -571,7 +441,7 @@ const SetActivity = (props: Props) => {
     }
   };
 
-  // ----- New helper functions for custom activity-type selector -----
+  // Activity type selector helpers
   const filteredTypes = dataset.activityTypes.filter((t) =>
     t.name.toLowerCase().includes(typeSearch.toLowerCase())
   );
@@ -601,7 +471,6 @@ const SetActivity = (props: Props) => {
       return d;
     });
 
-    // Immediately select the newly created type for this form
     updateInputs("type", { id: newId, name, isCoreHqdm: false });
     setTypeOpen(false);
     setTypeSearch("");
@@ -624,7 +493,6 @@ const SetActivity = (props: Props) => {
       const kind = d.activityTypes.find((x) => x.id === editingTypeId);
       if (kind) kind.name = newName;
 
-      // update activities that reference this type to use canonical Kind
       d.activities.forEach((a) => {
         if (a.type && a.type.id === editingTypeId) {
           const canonical = d.activityTypes.find((x) => x.id === editingTypeId);
@@ -653,18 +521,15 @@ const SetActivity = (props: Props) => {
     setEditingTypeId(null);
     setEditingTypeValue("");
   };
-  // ----- end helpers -----
 
   const handlePromote = () => {
     if (!inputs || !inputs.partOf) return;
-    // find current parent and then its parent (grandparent) - that's the new parent
     const currentParent = dataset.getParent(inputs.partOf as Id);
     const grandParent = currentParent
       ? dataset.getParent(currentParent.id)
       : undefined;
     const newParentId = grandParent ? grandParent.id : null;
 
-    // confirm if child outside of new parent's timeframe
     if (newParentId) {
       const parentAct = dataset.activities.get(newParentId);
       if (
@@ -690,7 +555,6 @@ const SetActivity = (props: Props) => {
   };
 
   const openChangeParent = () => {
-    // prepare list in modal by setting default selection to current parent
     setSelectedParentId(inputs.partOf ? (inputs.partOf as string) : null);
     setShowParentModal(true);
   };
@@ -704,12 +568,12 @@ const SetActivity = (props: Props) => {
     setShowParentModal(false);
   };
 
-  // Update eligibleParticipants to check target bounds via installations
+  // Filter eligible participants by activity time
   const eligibleParticipants = useMemo<IndividualOption[]>(() => {
     const actStart = inputs.beginning;
     const actEnd = inputs.ending;
 
-    const hasTimeOverlap = (ind: IndividualOption): boolean => {
+    return individualsWithLabels.filter((ind) => {
       let indStart = ind.beginning >= 0 ? ind.beginning : 0;
       let indEnd = ind.ending < Model.END_OF_TIME ? ind.ending : Infinity;
 
@@ -727,17 +591,6 @@ const SetActivity = (props: Props) => {
 
       // Check overlap
       return actStart < indEnd && actEnd > indStart;
-    };
-
-    return individualsWithLabels.filter((ind) => {
-      if (!isInstallationRef(ind)) {
-        const entityType = ind.entityType ?? EntityType.Individual;
-        if (ind.beginning >= 0 && ind.ending < Model.END_OF_TIME) {
-          return hasTimeOverlap(ind);
-        }
-        return true;
-      }
-      return hasTimeOverlap(ind);
     });
   }, [individualsWithLabels, inputs.beginning, inputs.ending, dataset]);
 
@@ -942,7 +795,6 @@ const SetActivity = (props: Props) => {
               />
             </Form.Group>
 
-            {/* UPDATED: Use eligibleParticipants instead of individualsWithLabels */}
             <Form.Group className="mb-3" controlId="formParticipants">
               <Form.Label>
                 Participants
@@ -1060,10 +912,9 @@ const SetActivity = (props: Props) => {
             </ListGroup.Item>
             {Array.from(dataset.activities.values())
               .filter((a) => {
-                // exclude self and descendants
                 if (!inputs || !inputs.id) return false;
                 if (a.id === inputs.id) return false;
-                if (isAncestorLocal(inputs.id, a.id)) return false; // avoid cycles
+                if (isAncestorLocal(inputs.id, a.id)) return false;
                 return true;
               })
               .map((a) => {

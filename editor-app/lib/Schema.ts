@@ -74,6 +74,7 @@ export interface Individual {
   endsWithParticipant?: boolean;
   _nestingLevel?: number;
   _isVirtualRow?: boolean;
+  _parentPath?: string;
 }
 
 // Note: beginning/ending are inherited from STExtent

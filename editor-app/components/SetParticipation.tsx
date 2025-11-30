@@ -48,11 +48,10 @@ const SetParticipation = (props: Props) => {
   const [editingRoleValue, setEditingRoleValue] = useState("");
   const roleDropdownRef = useRef<HTMLDivElement | null>(null);
 
-  // Build available participants including virtual installation rows
+  // Build available participants including ALL virtual installation rows
   const availableParticipants = useMemo(() => {
     const result: Individual[] = [];
     const addedIds = new Set<string>();
-    const individuals = Array.from(dataset.individuals.values());
 
     // Helper to add individual if not already added
     const addIfNew = (ind: Individual) => {
@@ -62,54 +61,95 @@ const SetParticipation = (props: Props) => {
       }
     };
 
-    // Add regular individuals (not InstalledComponents - those only appear as virtual rows)
-    individuals.forEach((ind) => {
+    // Get all display individuals (includes virtual rows for installations)
+    const displayIndividuals = dataset.getDisplayIndividuals();
+
+    displayIndividuals.forEach((ind) => {
       const entityType = ind.entityType ?? EntityType.Individual;
 
-      // Skip InstalledComponents - they participate via their virtual installation rows
-      if (entityType === EntityType.InstalledComponent) {
+      // For virtual rows, always include them (they represent specific installation instances)
+      if (ind._isVirtualRow) {
+        addIfNew(ind);
         return;
       }
 
-      // Add Systems, SystemComponents, and regular Individuals
-      addIfNew(ind);
-    });
-
-    // Add virtual installation rows for each InstalledComponent's installation periods
-    individuals.forEach((ind) => {
-      const entityType = ind.entityType ?? EntityType.Individual;
-
-      if (entityType === EntityType.InstalledComponent && ind.installations) {
-        // Create a SEPARATE virtual row for EACH installation period
-        ind.installations.forEach((inst) => {
-          // Format: componentId__installed_in__slotId__installationId
-          const virtualId = `${ind.id}__installed_in__${inst.targetId}__${inst.id}`;
-
-          const slot = dataset.individuals.get(inst.targetId);
-          const slotName = slot?.name || inst.targetId;
-          const endStr =
-            (inst.ending ?? Model.END_OF_TIME) >= Model.END_OF_TIME
-              ? "∞"
-              : inst.ending;
-
-          const virtualIndividual: Individual = {
-            ...ind,
-            id: virtualId,
-            name: `${ind.name} in ${slotName} (${
-              inst.beginning ?? 0
-            }-${endStr})`,
-            beginning: inst.beginning ?? 0,
-            ending: inst.ending ?? Model.END_OF_TIME,
-            _installationId: inst.id,
-          };
-
-          addIfNew(virtualIndividual);
-        });
+      // Skip top-level InstalledComponents that have installations
+      if (entityType === EntityType.InstalledComponent) {
+        const hasInstallations =
+          ind.installations && ind.installations.length > 0;
+        if (hasInstallations) {
+          return; // Skip - will be shown as virtual rows
+        }
+        addIfNew(ind);
+        return;
       }
+
+      // Skip top-level SystemComponents that have installations
+      if (entityType === EntityType.SystemComponent) {
+        const hasInstallations =
+          ind.installations && ind.installations.length > 0;
+        if (hasInstallations) {
+          return; // Skip - will be shown as virtual rows
+        }
+        addIfNew(ind);
+        return;
+      }
+
+      // Systems and regular Individuals - always include
+      addIfNew(ind);
     });
 
     return result;
   }, [dataset]);
+
+  // Filter participants that overlap with activity time
+  const eligibleParticipants = useMemo(() => {
+    if (!selectedActivity) return availableParticipants;
+
+    const actStart = selectedActivity.beginning;
+    const actEnd = selectedActivity.ending;
+
+    return availableParticipants.filter((ind) => {
+      // For virtual installation rows, use their specific time period
+      const indStart = ind.beginning >= 0 ? ind.beginning : 0;
+      const indEnd =
+        ind.ending < Model.END_OF_TIME ? ind.ending : Model.END_OF_TIME;
+
+      // Check overlap
+      return actStart < indEnd && actEnd > indStart;
+    });
+  }, [availableParticipants, selectedActivity]);
+
+  // Group participants by type for display
+  const groupedParticipants = useMemo(() => {
+    const groups = {
+      systems: [] as Individual[],
+      systemComponents: [] as Individual[],
+      installedComponents: [] as Individual[],
+      individuals: [] as Individual[],
+    };
+
+    eligibleParticipants.forEach((ind) => {
+      const entityType = ind.entityType ?? EntityType.Individual;
+
+      switch (entityType) {
+        case EntityType.System:
+          groups.systems.push(ind);
+          break;
+        case EntityType.SystemComponent:
+          groups.systemComponents.push(ind);
+          break;
+        case EntityType.InstalledComponent:
+          groups.installedComponents.push(ind);
+          break;
+        default:
+          groups.individuals.push(ind);
+          break;
+      }
+    });
+
+    return groups;
+  }, [eligibleParticipants]);
 
   // click outside to close role dropdown
   useEffect(() => {
@@ -270,30 +310,26 @@ const SetParticipation = (props: Props) => {
 
   // Helper to get display name for an individual (including virtual rows)
   const getDisplayName = (ind: Individual): string => {
-    // Check if this is an installation reference
-    if (ind.id.includes("__installed_in__")) {
+    // Check if this is an installation reference (virtual row)
+    if (ind._isVirtualRow && ind.id.includes("__installed_in__")) {
       const originalId = ind.id.split("__installed_in__")[0];
-      const rest = ind.id.split("__installed_in__")[1];
-      const parts = rest.split("__");
-      const targetId = parts[0];
-      const installationId = parts[1];
-
       const originalComponent = dataset.individuals.get(originalId);
-      const target = dataset.individuals.get(targetId);
 
-      if (originalComponent && target) {
-        // Find the installation to show its time period
-        const installation = originalComponent.installations?.find(
-          (inst) => inst.id === installationId
-        );
-        if (installation) {
-          const endStr =
-            (installation.ending ?? Model.END_OF_TIME) >= Model.END_OF_TIME
-              ? "∞"
-              : installation.ending;
-          return `${originalComponent.name} in ${target.name} (${installation.beginning}-${endStr})`;
-        }
-        return `${originalComponent.name} in ${target.name}`;
+      if (originalComponent) {
+        // Use the virtual row's already-computed bounds
+        const endStr =
+          ind.ending >= Model.END_OF_TIME ? "∞" : String(ind.ending);
+        const startStr = String(ind.beginning);
+
+        // Get parent info from _parentPath
+        const parentPath = ind._parentPath || "";
+        const pathParts = parentPath.split("__");
+        const systemId = pathParts[0];
+        const system = dataset.individuals.get(systemId);
+
+        return `${originalComponent.name} in ${
+          system?.name || "Unknown"
+        } (${startStr}-${endStr})`;
       }
     }
     return ind.name;
@@ -337,27 +373,6 @@ const SetParticipation = (props: Props) => {
     const ind = dataset.individuals.get(participantId);
     return ind?.name || participantId;
   };
-
-  // Helper to check if participant overlaps with activity time
-  const hasTimeOverlap = (ind: Individual): boolean => {
-    if (!selectedActivity) return true;
-
-    const actStart = selectedActivity.beginning;
-    const actEnd = selectedActivity.ending;
-
-    // For virtual installation rows, use their specific time period
-    const indStart = ind.beginning >= 0 ? ind.beginning : 0;
-    const indEnd =
-      ind.ending < Model.END_OF_TIME ? ind.ending : Model.END_OF_TIME;
-
-    // Check overlap
-    return actStart < indEnd && actEnd > indStart;
-  };
-
-  // Filter participants that overlap with activity time
-  const eligibleParticipants = useMemo(() => {
-    return availableParticipants.filter(hasTimeOverlap);
-  }, [availableParticipants, selectedActivity]);
 
   return (
     <>

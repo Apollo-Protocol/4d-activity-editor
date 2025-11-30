@@ -633,195 +633,272 @@ export class Model {
   }
 
   /**
-   * Get the list of individuals to display in the diagram.
+   * Check for circular references in installation hierarchy
+   * Returns true if installing componentId into potentialTargetId would create a cycle
+   *
+   * Note: This only prevents direct self-installation.
+   * Cross-system nesting (e.g., SC1→SC2 in System A, SC2→SC1 in System B) is allowed
+   * because they are different installation contexts.
    */
-  // ...existing code up to getDisplayIndividuals...
+  wouldCreateCircularReference(
+    componentId: string,
+    potentialTargetId: string
+  ): boolean {
+    // Can't install into self
+    return componentId === potentialTargetId;
+  }
+
+  /**
+   * Get the effective time bounds for an installation target
+   * Works for both Systems and SystemComponents
+   */
+  getTargetTimeBounds(targetId: string): { beginning: number; ending: number } {
+    const target = this.individuals.get(targetId);
+    if (!target) {
+      return { beginning: 0, ending: Model.END_OF_TIME };
+    }
+
+    const targetType = target.entityType ?? EntityType.Individual;
+    let beginning = target.beginning >= 0 ? target.beginning : 0;
+    let ending = target.ending;
+
+    // If target is a SystemComponent, get bounds from ITS installations
+    if (targetType === EntityType.SystemComponent) {
+      if (target.installations && target.installations.length > 0) {
+        const instBeginnings = target.installations.map((inst) =>
+          Math.max(0, inst.beginning ?? 0)
+        );
+        const instEndings = target.installations.map(
+          (inst) => inst.ending ?? Model.END_OF_TIME
+        );
+        beginning = Math.min(...instBeginnings);
+        ending = Math.max(...instEndings);
+      }
+    }
+
+    return { beginning, ending };
+  }
 
   /**
    * Get the list of individuals to display in the diagram.
+   * Handles nested SystemComponent → SystemComponent → System hierarchies.
    */
   getDisplayIndividuals(): Individual[] {
     const result: Individual[] = [];
-    const addedVirtualIds = new Set<string>();
+    const processedIds = new Set<string>();
 
-    // Collect all entities by type
+    // Helper to recursively add installations with proper context
+    const addInstallationsRecursively = (
+      target: Individual,
+      parentPath: string,
+      parentBounds: { beginning: number; ending: number },
+      nestingLevel: number,
+      parentInstallationId?: string
+    ) => {
+      const targetEntityType = target.entityType ?? EntityType.Individual;
+
+      this.individuals.forEach((component) => {
+        const entityType = component.entityType ?? EntityType.Individual;
+        if (
+          entityType !== EntityType.SystemComponent &&
+          entityType !== EntityType.InstalledComponent
+        ) {
+          return;
+        }
+
+        if (!component.installations || component.installations.length === 0) {
+          return;
+        }
+
+        component.installations.forEach((installation) => {
+          if (installation.targetId !== target.id) return;
+
+          // If target is a SystemComponent (nested), check context matches
+          if (
+            targetEntityType === EntityType.SystemComponent &&
+            parentInstallationId
+          ) {
+            if (installation.scInstallationContextId) {
+              if (
+                installation.scInstallationContextId !== parentInstallationId
+              ) {
+                return;
+              }
+            }
+          }
+
+          const instStart = installation.beginning ?? 0;
+          const instEnd = installation.ending ?? Model.END_OF_TIME;
+
+          const effectiveStart = Math.max(instStart, parentBounds.beginning);
+          const effectiveEnd = Math.min(
+            instEnd,
+            parentBounds.ending < Model.END_OF_TIME
+              ? parentBounds.ending
+              : instEnd
+          );
+
+          if (effectiveStart >= effectiveEnd) return;
+
+          const virtualId = `${component.id}__installed_in__${target.id}__${installation.id}`;
+
+          if (processedIds.has(virtualId)) return;
+          processedIds.add(virtualId);
+
+          const newPath = parentPath
+            ? `${parentPath}__${target.id}`
+            : target.id;
+
+          const virtualRow: Individual = {
+            ...component,
+            id: virtualId,
+            beginning: effectiveStart,
+            ending: effectiveEnd,
+            _isVirtualRow: true,
+            _parentPath: newPath,
+            _nestingLevel: nestingLevel,
+            _installationId: installation.id,
+          };
+
+          result.push(virtualRow);
+
+          // If this component is a SystemComponent, recursively add things installed in IT
+          if (entityType === EntityType.SystemComponent) {
+            addInstallationsRecursively(
+              component,
+              newPath,
+              { beginning: effectiveStart, ending: effectiveEnd },
+              nestingLevel + 1,
+              installation.id
+            );
+          }
+        });
+      });
+    };
+
+    // STEP 1: Add all Systems and their nested components IN ORDER
+    // This ensures virtual rows appear immediately after their parent system
     const systems: Individual[] = [];
-    const systemComponents: Individual[] = [];
-    const installedComponents: Individual[] = [];
-    const regularIndividuals: Individual[] = [];
-
     this.individuals.forEach((ind) => {
       const entityType = ind.entityType ?? EntityType.Individual;
-      switch (entityType) {
-        case EntityType.System:
-          systems.push(ind);
-          break;
-        case EntityType.SystemComponent:
-          systemComponents.push(ind);
-          break;
-        case EntityType.InstalledComponent:
-          installedComponents.push(ind);
-          break;
-        default:
-          regularIndividuals.push(ind);
-          break;
+      if (entityType === EntityType.System) {
+        systems.push(ind);
       }
     });
 
-    // Sort each group alphabetically
+    // Sort systems by name
     systems.sort((a, b) => a.name.localeCompare(b.name));
-    systemComponents.sort((a, b) => a.name.localeCompare(b.name));
-    installedComponents.sort((a, b) => a.name.localeCompare(b.name));
-    regularIndividuals.sort((a, b) => a.name.localeCompare(b.name));
 
-    // 1. Add Systems with their nested VIRTUAL rows
+    // Add each system and IMMEDIATELY add its nested virtual rows
     systems.forEach((system) => {
-      // Add the System itself (top level)
-      result.push({
-        ...system,
-        _nestingLevel: 0,
-        _isVirtualRow: false,
-      });
-
-      // Find SystemComponents installed in this System and create VIRTUAL rows
-      systemComponents.forEach((sc) => {
-        const scInstallations = sc.installations || [];
-        const installationsInThisSystem = scInstallations.filter(
-          (inst) => inst.targetId === system.id
-        );
-
-        // Sort installations by time
-        installationsInThisSystem.sort(
-          (a, b) => (a.beginning ?? 0) - (b.beginning ?? 0)
-        );
-
-        // Create a VIRTUAL row for each installation period of this SystemComponent in this System
-        installationsInThisSystem.forEach((scInst) => {
-          const scVirtualId = `${sc.id}__installed_in__${system.id}__${scInst.id}`;
-          if (addedVirtualIds.has(scVirtualId)) return;
-          addedVirtualIds.add(scVirtualId);
-
-          const scStart = scInst.beginning ?? 0;
-          const scEnd = scInst.ending ?? Model.END_OF_TIME;
-
-          // Create virtual row for SystemComponent in System (nested level 1)
-          const scVirtualRow: Individual = {
-            ...sc,
-            id: scVirtualId,
-            name: sc.name,
-            beginning: scStart,
-            ending: scEnd,
-            _installationId: scInst.id,
-            _nestingLevel: 1,
-            _isVirtualRow: true,
-          };
-          result.push(scVirtualRow);
-
-          // Under this SystemComponent virtual row, add InstalledComponent VIRTUAL rows
-          installedComponents.forEach((ic) => {
-            const icInstallations = ic.installations || [];
-
-            // Filter to only installations targeting THIS SystemComponent
-            const installationsInThisSC = icInstallations.filter(
-              (icInst) => icInst.targetId === sc.id
-            );
-
-            installationsInThisSC.forEach((icInst) => {
-              // STRICT CHECK: Only show this IC under this System if:
-              // 1. scInstallationContextId matches this SC installation, OR
-              // 2. systemContextId matches this System, OR
-              // 3. NEITHER is set AND this is the ONLY system where this SC is installed
-
-              const hasScInstContext = !!icInst.scInstallationContextId;
-              const hasSystemContext = !!icInst.systemContextId;
-
-              if (hasScInstContext) {
-                // If scInstallationContextId is set, it MUST match this SC installation
-                if (icInst.scInstallationContextId !== scInst.id) {
-                  return; // Skip - this IC is for a different SC installation
-                }
-              } else if (hasSystemContext) {
-                // If systemContextId is set (but not scInstallationContextId), it MUST match this System
-                if (icInst.systemContextId !== system.id) {
-                  return; // Skip - this IC is for a different System
-                }
-              } else {
-                // Neither context is set - this is a legacy installation
-                // Only show it if this SC is installed in ONLY ONE system
-                // (to avoid duplicating across all systems)
-                const allScInstallations = sc.installations || [];
-                const uniqueSystemIds = new Set(
-                  allScInstallations.map((inst) => inst.targetId)
-                );
-
-                if (uniqueSystemIds.size > 1) {
-                  // SC is in multiple systems, and IC has no context
-                  // Don't show it anywhere to avoid confusion
-                  // User needs to edit the IC and set the context
-                  return;
-                }
-              }
-
-              const icStart = icInst.beginning ?? 0;
-              const icEnd = icInst.ending ?? Model.END_OF_TIME;
-
-              // Check temporal overlap
-              const hasOverlap = icStart < scEnd && icEnd > scStart;
-
-              if (hasOverlap) {
-                const icVirtualId = `${ic.id}__installed_in__${sc.id}__${icInst.id}__ctx_${scInst.id}`;
-
-                if (addedVirtualIds.has(icVirtualId)) return;
-                addedVirtualIds.add(icVirtualId);
-
-                const displayStart = Math.max(icStart, scStart);
-                const displayEnd = Math.min(icEnd, scEnd);
-
-                const icVirtualRow: Individual = {
-                  ...ic,
-                  id: icVirtualId,
-                  name: ic.name,
-                  beginning: displayStart,
-                  ending: displayEnd,
-                  _installationId: icInst.id,
-                  _nestingLevel: 2,
-                  _isVirtualRow: true,
-                };
-                result.push(icVirtualRow);
-              }
-            });
-          });
+      if (!processedIds.has(system.id)) {
+        processedIds.add(system.id);
+        result.push({
+          ...system,
+          _isVirtualRow: false,
+          _parentPath: "",
+          _nestingLevel: 0,
         });
-      });
+
+        // Add virtual rows for this system IMMEDIATELY after the system
+        const bounds = this.getTargetTimeBounds(system.id);
+        addInstallationsRecursively(system, "", bounds, 1, undefined);
+      }
     });
 
-    // 2. Add SystemComponents - actual entities (top level, NOT nested)
-    systemComponents.forEach((sc) => {
-      result.push({
-        ...sc,
-        _nestingLevel: 0,
-        _isVirtualRow: false,
-      });
+    // STEP 2: Add ALL SystemComponents at top level (those not yet added as virtual rows)
+    const topLevelSCs: Individual[] = [];
+    this.individuals.forEach((ind) => {
+      const entityType = ind.entityType ?? EntityType.Individual;
+      if (entityType === EntityType.SystemComponent) {
+        if (!processedIds.has(ind.id)) {
+          topLevelSCs.push(ind);
+        }
+      }
     });
-
-    // 3. Add InstalledComponents - actual entities (top level, NOT nested)
-    installedComponents.forEach((ic) => {
-      result.push({
-        ...ic,
-        _nestingLevel: 0,
-        _isVirtualRow: false,
-      });
-    });
-
-    // 4. Add regular Individuals (top level)
-    regularIndividuals.forEach((ind) => {
+    topLevelSCs.sort((a, b) => a.name.localeCompare(b.name));
+    topLevelSCs.forEach((ind) => {
+      processedIds.add(ind.id);
       result.push({
         ...ind,
-        _nestingLevel: 0,
         _isVirtualRow: false,
+        _parentPath: "",
+        _nestingLevel: 0,
       });
     });
 
+    // STEP 3: Add ALL InstalledComponents at top level
+    const topLevelICs: Individual[] = [];
+    this.individuals.forEach((ind) => {
+      const entityType = ind.entityType ?? EntityType.Individual;
+      if (entityType === EntityType.InstalledComponent) {
+        if (!processedIds.has(ind.id)) {
+          topLevelICs.push(ind);
+        }
+      }
+    });
+    topLevelICs.sort((a, b) => a.name.localeCompare(b.name));
+    topLevelICs.forEach((ind) => {
+      processedIds.add(ind.id);
+      result.push({
+        ...ind,
+        _isVirtualRow: false,
+        _parentPath: "",
+        _nestingLevel: 0,
+      });
+    });
+
+    // STEP 4: Add regular Individuals
+    const regularIndividuals: Individual[] = [];
+    this.individuals.forEach((ind) => {
+      const entityType = ind.entityType ?? EntityType.Individual;
+      if (entityType === EntityType.Individual) {
+        if (!processedIds.has(ind.id)) {
+          regularIndividuals.push(ind);
+        }
+      }
+    });
+    regularIndividuals.sort((a, b) => a.name.localeCompare(b.name));
+    regularIndividuals.forEach((ind) => {
+      processedIds.add(ind.id);
+      result.push({
+        ...ind,
+        _isVirtualRow: false,
+        _parentPath: "",
+        _nestingLevel: 0,
+      });
+    });
+
+    // NO SORTING NEEDED - items are added in correct order:
+    // 1. Sys 1 (System)
+    //    - Sys comp 1 (virtual row under Sys 1)
+    //      - Inst comp 1 (virtual row under Sys comp 1 under Sys 1)
+    // 2. Sys 2 (System)
+    //    - Sys comp 2 (virtual row under Sys 2)
+    // 3. Sys comp 1 (top-level definition)
+    // 4. Sys comp 2 (top-level definition)
+    // 5. Inst comp 1 (top-level definition)
+    // 6. Inst comp 2 (top-level definition)
+    // 7. Egg, Me, Pan... (regular Individuals)
+
     return result;
+  }
+
+  // Helper to extract installation ID from virtual row ID
+  extractInstallationIdFromVirtualId(virtualId: string): string | undefined {
+    if (!virtualId.includes("__installed_in__")) return undefined;
+    const parts = virtualId.split("__installed_in__");
+    if (parts.length < 2) return undefined;
+    let rest = parts[1];
+
+    // Remove context suffix if present
+    const ctxIndex = rest.indexOf("__ctx_");
+    if (ctxIndex !== -1) {
+      rest = rest.substring(0, ctxIndex);
+    }
+
+    const restParts = rest.split("__");
+    // Format: targetId__installationId
+    return restParts.length > 1 ? restParts[1] : undefined;
   }
 }

@@ -12,7 +12,40 @@ interface Props {
   dataset: Model;
   updateDataset?: (updater: (d: Model) => void) => void;
   targetSlotId?: string;
-  targetSystemId?: string; // NEW: The System context when opening from a nested view
+  targetSystemId?: string;
+}
+
+// Interface for slot options that includes nesting info
+interface SlotOption {
+  id: string; // Original SystemComponent ID
+  virtualId: string; // Virtual row ID - unique identifier for this specific slot instance
+  displayName: string;
+  bounds: { beginning: number; ending: number };
+  parentPath: string; // Path of parent IDs for context
+  nestingLevel: number;
+  systemName?: string;
+  scInstallationId?: string; // The SC installation ID for context
+}
+
+// Helper to extract the SC installation ID from a virtual row ID
+// Format: scId__installed_in__targetId__installationId or with __ctx_
+function extractInstallationIdFromVirtualId(
+  virtualId: string
+): string | undefined {
+  if (!virtualId.includes("__installed_in__")) return undefined;
+  const parts = virtualId.split("__installed_in__");
+  if (parts.length < 2) return undefined;
+  let rest = parts[1];
+
+  // Remove context suffix if present
+  const ctxIndex = rest.indexOf("__ctx_");
+  if (ctxIndex !== -1) {
+    rest = rest.substring(0, ctxIndex);
+  }
+
+  const restParts = rest.split("__");
+  // restParts[0] is targetId, restParts[1] is installationId
+  return restParts.length > 1 ? restParts[1] : undefined;
 }
 
 const EditInstalledComponent = (props: Props) => {
@@ -40,79 +73,136 @@ const EditInstalledComponent = (props: Props) => {
   >(new Map());
   const [showAll, setShowAll] = useState(false);
 
-  // Get all Systems
-  const allSystems = Array.from(dataset.individuals.values()).filter(
-    (ind) => (ind.entityType ?? EntityType.Individual) === EntityType.System
-  );
+  // Get available slots - now includes ALL SystemComponent virtual rows (including nested)
+  const availableSlots = useMemo((): SlotOption[] => {
+    const slots: SlotOption[] = [];
+    const displayIndividuals = dataset.getDisplayIndividuals();
 
-  // Get available slots (SystemComponents) - but only show them if they're NOT in the filtered list
-  // When in filtered mode (targetSlotId is set), we don't show the slot selector
-  const availableSlots = useMemo(() => {
-    if (targetSlotId) {
-      // In filtered mode, only return the target slot
-      const slot = dataset.individuals.get(targetSlotId);
-      return slot ? [slot] : [];
+    displayIndividuals.forEach((ind) => {
+      // Only consider virtual rows (installed instances)
+      if (!ind._isVirtualRow) return;
+
+      // Parse the virtual ID to get the original component ID
+      const originalId = ind.id.split("__installed_in__")[0];
+      const original = dataset.individuals.get(originalId);
+      if (!original) return;
+
+      const origType = original.entityType ?? EntityType.Individual;
+
+      // Only SystemComponents can be slots for InstalledComponents
+      if (origType !== EntityType.SystemComponent) return;
+
+      // Build display name showing full hierarchy
+      const pathParts = ind._parentPath?.split("__") || [];
+      const pathNames: string[] = [];
+
+      pathParts.forEach((partId) => {
+        const part = dataset.individuals.get(partId);
+        if (part) {
+          pathNames.push(part.name);
+        }
+      });
+
+      // The display name shows the SC name and its full path
+      const hierarchyStr =
+        pathNames.length > 0 ? pathNames.join(" → ") : "Unknown";
+      const displayName = `${ind.name} (in ${hierarchyStr})`;
+
+      // Extract the SC installation ID from the virtual ID
+      const scInstallationId = ind._installationId;
+
+      slots.push({
+        id: originalId,
+        virtualId: ind.id,
+        displayName: displayName,
+        bounds: { beginning: ind.beginning, ending: ind.ending },
+        parentPath: ind._parentPath || "",
+        nestingLevel: ind._nestingLevel || 1,
+        systemName: pathNames[0], // Root system name
+        scInstallationId: scInstallationId,
+      });
+    });
+
+    // Sort by system name, then by parent path (to maintain hierarchy), then by name
+    slots.sort((a, b) => {
+      // First by system name
+      if (a.systemName !== b.systemName) {
+        return (a.systemName || "").localeCompare(b.systemName || "");
+      }
+      // Then by parent path to keep hierarchy together
+      if (a.parentPath !== b.parentPath) {
+        // If one is nested under the other, parent comes first
+        if (a.parentPath.startsWith(b.parentPath + "__")) return 1;
+        if (b.parentPath.startsWith(a.parentPath + "__")) return -1;
+        return a.parentPath.localeCompare(b.parentPath);
+      }
+      // Then by nesting level
+      if (a.nestingLevel !== b.nestingLevel) {
+        return a.nestingLevel - b.nestingLevel;
+      }
+      // Finally by display name
+      return a.displayName.localeCompare(b.displayName);
+    });
+
+    return slots;
+  }, [dataset]);
+
+  // Group slots by system for the dropdown - MOVED BEFORE any conditional returns
+  const slotsBySystem = useMemo(() => {
+    const groups = new Map<string, SlotOption[]>();
+    availableSlots.forEach((slot) => {
+      const sysName = slot.systemName || "Unknown";
+      if (!groups.has(sysName)) {
+        groups.set(sysName, []);
+      }
+      groups.get(sysName)!.push(slot);
+    });
+    return groups;
+  }, [availableSlots]);
+
+  // Helper to get slot option by virtualId (unique key)
+  const getSlotOptionByVirtualId = (
+    virtualId: string
+  ): SlotOption | undefined => {
+    return availableSlots.find((slot) => slot.virtualId === virtualId);
+  };
+
+  // Helper to get slot option by targetId and scInstContextId
+  const getSlotOption = (
+    targetId: string,
+    scInstContextId?: string
+  ): SlotOption | undefined => {
+    return availableSlots.find((slot) => {
+      if (slot.id !== targetId) return false;
+      // If we have a context ID, must match exactly
+      if (scInstContextId) {
+        return slot.scInstallationId === scInstContextId;
+      }
+      // If no context, return first matching slot
+      return true;
+    });
+  };
+
+  // Helper function to get effective slot time bounds
+  const getSlotTimeBounds = (
+    slotId: string,
+    scInstContextId?: string
+  ): { beginning: number; ending: number; slotName: string } => {
+    const slotOption = getSlotOption(slotId, scInstContextId);
+    if (slotOption) {
+      return {
+        beginning: slotOption.bounds.beginning,
+        ending: slotOption.bounds.ending,
+        slotName: slotOption.displayName,
+      };
     }
 
-    // In unfiltered mode, return all SystemComponents that have installations
-    // (Only virtual SystemComponent rows can be installation targets)
-    return Array.from(dataset.individuals.values()).filter((ind) => {
-      if (
-        (ind.entityType ?? EntityType.Individual) !== EntityType.SystemComponent
-      ) {
-        return false;
-      }
-      // Only show SystemComponents that are installed somewhere
-      return ind.installations && ind.installations.length > 0;
-    });
-  }, [dataset, targetSlotId]);
-
-  // Helper to get Systems where a slot is installed
-  const getSystemsForSlot = (slotId: string): Individual[] => {
-    const slot = dataset.individuals.get(slotId);
-    if (!slot || !slot.installations) return [];
-
-    const systemIds = new Set(slot.installations.map((inst) => inst.targetId));
-    return Array.from(systemIds)
-      .map((sysId) => dataset.individuals.get(sysId))
-      .filter((sys): sys is Individual => !!sys);
-  };
-
-  // Helper to get the SC installation ID for a specific System
-  const getScInstallationForSystem = (
-    slotId: string,
-    systemId: string
-  ): Installation | undefined => {
-    const slot = dataset.individuals.get(slotId);
-    if (!slot || !slot.installations) return undefined;
-    return slot.installations.find((inst) => inst.targetId === systemId);
-  };
-
-  // Helper function to get effective slot time bounds for a specific System context
-  const getSlotTimeBoundsForSystem = (
-    slotId: string,
-    systemId?: string
-  ): { beginning: number; ending: number; slotName: string } => {
+    // Fallback to original behavior
     const slot = dataset.individuals.get(slotId);
     if (!slot) {
       return { beginning: 0, ending: Model.END_OF_TIME, slotName: slotId };
     }
 
-    // If a specific System is provided, get bounds from that installation
-    if (systemId && slot.installations) {
-      const scInst = slot.installations.find(
-        (inst) => inst.targetId === systemId
-      );
-      if (scInst) {
-        return {
-          beginning: scInst.beginning ?? 0,
-          ending: scInst.ending ?? Model.END_OF_TIME,
-          slotName: slot.name,
-        };
-      }
-    }
-
-    // Fallback: use union of all installations
     let beginning = slot.beginning;
     let ending = slot.ending;
 
@@ -123,25 +213,14 @@ const EditInstalledComponent = (props: Props) => {
       const instEndings = slot.installations.map(
         (inst) => inst.ending ?? Model.END_OF_TIME
       );
-      const earliestBeginning = Math.min(...instBeginnings);
-      const latestEnding = Math.max(...instEndings);
-
-      if (beginning < 0) {
-        beginning = earliestBeginning;
-      }
-      if (ending >= Model.END_OF_TIME && latestEnding < Model.END_OF_TIME) {
-        ending = latestEnding;
-      }
-    } else if (beginning < 0) {
-      beginning = 0;
+      beginning = Math.min(...instBeginnings);
+      ending = Math.max(...instEndings);
     }
+
+    if (beginning < 0) beginning = 0;
 
     return { beginning, ending, slotName: slot.name };
   };
-
-  // For backward compatibility
-  const getSlotTimeBounds = (slotId: string) =>
-    getSlotTimeBoundsForSystem(slotId, undefined);
 
   useEffect(() => {
     if (individual && individual.installations) {
@@ -149,7 +228,6 @@ const EditInstalledComponent = (props: Props) => {
       setAllInstallations(allInst);
 
       if (targetSlotId) {
-        // Filter by slot AND optionally by system context
         let filtered = allInst.filter((inst) => inst.targetId === targetSlotId);
         if (targetSystemId) {
           filtered = filtered.filter(
@@ -198,7 +276,7 @@ const EditInstalledComponent = (props: Props) => {
       const endingStr = raw?.ending ?? String(inst.ending);
 
       const slotInfo = inst.targetId
-        ? getSlotTimeBoundsForSystem(inst.targetId, inst.systemContextId)
+        ? getSlotTimeBounds(inst.targetId, inst.scInstallationContextId)
         : {
             beginning: 0,
             ending: Model.END_OF_TIME,
@@ -207,44 +285,8 @@ const EditInstalledComponent = (props: Props) => {
       const slotName = slotInfo.slotName;
 
       if (!inst.targetId) {
-        newErrors.push(`${slotName}: Please select a target slot.`);
+        newErrors.push(`Row ${idx + 1}: Please select a target slot.`);
         return;
-      }
-
-      // Validate that a slot is selected AND it must be a virtual row (installed SystemComponent)
-      const slot = dataset.individuals.get(inst.targetId);
-      if (slot) {
-        const slotType = slot.entityType ?? EntityType.Individual;
-        if (slotType === EntityType.SystemComponent) {
-          // Check if this SystemComponent has any installations
-          if (!slot.installations || slot.installations.length === 0) {
-            newErrors.push(
-              `${slotName}: Cannot install into an uninstalled SystemComponent. The SystemComponent must be installed in a System first.`
-            );
-            return;
-          }
-        }
-      }
-
-      // Validate that if a slot is selected, a System context is also selected
-      // (if the slot is installed in multiple systems)
-      const systemsForSlot = getSystemsForSlot(inst.targetId);
-
-      // Auto-fill system context if only one option exists
-      if (systemsForSlot.length === 1 && !inst.systemContextId) {
-        // This will be handled during save, but we need the context for validation
-        const autoSystemId = systemsForSlot[0].id;
-        inst.systemContextId = autoSystemId;
-        const scInst = getScInstallationForSystem(inst.targetId, autoSystemId);
-        if (scInst) {
-          inst.scInstallationContextId = scInst.id;
-        }
-      }
-
-      if (systemsForSlot.length > 1 && !inst.systemContextId) {
-        newErrors.push(
-          `${slotName}: Please select which System this installation belongs to.`
-        );
       }
 
       if (beginningStr.trim() === "") {
@@ -269,29 +311,21 @@ const EditInstalledComponent = (props: Props) => {
           newErrors.push(`${slotName}: "From" must be less than "Until".`);
         }
 
-        // Validate against slot bounds (using System context if available)
-        const contextBounds = getSlotTimeBoundsForSystem(
-          inst.targetId,
-          inst.systemContextId
-        );
-        if (beginning < contextBounds.beginning) {
+        if (beginning < slotInfo.beginning) {
           newErrors.push(
-            `${slotName}: "From" (${beginning}) cannot be before slot starts (${contextBounds.beginning}).`
+            `${slotName}: "From" (${beginning}) cannot be before slot starts (${slotInfo.beginning}).`
           );
         }
-        if (
-          contextBounds.ending < Model.END_OF_TIME &&
-          ending > contextBounds.ending
-        ) {
+        if (slotInfo.ending < Model.END_OF_TIME && ending > slotInfo.ending) {
           newErrors.push(
-            `${slotName}: "Until" (${ending}) cannot be after slot ends (${contextBounds.ending}).`
+            `${slotName}: "Until" (${ending}) cannot be after slot ends (${slotInfo.ending}).`
           );
         }
       }
     });
 
-    // Check for overlapping periods in the same slot AND same system context
-    const bySlotAndSystem = new Map<string, Installation[]>();
+    // Check for overlapping periods in the same slot AND same context
+    const bySlotAndContext = new Map<string, Installation[]>();
     localInstallations.forEach((inst) => {
       if (!inst.targetId) return;
       const raw = rawInputs.get(inst.id);
@@ -299,17 +333,19 @@ const EditInstalledComponent = (props: Props) => {
       const ending = parseInt(raw?.ending ?? String(inst.ending), 10);
       if (isNaN(beginning) || isNaN(ending)) return;
 
-      // Key includes both slot and system context
-      const key = `${inst.targetId}__${inst.systemContextId || "any"}`;
-      const list = bySlotAndSystem.get(key) || [];
+      const key = `${inst.targetId}__${inst.scInstallationContextId || "any"}`;
+      const list = bySlotAndContext.get(key) || [];
       list.push({ ...inst, beginning, ending });
-      bySlotAndSystem.set(key, list);
+      bySlotAndContext.set(key, list);
     });
 
-    bySlotAndSystem.forEach((installations, key) => {
+    bySlotAndContext.forEach((installations, key) => {
       if (installations.length < 2) return;
-      const [slotId] = key.split("__");
-      const slotInfo = getSlotTimeBounds(slotId);
+      const [slotId, contextId] = key.split("__");
+      const slotInfo = getSlotTimeBounds(
+        slotId,
+        contextId !== "any" ? contextId : undefined
+      );
 
       installations.sort((a, b) => (a.beginning ?? 0) - (b.beginning ?? 0));
 
@@ -338,34 +374,10 @@ const EditInstalledComponent = (props: Props) => {
     const updatedInstallations = localInstallations.map((inst) => {
       const raw = rawInputs.get(inst.id);
 
-      // Get the SC installation ID for the system context
-      let scInstallationContextId = inst.scInstallationContextId;
-      let systemContextId = inst.systemContextId;
-
-      // Auto-fill system context if only one option
-      if (inst.targetId && !systemContextId) {
-        const systemsForSlot = getSystemsForSlot(inst.targetId);
-        if (systemsForSlot.length === 1) {
-          systemContextId = systemsForSlot[0].id;
-        }
-      }
-
-      if (inst.targetId && systemContextId && !scInstallationContextId) {
-        const scInst = getScInstallationForSystem(
-          inst.targetId,
-          systemContextId
-        );
-        if (scInst) {
-          scInstallationContextId = scInst.id;
-        }
-      }
-
       return {
         ...inst,
         beginning: parseInt(raw?.beginning ?? String(inst.beginning), 10) || 0,
         ending: parseInt(raw?.ending ?? String(inst.ending), 10) || 10,
-        systemContextId,
-        scInstallationContextId,
       };
     });
 
@@ -390,18 +402,24 @@ const EditInstalledComponent = (props: Props) => {
     if (updateDataset) {
       updateDataset((d: Model) => {
         removedInstallations.forEach((removedInst) => {
-          const participationKey = `${individual.id}__installed_in__${removedInst.targetId}__${removedInst.id}`;
+          const participationPatterns = [
+            `${individual.id}__installed_in__${removedInst.targetId}__${removedInst.id}`,
+            `${individual.id}__installed_in__${removedInst.targetId}`,
+          ];
 
           d.activities.forEach((activity) => {
             const parts = activity.participations;
-            if (!parts) return;
+            if (!parts || !(parts instanceof Map)) return;
 
-            if (parts instanceof Map) {
-              if (parts.has(participationKey)) {
-                parts.delete(participationKey);
-                d.activities.set(activity.id, activity);
-              }
-            }
+            participationPatterns.forEach((pattern) => {
+              parts.forEach((_, key) => {
+                if (key.startsWith(pattern)) {
+                  parts.delete(key);
+                }
+              });
+            });
+
+            d.activities.set(activity.id, activity);
           });
         });
 
@@ -423,38 +441,16 @@ const EditInstalledComponent = (props: Props) => {
   };
 
   const addInstallation = () => {
-    // Get slot bounds if we have a target slot
-    const slotBounds = targetSlotId
-      ? getSlotTimeBoundsForSystem(targetSlotId, targetSystemId)
-      : { beginning: 0, ending: 10 };
-
-    const defaultBeginning = slotBounds.beginning;
-    const defaultEnding =
-      slotBounds.ending < Model.END_OF_TIME
-        ? slotBounds.ending
-        : defaultBeginning + 10;
-
-    // Get the SC installation ID if we have both slot and system context
-    let scInstallationContextId: string | undefined;
-    let systemContextId: string | undefined = targetSystemId;
-
+    let slotOption: SlotOption | undefined;
     if (targetSlotId) {
-      // If we have a target slot, check if there's only one system - auto-select it
-      const systemsForSlot = getSystemsForSlot(targetSlotId);
-      if (systemsForSlot.length === 1 && !systemContextId) {
-        systemContextId = systemsForSlot[0].id;
-      }
-
-      if (systemContextId) {
-        const scInst = getScInstallationForSystem(
-          targetSlotId,
-          systemContextId
-        );
-        if (scInst) {
-          scInstallationContextId = scInst.id;
-        }
-      }
+      slotOption = availableSlots.find((s) => s.id === targetSlotId);
     }
+
+    const defaultBeginning = slotOption?.bounds.beginning ?? 0;
+    const defaultEnding =
+      slotOption && slotOption.bounds.ending < Model.END_OF_TIME
+        ? slotOption.bounds.ending
+        : defaultBeginning + 10;
 
     const newInst: Installation = {
       id: uuidv4(),
@@ -462,8 +458,7 @@ const EditInstalledComponent = (props: Props) => {
       targetId: targetSlotId || "",
       beginning: defaultBeginning,
       ending: defaultEnding,
-      systemContextId: systemContextId,
-      scInstallationContextId,
+      scInstallationContextId: slotOption?.scInstallationId,
     };
 
     setLocalInstallations((prev) => [...prev, newInst]);
@@ -530,29 +525,6 @@ const EditInstalledComponent = (props: Props) => {
     }
   };
 
-  // Helper to get slot name with system
-  const getSlotDisplayName = (slotId: string): string => {
-    if (!slotId) return "";
-    const slot = availableSlots.find((s) => s.id === slotId);
-    if (!slot) return slotId;
-
-    if (slot.installations && slot.installations.length > 0) {
-      const systemIds = Array.from(
-        new Set(slot.installations.map((inst) => inst.targetId))
-      );
-      const systemNames = systemIds
-        .map((sysId) => {
-          const system = dataset.individuals.get(sysId);
-          return system?.name ?? sysId;
-        })
-        .join(", ");
-      return `${slot.name} (in ${systemNames})`;
-    }
-
-    return slot.name;
-  };
-
-  // Helper to check if a value is outside slot bounds
   const isOutsideSlotBounds = (
     instId: string,
     field: "beginning" | "ending"
@@ -567,9 +539,9 @@ const EditInstalledComponent = (props: Props) => {
     );
     if (isNaN(value)) return false;
 
-    const slotBounds = getSlotTimeBoundsForSystem(
+    const slotBounds = getSlotTimeBounds(
       inst.targetId,
-      inst.systemContextId
+      inst.scInstallationContextId
     );
 
     if (field === "beginning") {
@@ -579,24 +551,14 @@ const EditInstalledComponent = (props: Props) => {
     }
   };
 
+  // Early return AFTER all hooks
   if (!individual) return null;
 
   const isFiltered = !!targetSlotId && !showAll;
   const totalInstallations = allInstallations.length;
-  const slotName = targetSlotId ? getSlotDisplayName(targetSlotId) : "";
-  const systemName = targetSystemId
-    ? dataset.individuals.get(targetSystemId)?.name
-    : undefined;
-
-  // Get slot bounds for display
-  const targetSlotBounds = targetSlotId
-    ? getSlotTimeBoundsForSystem(targetSlotId, targetSystemId)
-    : null;
 
   const modalTitle = isFiltered
-    ? systemName
-      ? `Edit Installation: ${individual.name} in ${slotName} (${systemName})`
-      : `Edit Installation: ${individual.name} in ${slotName}`
+    ? `Edit Installation: ${individual.name}`
     : `Edit All Installations: ${individual.name}`;
 
   return (
@@ -623,9 +585,7 @@ const EditInstalledComponent = (props: Props) => {
 
         <p className="text-muted mb-3">
           {isFiltered
-            ? `Manage installation periods for this component in "${slotName}"${
-                systemName ? ` within "${systemName}"` : ""
-              }. You can have multiple non-overlapping periods.`
+            ? `Manage installation periods for this component. You can have multiple non-overlapping periods.`
             : `Manage all installation periods for this component across different slots.`}
           {!isFiltered && availableSlots.length === 0 && (
             <>
@@ -636,7 +596,6 @@ const EditInstalledComponent = (props: Props) => {
           )}
         </p>
 
-        {/* Always show the table structure */}
         <Table bordered hover responsive size="sm">
           <thead className="table-light">
             <tr>
@@ -644,23 +603,18 @@ const EditInstalledComponent = (props: Props) => {
                 #
               </th>
               {!isFiltered && (
-                <>
-                  <th style={{ width: "25%" }}>
-                    Target Slot <span className="text-danger">*</span>
-                  </th>
-                  <th style={{ width: "20%" }}>
-                    System Context <span className="text-danger">*</span>
-                  </th>
-                </>
+                <th style={{ width: "40%" }}>
+                  Target Slot <span className="text-danger">*</span>
+                </th>
               )}
-              <th style={{ width: isFiltered ? "30%" : "15%" }}>
+              <th style={{ width: isFiltered ? "35%" : "20%" }}>
                 From <span className="text-danger">*</span>
               </th>
-              <th style={{ width: isFiltered ? "30%" : "15%" }}>
+              <th style={{ width: isFiltered ? "35%" : "20%" }}>
                 Until <span className="text-danger">*</span>
               </th>
               <th
-                style={{ width: isFiltered ? "35%" : "15%" }}
+                style={{ width: isFiltered ? "25%" : "15%" }}
                 className="text-center"
               >
                 Actions
@@ -674,17 +628,12 @@ const EditInstalledComponent = (props: Props) => {
                 ending: String(inst.ending),
               };
 
-              // Get Systems where this slot is installed
-              const systemsForSlot = inst.targetId
-                ? getSystemsForSlot(inst.targetId)
-                : [];
+              const slotOption = inst.targetId
+                ? getSlotOption(inst.targetId, inst.scInstallationContextId)
+                : undefined;
 
-              // Get slot bounds for this installation
               const instSlotBounds = inst.targetId
-                ? getSlotTimeBoundsForSystem(
-                    inst.targetId,
-                    inst.systemContextId
-                  )
+                ? getSlotTimeBounds(inst.targetId, inst.scInstallationContextId)
                 : null;
 
               const beginningOutOfBounds = isOutsideSlotBounds(
@@ -697,148 +646,93 @@ const EditInstalledComponent = (props: Props) => {
                 <tr key={inst.id}>
                   <td className="text-center text-muted">{idx + 1}</td>
                   {!isFiltered && (
-                    <>
-                      <td>
-                        <Form.Select
-                          size="sm"
-                          value={inst.targetId}
-                          onChange={(e) => {
-                            const newSlotId = e.target.value;
-                            updateInstallation(inst.id, "targetId", newSlotId);
-                            // Clear system context when changing slot
-                            updateInstallation(
-                              inst.id,
-                              "systemContextId",
-                              undefined
-                            );
+                    <td>
+                      <Form.Select
+                        size="sm"
+                        value={slotOption?.virtualId || ""}
+                        onChange={(e) => {
+                          const virtualId = e.target.value;
+                          if (!virtualId) {
+                            updateInstallation(inst.id, "targetId", "");
                             updateInstallation(
                               inst.id,
                               "scInstallationContextId",
                               undefined
                             );
-                            // Reset times to slot defaults when changing slot
-                            if (newSlotId) {
-                              const newSlotBounds =
-                                getSlotTimeBounds(newSlotId);
-                              const newEnding =
-                                newSlotBounds.ending < Model.END_OF_TIME
-                                  ? newSlotBounds.ending
-                                  : newSlotBounds.beginning + 10;
-                              updateRawInput(
-                                inst.id,
-                                "beginning",
-                                String(newSlotBounds.beginning)
-                              );
-                              updateRawInput(
-                                inst.id,
-                                "ending",
-                                String(newEnding)
-                              );
-                            }
-                          }}
-                          className={!inst.targetId ? "border-warning" : ""}
-                        >
-                          <option value="">-- Select slot --</option>
-                          {availableSlots.map((slot) => (
-                            <option key={slot.id} value={slot.id}>
-                              {slot.name}
-                            </option>
-                          ))}
-                        </Form.Select>
-                      </td>
-                      <td>
-                        <Form.Select
-                          size="sm"
-                          value={inst.systemContextId || ""}
-                          onChange={(e) => {
-                            const newSystemId = e.target.value || undefined;
+                            return;
+                          }
+
+                          const selectedSlot =
+                            getSlotOptionByVirtualId(virtualId);
+
+                          if (selectedSlot) {
                             updateInstallation(
                               inst.id,
-                              "systemContextId",
-                              newSystemId
+                              "targetId",
+                              selectedSlot.id
                             );
-                            // Set the SC installation context ID
-                            if (inst.targetId && newSystemId) {
-                              const scInst = getScInstallationForSystem(
-                                inst.targetId,
-                                newSystemId
-                              );
-                              updateInstallation(
-                                inst.id,
-                                "scInstallationContextId",
-                                scInst?.id
-                              );
-                              // Update times to match system context
-                              const newBounds = getSlotTimeBoundsForSystem(
-                                inst.targetId,
-                                newSystemId
-                              );
-                              const newEnding =
-                                newBounds.ending < Model.END_OF_TIME
-                                  ? newBounds.ending
-                                  : newBounds.beginning + 10;
-                              updateRawInput(
-                                inst.id,
-                                "beginning",
-                                String(newBounds.beginning)
-                              );
-                              updateRawInput(
-                                inst.id,
-                                "ending",
-                                String(newEnding)
-                              );
-                            } else {
-                              updateInstallation(
-                                inst.id,
-                                "scInstallationContextId",
-                                undefined
-                              );
-                            }
-                          }}
-                          disabled={!inst.targetId}
-                          className={
-                            inst.targetId &&
-                            systemsForSlot.length > 1 &&
-                            !inst.systemContextId
-                              ? "border-warning"
-                              : ""
+                            updateInstallation(
+                              inst.id,
+                              "scInstallationContextId",
+                              selectedSlot.scInstallationId
+                            );
+
+                            const newEnding =
+                              selectedSlot.bounds.ending < Model.END_OF_TIME
+                                ? selectedSlot.bounds.ending
+                                : selectedSlot.bounds.beginning + 10;
+                            updateRawInput(
+                              inst.id,
+                              "beginning",
+                              String(selectedSlot.bounds.beginning)
+                            );
+                            updateRawInput(
+                              inst.id,
+                              "ending",
+                              String(newEnding)
+                            );
                           }
-                        >
-                          <option value="">
-                            {systemsForSlot.length === 0
-                              ? "-- Slot not installed --"
-                              : systemsForSlot.length === 1
-                              ? systemsForSlot[0].name
-                              : "-- Select System --"}
-                          </option>
-                          {systemsForSlot.length > 1 &&
-                            systemsForSlot.map((sys) => {
-                              const scInst = getScInstallationForSystem(
-                                inst.targetId,
-                                sys.id
-                              );
-                              const boundsStr = scInst
-                                ? ` (${scInst.beginning ?? 0}-${
-                                    scInst.ending ?? "∞"
-                                  })`
-                                : "";
-                              return (
-                                <option key={sys.id} value={sys.id}>
-                                  {sys.name}
-                                  {boundsStr}
-                                </option>
-                              );
-                            })}
-                        </Form.Select>
-                        {inst.targetId &&
-                          systemsForSlot.length === 1 &&
-                          !inst.systemContextId && (
-                            <Form.Text className="text-muted">
-                              Auto: {systemsForSlot[0].name}
-                            </Form.Text>
-                          )}
-                      </td>
-                    </>
+                        }}
+                        className={!inst.targetId ? "border-warning" : ""}
+                      >
+                        <option value="">-- Select slot --</option>
+                        {Array.from(slotsBySystem.entries()).map(
+                          ([sysName, slots]) => (
+                            <optgroup key={sysName} label={`🔲 ${sysName}`}>
+                              {slots.map((slot) => {
+                                const indent = "  ".repeat(
+                                  slot.nestingLevel - 1
+                                );
+                                const boundsStr = ` (${slot.bounds.beginning}-${
+                                  slot.bounds.ending >= Model.END_OF_TIME
+                                    ? "∞"
+                                    : slot.bounds.ending
+                                })`;
+                                return (
+                                  <option
+                                    key={slot.virtualId}
+                                    value={slot.virtualId}
+                                  >
+                                    {indent}◇ {slot.displayName}
+                                    {boundsStr}
+                                  </option>
+                                );
+                              })}
+                            </optgroup>
+                          )
+                        )}
+                      </Form.Select>
+                      {slotOption && (
+                        <Form.Text className="text-muted">
+                          <small>
+                            Available: {slotOption.bounds.beginning}-
+                            {slotOption.bounds.ending >= Model.END_OF_TIME
+                              ? "∞"
+                              : slotOption.bounds.ending}
+                          </small>
+                        </Form.Text>
+                      )}
+                    </td>
                   )}
                   <td>
                     <Form.Control

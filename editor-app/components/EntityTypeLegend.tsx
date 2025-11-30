@@ -5,6 +5,7 @@ interface EntityLegendItem {
   icon: string;
   label: string;
   description?: string;
+  hasHatch?: boolean;
 }
 
 export const entityTypes: EntityLegendItem[] = [
@@ -27,6 +28,12 @@ export const entityTypes: EntityLegendItem[] = [
     icon: "◈",
     label: "SC in SC",
     description: "A system component nested inside another system component",
+  },
+  {
+    icon: "◆",
+    label: "SC with children",
+    description: "A system component that has other components installed in it",
+    hasHatch: true,
   },
   {
     icon: "⬡",
@@ -61,14 +68,54 @@ const EntityTypeLegend = () => {
                 display: "inline-flex",
                 alignItems: "center",
                 justifyContent: "center",
-                width: 20,
-                height: 20,
+                width: 24,
+                height: 24,
                 marginRight: 8,
                 fontSize: 18,
                 fontFamily: "Arial, sans-serif",
+                position: "relative",
               }}
             >
               {item.icon}
+              {item.hasHatch && (
+                <svg
+                  style={{
+                    position: "absolute",
+                    top: 0,
+                    left: 0,
+                    width: 24,
+                    height: 24,
+                    pointerEvents: "none",
+                  }}
+                >
+                  <defs>
+                    <pattern
+                      id="legend-hatch"
+                      patternUnits="userSpaceOnUse"
+                      width="4"
+                      height="4"
+                      patternTransform="rotate(45)"
+                    >
+                      <line
+                        x1="0"
+                        y1="0"
+                        x2="0"
+                        y2="4"
+                        stroke="#374151"
+                        strokeWidth="1"
+                      />
+                    </pattern>
+                  </defs>
+                  <rect
+                    x="2"
+                    y="4"
+                    width="20"
+                    height="16"
+                    fill="url(#legend-hatch)"
+                    opacity="0.5"
+                  />
+                </svg>
+              )}
             </span>
             <span style={{ color: "#111827" }}>{item.label}</span>
           </div>

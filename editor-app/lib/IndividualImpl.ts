@@ -1,5 +1,5 @@
-import type { Kind } from './Model.js';
-import type { Id, Individual } from './Schema.js';
+import type { Kind } from "./Model.js";
+import type { EntityType, Id, Individual, Installation } from "./Schema.js";
 
 /**
  * A class that implements the Individual interface.
@@ -7,22 +7,30 @@ import type { Id, Individual } from './Schema.js';
 export class IndividualImpl implements Individual {
   id: Id;
   name: string;
-  type: Kind;
+  type?: Kind;
   description?: string;
   beginning: number;
   ending: number;
   beginsWithParticipant: boolean;
   endsWithParticipant: boolean;
+  entityType?: EntityType;
+  installations?: Installation[];
+  _installationId?: string;
+  _nestingLevel?: number;
+  _isVirtualRow?: boolean;
+  _parentPath?: string;
 
   constructor(
     id: Id,
     name: string,
-    type: Kind,
+    type: Kind | undefined,
     beginning: number,
     ending: number,
     description?: string,
     beginsWithParticipant?: boolean,
-    endsWithParticipant?: boolean
+    endsWithParticipant?: boolean,
+    entityType?: EntityType,
+    installations?: Installation[]
   ) {
     this.id = id;
     this.name = name;
@@ -38,5 +46,7 @@ export class IndividualImpl implements Individual {
     this.endsWithParticipant = endsWithParticipant
       ? endsWithParticipant
       : false;
+    this.entityType = entityType;
+    this.installations = installations;
   }
 }

@@ -43,12 +43,12 @@ const SortIndividuals = (props: any) => {
         onClick={() => setShowSortIndividuals(true)}
         className={items.length > 1 ? "mx-1 d-block" : "mx-1 d-none"}
       >
-        Sort Individuals
+        Sort Entities
       </Button>
 
       <Modal show={showSortIndividuals} onHide={handleClose}>
         <Modal.Header closeButton>
-          <Modal.Title>Sort Individuals</Modal.Title>
+          <Modal.Title>Sort Entities</Modal.Title>
         </Modal.Header>
         <Modal.Body>
           <div style={{ maxWidth: 400, margin: "30px auto" }}>

@@ -633,7 +633,7 @@ export function clickIndividuals(
 
 // Labels all aligned to the left (no indent), icons show the type
 export function labelIndividuals(ctx: DrawContext) {
-  const { config, svgElement, individuals, dataset } = ctx;
+  const { config, svgElement, individuals, dataset, activities } = ctx;
 
   if (config.labels.individual.enabled === false) {
     return;
@@ -643,8 +643,83 @@ export function labelIndividuals(ctx: DrawContext) {
 
   // Update the indent calculation for deeper nesting
   const INDENT_PER_LEVEL = 14; // pixels per nesting level
-  const MAX_CHARS_TOP_LEVEL = 12; // Truncate top-level after 12 chars
-  const MAX_CHARS_PER_LINE_NESTED = 18; // Wrap nested labels after this many chars
+  const MAX_CHARS_PER_LINE_NESTED = 16; // Wrap nested labels after this many chars
+  const CHAR_WIDTH_ESTIMATE = 6; // Approximate width per character in pixels
+  const MIN_CHARS = 6; // Minimum characters to show before truncating
+
+  // Calculate time range (same as in drawIndividuals)
+  let startOfTime = Math.min(...activities.map((a) => a.beginning));
+  let endOfTime = Math.max(...activities.map((a) => a.ending));
+
+  if (activities.length === 0 || !isFinite(startOfTime)) {
+    startOfTime = 0;
+  }
+  if (activities.length === 0 || !isFinite(endOfTime)) {
+    endOfTime = 10;
+  }
+
+  // Expand time range to include all individuals
+  for (const ind of individuals) {
+    if (ind.beginning >= 0 && ind.beginning < startOfTime) {
+      startOfTime = ind.beginning;
+    }
+    if (ind.ending < Model.END_OF_TIME && ind.ending > endOfTime) {
+      endOfTime = ind.ending;
+    }
+  }
+
+  if (endOfTime <= startOfTime) {
+    endOfTime = startOfTime + 10;
+  }
+
+  // Calculate layout parameters (same as in drawIndividuals)
+  let duration = endOfTime - startOfTime;
+  let totalLeftMargin =
+    config.viewPort.x * config.viewPort.zoom -
+    config.layout.individual.xMargin * 2;
+  totalLeftMargin -= config.layout.individual.temporalMargin;
+
+  const individualLabelsEnabled =
+    config.labels.individual.enabled && keepIndividualLabels(individuals);
+  if (individualLabelsEnabled) {
+    totalLeftMargin -= config.layout.individual.textLength;
+  }
+
+  let timeInterval = totalLeftMargin / duration;
+
+  let lhs_x = config.layout.individual.xMargin;
+  lhs_x += config.layout.individual.temporalMargin;
+  if (individualLabelsEnabled) {
+    lhs_x += config.layout.individual.textLength;
+  }
+
+  // Helper to find the earliest activity start position for an individual
+  const getEarliestActivityX = (ind: Individual): number | null => {
+    // Find all activities that this individual participates in
+    const participatingActivities: Activity[] = [];
+
+    activities.forEach((activity) => {
+      if (activity.participations) {
+        // Check if this individual (or its virtual row ID) is a participant
+        if (activity.participations.has(ind.id)) {
+          participatingActivities.push(activity);
+        }
+      }
+    });
+
+    if (participatingActivities.length === 0) {
+      return null; // No activities, label can use full space
+    }
+
+    // Find the earliest beginning time among participating activities
+    const earliestBeginning = Math.min(
+      ...participatingActivities.map((a) => a.beginning)
+    );
+
+    // Convert to X position
+    const activityX = lhs_x + timeInterval * (earliestBeginning - startOfTime);
+    return activityX;
+  };
 
   // Helper to get font size based on nesting level
   const getFontSize = (ind: Individual): string => {
@@ -768,15 +843,28 @@ export function labelIndividuals(ctx: DrawContext) {
       .text(getEntityIcon(ind, dataset));
 
     // Draw label(s)
-    const labelX = iconX + 16;
+    const labelX = iconX + 14;
     const label = ind.name ?? "";
 
     if (nestingLevel === 0) {
-      // Top-level: truncate after MAX_CHARS_TOP_LEVEL
+      // Top-level: calculate available space based on activity positions
+      const earliestActivityX = getEarliestActivityX(ind);
+
       let displayLabel = label;
-      if (label.length > MAX_CHARS_TOP_LEVEL) {
-        displayLabel = label.substring(0, MAX_CHARS_TOP_LEVEL - 1) + "...";
+
+      if (earliestActivityX !== null) {
+        // There's an activity - calculate available space
+        const availableWidth = earliestActivityX - labelX - 10; // 10px padding before activity
+        const maxChars = Math.max(
+          MIN_CHARS,
+          Math.floor(availableWidth / CHAR_WIDTH_ESTIMATE)
+        );
+
+        if (label.length > maxChars) {
+          displayLabel = label.substring(0, maxChars - 3) + "...";
+        }
       }
+      // If no activity, show full label (no truncation needed)
 
       svgElement
         .append("text")

@@ -143,9 +143,26 @@ export default function EditSystemComponentInstallation({
       // Don't allow installing into self (same original SC ID)
       if (originalId === individual?.id) return;
 
-      // NO circular reference check needed here!
-      // Different installation contexts (different systems) are independent.
-      // SC1 can be nested in SC2 in System A, while SC2 is nested in SC1 in System B.
+      // Extract the SC installation ID (this is the context)
+      const scInstallationId = ind._installationId;
+
+      // Check for circular reference - only block if it would create a chain cycle
+      // SC1 → SC2 and SC2 → SC1 as parallel installations is allowed
+      // SC1 → SC2 → SC1 (same chain) is blocked
+      if (individual) {
+        if (
+          dataset.wouldCreateCircularReference(
+            individual.id,
+            originalId,
+            scInstallationId // Pass the specific installation context
+          )
+        ) {
+          console.log(
+            `Blocking circular reference: ${individual.name} -> ${original.name} (context: ${scInstallationId})`
+          );
+          return;
+        }
+      }
 
       // Extract parent system name for display
       const pathParts = ind._parentPath?.split("__") || [];
@@ -163,9 +180,6 @@ export default function EditSystemComponentInstallation({
       });
       const hierarchyStr =
         pathNames.length > 0 ? pathNames.join(" → ") : "Unknown";
-
-      // Extract the SC installation ID
-      const scInstallationId = ind._installationId;
 
       targets.push({
         id: originalId,

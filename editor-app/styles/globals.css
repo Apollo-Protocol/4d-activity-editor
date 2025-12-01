@@ -30,20 +30,51 @@
   font-weight: 500;
   color: #495057 !important;
   transition: color 0.15s ease-in-out;
+  position: relative;
 }
 
 .navbar .nav-link:hover {
-  color: #0d6efd !important;
+  color: #6c757d !important;
 }
 
+/* Active link with underline */
 .navbar .nav-link.active {
-  color: #0d6efd !important;
-  font-weight: 600;
+  color: #495057 !important;
+  font-weight: 500;
 }
 
+.navbar .nav-link.active::after {
+  content: "";
+  position: absolute;
+  bottom: 0;
+  left: 1rem;
+  right: 1rem;
+  height: 3px;
+  background-color: #6c757d;
+  border-radius: 2px;
+}
+
+/* Dropdown styling - keep existing behavior */
 .navbar .active-dropdown .dropdown-toggle {
-  color: #0d6efd !important;
-  font-weight: 600;
+  color: #495057 !important;
+  font-weight: 500;
+  position: relative;
+}
+
+.navbar .active-dropdown .dropdown-toggle::after {
+  border-top-color: #495057 !important;
+}
+
+/* Underline for active dropdown */
+.navbar .active-dropdown > .dropdown-toggle::before {
+  content: "";
+  position: absolute;
+  bottom: 0;
+  left: 1rem;
+  right: 1rem;
+  height: 3px;
+  background-color: #6c757d;
+  border-radius: 2px;
 }
 
 .navbar .dropdown-menu {

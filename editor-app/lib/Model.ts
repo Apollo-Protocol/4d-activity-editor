@@ -632,20 +632,98 @@ export class Model {
     this.installations.delete(id);
   }
 
+  // ... existing code ...
+
   /**
-   * Check for circular references in installation hierarchy
-   * Returns true if installing componentId into potentialTargetId would create a cycle
+   * Check for circular references in installation hierarchy.
    *
-   * Note: This only prevents direct self-installation.
-   * Cross-system nesting (e.g., SC1→SC2 in System A, SC2→SC1 in System B) is allowed
-   * because they are different installation contexts.
+   * Only blocks:
+   * 1. Direct self-installation (SC1 → SC1)
+   * 2. Installing into something that is currently being installed into you
+   *    within the SAME installation chain/context
+   *
+   * Allowed:
+   * - SC1 → SC2 (in System A) AND SC2 → SC1 (in System A) - parallel installations
+   * - SC1 → SC2 (time 0-10) AND SC2 → SC1 (time 0-10) - both are top-level in system
+   *
+   * Blocked:
+   * - SC1 → SC2 → SC1 (where SC2 that contains SC1 is the same SC2 that is inside SC1)
+   *
+   * @param componentId - The component being installed
+   * @param potentialTargetId - The target to install into
+   * @param scInstallationContextId - The specific SC installation context (for nested SCs)
    */
   wouldCreateCircularReference(
     componentId: string,
-    potentialTargetId: string
+    potentialTargetId: string,
+    scInstallationContextId?: string
   ): boolean {
-    // Can't install into self
-    return componentId === potentialTargetId;
+    // Rule 1: Can't install into self
+    if (componentId === potentialTargetId) {
+      return true;
+    }
+
+    // Rule 2: Check if we're trying to install into a specific SC instance
+    // that is itself installed inside us (would create SC1 → SC2 → SC1 chain)
+    if (scInstallationContextId) {
+      // We're installing into a specific instance of potentialTargetId
+      // Check if that instance is already installed inside componentId
+
+      // Find the installation that created this context
+      const potentialTarget = this.individuals.get(potentialTargetId);
+      if (potentialTarget?.installations) {
+        for (const inst of potentialTarget.installations) {
+          if (inst.id === scInstallationContextId) {
+            // This is the specific installation context
+            // Check if its target is componentId (direct cycle)
+            if (inst.targetId === componentId) {
+              return true;
+            }
+
+            // Check if its target is installed in componentId (indirect cycle)
+            // Walk up the chain from inst.targetId to see if we reach componentId
+            const visited = new Set<string>();
+            const checkChain = (
+              targetId: string,
+              contextId?: string
+            ): boolean => {
+              const key = `${targetId}__${contextId || ""}`;
+              if (visited.has(key)) return false;
+              visited.add(key);
+
+              if (targetId === componentId) return true;
+
+              const target = this.individuals.get(targetId);
+              if (!target?.installations) return false;
+
+              for (const parentInst of target.installations) {
+                // If contextId is specified, only follow that specific installation
+                if (contextId && parentInst.id !== contextId) continue;
+
+                if (
+                  checkChain(
+                    parentInst.targetId,
+                    parentInst.scInstallationContextId
+                  )
+                ) {
+                  return true;
+                }
+              }
+
+              return false;
+            };
+
+            if (checkChain(inst.targetId, inst.scInstallationContextId)) {
+              return true;
+            }
+          }
+        }
+      }
+    }
+
+    // All other cases are allowed
+    // SC1 → SC2 and SC2 → SC1 as parallel installations is fine
+    return false;
   }
 
   /**

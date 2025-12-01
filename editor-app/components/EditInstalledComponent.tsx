@@ -622,186 +622,208 @@ const EditInstalledComponent = (props: Props) => {
             </tr>
           </thead>
           <tbody>
-            {localInstallations.map((inst, idx) => {
-              const raw = rawInputs.get(inst.id) || {
-                beginning: String(inst.beginning),
-                ending: String(inst.ending),
-              };
+            {localInstallations.length === 0 ? (
+              <tr>
+                <td
+                  colSpan={isFiltered ? 4 : 5}
+                  className="text-center text-muted py-3"
+                >
+                  <em>
+                    No installations yet. Click "+ Add Installation Period"
+                    below to add one.
+                  </em>
+                </td>
+              </tr>
+            ) : (
+              localInstallations.map((inst, idx) => {
+                const raw = rawInputs.get(inst.id) || {
+                  beginning: String(inst.beginning),
+                  ending: String(inst.ending),
+                };
 
-              const slotOption = inst.targetId
-                ? getSlotOption(inst.targetId, inst.scInstallationContextId)
-                : undefined;
+                const slotOption = inst.targetId
+                  ? getSlotOption(inst.targetId, inst.scInstallationContextId)
+                  : undefined;
 
-              const instSlotBounds = inst.targetId
-                ? getSlotTimeBounds(inst.targetId, inst.scInstallationContextId)
-                : null;
+                const instSlotBounds = inst.targetId
+                  ? getSlotTimeBounds(
+                      inst.targetId,
+                      inst.scInstallationContextId
+                    )
+                  : null;
 
-              const beginningOutOfBounds = isOutsideSlotBounds(
-                inst.id,
-                "beginning"
-              );
-              const endingOutOfBounds = isOutsideSlotBounds(inst.id, "ending");
+                const beginningOutOfBounds = isOutsideSlotBounds(
+                  inst.id,
+                  "beginning"
+                );
+                const endingOutOfBounds = isOutsideSlotBounds(
+                  inst.id,
+                  "ending"
+                );
 
-              return (
-                <tr key={inst.id}>
-                  <td className="text-center text-muted">{idx + 1}</td>
-                  {!isFiltered && (
-                    <td>
-                      <Form.Select
-                        size="sm"
-                        value={slotOption?.virtualId || ""}
-                        onChange={(e) => {
-                          const virtualId = e.target.value;
-                          if (!virtualId) {
-                            updateInstallation(inst.id, "targetId", "");
-                            updateInstallation(
-                              inst.id,
-                              "scInstallationContextId",
-                              undefined
-                            );
-                            return;
-                          }
+                return (
+                  <tr key={inst.id}>
+                    <td className="text-center text-muted">{idx + 1}</td>
+                    {!isFiltered && (
+                      <td>
+                        <Form.Select
+                          size="sm"
+                          value={slotOption?.virtualId || ""}
+                          onChange={(e) => {
+                            const virtualId = e.target.value;
+                            if (!virtualId) {
+                              updateInstallation(inst.id, "targetId", "");
+                              updateInstallation(
+                                inst.id,
+                                "scInstallationContextId",
+                                undefined
+                              );
+                              return;
+                            }
 
-                          const selectedSlot =
-                            getSlotOptionByVirtualId(virtualId);
+                            const selectedSlot =
+                              getSlotOptionByVirtualId(virtualId);
 
-                          if (selectedSlot) {
-                            updateInstallation(
-                              inst.id,
-                              "targetId",
-                              selectedSlot.id
-                            );
-                            updateInstallation(
-                              inst.id,
-                              "scInstallationContextId",
-                              selectedSlot.scInstallationId
-                            );
+                            if (selectedSlot) {
+                              updateInstallation(
+                                inst.id,
+                                "targetId",
+                                selectedSlot.id
+                              );
+                              updateInstallation(
+                                inst.id,
+                                "scInstallationContextId",
+                                selectedSlot.scInstallationId
+                              );
 
-                            const newEnding =
-                              selectedSlot.bounds.ending < Model.END_OF_TIME
-                                ? selectedSlot.bounds.ending
-                                : selectedSlot.bounds.beginning + 10;
-                            updateRawInput(
-                              inst.id,
-                              "beginning",
-                              String(selectedSlot.bounds.beginning)
-                            );
-                            updateRawInput(
-                              inst.id,
-                              "ending",
-                              String(newEnding)
-                            );
-                          }
-                        }}
-                        className={!inst.targetId ? "border-warning" : ""}
-                      >
-                        <option value="">-- Select slot --</option>
-                        {Array.from(slotsBySystem.entries()).map(
-                          ([sysName, slots]) => (
-                            <optgroup key={sysName} label={`${sysName}`}>
-                              {slots.map((slot) => {
-                                const indent = "  ".repeat(
-                                  slot.nestingLevel - 1
-                                );
-                                const boundsStr = ` (${slot.bounds.beginning}-${
-                                  slot.bounds.ending >= Model.END_OF_TIME
-                                    ? "∞"
-                                    : slot.bounds.ending
-                                })`;
-                                return (
-                                  <option
-                                    key={slot.virtualId}
-                                    value={slot.virtualId}
-                                  >
-                                    {indent}◇ {slot.displayName}
-                                    {boundsStr}
-                                  </option>
-                                );
-                              })}
-                            </optgroup>
-                          )
+                              const newEnding =
+                                selectedSlot.bounds.ending < Model.END_OF_TIME
+                                  ? selectedSlot.bounds.ending
+                                  : selectedSlot.bounds.beginning + 10;
+                              updateRawInput(
+                                inst.id,
+                                "beginning",
+                                String(selectedSlot.bounds.beginning)
+                              );
+                              updateRawInput(
+                                inst.id,
+                                "ending",
+                                String(newEnding)
+                              );
+                            }
+                          }}
+                          className={!inst.targetId ? "border-warning" : ""}
+                        >
+                          <option value="">-- Select slot --</option>
+                          {Array.from(slotsBySystem.entries()).map(
+                            ([sysName, slots]) => (
+                              <optgroup key={sysName} label={`${sysName}`}>
+                                {slots.map((slot) => {
+                                  const indent = "  ".repeat(
+                                    slot.nestingLevel - 1
+                                  );
+                                  const boundsStr = ` (${
+                                    slot.bounds.beginning
+                                  }-${
+                                    slot.bounds.ending >= Model.END_OF_TIME
+                                      ? "∞"
+                                      : slot.bounds.ending
+                                  })`;
+                                  return (
+                                    <option
+                                      key={slot.virtualId}
+                                      value={slot.virtualId}
+                                    >
+                                      {indent}◇ {slot.displayName}
+                                      {boundsStr}
+                                    </option>
+                                  );
+                                })}
+                              </optgroup>
+                            )
+                          )}
+                        </Form.Select>
+                        {slotOption && (
+                          <Form.Text className="text-muted">
+                            <small>
+                              Available: {slotOption.bounds.beginning}-
+                              {slotOption.bounds.ending >= Model.END_OF_TIME
+                                ? "∞"
+                                : slotOption.bounds.ending}
+                            </small>
+                          </Form.Text>
                         )}
-                      </Form.Select>
-                      {slotOption && (
-                        <Form.Text className="text-muted">
-                          <small>
-                            Available: {slotOption.bounds.beginning}-
-                            {slotOption.bounds.ending >= Model.END_OF_TIME
-                              ? "∞"
-                              : slotOption.bounds.ending}
-                          </small>
+                      </td>
+                    )}
+                    <td>
+                      <Form.Control
+                        type="number"
+                        size="sm"
+                        min={instSlotBounds?.beginning ?? 0}
+                        max={instSlotBounds?.ending ?? undefined}
+                        value={raw.beginning}
+                        onChange={(e) =>
+                          updateRawInput(inst.id, "beginning", e.target.value)
+                        }
+                        placeholder={String(instSlotBounds?.beginning ?? 0)}
+                        className={
+                          raw.beginning === "" || beginningOutOfBounds
+                            ? "border-danger"
+                            : ""
+                        }
+                        isInvalid={beginningOutOfBounds}
+                      />
+                      {beginningOutOfBounds && instSlotBounds && (
+                        <Form.Text className="text-danger">
+                          Min: {instSlotBounds.beginning}
                         </Form.Text>
                       )}
                     </td>
-                  )}
-                  <td>
-                    <Form.Control
-                      type="number"
-                      size="sm"
-                      min={instSlotBounds?.beginning ?? 0}
-                      max={instSlotBounds?.ending ?? undefined}
-                      value={raw.beginning}
-                      onChange={(e) =>
-                        updateRawInput(inst.id, "beginning", e.target.value)
-                      }
-                      placeholder={String(instSlotBounds?.beginning ?? 0)}
-                      className={
-                        raw.beginning === "" || beginningOutOfBounds
-                          ? "border-danger"
-                          : ""
-                      }
-                      isInvalid={beginningOutOfBounds}
-                    />
-                    {beginningOutOfBounds && instSlotBounds && (
-                      <Form.Text className="text-danger">
-                        Min: {instSlotBounds.beginning}
-                      </Form.Text>
-                    )}
-                  </td>
-                  <td>
-                    <Form.Control
-                      type="number"
-                      size="sm"
-                      min={instSlotBounds?.beginning ?? 1}
-                      max={
-                        instSlotBounds &&
-                        instSlotBounds.ending < Model.END_OF_TIME
-                          ? instSlotBounds.ending
-                          : undefined
-                      }
-                      value={raw.ending}
-                      onChange={(e) =>
-                        updateRawInput(inst.id, "ending", e.target.value)
-                      }
-                      placeholder={String(instSlotBounds?.ending ?? 10)}
-                      className={
-                        raw.ending === "" || endingOutOfBounds
-                          ? "border-danger"
-                          : ""
-                      }
-                      isInvalid={endingOutOfBounds}
-                    />
-                    {endingOutOfBounds && instSlotBounds && (
-                      <Form.Text className="text-danger">
-                        Max:{" "}
-                        {instSlotBounds.ending >= Model.END_OF_TIME
-                          ? "∞"
-                          : instSlotBounds.ending}
-                      </Form.Text>
-                    )}
-                  </td>
-                  <td className="text-center">
-                    <Button
-                      variant="outline-danger"
-                      size="sm"
-                      onClick={() => removeInstallation(inst.id)}
-                    >
-                      Remove
-                    </Button>
-                  </td>
-                </tr>
-              );
-            })}
+                    <td>
+                      <Form.Control
+                        type="number"
+                        size="sm"
+                        min={instSlotBounds?.beginning ?? 1}
+                        max={
+                          instSlotBounds &&
+                          instSlotBounds.ending < Model.END_OF_TIME
+                            ? instSlotBounds.ending
+                            : undefined
+                        }
+                        value={raw.ending}
+                        onChange={(e) =>
+                          updateRawInput(inst.id, "ending", e.target.value)
+                        }
+                        placeholder={String(instSlotBounds?.ending ?? 10)}
+                        className={
+                          raw.ending === "" || endingOutOfBounds
+                            ? "border-danger"
+                            : ""
+                        }
+                        isInvalid={endingOutOfBounds}
+                      />
+                      {endingOutOfBounds && instSlotBounds && (
+                        <Form.Text className="text-danger">
+                          Max:{" "}
+                          {instSlotBounds.ending >= Model.END_OF_TIME
+                            ? "∞"
+                            : instSlotBounds.ending}
+                        </Form.Text>
+                      )}
+                    </td>
+                    <td className="text-center">
+                      <Button
+                        variant="outline-danger"
+                        size="sm"
+                        onClick={() => removeInstallation(inst.id)}
+                      >
+                        Remove
+                      </Button>
+                    </td>
+                  </tr>
+                );
+              })
+            )}
           </tbody>
         </Table>
 

@@ -518,22 +518,27 @@ export default function EditSystemComponentInstallation({
           into Systems or other System Components (nested slots).
         </p>
 
-        {installations.length === 0 ? (
-          <div className="alert alert-info">
-            No installations configured. Click "Add Installation" to add one.
-          </div>
-        ) : (
-          <Table striped bordered hover size="sm">
-            <thead>
+        <Table striped bordered hover size="sm">
+          <thead>
+            <tr>
+              <th style={{ width: "40%" }}>Target</th>
+              <th style={{ width: "20%" }}>Beginning</th>
+              <th style={{ width: "20%" }}>Ending</th>
+              <th style={{ width: "20%" }}>Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            {installations.length === 0 ? (
               <tr>
-                <th style={{ width: "40%" }}>Target</th>
-                <th style={{ width: "20%" }}>Beginning</th>
-                <th style={{ width: "20%" }}>Ending</th>
-                <th style={{ width: "20%" }}>Actions</th>
+                <td colSpan={4} className="text-center text-muted py-3">
+                  <em>
+                    No installations yet. Click "+ Add Installation" below to
+                    add one.
+                  </em>
+                </td>
               </tr>
-            </thead>
-            <tbody>
-              {installations.map((inst) => {
+            ) : (
+              installations.map((inst) => {
                 const raw = rawInputs[inst.id] || {
                   beginning: "0",
                   ending: "",
@@ -671,10 +676,10 @@ export default function EditSystemComponentInstallation({
                     </td>
                   </tr>
                 );
-              })}
-            </tbody>
-          </Table>
-        )}
+              })
+            )}
+          </tbody>
+        </Table>
 
         <Button variant="outline-primary" size="sm" onClick={addInstallation}>
           + Add Installation

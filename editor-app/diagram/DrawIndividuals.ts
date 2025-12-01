@@ -605,12 +605,27 @@ export function clickIndividuals(
       }
     };
 
+    // Attach click handlers to the individual shape
     svgElement
       .select("#i" + CSS.escape(i.id))
       .on("click", lclick)
       .on("contextmenu", rclick);
+
+    // Attach click handlers to the primary label
     svgElement
       .select("#il" + CSS.escape(i.id))
+      .on("click", lclick)
+      .on("contextmenu", rclick);
+
+    // Also attach to wrapped label lines (for nested items with multi-line labels)
+    svgElement
+      .selectAll(`[id^="il${CSS.escape(i.id)}_"]`)
+      .on("click", lclick)
+      .on("contextmenu", rclick);
+
+    // Attach to icon as well
+    svgElement
+      .select("#ii" + CSS.escape(i.id))
       .on("click", lclick)
       .on("contextmenu", rclick);
   });
@@ -626,99 +641,176 @@ export function labelIndividuals(ctx: DrawContext) {
 
   let labels: Label[] = [];
 
-  let y =
-    config.layout.individual.topMargin +
-    config.layout.individual.gap +
-    config.layout.individual.height / 2 +
-    config.labels.individual.topMargin;
-
   // Update the indent calculation for deeper nesting
   const INDENT_PER_LEVEL = 14; // pixels per nesting level
+  const MAX_CHARS_TOP_LEVEL = 12; // Truncate top-level after 12 chars
+  const MAX_CHARS_PER_LINE_NESTED = 18; // Wrap nested labels after this many chars
 
   // Helper to get font size based on nesting level
   const getFontSize = (ind: Individual): string => {
     const nestingLevel = ind._nestingLevel ?? getNestingLevel(ind);
     if (nestingLevel > 0) {
-      // For nested entities, use smaller font (half size)
-      return "0.65em";
+      // For nested entities, use smaller font
+      return "0.6em";
     }
     return config.labels.individual.fontSize;
   };
 
-  // Draw icons with indentation to show hierarchy
-  svgElement
-    .selectAll(".individualIcon")
-    .data(individuals.values())
-    .join("text")
-    .attr("class", "individualIcon")
-    .attr("id", (i: Individual) => `ii${i.id}`)
-    .attr("x", (i: Individual) => {
-      const nestingLevel = i._nestingLevel ?? getNestingLevel(i);
-      const indent = nestingLevel * INDENT_PER_LEVEL;
-      return (
-        config.layout.individual.xMargin +
-        config.labels.individual.leftMargin +
-        indent
-      );
-    })
-    .attr("y", (i: Individual, idx: number) => {
-      return (
-        config.layout.individual.topMargin +
-        config.layout.individual.gap +
-        config.layout.individual.height / 2 +
-        config.labels.individual.topMargin +
-        idx * (config.layout.individual.height + config.layout.individual.gap)
-      );
-    })
-    .attr("text-anchor", "start")
-    .attr("font-family", "Arial, sans-serif")
-    .attr("font-size", (d: Individual) => getFontSize(d))
-    .attr("fill", "#374151")
-    .text((d: Individual) => getEntityIcon(d, dataset));
+  // Helper to get numeric font size for calculations
+  const getNumericFontSize = (ind: Individual): number => {
+    const nestingLevel = ind._nestingLevel ?? getNestingLevel(ind);
+    if (nestingLevel > 0) {
+      return 9; // Smaller font for nested
+    }
+    return 12; // Default font size
+  };
 
-  // Draw labels with indentation
-  svgElement
-    .selectAll(".individualLabel")
-    .data(individuals.values())
-    .join("text")
-    .attr("class", "individualLabel")
-    .attr("id", (i: Individual) => `il${i.id}`)
-    .attr("x", (i: Individual) => {
-      const nestingLevel = getNestingLevel(i);
-      const indent = nestingLevel * INDENT_PER_LEVEL;
-      return (
-        config.layout.individual.xMargin +
-        config.labels.individual.leftMargin +
-        16 +
-        indent
-      );
-    })
-    .attr("y", () => {
-      const oldY = y;
-      y = y + config.layout.individual.height + config.layout.individual.gap;
-      return oldY;
-    })
-    .attr("text-anchor", "start")
-    .attr("font-family", "Roboto, Arial, sans-serif")
-    .attr("font-size", (d: Individual) => getFontSize(d))
-    .attr("fill", "#111827")
-    .text((d: Individual) => {
-      let label = d.name ?? "";
+  // Helper to wrap text into multiple lines (handles long words without spaces)
+  const wrapText = (text: string, maxCharsPerLine: number): string[] => {
+    const words = text.split(/\s+/);
+    const lines: string[] = [];
+    let currentLine = "";
 
-      // For nested entities, allow longer labels since font is smaller
-      const nestingLevel = d._nestingLevel ?? getNestingLevel(d);
-      const maxChars =
-        nestingLevel > 0
-          ? config.labels.individual.maxChars + 10 // Allow more chars for smaller font
-          : config.labels.individual.maxChars;
+    for (const word of words) {
+      // If the word itself is longer than maxCharsPerLine, break it into chunks
+      if (word.length > maxCharsPerLine) {
+        // First, push any existing current line
+        if (currentLine.length > 0) {
+          lines.push(currentLine);
+          currentLine = "";
+        }
 
-      if (label.length > maxChars - 2) {
-        label = label.substring(0, maxChars - 2) + "...";
+        // Break the long word into chunks
+        let remaining = word;
+        while (remaining.length > 0) {
+          if (remaining.length <= maxCharsPerLine) {
+            // Last chunk - either start new line or add to current
+            if (currentLine.length === 0) {
+              currentLine = remaining;
+            } else if (
+              currentLine.length + 1 + remaining.length <=
+              maxCharsPerLine
+            ) {
+              currentLine += " " + remaining;
+            } else {
+              lines.push(currentLine);
+              currentLine = remaining;
+            }
+            remaining = "";
+          } else {
+            // Take a chunk and add to lines
+            const chunk = remaining.substring(0, maxCharsPerLine - 1) + "-";
+            lines.push(chunk);
+            remaining = remaining.substring(maxCharsPerLine - 1);
+          }
+        }
+      } else if (currentLine.length === 0) {
+        currentLine = word;
+      } else if (currentLine.length + 1 + word.length <= maxCharsPerLine) {
+        currentLine += " " + word;
+      } else {
+        lines.push(currentLine);
+        currentLine = word;
       }
-      return label;
-    })
-    .each((d: Individual, i: number, nodes: SVGGraphicsElement[]) => {
-      removeLabelIfItOverlaps(labels, nodes[i]);
-      labels.push(nodes[i].getBBox());
-    });
+    }
+
+    if (currentLine.length > 0) {
+      lines.push(currentLine);
+    }
+
+    // Limit to max 2 lines to fit within row height, truncate last line if needed
+    if (lines.length > 2) {
+      lines.length = 2;
+      const lastLine = lines[1];
+      if (lastLine.length > maxCharsPerLine - 3) {
+        lines[1] = lastLine.substring(0, maxCharsPerLine - 3) + "...";
+      } else {
+        lines[1] = lastLine + "...";
+      }
+    }
+
+    return lines;
+  };
+
+  // Remove existing labels and icons
+  svgElement.selectAll(".individualIcon").remove();
+  svgElement.selectAll(".individualLabel").remove();
+
+  // Draw icons with indentation to show hierarchy
+  individuals.forEach((ind, idx) => {
+    const nestingLevel = ind._nestingLevel ?? getNestingLevel(ind);
+    const indent = nestingLevel * INDENT_PER_LEVEL;
+    const fontSize = getFontSize(ind);
+
+    const iconX =
+      config.layout.individual.xMargin +
+      config.labels.individual.leftMargin +
+      indent;
+
+    const baseY =
+      config.layout.individual.topMargin +
+      config.layout.individual.gap +
+      config.layout.individual.height / 2 +
+      config.labels.individual.topMargin +
+      idx * (config.layout.individual.height + config.layout.individual.gap);
+
+    // Draw icon
+    svgElement
+      .append("text")
+      .attr("class", "individualIcon")
+      .attr("id", `ii${ind.id}`)
+      .attr("x", iconX)
+      .attr("y", baseY)
+      .attr("text-anchor", "start")
+      .attr("font-family", "Arial, sans-serif")
+      .attr("font-size", fontSize)
+      .attr("fill", "#374151")
+      .text(getEntityIcon(ind, dataset));
+
+    // Draw label(s)
+    const labelX = iconX + 16;
+    const label = ind.name ?? "";
+
+    if (nestingLevel === 0) {
+      // Top-level: truncate after MAX_CHARS_TOP_LEVEL
+      let displayLabel = label;
+      if (label.length > MAX_CHARS_TOP_LEVEL) {
+        displayLabel = label.substring(0, MAX_CHARS_TOP_LEVEL - 1) + "...";
+      }
+
+      svgElement
+        .append("text")
+        .attr("class", "individualLabel")
+        .attr("id", `il${ind.id}`)
+        .attr("x", labelX)
+        .attr("y", baseY)
+        .attr("text-anchor", "start")
+        .attr("font-family", "Roboto, Arial, sans-serif")
+        .attr("font-size", fontSize)
+        .attr("fill", "#111827")
+        .text(displayLabel);
+    } else {
+      // Nested: wrap text to multiple lines
+      const lines = wrapText(label, MAX_CHARS_PER_LINE_NESTED);
+      const lineHeight = getNumericFontSize(ind) * 1.2;
+      const totalHeight = lines.length * lineHeight;
+
+      // Center the text block vertically within the row
+      const startY = baseY - (totalHeight - lineHeight) / 2;
+
+      lines.forEach((line, lineIdx) => {
+        svgElement
+          .append("text")
+          .attr("class", "individualLabel")
+          .attr("id", lineIdx === 0 ? `il${ind.id}` : `il${ind.id}_${lineIdx}`)
+          .attr("x", labelX)
+          .attr("y", startY + lineIdx * lineHeight)
+          .attr("text-anchor", "start")
+          .attr("font-family", "Roboto, Arial, sans-serif")
+          .attr("font-size", fontSize)
+          .attr("fill", "#111827")
+          .text(line);
+      });
+    }
+  });
 }

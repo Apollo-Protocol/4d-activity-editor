@@ -632,8 +632,6 @@ export class Model {
     this.installations.delete(id);
   }
 
-  // ... existing code ...
-
   /**
    * Check for circular references in installation hierarchy.
    *
@@ -760,6 +758,7 @@ export class Model {
   /**
    * Get the list of individuals to display in the diagram.
    * Handles nested SystemComponent → SystemComponent → System hierarchies.
+   * Preserves user-defined order for regular Individuals.
    */
   getDisplayIndividuals(): Individual[] {
     const result: Individual[] = [];
@@ -864,7 +863,7 @@ export class Model {
       }
     });
 
-    // Sort systems by name
+    // Sort systems by name (hierarchical entities are sorted alphabetically)
     systems.sort((a, b) => a.name.localeCompare(b.name));
 
     // Add each system and IMMEDIATELY add its nested virtual rows
@@ -894,6 +893,7 @@ export class Model {
         }
       }
     });
+    // Sort SCs alphabetically (hierarchical entities)
     topLevelSCs.sort((a, b) => a.name.localeCompare(b.name));
     topLevelSCs.forEach((ind) => {
       processedIds.add(ind.id);
@@ -915,6 +915,7 @@ export class Model {
         }
       }
     });
+    // Sort ICs alphabetically (hierarchical entities)
     topLevelICs.sort((a, b) => a.name.localeCompare(b.name));
     topLevelICs.forEach((ind) => {
       processedIds.add(ind.id);
@@ -926,38 +927,22 @@ export class Model {
       });
     });
 
-    // STEP 4: Add regular Individuals
-    const regularIndividuals: Individual[] = [];
+    // STEP 4: Add regular Individuals - PRESERVE MAP ORDER (user-defined sort)
+    // Do NOT sort alphabetically - the Map order is the user's custom order
     this.individuals.forEach((ind) => {
       const entityType = ind.entityType ?? EntityType.Individual;
       if (entityType === EntityType.Individual) {
         if (!processedIds.has(ind.id)) {
-          regularIndividuals.push(ind);
+          processedIds.add(ind.id);
+          result.push({
+            ...ind,
+            _isVirtualRow: false,
+            _parentPath: "",
+            _nestingLevel: 0,
+          });
         }
       }
     });
-    regularIndividuals.sort((a, b) => a.name.localeCompare(b.name));
-    regularIndividuals.forEach((ind) => {
-      processedIds.add(ind.id);
-      result.push({
-        ...ind,
-        _isVirtualRow: false,
-        _parentPath: "",
-        _nestingLevel: 0,
-      });
-    });
-
-    // NO SORTING NEEDED - items are added in correct order:
-    // 1. Sys 1 (System)
-    //    - Sys comp 1 (virtual row under Sys 1)
-    //      - Inst comp 1 (virtual row under Sys comp 1 under Sys 1)
-    // 2. Sys 2 (System)
-    //    - Sys comp 2 (virtual row under Sys 2)
-    // 3. Sys comp 1 (top-level definition)
-    // 4. Sys comp 2 (top-level definition)
-    // 5. Inst comp 1 (top-level definition)
-    // 6. Inst comp 2 (top-level definition)
-    // 7. Egg, Me, Pan... (regular Individuals)
 
     return result;
   }

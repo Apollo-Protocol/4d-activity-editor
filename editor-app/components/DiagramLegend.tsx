@@ -21,42 +21,39 @@ const DiagramLegend = ({
 }: Props) => {
   const [hovered, setHovered] = useState<string | null>(null);
   return (
-    <Card className="ms-3 mb-2" style={{ minWidth: 220 }}>
-      <Card.Body>
-        <Card.Title>Activity Legend</Card.Title>
+    <Card className="legend-card mb-2">
+      <Card.Body className="legend-body">
+        <Card.Title className="legend-title">Activity Legend</Card.Title>
         {activities.map((activity, idx) => {
           const count = partsCount ? partsCount[activity.id] ?? 0 : 0;
           return (
             <div
               key={activity.id}
-              className="mb-1 d-flex align-items-center justify-content-between"
+              className="legend-item justify-content-between"
             >
-              <div className="d-flex align-items-center">
+              <div className="d-flex align-items-center overflow-hidden">
                 <span
+                  className="legend-color-box"
                   style={{
-                    display: "inline-block",
-                    width: 16,
-                    height: 16,
                     background: activityColors[idx % activityColors.length],
-                    borderRadius: 3,
-                    marginRight: 8,
-                    border: "1px solid #888",
                   }}
                 />
-                {count > 0 ? (
-                  <span>
-                    {activity.name}{" "}
-                    <span style={{ fontWeight: "bolder" }}>
-                      ({count} subtask{count !== 1 ? "s" : ""})
-                    </span>
-                  </span>
-                ) : (
-                  <span>{activity.name}</span>
-                )}
+                <span className="legend-label text-truncate">
+                  {count > 0 ? (
+                    <>
+                      {activity.name}{" "}
+                      <span style={{ fontWeight: "bolder" }}>
+                        ({count} subtask{count !== 1 ? "s" : ""})
+                      </span>
+                    </>
+                  ) : (
+                    activity.name
+                  )}
+                </span>
               </div>
 
               {/* open/edit button on the right */}
-              <div>
+              <div className="flex-shrink-0">
                 {onOpenActivity ? (
                   <OverlayTrigger
                     placement="top"
@@ -69,6 +66,7 @@ const DiagramLegend = ({
                     <Button
                       variant="none"
                       size="sm"
+                      className="legend-action-btn"
                       onClick={() => onOpenActivity(activity)}
                       aria-label={`Open ${activity.name}`}
                       onMouseEnter={() => setHovered(activity.id)}
@@ -82,21 +80,9 @@ const DiagramLegend = ({
             </div>
           );
         })}
-        <div className="mt-2 d-flex align-items-center justify-content-between">
-          <div className="d-flex align-items-center">
-            <span
-              style={{
-                display: "inline-block",
-                width: 16,
-                height: 16,
-                background: "#ccc",
-                borderRadius: 3,
-                marginRight: 8,
-                border: "1px solid #888",
-              }}
-            />
-            <span>No Activity</span>
-          </div>
+        <div className="legend-item mt-2">
+          <span className="legend-color-box" style={{ background: "#ccc" }} />
+          <span className="legend-label">No Activity</span>
         </div>
       </Card.Body>
     </Card>

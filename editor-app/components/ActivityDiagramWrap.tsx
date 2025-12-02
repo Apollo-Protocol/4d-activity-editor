@@ -388,7 +388,6 @@ export default function ActivityDiagramWrap() {
         </Row>
       </Container>
 
-      {/* InstalledComponent editor modal */}
       <EditInstalledComponent
         show={showInstalledComponentEditor}
         setShow={setShowInstalledComponentEditor}
@@ -399,7 +398,6 @@ export default function ActivityDiagramWrap() {
         targetSlotId={targetSlotId}
       />
 
-      {/* SystemComponent editor modal */}
       <EditSystemComponentInstallation
         show={showSystemComponentEditor}
         setShow={setShowSystemComponentEditor}

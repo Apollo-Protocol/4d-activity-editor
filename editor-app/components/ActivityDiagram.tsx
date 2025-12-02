@@ -1,7 +1,5 @@
 import { useState, useEffect, MutableRefObject, JSX } from "react";
 import Breadcrumb from "react-bootstrap/Breadcrumb";
-import Row from "react-bootstrap/Row";
-import Col from "react-bootstrap/Col";
 import { drawActivityDiagram } from "@/diagram/DrawActivityDiagram";
 import { ConfigData } from "@/diagram/config";
 import { Model } from "@/lib/Model";
@@ -108,7 +106,7 @@ const ActivityDiagram = (props: Props) => {
         style={{
           overflowX: "auto",
           overflowY: "auto",
-          maxHeight: "calc(100vh - 250px)", // Leave space for header, footer, and controls
+          maxHeight: "calc(100vh - 250px)",
           border: "1px solid #e0e0e0",
           borderRadius: "4px",
           backgroundColor: "#fafafa",

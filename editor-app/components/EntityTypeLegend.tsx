@@ -54,40 +54,15 @@ export const entityTypes: EntityLegendItem[] = [
 
 const EntityTypeLegend = () => {
   return (
-    <Card className="ms-3 mb-2" style={{ minWidth: 220 }}>
-      <Card.Body>
-        <Card.Title>Entity Types</Card.Title>
+    <Card className="legend-card mb-2">
+      <Card.Body className="legend-body">
+        <Card.Title className="legend-title">Entity Types</Card.Title>
         {entityTypes.map((item, idx) => (
-          <div
-            key={idx}
-            className="mb-1 d-flex align-items-center"
-            title={item.description}
-          >
-            <span
-              style={{
-                display: "inline-flex",
-                alignItems: "center",
-                justifyContent: "center",
-                width: 24,
-                height: 24,
-                marginRight: 8,
-                fontSize: 18,
-                fontFamily: "Arial, sans-serif",
-                position: "relative",
-              }}
-            >
+          <div key={idx} className="legend-item" title={item.description}>
+            <span className="legend-icon-wrapper">
               {item.icon}
               {item.hasHatch && (
-                <svg
-                  style={{
-                    position: "absolute",
-                    top: 0,
-                    left: 0,
-                    width: 24,
-                    height: 24,
-                    pointerEvents: "none",
-                  }}
-                >
+                <svg className="legend-hatch-overlay">
                   <defs>
                     <pattern
                       id="legend-hatch"
@@ -117,7 +92,7 @@ const EntityTypeLegend = () => {
                 </svg>
               )}
             </span>
-            <span style={{ color: "#111827" }}>{item.label}</span>
+            <span className="legend-label">{item.label}</span>
           </div>
         ))}
       </Card.Body>

@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { Button, Container, Form } from "react-bootstrap";
-import Dropdown from 'react-bootstrap/Dropdown';
-import DropdownButton from 'react-bootstrap/DropdownButton';
+import Dropdown from "react-bootstrap/Dropdown";
+import DropdownButton from "react-bootstrap/DropdownButton";
 import Row from "react-bootstrap/Row";
 import Col from "react-bootstrap/Col";
 
@@ -27,25 +27,26 @@ const DiagramPersistence = (props: any) => {
 
   useEffect(() => {
     fetch("examples/index.json")
-      .then(res => {
+      .then((res) => {
         if (!res.ok) {
           console.log(`Fetching examples index failed: ${res.status}`);
           return;
         }
         return res.json();
       })
-      .then(json => {
+      .then((json) => {
         setExamples(json);
       });
   }, []);
 
   function downloadTtl() {
     if (refDataOnly) {
-      saveFile(saveRefDataAsTTL(dataset), 
+      saveFile(
+        saveRefDataAsTTL(dataset),
         dataset.filename.replace(/(\.[^.]*)?$/, "_ref_data$&"),
-        "text/turtle");
-    }
-    else {
+        "text/turtle"
+      );
+    } else {
       saveFile(save(dataset), dataset.filename, "text/turtle");
       setDirty(false);
     }
@@ -84,42 +85,62 @@ const DiagramPersistence = (props: any) => {
   }
 
   return (
-    <Container>
-      <Row>
-        <Col
-          md={12}
-          lg={6}
-          className="mt-2 d-flex align-items-start justify-content-center justify-content-lg-start"
+    <div className="d-flex align-items-center justify-content-center gap-4 flex-wrap py-2">
+      {/* Load Example dropdown */}
+      <DropdownButton variant="primary" title="Load example">
+        {examples.map((e) => (
+          <Dropdown.Item key={e.path} onClick={() => loadExample(e.path)}>
+            {e.name}
+          </Dropdown.Item>
+        ))}
+      </DropdownButton>
+
+      {/* TTL Load/Save buttons with Reference Types toggle */}
+      <div className="d-flex align-items-center gap-2">
+        <Button variant="primary" onClick={uploadTtl}>
+          Load TTL
+        </Button>
+        <Button variant="primary" onClick={downloadTtl}>
+          Save TTL
+        </Button>
+
+        {/* Reference Types Only toggle - styled as a pill/badge toggle */}
+        <div
+          className="d-flex align-items-center ms-2 px-3 py-1 rounded-pill"
+          style={{
+            backgroundColor: refDataOnly ? "#e8f4fd" : "#f8f9fa",
+            border: refDataOnly ? "1px solid #0d6efd" : "1px solid #dee2e6",
+            cursor: "pointer",
+            transition: "all 0.2s ease",
+          }}
+          onClick={() => setRefDataOnly(!refDataOnly)}
         >
-          <DropdownButton title="Load example">
-            {examples.map(e => 
-              <Dropdown.Item key={e.path} onClick={() => loadExample(e.path)}>
-                {e.name}
-              </Dropdown.Item>)}
-          </DropdownButton>
-        </Col>
-        <Col
-          md={12}
-          lg={6}
-          className="mt-2 d-flex align-items-start justify-content-center justify-content-lg-end"
-        >
-          <Form.Group controlId="formFile">
-            <Button variant="primary" onClick={uploadTtl}>Load TTL</Button>
-            <Form.Text className="text-muted">{uploadText}</Form.Text>
-            <Form.Check
-              type="switch"
-              label="Reference Types only"
-              checked={refDataOnly}
-              onChange={() => setRefDataOnly(!refDataOnly)}
-            />
-          </Form.Group>
-          <Button variant="primary" onClick={downloadTtl} className={"mx-1"}>
-            Save&nbsp;TTL
-          </Button>
-        </Col>
-      </Row>
-      <Row className="mt-2"></Row>
-    </Container>
+          <Form.Check
+            type="checkbox"
+            id="refDataOnlyCheck"
+            checked={refDataOnly}
+            onChange={() => setRefDataOnly(!refDataOnly)}
+            style={{ marginRight: "8px" }}
+          />
+          <label
+            htmlFor="refDataOnlyCheck"
+            style={{
+              cursor: "pointer",
+              fontSize: "0.875rem",
+              fontWeight: refDataOnly ? 500 : 400,
+              color: refDataOnly ? "#0d6efd" : "#6c757d",
+              marginBottom: 0,
+              whiteSpace: "nowrap",
+            }}
+          >
+            Reference Types only
+          </label>
+        </div>
+      </div>
+
+      {/* Error message if any */}
+      {uploadText && <span className="text-danger small">{uploadText}</span>}
+    </div>
   );
 };
 

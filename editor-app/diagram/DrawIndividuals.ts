@@ -647,6 +647,65 @@ export function labelIndividuals(ctx: DrawContext) {
   const CHAR_WIDTH_ESTIMATE = 6; // Approximate width per character in pixels
   const MIN_CHARS = 6; // Minimum characters to show before truncating
 
+  // Parse the base font size from config (handles formats like "0.8em", "12px", "12")
+  const parseConfigFontSize = (
+    fontSize: string
+  ): { value: number; unit: string } => {
+    const match = fontSize.match(/^([\d.]+)(em|px|rem|pt)?$/i);
+    if (match) {
+      return {
+        value: parseFloat(match[1]),
+        unit: match[2]?.toLowerCase() || "px",
+      };
+    }
+    // Fallback for unrecognized formats
+    return { value: 12, unit: "px" };
+  };
+
+  const baseFontConfig = parseConfigFontSize(config.labels.individual.fontSize);
+
+  // Nested elements use 75% of the base font size
+  const NESTED_FONT_SCALE = 0.75;
+
+  // Helper to get font size based on nesting level (derived from config)
+  const getFontSize = (ind: Individual): string => {
+    const nestingLevel = ind._nestingLevel ?? getNestingLevel(ind);
+    if (nestingLevel > 0) {
+      // For nested entities, use scaled-down version of config font size
+      const nestedValue = baseFontConfig.value * NESTED_FONT_SCALE;
+      return `${nestedValue}${baseFontConfig.unit}`;
+    }
+    return config.labels.individual.fontSize;
+  };
+
+  // Helper to get numeric font size in pixels for calculations
+  const getNumericFontSize = (ind: Individual): number => {
+    const nestingLevel = ind._nestingLevel ?? getNestingLevel(ind);
+
+    // Convert config font size to approximate pixel value for calculations
+    let basePx: number;
+    switch (baseFontConfig.unit) {
+      case "em":
+      case "rem":
+        // Assume 1em ≈ 16px (browser default)
+        basePx = baseFontConfig.value * 16;
+        break;
+      case "pt":
+        // 1pt ≈ 1.333px
+        basePx = baseFontConfig.value * 1.333;
+        break;
+      case "px":
+      default:
+        basePx = baseFontConfig.value;
+        break;
+    }
+
+    if (nestingLevel > 0) {
+      return basePx * NESTED_FONT_SCALE;
+    }
+    return basePx;
+  };
+
   // Calculate time range (same as in drawIndividuals)
   let startOfTime = Math.min(...activities.map((a) => a.beginning));
   let endOfTime = Math.max(...activities.map((a) => a.ending));
@@ -719,25 +778,6 @@ export function labelIndividuals(ctx: DrawContext) {
     // Convert to X position
     const activityX = lhs_x + timeInterval * (earliestBeginning - startOfTime);
     return activityX;
-  };
-
-  // Helper to get font size based on nesting level
-  const getFontSize = (ind: Individual): string => {
-    const nestingLevel = ind._nestingLevel ?? getNestingLevel(ind);
-    if (nestingLevel > 0) {
-      // For nested entities, use smaller font
-      return "0.6em";
-    }
-    return config.labels.individual.fontSize;
-  };
-
-  // Helper to get numeric font size for calculations
-  const getNumericFontSize = (ind: Individual): number => {
-    const nestingLevel = ind._nestingLevel ?? getNestingLevel(ind);
-    if (nestingLevel > 0) {
-      return 9; // Smaller font for nested
-    }
-    return 12; // Default font size
   };
 
   // Helper to wrap text into multiple lines (handles long words without spaces)
@@ -880,7 +920,8 @@ export function labelIndividuals(ctx: DrawContext) {
     } else {
       // Nested: wrap text to multiple lines
       const lines = wrapText(label, MAX_CHARS_PER_LINE_NESTED);
-      const lineHeight = getNumericFontSize(ind) * 1.2;
+      const numericFontSize = getNumericFontSize(ind);
+      const lineHeight = numericFontSize * 1.2;
       const totalHeight = lines.length * lineHeight;
 
       // Center the text block vertically within the row

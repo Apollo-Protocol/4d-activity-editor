@@ -17,35 +17,14 @@ interface Props {
 
 // Interface for slot options that includes nesting info
 interface SlotOption {
-  id: string; // Original SystemComponent ID
-  virtualId: string; // Virtual row ID - unique identifier for this specific slot instance
+  id: string;
+  virtualId: string;
   displayName: string;
   bounds: { beginning: number; ending: number };
-  parentPath: string; // Path of parent IDs for context
+  parentPath: string;
   nestingLevel: number;
   systemName?: string;
-  scInstallationId?: string; // The SC installation ID for context
-}
-
-// Helper to extract the SC installation ID from a virtual row ID
-// Format: scId__installed_in__targetId__installationId or with __ctx_
-function extractInstallationIdFromVirtualId(
-  virtualId: string
-): string | undefined {
-  if (!virtualId.includes("__installed_in__")) return undefined;
-  const parts = virtualId.split("__installed_in__");
-  if (parts.length < 2) return undefined;
-  let rest = parts[1];
-
-  // Remove context suffix if present
-  const ctxIndex = rest.indexOf("__ctx_");
-  if (ctxIndex !== -1) {
-    rest = rest.substring(0, ctxIndex);
-  }
-
-  const restParts = rest.split("__");
-  // restParts[0] is targetId, restParts[1] is installationId
-  return restParts.length > 1 ? restParts[1] : undefined;
+  scInstallationId?: string;
 }
 
 const EditInstalledComponent = (props: Props) => {
@@ -73,26 +52,21 @@ const EditInstalledComponent = (props: Props) => {
   >(new Map());
   const [showAll, setShowAll] = useState(false);
 
-  // Get available slots - now includes ALL SystemComponent virtual rows (including nested)
+  // Get available slots
   const availableSlots = useMemo((): SlotOption[] => {
     const slots: SlotOption[] = [];
     const displayIndividuals = dataset.getDisplayIndividuals();
 
     displayIndividuals.forEach((ind) => {
-      // Only consider virtual rows (installed instances)
       if (!ind._isVirtualRow) return;
 
-      // Parse the virtual ID to get the original component ID
       const originalId = ind.id.split("__installed_in__")[0];
       const original = dataset.individuals.get(originalId);
       if (!original) return;
 
       const origType = original.entityType ?? EntityType.Individual;
-
-      // Only SystemComponents can be slots for InstalledComponents
       if (origType !== EntityType.SystemComponent) return;
 
-      // Build display name showing full hierarchy
       const pathParts = ind._parentPath?.split("__") || [];
       const pathNames: string[] = [];
 
@@ -103,12 +77,9 @@ const EditInstalledComponent = (props: Props) => {
         }
       });
 
-      // The display name shows the SC name and its full path
       const hierarchyStr =
         pathNames.length > 0 ? pathNames.join(" → ") : "Unknown";
       const displayName = `${ind.name} (in ${hierarchyStr})`;
-
-      // Extract the SC installation ID from the virtual ID
       const scInstallationId = ind._installationId;
 
       slots.push({
@@ -118,36 +89,29 @@ const EditInstalledComponent = (props: Props) => {
         bounds: { beginning: ind.beginning, ending: ind.ending },
         parentPath: ind._parentPath || "",
         nestingLevel: ind._nestingLevel || 1,
-        systemName: pathNames[0], // Root system name
+        systemName: pathNames[0],
         scInstallationId: scInstallationId,
       });
     });
 
-    // Sort by system name, then by parent path (to maintain hierarchy), then by name
     slots.sort((a, b) => {
-      // First by system name
       if (a.systemName !== b.systemName) {
         return (a.systemName || "").localeCompare(b.systemName || "");
       }
-      // Then by parent path to keep hierarchy together
       if (a.parentPath !== b.parentPath) {
-        // If one is nested under the other, parent comes first
         if (a.parentPath.startsWith(b.parentPath + "__")) return 1;
         if (b.parentPath.startsWith(a.parentPath + "__")) return -1;
         return a.parentPath.localeCompare(b.parentPath);
       }
-      // Then by nesting level
       if (a.nestingLevel !== b.nestingLevel) {
         return a.nestingLevel - b.nestingLevel;
       }
-      // Finally by display name
       return a.displayName.localeCompare(b.displayName);
     });
 
     return slots;
   }, [dataset]);
 
-  // Group slots by system for the dropdown - MOVED BEFORE any conditional returns
   const slotsBySystem = useMemo(() => {
     const groups = new Map<string, SlotOption[]>();
     availableSlots.forEach((slot) => {
@@ -160,30 +124,25 @@ const EditInstalledComponent = (props: Props) => {
     return groups;
   }, [availableSlots]);
 
-  // Helper to get slot option by virtualId (unique key)
   const getSlotOptionByVirtualId = (
     virtualId: string
   ): SlotOption | undefined => {
     return availableSlots.find((slot) => slot.virtualId === virtualId);
   };
 
-  // Helper to get slot option by targetId and scInstContextId
   const getSlotOption = (
     targetId: string,
     scInstContextId?: string
   ): SlotOption | undefined => {
     return availableSlots.find((slot) => {
       if (slot.id !== targetId) return false;
-      // If we have a context ID, must match exactly
       if (scInstContextId) {
         return slot.scInstallationId === scInstContextId;
       }
-      // If no context, return first matching slot
       return true;
     });
   };
 
-  // Helper function to get effective slot time bounds
   const getSlotTimeBounds = (
     slotId: string,
     scInstContextId?: string
@@ -197,7 +156,6 @@ const EditInstalledComponent = (props: Props) => {
       };
     }
 
-    // Fallback to original behavior
     const slot = dataset.individuals.get(slotId);
     if (!slot) {
       return { beginning: 0, ending: Model.END_OF_TIME, slotName: slotId };
@@ -246,7 +204,11 @@ const EditInstalledComponent = (props: Props) => {
       allInst.forEach((inst) => {
         inputs.set(inst.id, {
           beginning: String(inst.beginning ?? 0),
-          ending: String(inst.ending ?? 10),
+          // Use empty string for undefined/END_OF_TIME to show placeholder
+          ending:
+            inst.ending === undefined || inst.ending >= Model.END_OF_TIME
+              ? ""
+              : String(inst.ending),
         });
       });
       setRawInputs(inputs);
@@ -273,7 +235,7 @@ const EditInstalledComponent = (props: Props) => {
     localInstallations.forEach((inst, idx) => {
       const raw = rawInputs.get(inst.id);
       const beginningStr = raw?.beginning ?? String(inst.beginning);
-      const endingStr = raw?.ending ?? String(inst.ending);
+      const endingStr = raw?.ending ?? "";
 
       const slotInfo = inst.targetId
         ? getSlotTimeBounds(inst.targetId, inst.scInstallationContextId)
@@ -293,28 +255,31 @@ const EditInstalledComponent = (props: Props) => {
         newErrors.push(`${slotName}: "From" time is required.`);
       }
 
-      if (endingStr.trim() === "") {
-        newErrors.push(`${slotName}: "Until" time is required.`);
-      }
+      // "Until" is now optional - empty means infinity
 
       const beginning = parseInt(beginningStr, 10);
-      const ending = parseInt(endingStr, 10);
+      // Parse ending: empty string means END_OF_TIME
+      const ending =
+        endingStr.trim() === "" ? Model.END_OF_TIME : parseInt(endingStr, 10);
 
-      if (!isNaN(beginning) && !isNaN(ending)) {
+      if (!isNaN(beginning)) {
         if (beginning < 0) {
           newErrors.push(`${slotName}: "From" cannot be negative.`);
-        }
-        if (ending < 1) {
-          newErrors.push(`${slotName}: "Until" must be at least 1.`);
-        }
-        if (beginning >= ending) {
-          newErrors.push(`${slotName}: "From" must be less than "Until".`);
         }
 
         if (beginning < slotInfo.beginning) {
           newErrors.push(
             `${slotName}: "From" (${beginning}) cannot be before slot starts (${slotInfo.beginning}).`
           );
+        }
+      }
+
+      if (endingStr.trim() !== "" && !isNaN(ending)) {
+        if (ending < 1) {
+          newErrors.push(`${slotName}: "Until" must be at least 1.`);
+        }
+        if (!isNaN(beginning) && beginning >= ending) {
+          newErrors.push(`${slotName}: "From" must be less than "Until".`);
         }
         if (slotInfo.ending < Model.END_OF_TIME && ending > slotInfo.ending) {
           newErrors.push(
@@ -330,8 +295,10 @@ const EditInstalledComponent = (props: Props) => {
       if (!inst.targetId) return;
       const raw = rawInputs.get(inst.id);
       const beginning = parseInt(raw?.beginning ?? String(inst.beginning), 10);
-      const ending = parseInt(raw?.ending ?? String(inst.ending), 10);
-      if (isNaN(beginning) || isNaN(ending)) return;
+      const endingStr = raw?.ending ?? "";
+      const ending =
+        endingStr.trim() === "" ? Model.END_OF_TIME : parseInt(endingStr, 10);
+      if (isNaN(beginning)) return;
 
       const key = `${inst.targetId}__${inst.scInstallationContextId || "any"}`;
       const list = bySlotAndContext.get(key) || [];
@@ -352,9 +319,17 @@ const EditInstalledComponent = (props: Props) => {
       for (let i = 0; i < installations.length - 1; i++) {
         const current = installations[i];
         const next = installations[i + 1];
-        if ((current.ending ?? 0) > (next.beginning ?? 0)) {
+        const currentEnding = current.ending ?? Model.END_OF_TIME;
+        const nextBeginning = next.beginning ?? 0;
+        if (currentEnding > nextBeginning) {
+          const currentEndingStr =
+            currentEnding >= Model.END_OF_TIME ? "∞" : currentEnding;
+          const nextEndingStr =
+            (next.ending ?? Model.END_OF_TIME) >= Model.END_OF_TIME
+              ? "∞"
+              : next.ending;
           newErrors.push(
-            `${slotInfo.slotName}: Periods overlap (${current.beginning}-${current.ending} and ${next.beginning}-${next.ending}).`
+            `${slotInfo.slotName}: Periods overlap (${current.beginning}-${currentEndingStr} and ${nextBeginning}-${nextEndingStr}).`
           );
         }
       }
@@ -373,11 +348,13 @@ const EditInstalledComponent = (props: Props) => {
 
     const updatedInstallations = localInstallations.map((inst) => {
       const raw = rawInputs.get(inst.id);
+      const endingStr = raw?.ending ?? "";
 
       return {
         ...inst,
         beginning: parseInt(raw?.beginning ?? String(inst.beginning), 10) || 0,
-        ending: parseInt(raw?.ending ?? String(inst.ending), 10) || 10,
+        // Empty ending means undefined (infinity)
+        ending: endingStr.trim() === "" ? undefined : parseInt(endingStr, 10),
       };
     });
 
@@ -447,17 +424,13 @@ const EditInstalledComponent = (props: Props) => {
     }
 
     const defaultBeginning = slotOption?.bounds.beginning ?? 0;
-    const defaultEnding =
-      slotOption && slotOption.bounds.ending < Model.END_OF_TIME
-        ? slotOption.bounds.ending
-        : defaultBeginning + 10;
 
     const newInst: Installation = {
       id: uuidv4(),
       componentId: individual?.id || "",
       targetId: targetSlotId || "",
       beginning: defaultBeginning,
-      ending: defaultEnding,
+      ending: undefined, // Default to undefined (infinity)
       scInstallationContextId: slotOption?.scInstallationId,
     };
 
@@ -466,7 +439,7 @@ const EditInstalledComponent = (props: Props) => {
       const next = new Map(prev);
       next.set(newInst.id, {
         beginning: String(defaultBeginning),
-        ending: String(defaultEnding),
+        ending: "", // Empty string for infinity
       });
       return next;
     });
@@ -508,7 +481,7 @@ const EditInstalledComponent = (props: Props) => {
   ) => {
     setRawInputs((prev) => {
       const next = new Map(prev);
-      const current = next.get(instId) || { beginning: "0", ending: "10" };
+      const current = next.get(instId) || { beginning: "0", ending: "" };
       next.set(instId, { ...current, [field]: value });
       return next;
     });
@@ -518,6 +491,9 @@ const EditInstalledComponent = (props: Props) => {
       if (!isNaN(parsed)) {
         updateInstallation(instId, field, parsed);
       }
+    } else if (field === "ending") {
+      // Empty ending means undefined
+      updateInstallation(instId, field, undefined);
     }
 
     if (errors.length > 0) {
@@ -533,10 +509,14 @@ const EditInstalledComponent = (props: Props) => {
     if (!inst || !inst.targetId) return false;
 
     const raw = rawInputs.get(instId);
-    const value = parseInt(
-      field === "beginning" ? raw?.beginning ?? "" : raw?.ending ?? "",
-      10
-    );
+    const rawValue = field === "beginning" ? raw?.beginning : raw?.ending;
+
+    // Empty ending is valid (infinity)
+    if (field === "ending" && (!rawValue || rawValue.trim() === "")) {
+      return false;
+    }
+
+    const value = parseInt(rawValue ?? "", 10);
     if (isNaN(value)) return false;
 
     const slotBounds = getSlotTimeBounds(
@@ -551,7 +531,6 @@ const EditInstalledComponent = (props: Props) => {
     }
   };
 
-  // Early return AFTER all hooks
   if (!individual) return null;
 
   const isFiltered = !!targetSlotId && !showAll;
@@ -585,8 +564,8 @@ const EditInstalledComponent = (props: Props) => {
 
         <p className="text-muted mb-3">
           {isFiltered
-            ? `Manage installation periods for this component. You can have multiple non-overlapping periods.`
-            : `Manage all installation periods for this component across different slots.`}
+            ? `Manage installation periods for this component. You can have multiple non-overlapping periods. Leave "Until" empty for indefinite.`
+            : `Manage all installation periods for this component across different slots. Leave "Until" empty for indefinite (∞).`}
           {!isFiltered && availableSlots.length === 0 && (
             <>
               {" "}
@@ -610,9 +589,7 @@ const EditInstalledComponent = (props: Props) => {
               <th style={{ width: isFiltered ? "35%" : "20%" }}>
                 From <span className="text-danger">*</span>
               </th>
-              <th style={{ width: isFiltered ? "35%" : "20%" }}>
-                Until <span className="text-danger">*</span>
-              </th>
+              <th style={{ width: isFiltered ? "35%" : "20%" }}>Until</th>
               <th
                 style={{ width: isFiltered ? "25%" : "15%" }}
                 className="text-center"
@@ -638,7 +615,7 @@ const EditInstalledComponent = (props: Props) => {
               localInstallations.map((inst, idx) => {
                 const raw = rawInputs.get(inst.id) || {
                   beginning: String(inst.beginning),
-                  ending: String(inst.ending),
+                  ending: "",
                 };
 
                 const slotOption = inst.targetId
@@ -696,20 +673,13 @@ const EditInstalledComponent = (props: Props) => {
                                 selectedSlot.scInstallationId
                               );
 
-                              const newEnding =
-                                selectedSlot.bounds.ending < Model.END_OF_TIME
-                                  ? selectedSlot.bounds.ending
-                                  : selectedSlot.bounds.beginning + 10;
                               updateRawInput(
                                 inst.id,
                                 "beginning",
                                 String(selectedSlot.bounds.beginning)
                               );
-                              updateRawInput(
-                                inst.id,
-                                "ending",
-                                String(newEnding)
-                              );
+                              // Leave ending empty (infinity) by default
+                              updateRawInput(inst.id, "ending", "");
                             }
                           }}
                           className={!inst.targetId ? "border-warning" : ""}
@@ -794,12 +764,8 @@ const EditInstalledComponent = (props: Props) => {
                         onChange={(e) =>
                           updateRawInput(inst.id, "ending", e.target.value)
                         }
-                        placeholder={String(instSlotBounds?.ending ?? 10)}
-                        className={
-                          raw.ending === "" || endingOutOfBounds
-                            ? "border-danger"
-                            : ""
-                        }
+                        placeholder="∞"
+                        className={endingOutOfBounds ? "border-danger" : ""}
                         isInvalid={endingOutOfBounds}
                       />
                       {endingOutOfBounds && instSlotBounds && (

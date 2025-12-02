@@ -441,7 +441,12 @@ export default function ActivityDiagramWrap() {
               showConfigModal={showConfigModal}
               setShowConfigModal={setShowConfigModal}
             />
-            <ExportSvg dataset={dataset} svgRef={svgRef} />
+            <ExportSvg
+              dataset={dataset}
+              svgRef={svgRef}
+              activitiesInView={activitiesInView}
+              activityColors={config.presentation.activity.fill}
+            />
             <ExportJson dataset={dataset} />
           </div>
         </div>

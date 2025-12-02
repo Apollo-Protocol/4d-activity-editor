@@ -213,7 +213,13 @@ body {
   padding: 0.125rem 0.25rem;
 }
 
-/* Medium screens (tablets, small laptops) */
+/* Activity Legend scrollable content */
+.legend-items-container {
+  max-height: none;
+  overflow-y: visible;
+}
+
+/* Medium screens (tablets, small laptops) - make legend scrollable */
 @media (max-width: 1200px) {
   .legend-card {
     min-width: 160px;
@@ -259,6 +265,28 @@ body {
   .legend-action-btn svg {
     width: 14px;
     height: 14px;
+  }
+
+  /* Make activity legend scrollable when more than ~7 items */
+  .legend-items-container {
+    max-height: 200px;
+    overflow-y: auto;
+    scrollbar-width: thin;
+    scrollbar-color: #888 #f1f1f1;
+  }
+
+  .legend-items-container::-webkit-scrollbar {
+    width: 6px;
+  }
+
+  .legend-items-container::-webkit-scrollbar-track {
+    background: #f1f1f1;
+    border-radius: 3px;
+  }
+
+  .legend-items-container::-webkit-scrollbar-thumb {
+    background: #888;
+    border-radius: 3px;
   }
 }
 
@@ -309,6 +337,11 @@ body {
     width: 12px;
     height: 12px;
   }
+
+  /* Smaller scroll area on small screens */
+  .legend-items-container {
+    max-height: 160px;
+  }
 }
 
 /* Extra small screens */
@@ -341,5 +374,9 @@ body {
     width: 8px;
     height: 8px;
     margin-right: 2px;
+  }
+
+  .legend-items-container {
+    max-height: 140px;
   }
 }

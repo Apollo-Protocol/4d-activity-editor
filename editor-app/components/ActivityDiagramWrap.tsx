@@ -307,8 +307,10 @@ export default function ActivityDiagramWrap() {
             />
           </Col>
         </Row>
-        <Row className="mt-3 justify-content-between">
-          <Col className="d-flex justify-content-start">
+
+        {/* All buttons on one row */}
+        <Row className="mt-3 align-items-center">
+          <Col xs="auto" className="d-flex gap-1">
             <SetIndividual
               deleteIndividual={deleteIndividual}
               setIndividual={setIndividual}
@@ -360,7 +362,19 @@ export default function ActivityDiagramWrap() {
               activitiesInView={activitiesInView}
             />
           </Col>
-          <Col className="d-flex justify-content-end">
+
+          {/* Center - Load/Save TTL */}
+          <Col className="d-flex justify-content-center">
+            <DiagramPersistence
+              dataset={dataset}
+              setDataset={replaceDataset}
+              svgRef={svgRef}
+              setDirty={setDirty}
+            />
+          </Col>
+
+          {/* Right side buttons */}
+          <Col xs="auto" className="d-flex gap-1">
             <Undo
               hasUndo={undoHistory.length > 0}
               undo={undo}
@@ -374,16 +388,6 @@ export default function ActivityDiagramWrap() {
             />
             <ExportSvg dataset={dataset} svgRef={svgRef} />
             <ExportJson dataset={dataset} />
-          </Col>
-        </Row>
-        <Row className="mt-3">
-          <Col className="d-flex justify-content-center align-items-center">
-            <DiagramPersistence
-              dataset={dataset}
-              setDataset={replaceDataset}
-              svgRef={svgRef}
-              setDirty={setDirty}
-            />
           </Col>
         </Row>
       </Container>

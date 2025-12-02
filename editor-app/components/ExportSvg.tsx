@@ -1,25 +1,33 @@
-import React, { useState, useEffect } from "react";
+import React from "react";
 import Button from "react-bootstrap/Button";
-import { saveJSONLD } from "lib/ActivityLib";
 
-const ExportJson = (props: any) => {
+const ExportSvg = (props: any) => {
   const { dataset, svgRef } = props;
 
-  function serializeNode(node: any) {
-    var svgxml = new XMLSerializer().serializeToString(node);
-    return svgxml;
+  function serializeNode(node: SVGSVGElement | null): string {
+    if (!node) return "";
+    const serializer = new XMLSerializer();
+    return serializer.serializeToString(node);
   }
 
-  function downloadsvg(event: any) {
-    let pom = document.createElement("a");
-    pom.setAttribute(
-      "href",
-      "data:image/svg+xml;base64," + btoa(serializeNode(svgRef.current))
-    );
+  // Safe base64 for UTF‑8 SVG
+  function toBase64Utf8(str: string): string {
+    return window.btoa(unescape(encodeURIComponent(str)));
+  }
+
+  function downloadsvg() {
+    if (!svgRef?.current) return;
+
+    const raw = serializeNode(svgRef.current);
+
+    const base64 = toBase64Utf8(raw);
+
+    const pom = document.createElement("a");
+    pom.setAttribute("href", "data:image/svg+xml;base64," + base64);
     pom.setAttribute("download", "activity_diagram.svg");
 
     if (document.createEvent) {
-      let event = document.createEvent("MouseEvents");
+      const event = document.createEvent("MouseEvents");
       event.initEvent("click", true, true);
       pom.dispatchEvent(event);
     } else {
@@ -36,10 +44,10 @@ const ExportJson = (props: any) => {
           dataset.individuals.size > 0 ? "mx-1 d-block" : "mx-1 d-none"
         }
       >
-        Export&nbsp;SVG
+        Export SVG
       </Button>
     </>
   );
 };
 
-export default ExportJson;
+export default ExportSvg;

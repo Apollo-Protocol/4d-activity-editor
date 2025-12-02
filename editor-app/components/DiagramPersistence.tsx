@@ -101,14 +101,13 @@ const DiagramPersistence = (props: any) => {
         Save TTL
       </Button>
 
-      {/* Reference Types Only toggle */}
-      <div
-        className="d-flex align-items-center px-2 py-1 border rounded border-primary"
+      {/* Reference Types Only toggle – styled like a normal button */}
+      <button
+        type="button"
+        className={`btn btn-primary d-inline-flex align-items-center`}
         style={{
-          backgroundColor: refDataOnly ? "#e8f4fd" : "#f8f9fa",
-          border: refDataOnly ? "1px solid #0d6efd" : "1px solid #dee2e6",
-          cursor: "pointer",
-          transition: "all 0.2s ease",
+          lineHeight: 1.5, // Bootstrap default
+          padding: "0.375rem 0.75rem", // Bootstrap .btn padding
         }}
         onClick={() => setRefDataOnly(!refDataOnly)}
       >
@@ -117,22 +116,20 @@ const DiagramPersistence = (props: any) => {
           id="refDataOnlyCheck"
           checked={refDataOnly}
           onChange={() => setRefDataOnly(!refDataOnly)}
-          style={{ marginRight: "6px" }}
-        />
-        <label
-          htmlFor="refDataOnlyCheck"
           style={{
-            cursor: "pointer",
-            fontSize: "0.8rem",
-            fontWeight: refDataOnly ? 500 : 400,
-            color: refDataOnly ? "#0d6efd" : "#6c757d",
-            marginBottom: 0,
+            margin: 0,
+            marginRight: "0.35rem",
+          }}
+        />
+        <span
+          style={{
+            fontWeight: 400,
             whiteSpace: "nowrap",
           }}
         >
           Reference Types only
-        </label>
-      </div>
+        </span>
+      </button>
 
       {/* Error message if any */}
       {uploadText && <span className="text-danger small">{uploadText}</span>}

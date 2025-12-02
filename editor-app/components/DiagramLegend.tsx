@@ -14,6 +14,9 @@ interface Props {
   onOpenActivity?: (a: Activity) => void;
 }
 
+////typescript
+// filepath: c:\Users\me1meg\Documents\4d-activity-editor\editor-app\components\DiagramLegend.tsx
+// ...existing code...
 const DiagramLegend = ({
   activities,
   activityColors,
@@ -28,8 +31,31 @@ const DiagramLegend = ({
     activity.name.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
-  // Only show scrollbar when there are more than 7 activities
-  const needsScroll = filteredActivities.length > 7;
+  // Decide threshold based on screen size:
+  // - big screens: 12
+  // - smaller screens (laptops/tablets): 8
+  const [scrollThreshold, setScrollThreshold] = useState(12);
+
+  React.useEffect(() => {
+    const updateThreshold = () => {
+      const width = window.innerWidth;
+      const height = window.innerHeight;
+
+      // "Laptop-ish" widths or limited height → smaller threshold
+      if (width <= 1400 || height <= 800) {
+        setScrollThreshold(8);
+      } else {
+        setScrollThreshold(12);
+      }
+    };
+
+    updateThreshold();
+    window.addEventListener("resize", updateThreshold);
+    return () => window.removeEventListener("resize", updateThreshold);
+  }, []);
+
+  // Only show scrollbar when we exceed the threshold
+  const needsScroll = filteredActivities.length > scrollThreshold;
 
   return (
     <Card className="legend-card mb-2">
@@ -60,8 +86,7 @@ const DiagramLegend = ({
           {filteredActivities.length === 0 && searchTerm ? (
             <div className="text-muted small">No activities found</div>
           ) : (
-            filteredActivities.map((activity, idx) => {
-              // Find original index for color matching
+            filteredActivities.map((activity) => {
               const originalIdx = activities.findIndex(
                 (a) => a.id === activity.id
               );
@@ -93,9 +118,8 @@ const DiagramLegend = ({
                     </span>
                   </div>
 
-                  {/* open/edit button on the right */}
                   <div className="flex-shrink-0">
-                    {onOpenActivity ? (
+                    {onOpenActivity && (
                       <OverlayTrigger
                         placement="top"
                         overlay={
@@ -116,7 +140,7 @@ const DiagramLegend = ({
                           <ArrowUp />
                         </Button>
                       </OverlayTrigger>
-                    ) : null}
+                    )}
                   </div>
                 </div>
               );

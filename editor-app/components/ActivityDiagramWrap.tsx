@@ -448,6 +448,11 @@ export default function ActivityDiagramWrap() {
               activityColors={config.presentation.activity.fill}
             />
             <ExportJson dataset={dataset} />
+            {/* <ExportJsonLegends
+              dataset={dataset}
+              activitiesInView={activitiesInView}
+              activityColors={config.presentation.activity.fill}
+            /> */}
           </div>
         </div>
       </Container>

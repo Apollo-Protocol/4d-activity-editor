@@ -66,11 +66,13 @@ function CollapsibleExample() {
               id="activity-modelling-dropdown"
               className={isActivityModellingActive ? "active-dropdown" : ""}
             >
-              <NavDropdown.Item href="./intro">Introduction</NavDropdown.Item>
-              <NavDropdown.Item href="./crane">
+              <NavDropdown.Item as={Link} href="/intro">
+                Introduction
+              </NavDropdown.Item>
+              <NavDropdown.Item as={Link} href="/crane">
                 Example Analysis
               </NavDropdown.Item>
-              <NavDropdown.Item href="./management">
+              <NavDropdown.Item as={Link} href="/management">
                 Integrated Information Management
               </NavDropdown.Item>
             </NavDropdown>

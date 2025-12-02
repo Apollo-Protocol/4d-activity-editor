@@ -16,9 +16,9 @@ function Footer() {
       }}
     >
       <div className="container-fluid px-4">
-        <div className="row">
+        <div className="row align-items-center">
           {/* Left - Links */}
-          <div className="col-lg-3 col-md-4 col-sm-12 mb-3 mb-lg-0">
+          <div className="col-lg-3 col-md-3 col-sm-12 mb-3 mb-lg-0">
             <h6 className="text-dark mb-2">More</h6>
             <ul className="list-unstyled mb-0">
               <li className="mb-1">
@@ -41,7 +41,7 @@ function Footer() {
           </div>
 
           {/* Center - Copyright */}
-          <div className="col-lg-5 col-md-4 col-sm-12 text-center mb-3 mb-lg-0 align-self-center">
+          <div className="col-lg-4 col-md-4 col-sm-12 text-center mb-3 mb-lg-0">
             <div className="text-muted">
               <div>{year} Apollo Protocol Activity Diagram Editor</div>
               <div>Created by AMRC in collaboration with CIS</div>
@@ -49,39 +49,40 @@ function Footer() {
             </div>
           </div>
 
-          {/* Right - Logos */}
-          <div className="col-lg-4 col-md-4 col-sm-12">
-            <div className="row mb-2">
-              <div className="col-6 text-center align-self-center">
-                <Link href="https://www.amrc.co.uk/">
-                  <picture>
-                    <img
-                      src="Logo_AMRC.png"
-                      className="rounded"
-                      style={{ maxWidth: "100%", maxHeight: "50px" }}
-                      alt="AMRC"
-                    />
-                  </picture>
-                </Link>
-              </div>
-              <div className="col-6 text-center align-self-center">
+          {/* Right - All Logos on same row */}
+          <div className="col-lg-5 col-md-5 col-sm-12">
+            <div className="d-flex align-items-center justify-content-center justify-content-lg-end flex-wrap gap-3">
+              <Link href="https://www.amrc.co.uk/">
                 <picture>
                   <img
-                    src="Logo_CIS.png"
-                    style={{ maxWidth: "100%", maxHeight: "50px" }}
-                    alt="CIS"
+                    src="Logo_AMRC.png"
+                    className="rounded"
+                    style={{ maxHeight: "45px", width: "auto" }}
+                    alt="AMRC"
                   />
                 </picture>
-              </div>
-            </div>
-            <div className="row">
-              <div className="col-12 text-center align-self-center">
-                <span className="text-muted me-2">Funded by</span>
+              </Link>
+
+              <picture>
+                <img
+                  src="Logo_CIS.png"
+                  style={{ maxHeight: "45px", width: "auto" }}
+                  alt="CIS"
+                />
+              </picture>
+
+              <div className="d-flex align-items-center">
+                <span
+                  className="text-muted me-2"
+                  style={{ fontSize: "0.85rem" }}
+                >
+                  Funded by
+                </span>
                 <picture>
                   <img
                     src="Logo_InnovateUK.png"
                     className="rounded"
-                    style={{ maxHeight: "30px" }}
+                    style={{ maxHeight: "30px", width: "auto" }}
                     alt="Innovate UK"
                   />
                 </picture>

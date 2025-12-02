@@ -85,7 +85,7 @@ const DiagramPersistence = (props: any) => {
   return (
     <div className="d-flex flex-wrap align-items-center justify-content-center gap-2">
       {/* Load Example dropdown */}
-      <DropdownButton variant="primary" title="Load example" size="sm">
+      <DropdownButton variant="primary" title="Load example">
         {examples.map((e) => (
           <Dropdown.Item key={e.path} onClick={() => loadExample(e.path)}>
             {e.name}
@@ -103,7 +103,7 @@ const DiagramPersistence = (props: any) => {
 
       {/* Reference Types Only toggle */}
       <div
-        className="d-flex align-items-center px-2 py-1 rounded-pill"
+        className="d-flex align-items-center px-2 py-1 border rounded border-primary"
         style={{
           backgroundColor: refDataOnly ? "#e8f4fd" : "#f8f9fa",
           border: refDataOnly ? "1px solid #0d6efd" : "1px solid #dee2e6",

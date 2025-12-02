@@ -37,8 +37,83 @@ const beforeUnloadHandler = (ev: BeforeUnloadEvent) => {
   return;
 };
 
-/* XXX Most of this component needs refactoring into a Controller class,
- * leaving the react component as just the View. */
+/**
+ * Filter individuals based on compact mode rules:
+ * 1. Top-level SC/IC with installations are ALWAYS hidden in compact mode
+ * 2. Virtual rows are shown only if they participate
+ * 3. Systems are shown if they or their children participate
+ * 4. Regular individuals are shown if they participate
+ */
+function filterIndividualsForCompactMode(
+  individuals: Individual[],
+  participatingIds: Set<string>,
+  dataset: Model
+): Individual[] {
+  // Track which Systems should be visible (because their children participate)
+  const parentSystemsToShow = new Set<string>();
+
+  // First pass: find parent systems of participating virtual rows
+  participatingIds.forEach((id) => {
+    if (id.includes("__installed_in__")) {
+      const parts = id.split("__installed_in__");
+      const rest = parts[1];
+      const targetId = rest.split("__")[0];
+
+      const target = dataset.individuals.get(targetId);
+      if (target) {
+        const targetType = target.entityType ?? EntityType.Individual;
+
+        if (targetType === EntityType.System) {
+          parentSystemsToShow.add(targetId);
+        } else if (targetType === EntityType.SystemComponent) {
+          // Find parent System of this SC
+          if (target.installations) {
+            target.installations.forEach((inst) => {
+              const parentTarget = dataset.individuals.get(inst.targetId);
+              if (parentTarget) {
+                const parentType =
+                  parentTarget.entityType ?? EntityType.Individual;
+                if (parentType === EntityType.System) {
+                  parentSystemsToShow.add(inst.targetId);
+                }
+              }
+            });
+          }
+        }
+      }
+    }
+  });
+
+  return individuals.filter((ind) => {
+    const entityType = ind.entityType ?? EntityType.Individual;
+    const isVirtualRow = ind.id.includes("__installed_in__");
+
+    // Rule 1: Top-level SC/IC with installations - ALWAYS hidden
+    if (
+      (entityType === EntityType.SystemComponent ||
+        entityType === EntityType.InstalledComponent) &&
+      !isVirtualRow &&
+      ind.installations &&
+      ind.installations.length > 0
+    ) {
+      return false;
+    }
+
+    // Rule 2: Virtual rows - show only if participating
+    if (isVirtualRow) {
+      return participatingIds.has(ind.id);
+    }
+
+    // Rule 3: Systems - show if participating or if children participate
+    if (entityType === EntityType.System) {
+      return participatingIds.has(ind.id) || parentSystemsToShow.has(ind.id);
+    }
+
+    // Rule 4: Regular individuals (and SC/IC without installations) - show if participating
+    return participatingIds.has(ind.id);
+  });
+}
+
 export default function ActivityDiagramWrap() {
   // compactMode hides individuals that participate in zero activities
   const [compactMode, setCompactMode] = useState(false);
@@ -69,7 +144,6 @@ export default function ActivityDiagramWrap() {
   const [selectedInstalledComponent, setSelectedInstalledComponent] = useState<
     Individual | undefined
   >(undefined);
-  // State for target slot ID (when clicking on a specific installation row)
   const [targetSlotId, setTargetSlotId] = useState<string | undefined>(
     undefined
   );
@@ -80,45 +154,19 @@ export default function ActivityDiagramWrap() {
   const [selectedSystemComponent, setSelectedSystemComponent] = useState<
     Individual | undefined
   >(undefined);
-  // State for target system ID (when clicking on a specific installation row)
   const [targetSystemId, setTargetSystemId] = useState<string | undefined>(
     undefined
   );
 
-  // State for SystemComponent installation modal
-  const [
-    showEditSystemComponentInstallation,
-    setShowEditSystemComponentInstallation,
-  ] = useState(false);
-  const [
-    selectedIndividualForScInstallation,
-    setSelectedIndividualForScInstallation,
-  ] = useState<Individual | undefined>();
-  const [targetSystemIdForScInstallation, setTargetSystemIdForScInstallation] =
-    useState<string | undefined>();
-
-  // State for InstalledComponent installation modal
-  const [showEditInstalledComponent, setShowEditInstalledComponent] =
-    useState(false);
-  const [
-    selectedIndividualForIcInstallation,
-    setSelectedIndividualForIcInstallation,
-  ] = useState<Individual | undefined>();
-  const [targetSlotIdForIcInstallation, setTargetSlotIdForIcInstallation] =
-    useState<string | undefined>();
-  const [targetSystemIdForIcInstallation, setTargetSystemIdForIcInstallation] =
-    useState<string | undefined>();
-
-  // Add callbacks for opening installation modals from SetIndividual
   const handleOpenSystemComponentInstallation = (individual: Individual) => {
     setSelectedSystemComponent(individual);
-    setTargetSystemId(undefined); // Show all systems
+    setTargetSystemId(undefined);
     setShowSystemComponentEditor(true);
   };
 
   const handleOpenInstalledComponentInstallation = (individual: Individual) => {
     setSelectedInstalledComponent(individual);
-    setTargetSlotId(undefined); // Show all slots
+    setTargetSlotId(undefined);
     setTargetSystemId(undefined);
     setShowInstalledComponentEditor(true);
   };
@@ -135,7 +183,6 @@ export default function ActivityDiagramWrap() {
     setDataset(d);
     setDirty(true);
   };
-  /* Callers of this function must also handle the dirty flag. */
   const replaceDataset = (d: Model) => {
     setUndoHistory([]);
     setActivityContext(undefined);
@@ -150,7 +197,6 @@ export default function ActivityDiagramWrap() {
 
   const svgRef = useRef<SVGSVGElement>(null);
 
-  // Build an array of individuals from the dataset
   const individualsArray = Array.from(dataset.individuals.values());
 
   const deleteIndividual = (id: string) => {
@@ -159,19 +205,14 @@ export default function ActivityDiagramWrap() {
   const setIndividual = (individual: Individual) => {
     updateDataset((d: Model) => d.addIndividual(individual));
   };
-  const deleteActivity = (id: string) => {
-    updateDataset((d: Model) => d.removeActivity(id));
-  };
   const setActivity = (activity: Activity) => {
     updateDataset((d: Model) => d.addActivity(activity));
   };
 
   const clickIndividual = (i: any) => {
-    // Check if this is a virtual row (installation reference)
     const isVirtual = i.id.includes("__installed_in__");
 
     if (isVirtual) {
-      // This is a virtual row - open the installation editor
       const originalId = i.id.split("__installed_in__")[0];
       const rest = i.id.split("__installed_in__")[1];
       const parts = rest.split("__");
@@ -183,17 +224,13 @@ export default function ActivityDiagramWrap() {
       const entityType = originalIndividual.entityType ?? EntityType.Individual;
 
       if (entityType === EntityType.SystemComponent) {
-        // Virtual SystemComponent - open installation editor for this system
         setSelectedSystemComponent(originalIndividual);
         setTargetSystemId(targetId);
         setShowSystemComponentEditor(true);
       } else if (entityType === EntityType.InstalledComponent) {
-        // Virtual InstalledComponent - open installation editor for this slot
-        // Extract the system context from the virtual ID if present
         const contextMatch = i.id.match(/__ctx_([^_]+)$/);
         const contextId = contextMatch ? contextMatch[1] : undefined;
 
-        // Find the system ID from the context
         let systemId: string | undefined;
         if (contextId && targetId) {
           const targetSc = dataset.individuals.get(targetId);
@@ -213,7 +250,6 @@ export default function ActivityDiagramWrap() {
         setShowInstalledComponentEditor(true);
       }
     } else {
-      // This is a top-level entity - open the entity editor
       const individual = dataset.individuals.get(i.id);
       if (!individual) return;
 
@@ -243,25 +279,40 @@ export default function ActivityDiagramWrap() {
     );
   };
 
-  // Use the Model's getDisplayIndividuals method for sorting
-  const sortedIndividuals = useMemo(() => {
-    return dataset.getDisplayIndividuals();
-  }, [dataset]);
-
-  // Build an array of activities from the dataset so it can be filtered below
   const activitiesArray = Array.from(dataset.activities.values());
 
-  // Filter activities for the current context
   let activitiesInView: Activity[] = [];
   if (activityContext) {
-    // Only include activities that are part of the current context
     activitiesInView = activitiesArray.filter(
       (a) => a.partOf === activityContext
     );
   } else {
-    // Top-level activities (no parent)
     activitiesInView = activitiesArray.filter((a) => !a.partOf);
   }
+
+  // Get all participating IDs for current view
+  const participatingIds = useMemo(() => {
+    const ids = new Set<string>();
+    activitiesInView.forEach((a) =>
+      a.participations.forEach((p) => ids.add(p.individualId))
+    );
+    return ids;
+  }, [activitiesInView]);
+
+  // Get sorted individuals and apply compact mode filter
+  const sortedIndividuals = useMemo(() => {
+    const allIndividuals = dataset.getDisplayIndividuals();
+
+    if (compactMode) {
+      return filterIndividualsForCompactMode(
+        allIndividuals,
+        participatingIds,
+        dataset
+      );
+    }
+
+    return allIndividuals;
+  }, [dataset, compactMode, participatingIds]);
 
   const partsCountMap: Record<string, number> = {};
   activitiesInView.forEach((a) => {
@@ -418,26 +469,3 @@ export default function ActivityDiagramWrap() {
     </>
   );
 }
-
-// Pass compactMode down to ActivityDiagram (already rendered above)
-// Update ActivityDiagram invocation near top of file:
-
-/*
-  Replace the existing ActivityDiagram invocation with:
-  <ActivityDiagram
-    dataset={dataset}
-    configData={configData}
-    activityContext={activityContext}
-    setActivityContext={setActivityContext}
-    clickIndividual={clickIndividual}
-    clickActivity={clickActivity}
-    clickParticipation={clickParticipation}
-    rightClickIndividual={rightClickIndividual}
-    rightClickActivity={rightClickActivity}
-    rightClickParticipation={rightClickParticipation}
-    svgRef={svgRef}
-    hideNonParticipating={compactMode}
-  />
-
-  (The earlier invocation should be replaced so ActivityDiagram receives the prop.)
-*/

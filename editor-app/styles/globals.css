@@ -121,3 +121,34 @@ body {
   display: flex;
   flex-direction: column;
 }
+
+/* Diagram container scrolling */
+#activity-diagram-scrollable-div {
+  scrollbar-width: thin;
+  scrollbar-color: #888 #f1f1f1;
+}
+
+#activity-diagram-scrollable-div::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+#activity-diagram-scrollable-div::-webkit-scrollbar-track {
+  background: #f1f1f1;
+  border-radius: 4px;
+}
+
+#activity-diagram-scrollable-div::-webkit-scrollbar-thumb {
+  background: #888;
+  border-radius: 4px;
+}
+
+#activity-diagram-scrollable-div::-webkit-scrollbar-thumb:hover {
+  background: #555;
+}
+
+/* Ensure the main content area doesn't overflow */
+.container-fluid {
+  max-height: 100vh;
+  overflow: hidden;
+}

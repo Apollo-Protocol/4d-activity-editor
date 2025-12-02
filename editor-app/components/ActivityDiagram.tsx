@@ -103,11 +103,24 @@ const ActivityDiagram = (props: Props) => {
   return (
     <>
       <Breadcrumb>{crumbs}</Breadcrumb>
-      <div id="activity-diagram-scrollable-div" style={{ overflowX: "auto" }}>
+      <div
+        id="activity-diagram-scrollable-div"
+        style={{
+          overflowX: "auto",
+          overflowY: "auto",
+          maxHeight: "calc(100vh - 250px)", // Leave space for header, footer, and controls
+          border: "1px solid #e0e0e0",
+          borderRadius: "4px",
+          backgroundColor: "#fafafa",
+        }}
+      >
         <svg
           viewBox={`0 0 ${plot.width} ${plot.height}`}
           ref={svgRef}
-          style={{ minWidth: configData.viewPort.zoom * 100 + "%" }}
+          style={{
+            minWidth: configData.viewPort.zoom * 100 + "%",
+            display: "block",
+          }}
         />
       </div>
     </>

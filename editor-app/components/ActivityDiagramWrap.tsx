@@ -308,9 +308,13 @@ export default function ActivityDiagramWrap() {
           </Col>
         </Row>
 
-        {/* All buttons on one row */}
-        <Row className="mt-3 align-items-center">
-          <Col xs="auto" className="d-flex gap-1">
+        {/* All buttons in a flex container that wraps */}
+        <div
+          className="mt-3 d-flex flex-wrap align-items-center justify-content-between gap-2"
+          style={{ rowGap: "0.5rem" }}
+        >
+          {/* Left side buttons */}
+          <div className="d-flex flex-wrap align-items-center gap-1">
             <SetIndividual
               deleteIndividual={deleteIndividual}
               setIndividual={setIndividual}
@@ -361,20 +365,20 @@ export default function ActivityDiagramWrap() {
               dataset={dataset}
               activitiesInView={activitiesInView}
             />
-          </Col>
+          </div>
 
           {/* Center - Load/Save TTL */}
-          <Col className="d-flex justify-content-center">
+          <div className="d-flex justify-content-center">
             <DiagramPersistence
               dataset={dataset}
               setDataset={replaceDataset}
               svgRef={svgRef}
               setDirty={setDirty}
             />
-          </Col>
+          </div>
 
           {/* Right side buttons */}
-          <Col xs="auto" className="d-flex gap-1">
+          <div className="d-flex flex-wrap align-items-center gap-1">
             <Undo
               hasUndo={undoHistory.length > 0}
               undo={undo}
@@ -388,8 +392,8 @@ export default function ActivityDiagramWrap() {
             />
             <ExportSvg dataset={dataset} svgRef={svgRef} />
             <ExportJson dataset={dataset} />
-          </Col>
-        </Row>
+          </div>
+        </div>
       </Container>
 
       <EditInstalledComponent

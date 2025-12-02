@@ -12,96 +12,126 @@ interface Props {
   activitiesInView: Activity[];
 }
 
-// Helper to get parent IDs that should be kept visible (bottom-to-top only)
-// When a CHILD has activity, keep its PARENTS visible
-// But NOT the reverse - if only parent has activity, don't automatically keep children
-function getParentIdsToKeep(
+/**
+ * Determines which individuals should be visible based on activity participation.
+ *
+ * Rules:
+ * 1. If a virtual row (installation) participates, show:
+ *    - The virtual row itself
+ *    - Its parent System (not the top-level SC/IC definition)
+ *    - Any intermediate SystemComponent virtual rows in the hierarchy
+ *
+ * 2. Top-level SystemComponent and InstalledComponent definitions should be HIDDEN
+ *    if they have virtual rows that participate (since the virtual rows are shown instead)
+ *
+ * 3. Top-level SC/IC definitions should be SHOWN only if:
+ *    - They have NO installations at all, OR
+ *    - They directly participate (not through virtual rows)
+ *
+ * 4. Regular Individuals are shown if they participate
+ *
+ * 5. Systems are shown if any of their children (virtual rows) participate
+ */
+function getVisibilityInfo(
   participatingIds: Set<string>,
   dataset: Model
-): Set<string> {
-  const parentsToKeep = new Set<string>();
+): {
+  visibleIds: Set<string>;
+  hiddenTopLevelIds: Set<string>;
+} {
+  const visibleIds = new Set<string>();
+  const hiddenTopLevelIds = new Set<string>();
 
+  // Track which top-level SC/ICs have participating virtual rows
+  const topLevelWithParticipatingVirtualRows = new Set<string>();
+
+  // Track parent Systems that should be visible
+  const parentSystemsToShow = new Set<string>();
+
+  // First pass: identify all participating IDs and their relationships
   participatingIds.forEach((id) => {
-    // Check if this is a virtual row (installation reference)
     if (id.includes("__installed_in__")) {
+      // This is a virtual row (installation reference)
       const parts = id.split("__installed_in__");
+      const originalId = parts[0];
       const rest = parts[1];
       const targetId = rest.split("__")[0];
 
-      // Virtual row has activity - keep its target (parent) visible
-      parentsToKeep.add(targetId);
+      // Mark the virtual row as visible
+      visibleIds.add(id);
 
-      // If target is a SystemComponent, also keep its parent System
+      // Mark the original top-level component as having participating virtual rows
+      topLevelWithParticipatingVirtualRows.add(originalId);
+
+      // Find the parent System to keep visible
       const target = dataset.individuals.get(targetId);
       if (target) {
         const targetType = target.entityType ?? EntityType.Individual;
-        if (targetType === EntityType.SystemComponent && target.installations) {
-          target.installations.forEach((inst) => {
-            if (inst.targetId) {
-              parentsToKeep.add(inst.targetId);
-            }
-          });
-        }
-      }
-    } else {
-      // Regular individual - check if it's an InstalledComponent or SystemComponent
-      const individual = dataset.individuals.get(id);
-      if (individual) {
-        const entityType = individual.entityType ?? EntityType.Individual;
 
-        if (entityType === EntityType.InstalledComponent) {
-          // InstalledComponent has activity - keep parent SystemComponents and their parent Systems
-          if (individual.installations) {
-            individual.installations.forEach((inst) => {
-              if (inst.targetId) {
-                parentsToKeep.add(inst.targetId);
-
-                // Get the SystemComponent's parent System
-                const sc = dataset.individuals.get(inst.targetId);
-                if (sc && sc.installations) {
-                  sc.installations.forEach((scInst) => {
-                    if (scInst.targetId) {
-                      parentsToKeep.add(scInst.targetId);
-                    }
-                  });
+        if (targetType === EntityType.System) {
+          // Direct installation into System - show the System
+          parentSystemsToShow.add(targetId);
+        } else if (targetType === EntityType.SystemComponent) {
+          // Installation into SystemComponent - find the parent System
+          if (target.installations) {
+            target.installations.forEach((inst) => {
+              const parentTarget = dataset.individuals.get(inst.targetId);
+              if (parentTarget) {
+                const parentType =
+                  parentTarget.entityType ?? EntityType.Individual;
+                if (parentType === EntityType.System) {
+                  parentSystemsToShow.add(inst.targetId);
+                  // Also show the intermediate SC virtual row
+                  const scVirtualId = `${targetId}__installed_in__${inst.targetId}__${inst.id}`;
+                  visibleIds.add(scVirtualId);
                 }
               }
             });
           }
-        } else if (entityType === EntityType.SystemComponent) {
-          // SystemComponent has activity - keep parent Systems
-          if (individual.installations) {
-            individual.installations.forEach((inst) => {
-              if (inst.targetId) {
-                parentsToKeep.add(inst.targetId);
-              }
-            });
-          }
         }
-        // Note: If a System has activity, we do NOT automatically keep its children
-        // This is the "bottom-to-top only" behavior
+      }
+    } else {
+      // Regular individual or top-level entity participating directly
+      visibleIds.add(id);
+
+      // If it's an SC or IC with installations, check if this is direct participation
+      const individual = dataset.individuals.get(id);
+      if (individual) {
+        const entityType = individual.entityType ?? EntityType.Individual;
+
+        if (entityType === EntityType.System) {
+          parentSystemsToShow.add(id);
+        }
       }
     }
   });
 
-  return parentsToKeep;
-}
+  // Add parent Systems to visible
+  parentSystemsToShow.forEach((id) => visibleIds.add(id));
 
-// Helper to check what should be visible
-function getVisibleIds(
-  participatingIds: Set<string>,
-  parentsToKeep: Set<string>,
-  dataset: Model
-): Set<string> {
-  const visible = new Set<string>();
+  // Second pass: determine which top-level SC/ICs should be hidden
+  dataset.individuals.forEach((ind) => {
+    const entityType = ind.entityType ?? EntityType.Individual;
 
-  // Add all direct participants
-  participatingIds.forEach((id) => visible.add(id));
+    if (
+      entityType === EntityType.SystemComponent ||
+      entityType === EntityType.InstalledComponent
+    ) {
+      // If this SC/IC has participating virtual rows, hide the top-level definition
+      if (topLevelWithParticipatingVirtualRows.has(ind.id)) {
+        hiddenTopLevelIds.add(ind.id);
+        visibleIds.delete(ind.id); // Remove from visible if it was added
+      } else if (ind.installations && ind.installations.length > 0) {
+        // Has installations but none participate - hide it
+        hiddenTopLevelIds.add(ind.id);
+      } else if (!participatingIds.has(ind.id)) {
+        // No installations and doesn't directly participate - hide it
+        hiddenTopLevelIds.add(ind.id);
+      }
+    }
+  });
 
-  // Add parents that should be kept
-  parentsToKeep.forEach((id) => visible.add(id));
-
-  return visible;
+  return { visibleIds, hiddenTopLevelIds };
 }
 
 const HideIndividuals = ({
@@ -110,61 +140,69 @@ const HideIndividuals = ({
   dataset,
   activitiesInView,
 }: Props) => {
-  // Find all participating individual IDs (direct participants only)
+  // Find all participating individual IDs
   const participating = new Set<string>();
   activitiesInView.forEach((a) =>
     a.participations.forEach((p: any) => participating.add(p.individualId))
   );
 
-  // Get parent IDs that should also be kept visible (bottom-to-top only)
-  const parentsToKeep = getParentIdsToKeep(participating, dataset);
+  // Get visibility information
+  const { visibleIds, hiddenTopLevelIds } = getVisibilityInfo(
+    participating,
+    dataset
+  );
 
-  // Get all IDs that should be visible
-  const visibleIds = getVisibleIds(participating, parentsToKeep, dataset);
+  // Check if there are entities that would be hidden
+  const hasHideableEntities = (() => {
+    const displayIndividuals = dataset.getDisplayIndividuals();
 
-  // Find if there are entities with no activity in the current view
-  const hasInactiveEntities = (() => {
-    for (const i of Array.from(dataset.individuals.values())) {
-      // Check if this entity should be hidden
-      if (!visibleIds.has(i.id)) {
-        // For virtual rows, check if original participates
-        if (i.id.includes("__installed_in__")) {
-          const parts = i.id.split("__installed_in__");
-          const originalId = parts[0];
-          if (!participating.has(originalId) && !participating.has(i.id)) {
-            return true;
-          }
-        } else {
-          return true;
-        }
+    for (const ind of displayIndividuals) {
+      // Skip if already visible
+      if (visibleIds.has(ind.id)) continue;
+
+      // Check if this is a virtual row
+      if (ind.id.includes("__installed_in__")) {
+        // Virtual row not participating - can be hidden
+        return true;
+      }
+
+      const entityType = ind.entityType ?? EntityType.Individual;
+
+      // Top-level SC/IC with participating virtual rows - should be hidden
+      if (hiddenTopLevelIds.has(ind.id)) {
+        return true;
+      }
+
+      // Regular individual or System not participating
+      if (!participating.has(ind.id)) {
+        return true;
       }
     }
     return false;
   })();
 
-  if (!hasInactiveEntities) return null;
+  if (!hasHideableEntities) return null;
 
   const tooltip = compactMode ? (
     <Tooltip id="show-entities-tooltip">
-      This will show entities with no activity.
+      Show all entities including those with no activity.
     </Tooltip>
   ) : (
     <Tooltip id="hide-entities-tooltip">
-      This will hide entities with no activity.
+      Hide entities with no activity. Top-level component definitions are hidden
+      when their installations participate.
     </Tooltip>
   );
 
   return (
-    <div className="ms-2 d-flex align-items-center">
-      <OverlayTrigger placement="top" overlay={tooltip}>
-        <Button
-          variant={compactMode ? "secondary" : "primary"}
-          onClick={() => setCompactMode(!compactMode)}
-        >
-          {compactMode ? "Show Entities" : "Hide Entities"}
-        </Button>
-      </OverlayTrigger>
-    </div>
+    <OverlayTrigger placement="top" overlay={tooltip}>
+      <Button
+        variant={compactMode ? "secondary" : "primary"}
+        onClick={() => setCompactMode(!compactMode)}
+      >
+        {compactMode ? "Show Entities" : "Hide Entities"}
+      </Button>
+    </OverlayTrigger>
   );
 };
 

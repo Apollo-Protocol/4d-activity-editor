@@ -1,9 +1,7 @@
 import { useEffect, useState } from "react";
-import { Button, Container, Form } from "react-bootstrap";
+import { Button, Form } from "react-bootstrap";
 import Dropdown from "react-bootstrap/Dropdown";
 import DropdownButton from "react-bootstrap/DropdownButton";
-import Row from "react-bootstrap/Row";
-import Col from "react-bootstrap/Col";
 
 import {
   save,
@@ -85,9 +83,9 @@ const DiagramPersistence = (props: any) => {
   }
 
   return (
-    <div className="d-flex align-items-center justify-content-center gap-4 flex-wrap py-2">
+    <div className="d-flex flex-wrap align-items-center justify-content-center gap-2">
       {/* Load Example dropdown */}
-      <DropdownButton variant="primary" title="Load example">
+      <DropdownButton variant="primary" title="Load example" size="sm">
         {examples.map((e) => (
           <Dropdown.Item key={e.path} onClick={() => loadExample(e.path)}>
             {e.name}
@@ -95,47 +93,45 @@ const DiagramPersistence = (props: any) => {
         ))}
       </DropdownButton>
 
-      {/* TTL Load/Save buttons with Reference Types toggle */}
-      <div className="d-flex align-items-center gap-2">
-        <Button variant="primary" onClick={uploadTtl}>
-          Load TTL
-        </Button>
-        <Button variant="primary" onClick={downloadTtl}>
-          Save TTL
-        </Button>
+      {/* TTL Load/Save buttons */}
+      <Button variant="primary" onClick={uploadTtl}>
+        Load TTL
+      </Button>
+      <Button variant="primary" onClick={downloadTtl}>
+        Save TTL
+      </Button>
 
-        {/* Reference Types Only toggle - styled as a pill/badge toggle */}
-        <div
-          className="d-flex align-items-center ms-2 px-3 py-1 rounded-pill"
+      {/* Reference Types Only toggle */}
+      <div
+        className="d-flex align-items-center px-2 py-1 rounded-pill"
+        style={{
+          backgroundColor: refDataOnly ? "#e8f4fd" : "#f8f9fa",
+          border: refDataOnly ? "1px solid #0d6efd" : "1px solid #dee2e6",
+          cursor: "pointer",
+          transition: "all 0.2s ease",
+        }}
+        onClick={() => setRefDataOnly(!refDataOnly)}
+      >
+        <Form.Check
+          type="checkbox"
+          id="refDataOnlyCheck"
+          checked={refDataOnly}
+          onChange={() => setRefDataOnly(!refDataOnly)}
+          style={{ marginRight: "6px" }}
+        />
+        <label
+          htmlFor="refDataOnlyCheck"
           style={{
-            backgroundColor: refDataOnly ? "#e8f4fd" : "#f8f9fa",
-            border: refDataOnly ? "1px solid #0d6efd" : "1px solid #dee2e6",
             cursor: "pointer",
-            transition: "all 0.2s ease",
+            fontSize: "0.8rem",
+            fontWeight: refDataOnly ? 500 : 400,
+            color: refDataOnly ? "#0d6efd" : "#6c757d",
+            marginBottom: 0,
+            whiteSpace: "nowrap",
           }}
-          onClick={() => setRefDataOnly(!refDataOnly)}
         >
-          <Form.Check
-            type="checkbox"
-            id="refDataOnlyCheck"
-            checked={refDataOnly}
-            onChange={() => setRefDataOnly(!refDataOnly)}
-            style={{ marginRight: "8px" }}
-          />
-          <label
-            htmlFor="refDataOnlyCheck"
-            style={{
-              cursor: "pointer",
-              fontSize: "0.875rem",
-              fontWeight: refDataOnly ? 500 : 400,
-              color: refDataOnly ? "#0d6efd" : "#6c757d",
-              marginBottom: 0,
-              whiteSpace: "nowrap",
-            }}
-          >
-            Reference Types only
-          </label>
-        </div>
+          Reference Types only
+        </label>
       </div>
 
       {/* Error message if any */}

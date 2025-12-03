@@ -1,4 +1,4 @@
-import { useState, useEffect, MutableRefObject, JSX } from "react";
+import { useState, useEffect, MutableRefObject, JSX, useRef } from "react";
 import Breadcrumb from "react-bootstrap/Breadcrumb";
 import { drawActivityDiagram } from "@/diagram/DrawActivityDiagram";
 import { ConfigData } from "@/diagram/config";
@@ -45,6 +45,49 @@ const ActivityDiagram = (props: Props) => {
     height: 0,
   });
 
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
+  const wrapperRef = useRef<HTMLDivElement>(null); // NEW: Ref for the outer wrapper
+  const [wrapperHeight, setWrapperHeight] = useState(0); // NEW: State for wrapper height
+  const [scrollPosition, setScrollPosition] = useState({ x: 0, y: 0 });
+
+  // Track scroll position for axis positioning
+  const handleScroll = () => {
+    if (scrollContainerRef.current) {
+      setScrollPosition({
+        x: scrollContainerRef.current.scrollLeft,
+        y: scrollContainerRef.current.scrollTop,
+      });
+    }
+  };
+
+  useEffect(() => {
+    const container = scrollContainerRef.current;
+    if (container) {
+      container.addEventListener("scroll", handleScroll);
+      return () => container.removeEventListener("scroll", handleScroll);
+    }
+  }, []);
+
+  // NEW: Measure wrapper height to draw axis correctly
+  useEffect(() => {
+    if (!wrapperRef.current) return;
+    const resizeObserver = new ResizeObserver((entries) => {
+      for (const entry of entries) {
+        setWrapperHeight(entry.contentRect.height);
+      }
+    });
+    resizeObserver.observe(wrapperRef.current);
+    return () => resizeObserver.disconnect();
+  }, []);
+
+  useEffect(() => {
+    const container = scrollContainerRef.current;
+    if (container) {
+      container.addEventListener("scroll", handleScroll);
+      return () => container.removeEventListener("scroll", handleScroll);
+    }
+  }, []);
+
   useEffect(() => {
     setPlot(
       drawActivityDiagram(
@@ -77,7 +120,6 @@ const ActivityDiagram = (props: Props) => {
         });
 
         // Highlight the selected one
-        // IDs are typically "a" + UUID
         const targetId = "a" + highlightedActivityId;
         const target = svg.querySelector("#" + CSS.escape(targetId));
 
@@ -85,7 +127,6 @@ const ActivityDiagram = (props: Props) => {
           target.style.opacity = "1";
           target.style.stroke = "#000";
           target.style.strokeWidth = "2px";
-          // Bring to front
           target.parentNode?.appendChild(target);
         }
       } else {
@@ -110,7 +151,7 @@ const ActivityDiagram = (props: Props) => {
     rightClickParticipation,
     hideNonParticipating,
     sortedIndividuals,
-    highlightedActivityId, // Added dependency
+    highlightedActivityId,
   ]);
 
   const buildCrumbs = () => {
@@ -136,28 +177,183 @@ const ActivityDiagram = (props: Props) => {
   };
   const crumbs: JSX.Element[] = buildCrumbs();
 
+  // Axis configuration
+  const axisMargin = configData.presentation.axis.margin;
+  const axisWidth = configData.presentation.axis.width;
+  const axisColour = configData.presentation.axis.colour;
+  const axisEndMargin = configData.presentation.axis.endMargin;
+
+  // Calculate visible dimensions
+  // Use measured wrapper height, fallback to calculation if 0 (initial render)
+  const containerHeight =
+    wrapperHeight || Math.min(plot.height, window.innerHeight - 250);
+  const bottomAxisHeight = axisMargin + 30;
+
   return (
     <>
       <Breadcrumb>{crumbs}</Breadcrumb>
       <div
-        id="activity-diagram-scrollable-div"
+        ref={wrapperRef} // Attach ref here
         style={{
-          overflowX: "auto",
-          overflowY: "auto",
-          maxHeight: "calc(100vh - 250px)",
+          position: "relative",
           border: "1px solid #e0e0e0",
           borderRadius: "4px",
           backgroundColor: "#fafafa",
         }}
       >
-        <svg
-          viewBox={`0 0 ${plot.width} ${plot.height}`}
-          ref={svgRef}
+        {/* Fixed Y-Axis (Space) - left side */}
+        <div
           style={{
-            minWidth: configData.viewPort.zoom * 100 + "%",
-            display: "block",
+            position: "absolute",
+            left: 0,
+            top: 0,
+            width: `${axisMargin + 30}px`,
+            height: "100%",
+            backgroundColor: "#fafafa",
+            zIndex: 10,
+            pointerEvents: "none",
+            borderRight: "1px solid #e5e5e5",
+          }}
+        >
+          <svg
+            width={axisMargin + 30}
+            height="100%"
+            style={{ display: "block" }}
+          >
+            {/* Y-Axis arrow */}
+            <defs>
+              <marker
+                id="triangle-y"
+                refX="0"
+                refY="10"
+                markerWidth="20"
+                markerHeight="20"
+                markerUnits="userSpaceOnUse"
+                orient="auto"
+              >
+                <path d="M 0 0 L 20 10 L 0 20 z" fill={axisColour} />
+              </marker>
+            </defs>
+            <line
+              x1={axisMargin}
+              y1={containerHeight - bottomAxisHeight + axisWidth / 2} // Adjusted to stop exactly at X-axis
+              x2={axisMargin}
+              y2={axisEndMargin}
+              stroke={axisColour}
+              strokeWidth={axisWidth}
+              markerEnd="url(#triangle-y)"
+            />
+            {/* Y-Axis label "Space" */}
+            <text
+              x={axisMargin + configData.presentation.axis.textOffsetY}
+              y={containerHeight / 2 + axisMargin}
+              fill="white"
+              stroke="white"
+              fontSize="0.8em"
+              fontWeight="200"
+              textAnchor="middle"
+              fontFamily="Roboto, Arial, sans-serif"
+              transform={`rotate(270 ${
+                axisMargin + configData.presentation.axis.textOffsetY
+              } ${containerHeight / 2 + axisMargin})`}
+            >
+              Space
+            </text>
+          </svg>
+        </div>
+
+        {/* Fixed X-Axis (Time) - bottom */}
+        <div
+          style={{
+            position: "absolute",
+            left: `${axisMargin + 30}px`,
+            bottom: 0,
+            right: 0,
+            height: `${bottomAxisHeight}px`,
+            backgroundColor: "#fafafa",
+            zIndex: 10,
+            pointerEvents: "none",
+            borderTop: "1px solid #e5e5e5",
+          }}
+        >
+          <svg
+            width="100%"
+            height={bottomAxisHeight}
+            style={{ display: "block" }}
+          >
+            {/* X-Axis arrow */}
+            <defs>
+              <marker
+                id="triangle-x"
+                refX="0"
+                refY="10"
+                markerWidth="20"
+                markerHeight="20"
+                markerUnits="userSpaceOnUse"
+                orient="auto"
+              >
+                <path d="M 0 0 L 20 10 L 0 20 z" fill={axisColour} />
+              </marker>
+            </defs>
+            <line
+              x1={0}
+              y1={axisMargin}
+              x2={`calc(100% - ${axisEndMargin}px)`}
+              y2={axisMargin}
+              stroke={axisColour}
+              strokeWidth={axisWidth}
+              markerEnd="url(#triangle-x)"
+            />
+            {/* X-Axis label "Time" */}
+            <text
+              x="50%"
+              y={axisMargin + configData.presentation.axis.textOffsetX}
+              fill="white"
+              stroke="white"
+              fontSize="0.8em"
+              fontWeight="200"
+              textAnchor="middle"
+              fontFamily="Roboto, Arial, sans-serif"
+            >
+              Time
+            </text>
+          </svg>
+        </div>
+
+        {/* Corner piece to cover overlap */}
+        <div
+          style={{
+            position: "absolute",
+            left: 0,
+            bottom: 0,
+            width: `${axisMargin + 30}px`,
+            height: `${bottomAxisHeight}px`,
+            backgroundColor: "#fafafa",
+            zIndex: 11,
           }}
         />
+
+        {/* Scrollable diagram content */}
+        <div
+          id="activity-diagram-scrollable-div"
+          ref={scrollContainerRef}
+          style={{
+            overflowX: "auto",
+            overflowY: "auto",
+            maxHeight: `calc(100vh - 250px)`,
+            marginLeft: `${axisMargin + 30}px`,
+            marginBottom: `${bottomAxisHeight}px`,
+          }}
+        >
+          <svg
+            viewBox={`0 0 ${plot.width} ${plot.height}`}
+            ref={svgRef}
+            style={{
+              minWidth: configData.viewPort.zoom * 100 + "%",
+              display: "block",
+            }}
+          />
+        </div>
       </div>
     </>
   );

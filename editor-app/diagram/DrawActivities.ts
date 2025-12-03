@@ -91,7 +91,8 @@ export function drawActivities(ctx: DrawContext) {
 
   svgElement
     .selectAll(".activity")
-    .data(validActivities)
+    // FIX: Add key function (a.id) to ensure data binds to correct element even if reordered
+    .data(validActivities, (a: Activity) => a.id)
     .join("rect")
     .attr("class", "activity")
     .attr("id", (a: Activity) => "a" + a["id"])

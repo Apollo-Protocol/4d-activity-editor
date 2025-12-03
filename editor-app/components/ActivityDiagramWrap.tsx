@@ -141,6 +141,11 @@ export default function ActivityDiagramWrap() {
   const [showConfigModal, setShowConfigModal] = useState(false);
   const [showSortIndividuals, setShowSortIndividuals] = useState(false);
 
+  // NEW: State for highlighting activity from legend
+  const [highlightedActivityId, setHighlightedActivityId] = useState<
+    string | null
+  >(null);
+
   // State for the InstalledComponent editor
   const [showInstalledComponentEditor, setShowInstalledComponentEditor] =
     useState(false);
@@ -378,6 +383,8 @@ export default function ActivityDiagramWrap() {
                 setSelectedActivity(a);
                 setShowActivity(true);
               }}
+              highlightedActivityId={highlightedActivityId}
+              onHighlightActivity={setHighlightedActivityId}
             />
           </Col>
           <Col>
@@ -395,6 +402,7 @@ export default function ActivityDiagramWrap() {
               svgRef={svgRef}
               hideNonParticipating={compactMode}
               sortedIndividuals={sortedIndividuals}
+              highlightedActivityId={highlightedActivityId}
             />
           </Col>
         </Row>

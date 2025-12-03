@@ -19,6 +19,7 @@ interface Props {
   svgRef: MutableRefObject<any>;
   hideNonParticipating: boolean;
   sortedIndividuals?: Individual[];
+  highlightedActivityId?: string | null;
 }
 
 const ActivityDiagram = (props: Props) => {
@@ -36,6 +37,7 @@ const ActivityDiagram = (props: Props) => {
     svgRef,
     hideNonParticipating,
     sortedIndividuals,
+    highlightedActivityId,
   } = props;
 
   const [plot, setPlot] = useState({
@@ -60,6 +62,41 @@ const ActivityDiagram = (props: Props) => {
         sortedIndividuals
       )
     );
+
+    // Apply highlighting logic directly to the SVG elements
+    const svg = svgRef.current;
+    if (svg) {
+      const allActivities = svg.querySelectorAll(".activity");
+
+      if (highlightedActivityId) {
+        // Dim all activities
+        allActivities.forEach((el: SVGElement) => {
+          el.style.opacity = "0.15";
+          el.style.stroke = "";
+          el.style.strokeWidth = "";
+        });
+
+        // Highlight the selected one
+        // IDs are typically "a" + UUID
+        const targetId = "a" + highlightedActivityId;
+        const target = svg.querySelector("#" + CSS.escape(targetId));
+
+        if (target) {
+          target.style.opacity = "1";
+          target.style.stroke = "#000";
+          target.style.strokeWidth = "2px";
+          // Bring to front
+          target.parentNode?.appendChild(target);
+        }
+      } else {
+        // Reset styles if nothing highlighted
+        allActivities.forEach((el: SVGElement) => {
+          el.style.opacity = "";
+          el.style.stroke = "";
+          el.style.strokeWidth = "";
+        });
+      }
+    }
   }, [
     dataset,
     configData,
@@ -73,6 +110,7 @@ const ActivityDiagram = (props: Props) => {
     rightClickParticipation,
     hideNonParticipating,
     sortedIndividuals,
+    highlightedActivityId, // Added dependency
   ]);
 
   const buildCrumbs = () => {

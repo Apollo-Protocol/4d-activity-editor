@@ -12,16 +12,17 @@ interface Props {
   activityColors: string[];
   partsCount?: Record<string, number>;
   onOpenActivity?: (a: Activity) => void;
+  highlightedActivityId?: string | null;
+  onHighlightActivity?: (id: string | null) => void;
 }
 
-////typescript
-// filepath: c:\Users\me1meg\Documents\4d-activity-editor\editor-app\components\DiagramLegend.tsx
-// ...existing code...
 const DiagramLegend = ({
   activities,
   activityColors,
   partsCount,
   onOpenActivity,
+  highlightedActivityId,
+  onHighlightActivity,
 }: Props) => {
   const [hovered, setHovered] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
@@ -60,7 +61,12 @@ const DiagramLegend = ({
   return (
     <Card className="legend-card mb-2">
       <Card.Body className="legend-body">
-        <Card.Title className="legend-title">Activity Legend</Card.Title>
+        <Card.Title className="legend-title">
+          Activity Legend{" "}
+          <span style={{ fontSize: "0.7rem", color: "#6c757d" }}>
+            (click for diagram highlight)
+          </span>
+        </Card.Title>
 
         {/* Search input - only show if there are more than 5 activities */}
         {activities.length > 5 && (
@@ -91,10 +97,29 @@ const DiagramLegend = ({
                 (a) => a.id === activity.id
               );
               const count = partsCount ? partsCount[activity.id] ?? 0 : 0;
+              const isHighlighted = highlightedActivityId === activity.id;
+
               return (
                 <div
                   key={activity.id}
                   className="legend-item justify-content-between"
+                  style={{
+                    cursor: "pointer",
+                    backgroundColor: isHighlighted
+                      ? "rgba(13, 110, 253, 0.1)"
+                      : "transparent",
+                    border: isHighlighted
+                      ? "1px solid #0d6efd"
+                      : "1px solid transparent",
+                    borderRadius: "4px",
+                    padding: "2px 4px",
+                    margin: "0 -4px",
+                  }}
+                  onClick={() =>
+                    onHighlightActivity &&
+                    onHighlightActivity(isHighlighted ? null : activity.id)
+                  }
+                  title="Click to highlight in diagram"
                 >
                   <div className="d-flex align-items-center overflow-hidden">
                     <span
@@ -132,7 +157,10 @@ const DiagramLegend = ({
                           variant="none"
                           size="sm"
                           className="legend-action-btn"
-                          onClick={() => onOpenActivity(activity)}
+                          onClick={(e) => {
+                            e.stopPropagation(); // Prevent triggering highlight
+                            onOpenActivity(activity);
+                          }}
                           aria-label={`Open ${activity.name}`}
                           onMouseEnter={() => setHovered(activity.id)}
                           onMouseLeave={() => setHovered(null)}

@@ -925,79 +925,59 @@ const SetActivity = (props: Props) => {
             </Form.Group>
           </Form>
         </Modal.Body>
-        <Modal.Footer>
-          <div className="w-100 d-flex justify-content-between align-items-center">
-            <div>
-              <Button
-                className={selectedActivity ? "d-inline-block me-2" : "d-none"}
-                variant="danger"
-                onClick={handleDelete}
-              >
-                Delete
-              </Button>
-              <Button
-                className={selectedActivity ? "d-inline-block me-2" : "d-none"}
-                variant="primary"
-                onClick={handleCopy}
-              >
-                Copy
-              </Button>
-              <Button
-                className={selectedActivity ? "d-inline-block me-2" : "d-none"}
-                variant="secondary"
-                onClick={handleContext}
-              >
-                Sub-tasks
-              </Button>
+        <Modal.Footer className="d-block">
+          {selectedActivity && (
+            <div className="mb-3 pb-3 border-bottom">
+              <div className="d-flex flex-wrap justify-content-between gap-2">
+                <div className="d-flex gap-2">
+                  <Button variant="danger" onClick={handleDelete}>
+                    Delete
+                  </Button>
+                  <Button variant="primary" onClick={handleCopy}>
+                    Copy
+                  </Button>
+                </div>
+                <div className="d-flex flex-wrap gap-2 justify-content-end">
+                  <Button variant="secondary" onClick={handleContext}>
+                    Sub-tasks
+                  </Button>
+                  <Button
+                    variant="secondary"
+                    onClick={handlePromote}
+                    title="Promote (move up one level)"
+                  >
+                    Promote
+                  </Button>
+                  <Button
+                    variant="outline-danger"
+                    onClick={openChangeParent}
+                    title="Swap parent (assign as sub-task of another activity)"
+                  >
+                    Swap Parent
+                  </Button>
+                </div>
+              </div>
             </div>
-            <div className="d-flex">
-              <Button
-                className={selectedActivity ? "d-inline-block me-2" : "d-none"}
-                variant="secondary"
-                onClick={handlePromote}
-                title="Promote (move up one level)"
-              >
-                Promote
-              </Button>
-              <Button
-                className={selectedActivity ? "d-inline-block me-1" : "d-none"}
-                variant="danger"
-                onClick={openChangeParent}
-                title="Swap parent (assign as sub-task of another activity)"
-              >
-                Swap Parent
-              </Button>
+          )}
+
+          <div className="d-flex justify-content-between align-items-center flex-wrap gap-2">
+            <div className="flex-grow-1 me-2" style={{ minWidth: "200px" }}>
+              {errors.length > 0 && (
+                <Alert variant={"danger"} className="p-2 m-0 small">
+                  {errors.map((error, i) => (
+                    <div key={i}>{error}</div>
+                  ))}
+                </Alert>
+              )}
             </div>
-          </div>
-          <div>
-            <div className="d-flex">
-              <Button
-                className="mx-1"
-                variant="secondary"
-                onClick={handleClose}
-              >
+            <div className="d-flex gap-2 ms-auto">
+              <Button variant="secondary" onClick={handleClose}>
                 Close
               </Button>
-              <Button
-                className="mx-1"
-                variant="primary"
-                onClick={handleAdd}
-                disabled={!dirty}
-              >
+              <Button variant="primary" onClick={handleAdd} disabled={!dirty}>
                 Save
               </Button>
             </div>
-          </div>
-          <div className="w-100 mt-2">
-            {errors.length > 0 && (
-              <Alert variant={"danger"} className="p-2 m-0">
-                {errors.map((error, i) => (
-                  <p key={i} className="mb-1">
-                    {error}
-                  </p>
-                ))}
-              </Alert>
-            )}
           </div>
         </Modal.Footer>
       </Modal>

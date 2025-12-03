@@ -200,6 +200,7 @@ const INSTALLATION_ENDING_PREDICATE = `${EDITOR_NS}#installationEnding`;
 const INSTALLATION_SC_CONTEXT_PREDICATE = `${EDITOR_NS}#installationSCContext`;
 const INSTALLATION_SYSTEM_CONTEXT_PREDICATE = `${EDITOR_NS}#installationSystemContext`;
 const PARTICIPATION_VIRTUAL_ROW_PREDICATE = `${EDITOR_NS}#participationVirtualRowId`;
+const SORT_INDEX_PREDICATE = `${EDITOR_NS}#sortIndex`;
 
 /**
  * Converts an HQDMModel to a UI Model.
@@ -239,21 +240,57 @@ export const toModel = (hqdm: HQDMModel): Model => {
   }
 
   // STEP 1: Load all individuals FIRST
+  // Collect all candidates first so we can sort them by index
+  const candidates: { thing: Thing; kind: Kind }[] = [];
+
   hqdm.findByType(ordinary_physical_object).forEach((obj) => {
     const kind = hqdm
       .memberOfKind(obj)
       .filter(isKindOfOrdinaryPhysicalObject)
       .first();
     const kindOfIndividual = kindOrDefault(kind, ordPhysObjKind);
-    addIndividual(obj, hqdm, communityName, kindOfIndividual, m);
+    candidates.push({ thing: obj, kind: kindOfIndividual });
   });
 
   hqdm.findByType(person).forEach((persona) => {
-    addIndividual(persona, hqdm, communityName, personKind, m);
+    candidates.push({ thing: persona, kind: personKind });
   });
 
   hqdm.findByType(organization).forEach((org) => {
-    addIndividual(org, hqdm, communityName, organizationKind, m);
+    candidates.push({ thing: org, kind: organizationKind });
+  });
+
+  // Helper to get sort index
+  const getSortIndex = (thing: Thing): number | undefined => {
+    const ref = hqdm.getRelated(thing, SORT_INDEX_PREDICATE).first();
+    if (ref) {
+      const val = parseInt(ref.id, 10);
+      return isNaN(val) ? undefined : val;
+    }
+    return undefined;
+  };
+
+  // Sort candidates by index
+  candidates.sort((a, b) => {
+    const idxA = getSortIndex(a.thing);
+    const idxB = getSortIndex(b.thing);
+
+    if (idxA !== undefined && idxB !== undefined) {
+      return idxA - idxB;
+    }
+    // If only one has index, prioritize it (though usually all or none will have it)
+    if (idxA !== undefined) return -1;
+    if (idxB !== undefined) return 1;
+
+    // Fallback to name for deterministic order if no index exists
+    const nameA = hqdm.getEntityName(a.thing) || "";
+    const nameB = hqdm.getEntityName(b.thing) || "";
+    return nameA.localeCompare(nameB);
+  });
+
+  // Add sorted individuals to model
+  candidates.forEach((c) => {
+    addIndividual(c.thing, hqdm, communityName, c.kind, m);
   });
 
   // STEP 2: Load installations BEFORE activities
@@ -500,6 +537,7 @@ export const toHQDM = (model: Model): HQDMModel => {
   };
 
   // Add the individuals to the model
+  let sortIndex = 0;
   model.individuals.forEach((i) => {
     // Create the individual and add it to the possible world, add the name and description.
     let playerEntityType;
@@ -515,6 +553,10 @@ export const toHQDM = (model: Model): HQDMModel => {
     }
     const player = hqdm.createThing(playerEntityType, BASE + i.id);
     hqdm.addToPossibleWorld(player, modelWorld);
+
+    // Save sort index to preserve order
+    hqdm.relate(SORT_INDEX_PREDICATE, player, new Thing(sortIndex.toString()));
+    sortIndex++;
 
     const individualStart = createTimeValue(hqdm, modelWorld, i.beginning);
     const individualEnd = createTimeValue(hqdm, modelWorld, i.ending);

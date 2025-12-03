@@ -30,6 +30,7 @@ import DiagramLegend from "./DiagramLegend";
 import EditInstalledComponent from "./EditInstalledComponent";
 import EditSystemComponentInstallation from "./EditSystemComponentInstallation";
 import EntityTypeLegend from "./EntityTypeLegend";
+import { load, save } from "@/lib/ActivityLib";
 
 const beforeUnloadHandler = (ev: BeforeUnloadEvent) => {
   ev.returnValue = "";
@@ -119,6 +120,8 @@ export default function ActivityDiagramWrap() {
   const [compactMode, setCompactMode] = useState(false);
   const model = new Model();
   const [dataset, setDataset] = useState(model);
+  // Add a state to track initialization
+  const [isInitialized, setIsInitialized] = useState(false);
   const [dirty, setDirty] = useState(false);
   const [activityContext, setActivityContext] = useState<Maybe<Id>>(undefined);
   const [undoHistory, setUndoHistory] = useState<Model[]>([]);
@@ -175,6 +178,43 @@ export default function ActivityDiagramWrap() {
     if (dirty) window.addEventListener("beforeunload", beforeUnloadHandler);
     else window.removeEventListener("beforeunload", beforeUnloadHandler);
   }, [dirty]);
+
+  // 1. Load diagram from localStorage on mount
+  useEffect(() => {
+    // Ensure we are in the browser
+    if (typeof window !== "undefined") {
+      const savedTtl = localStorage.getItem("4d-activity-editor-autosave");
+      if (savedTtl) {
+        try {
+          const loadedModel = load(savedTtl);
+          if (loadedModel instanceof Model) {
+            setDataset(loadedModel);
+            setUndoHistory([]); // Clear undo history on load
+          }
+        } catch (err) {
+          console.error("Failed to load autosave:", err);
+        }
+      }
+      setIsInitialized(true);
+    }
+  }, []);
+
+  // 2. Save diagram to localStorage whenever dataset changes
+  useEffect(() => {
+    if (!isInitialized) return;
+
+    // Debounce save to avoid performance hit on every small change
+    const timer = setTimeout(() => {
+      try {
+        const ttl = save(dataset);
+        localStorage.setItem("4d-activity-editor-autosave", ttl);
+      } catch (err) {
+        console.error("Failed to autosave:", err);
+      }
+    }, 1000);
+
+    return () => clearTimeout(timer);
+  }, [dataset, isInitialized]);
 
   const updateDataset = (updater: Dispatch<Model>) => {
     setUndoHistory([dataset, ...undoHistory.slice(0, 5)]);

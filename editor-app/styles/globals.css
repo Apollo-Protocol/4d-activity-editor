@@ -23,3 +23,438 @@
 .amrc-fixme {
   color: black;
 }
+
+/* Navbar styling */
+.navbar .nav-link {
+  padding: 0.5rem 1rem !important;
+  font-weight: 500;
+  font-size: 1rem;
+  color: #495057 !important;
+  transition: color 0.15s ease-in-out;
+  position: relative;
+}
+
+.navbar .nav-link:hover {
+  color: #6c757d !important;
+}
+
+/* Active link with underline */
+.navbar .nav-link.active {
+  color: #495057 !important;
+  font-weight: 500;
+}
+
+.navbar .nav-link.active::after {
+  content: "";
+  position: absolute;
+  bottom: 0;
+  left: 1rem;
+  right: 1rem;
+  height: 3px;
+  background-color: #6c757d;
+  border-radius: 2px;
+}
+
+/* Dropdown toggle styling - match nav-link */
+.navbar .dropdown-toggle {
+  font-weight: 500;
+  font-size: 1rem;
+  color: #495057 !important;
+}
+
+/* Dropdown styling - keep existing behavior */
+.navbar .active-dropdown .dropdown-toggle {
+  color: #495057 !important;
+  font-weight: 500;
+  position: relative;
+}
+
+.navbar .active-dropdown .dropdown-toggle::after {
+  border-top-color: #495057 !important;
+}
+
+/* Underline for active dropdown */
+.navbar .active-dropdown > .dropdown-toggle::before {
+  content: "";
+  position: absolute;
+  bottom: 0;
+  left: 1rem;
+  right: 1rem;
+  height: 3px;
+  background-color: #6c757d;
+  border-radius: 2px;
+}
+
+/* Dropdown menu - prevent cutting off on right edge */
+.navbar .dropdown-menu {
+  border: none;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  border-radius: 8px;
+  min-width: 250px;
+  right: 0;
+  left: auto;
+}
+
+/* Dropdown items - match parent nav styling */
+.navbar .dropdown-item {
+  padding: 0.6rem 1rem;
+  font-size: 1rem;
+  font-weight: 500;
+  color: #495057;
+  position: relative;
+}
+
+.navbar .dropdown-item:hover {
+  background-color: #f8f9fa;
+  color: #495057;
+}
+
+/* Active dropdown item styling */
+.navbar .dropdown-item.active,
+.navbar .dropdown-item:active {
+  background-color: transparent;
+  color: #495057;
+  font-weight: 500;
+}
+
+/* Underline for active dropdown item */
+.navbar .dropdown-item.active::after {
+  content: "";
+  position: absolute;
+  bottom: 0.3rem;
+  left: 1rem;
+  right: 1rem;
+  height: 3px;
+  background-color: #6c757d;
+  border-radius: 2px;
+}
+
+/* Footer link hover */
+footer a:hover {
+  color: #0d6efd !important;
+}
+
+/* Ensure content doesn't get hidden behind sticky navbar */
+html {
+  scroll-padding-top: 80px;
+}
+
+/* Body base styling */
+body {
+  font-family: "Roboto", sans-serif;
+}
+
+/* Remove default body margin and prevent extra scrollbar */
+html,
+body {
+  margin: 0;
+  padding: 0;
+  overflow-x: hidden;
+}
+
+/* Ensure no extra space below footer */
+#__next {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Diagram container scrolling */
+#activity-diagram-scrollable-div {
+  scrollbar-width: thin;
+  scrollbar-color: #888 #f1f1f1;
+}
+
+#activity-diagram-scrollable-div::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+#activity-diagram-scrollable-div::-webkit-scrollbar-track {
+  background: #f1f1f1;
+  border-radius: 4px;
+}
+
+#activity-diagram-scrollable-div::-webkit-scrollbar-thumb {
+  background: #888;
+  border-radius: 4px;
+}
+
+#activity-diagram-scrollable-div::-webkit-scrollbar-thumb:hover {
+  background: #555;
+}
+
+/* Legend responsive styles */
+.legend-card {
+  min-width: 200px;
+  max-width: 280px;
+  transition: all 0.2s ease;
+}
+
+.legend-body {
+  padding: 0.75rem;
+}
+
+.legend-title {
+  font-size: 1rem;
+  margin-bottom: 0.5rem;
+}
+
+.legend-item {
+  display: flex;
+  align-items: center;
+  margin-bottom: 0.25rem;
+  font-size: 0.875rem;
+}
+
+.legend-icon-wrapper {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  margin-right: 6px;
+  font-size: 16px;
+  font-family: Arial, sans-serif;
+  position: relative;
+  flex-shrink: 0;
+}
+
+.legend-hatch-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 22px;
+  height: 22px;
+  pointer-events: none;
+}
+
+.legend-color-box {
+  display: inline-block;
+  width: 14px;
+  height: 14px;
+  border-radius: 3px;
+  margin-right: 6px;
+  border: 1px solid #888;
+  flex-shrink: 0;
+}
+
+.legend-label {
+  color: #111827;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.legend-action-btn {
+  padding: 0.125rem 0.25rem;
+}
+
+/* Activity Legend scrollable content */
+.legend-items-container {
+  max-height: none;
+  overflow-y: visible;
+}
+
+/* Medium screens (tablets, small laptops) - make legend scrollable */
+@media (max-width: 1200px) {
+  .legend-card {
+    min-width: 160px;
+    max-width: 220px;
+  }
+
+  .legend-body {
+    padding: 0.5rem;
+  }
+
+  .legend-title {
+    font-size: 0.9rem;
+    margin-bottom: 0.375rem;
+  }
+
+  .legend-item {
+    font-size: 0.8rem;
+    margin-bottom: 0.2rem;
+  }
+
+  .legend-icon-wrapper {
+    width: 18px;
+    height: 18px;
+    font-size: 14px;
+    margin-right: 4px;
+  }
+
+  .legend-hatch-overlay {
+    width: 18px;
+    height: 18px;
+  }
+
+  .legend-color-box {
+    width: 12px;
+    height: 12px;
+    margin-right: 4px;
+  }
+
+  .legend-action-btn {
+    padding: 0.1rem 0.2rem;
+  }
+
+  .legend-action-btn svg {
+    width: 14px;
+    height: 14px;
+  }
+
+  /* Make activity legend scrollable when more than ~7 items */
+  .legend-items-container {
+    max-height: 200px;
+    overflow-y: auto;
+    scrollbar-width: thin;
+    scrollbar-color: #888 #f1f1f1;
+  }
+
+  .legend-items-container::-webkit-scrollbar {
+    width: 6px;
+  }
+
+  .legend-items-container::-webkit-scrollbar-track {
+    background: #f1f1f1;
+    border-radius: 3px;
+  }
+
+  .legend-items-container::-webkit-scrollbar-thumb {
+    background: #888;
+    border-radius: 3px;
+  }
+}
+
+/* Small screens (phones, very small laptops) */
+@media (max-width: 992px) {
+  .legend-card {
+    min-width: 140px;
+    max-width: 180px;
+  }
+
+  .legend-body {
+    padding: 0.375rem;
+  }
+
+  .legend-title {
+    font-size: 0.8rem;
+    margin-bottom: 0.25rem;
+  }
+
+  .legend-item {
+    font-size: 0.75rem;
+    margin-bottom: 0.15rem;
+  }
+
+  .legend-icon-wrapper {
+    width: 16px;
+    height: 16px;
+    font-size: 12px;
+    margin-right: 3px;
+  }
+
+  .legend-hatch-overlay {
+    width: 16px;
+    height: 16px;
+  }
+
+  .legend-color-box {
+    width: 10px;
+    height: 10px;
+    margin-right: 3px;
+  }
+
+  .legend-action-btn {
+    padding: 0.05rem 0.15rem;
+  }
+
+  .legend-action-btn svg {
+    width: 12px;
+    height: 12px;
+  }
+
+  /* Smaller scroll area on small screens */
+  .legend-items-container {
+    max-height: 160px;
+  }
+}
+
+/* Extra small screens */
+@media (max-width: 768px) {
+  .legend-card {
+    min-width: 120px;
+    max-width: 150px;
+  }
+
+  .legend-body {
+    padding: 0.25rem;
+  }
+
+  .legend-title {
+    font-size: 0.75rem;
+  }
+
+  .legend-item {
+    font-size: 0.7rem;
+  }
+
+  .legend-icon-wrapper {
+    width: 14px;
+    height: 14px;
+    font-size: 11px;
+    margin-right: 2px;
+  }
+
+  .legend-color-box {
+    width: 8px;
+    height: 8px;
+    margin-right: 2px;
+  }
+
+  .legend-items-container {
+    max-height: 140px;
+  }
+}
+
+/* Legend search input */
+.legend-card .form-control {
+  border-radius: 4px;
+  border: 1px solid #dee2e6;
+  padding: 0.25rem 0.5rem;
+}
+
+.legend-card .form-control:focus {
+  border-color: #86b7fe;
+  box-shadow: 0 0 0 0.15rem rgba(13, 110, 253, 0.15);
+}
+
+.legend-card .form-control::placeholder {
+  color: #adb5bd;
+  font-size: 0.75rem;
+}
+
+/* Medium screens */
+@media (max-width: 1200px) {
+  .legend-card .form-control {
+    font-size: 0.75rem !important;
+    padding: 0.2rem 0.4rem;
+  }
+}
+
+/* Small screens */
+@media (max-width: 992px) {
+  .legend-card .form-control {
+    font-size: 0.7rem !important;
+    padding: 0.15rem 0.3rem;
+  }
+}
+
+/* Extra small screens */
+@media (max-width: 768px) {
+  .legend-card .form-control {
+    font-size: 0.65rem !important;
+    padding: 0.1rem 0.25rem;
+  }
+}

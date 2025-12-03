@@ -26,6 +26,10 @@ import {
 import { IndividualImpl } from "./IndividualImpl";
 import { Kind, Model } from "./Model";
 import { EDITOR_VERSION } from "./version";
+import { EntityType, Installation } from "./Schema";
+
+import { ParticipationImpl } from "./ParticipationImpl";
+// ... rest of existing imports ...
 
 /**
  * ActivityLib
@@ -56,7 +60,10 @@ const diagramModel = new HQDMModel();
 
 const diagramTimeUuid = "c9ecb65e-4b1f-4633-ac5c-f765e36586f2";
 const diagramTimeIri = BASE + diagramTimeUuid;
-const diagramTimeClass = diagramModel.createThing(class_of_event, diagramTimeIri);
+const diagramTimeClass = diagramModel.createThing(
+  class_of_event,
+  diagramTimeIri
+);
 
 /**
  * Attempts to load a model from a string containing a TTL representation of the model.
@@ -127,9 +134,7 @@ const getTimeValue = (hqdm: HQDMModel, t: Thing): number => {
    * times we will simply lose that information in the diagram. */
   if (hqdm.isMemberOf(t, diagramTimeClass)) {
     const n = Number.parseFloat(name);
-    return n < EPOCH_START  ? -1
-      : n >= EPOCH_END      ? EPOCH_END
-      : n;
+    return n < EPOCH_START ? -1 : n >= EPOCH_END ? EPOCH_END : n;
   }
 
   console.log("getTimeValue: unknown class for %s", t.id);
@@ -139,35 +144,41 @@ const getTimeValue = (hqdm: HQDMModel, t: Thing): number => {
 /**
  * Returns HQDM point_in_time, creating it if it doesn't already exist.
  */
-const createTimeValue = (hqdm: HQDMModel, modelWorld: Thing, time: number): Thing => {
-
+const createTimeValue = (
+  hqdm: HQDMModel,
+  modelWorld: Thing,
+  time: number
+): Thing => {
   /* Map the epoch start and end to +-Inf for output to the file. This
    * is cleaner than leaving magic numbers in the output. Possibly we
    * should simply omit the attribute altogether instead? */
-  const f = time < EPOCH_START  ? Number.NEGATIVE_INFINITY
-    : time >= EPOCH_END         ? Number.POSITIVE_INFINITY
-    : time;
+  const f =
+    time < EPOCH_START
+      ? Number.NEGATIVE_INFINITY
+      : time >= EPOCH_END
+      ? Number.POSITIVE_INFINITY
+      : time;
 
   var exists: boolean = false;
   const iri = BASE + uuidv4();
   var thing = new Thing(iri); // Placeholder thing as we don't know if we need to create one yet.
-  
+
   // Test whether f value already exists in hqdm: HQDMModel
   hqdm.findByType(event).forEach((obj) => {
     const tVal = hqdm.getEntityName(obj);
-    if(tVal == f.toString()){
+    if (tVal == f.toString()) {
       exists = true;
       thing = obj;
     }
   });
 
-  if(!exists){
+  if (!exists) {
     thing = hqdm.createThing(event, iri);
     hqdm.addMemberOf(thing, diagramTimeClass);
     hqdm.relate(ENTITY_NAME, thing, new Thing(f.toString()));
     hqdm.addToPossibleWorld(thing, modelWorld);
   }
-  
+
   return thing;
 };
 
@@ -175,10 +186,21 @@ const checkReprVersion = (hqdm: HQDMModel) => {
   const reprVersion = hqdm.getVersionInfo(EDITOR_REPR);
   if (reprVersion == undefined) {
     hqdm.replaceIriPrefix(AMRC_BASE, BASE);
-  }
-  else if (reprVersion != currentReprVersion)
+  } else if (reprVersion != currentReprVersion)
     throw new Error("Unrecognised data version");
 };
+
+// Custom predicates for our extensions
+const ENTITY_TYPE_PREDICATE = `${EDITOR_NS}#entityType`;
+const INSTALLATION_PREDICATE = `${EDITOR_NS}#hasInstallation`;
+const INSTALLATION_TARGET_PREDICATE = `${EDITOR_NS}#installationTarget`;
+const INSTALLATION_COMPONENT_PREDICATE = `${EDITOR_NS}#installationComponent`;
+const INSTALLATION_BEGINNING_PREDICATE = `${EDITOR_NS}#installationBeginning`;
+const INSTALLATION_ENDING_PREDICATE = `${EDITOR_NS}#installationEnding`;
+const INSTALLATION_SC_CONTEXT_PREDICATE = `${EDITOR_NS}#installationSCContext`;
+const INSTALLATION_SYSTEM_CONTEXT_PREDICATE = `${EDITOR_NS}#installationSystemContext`;
+const PARTICIPATION_VIRTUAL_ROW_PREDICATE = `${EDITOR_NS}#participationVirtualRowId`;
+const SORT_INDEX_PREDICATE = `${EDITOR_NS}#sortIndex`;
 
 /**
  * Converts an HQDMModel to a UI Model.
@@ -188,7 +210,11 @@ export const toModel = (hqdm: HQDMModel): Model => {
 
   // Kinds are immutable so it's fine to use constant objects.
   // XXX These duplicate the code in lib/Model.ts.
-  const ordPhysObjKind = new Kind(ordinary_physical_object.id, "Resource", true);
+  const ordPhysObjKind = new Kind(
+    ordinary_physical_object.id,
+    "Resource",
+    true
+  );
   const organizationKind = new Kind(organization.id, "Organization", true);
   const personKind = new Kind(person.id, "Person", true);
   const activityKind = new Kind(activity.id, "Task", true);
@@ -196,11 +222,11 @@ export const toModel = (hqdm: HQDMModel): Model => {
 
   const communityName = new Thing(AMRC_COMMUNITY);
   const m = new Model();
-  const isKindOfOrdinaryPhysicalObject = (x: Thing): boolean => hqdm.isKindOf(x, kind_of_ordinary_physical_object);
+  const isKindOfOrdinaryPhysicalObject = (x: Thing): boolean =>
+    hqdm.isKindOf(x, kind_of_ordinary_physical_object);
 
   const kindOrDefault = (kind: Maybe<Thing>, defKind: Kind) => {
-    if (!kind)
-      return defKind;
+    if (!kind) return defKind;
     return new Kind(getModelId(kind!), hqdm.getEntityName(kind!), false);
   };
 
@@ -208,53 +234,82 @@ export const toModel = (hqdm: HQDMModel): Model => {
   const possibleWorld = hqdm.findByType(possible_world).first(); // Assumes just one possible world
   if (possibleWorld) {
     m.name = hqdm.getIdentifications(possibleWorld, communityName).first()?.id;
-    m.description = hqdm.getDescriptions(possibleWorld, communityName).first()?.id;
+    m.description = hqdm
+      .getDescriptions(possibleWorld, communityName)
+      .first()?.id;
   }
 
-  /**
-   * TODO: It may be necessary in future to filter the ordinary_physical_objects to remove any that are not part of the model.
-   *
-   * Custom kinds of individuals are modelled as ordinary_physical_objects that are members of a kind_of_ordinary_physical_object,
-   * so we need to find those and add them to the model. There is also a default kind for Resources that is simple an ordinary_physical_object.
-   */
+  // STEP 1: Load all individuals FIRST
+  // Collect all candidates first so we can sort them by index
+  const candidates: { thing: Thing; kind: Kind }[] = [];
+
   hqdm.findByType(ordinary_physical_object).forEach((obj) => {
-    // Find the kind of individual.
     const kind = hqdm
       .memberOfKind(obj)
       .filter(isKindOfOrdinaryPhysicalObject)
-      .first(); // Matches every element, so returns the first
-
+      .first();
     const kindOfIndividual = kindOrDefault(kind, ordPhysObjKind);
-    addIndividual(obj, hqdm, communityName, kindOfIndividual, m);
+    candidates.push({ thing: obj, kind: kindOfIndividual });
   });
 
-  // Handle person and organization kinds.
   hqdm.findByType(person).forEach((persona) => {
-    addIndividual(persona, hqdm, communityName, personKind, m);
+    candidates.push({ thing: persona, kind: personKind });
   });
 
   hqdm.findByType(organization).forEach((org) => {
-    addIndividual(org, hqdm, communityName, organizationKind, m);
+    candidates.push({ thing: org, kind: organizationKind });
   });
 
-  //
-  // Add each Activity to the model.
-  //
+  // Helper to get sort index
+  const getSortIndex = (thing: Thing): number | undefined => {
+    const ref = hqdm.getRelated(thing, SORT_INDEX_PREDICATE).first();
+    if (ref) {
+      const val = parseInt(ref.id, 10);
+      return isNaN(val) ? undefined : val;
+    }
+    return undefined;
+  };
+
+  // Sort candidates by index
+  candidates.sort((a, b) => {
+    const idxA = getSortIndex(a.thing);
+    const idxB = getSortIndex(b.thing);
+
+    if (idxA !== undefined && idxB !== undefined) {
+      return idxA - idxB;
+    }
+    // If only one has index, prioritize it (though usually all or none will have it)
+    if (idxA !== undefined) return -1;
+    if (idxB !== undefined) return 1;
+
+    // Fallback to name for deterministic order if no index exists
+    const nameA = hqdm.getEntityName(a.thing) || "";
+    const nameB = hqdm.getEntityName(b.thing) || "";
+    return nameA.localeCompare(nameB);
+  });
+
+  // Add sorted individuals to model
+  candidates.forEach((c) => {
+    addIndividual(c.thing, hqdm, communityName, c.kind, m);
+  });
+
+  // STEP 2: Load installations BEFORE activities
+  // This ensures virtual rows can be created properly
+  loadInstallations(hqdm, m);
+
+  // STEP 3: Now load activities with participations
   hqdm.findByType(activity).forEach((a) => {
     const id = getModelId(a);
 
-    // Get the activity name.
     const identifications = hqdm.getIdentifications(a, communityName);
-    const name = identifications.first()?.id ?? "No Name Found: " + a.id; // Assumes just one name
+    const name = identifications.first()?.id ?? "No Name Found: " + a.id;
 
-    // Get the activity type.
     const kinds = hqdm
       .memberOfKind(a)
       .filter((x) => hqdm.isKindOf(x, kind_of_activity));
-    const kind = kinds.first((x) => (x ? true : false)); // Matches every element, so returns the first
+    const kind = kinds.first((x) => (x ? true : false));
     const kindOfActivity = kindOrDefault(kind, activityKind);
 
-    // Get the temporal extent of the activity with defaults, although the defaults should never be needed.
     const activityFromEvent = hqdm.getBeginning(a);
     const activityToEvent = hqdm.getEnding(a);
     const beginning = activityFromEvent
@@ -264,14 +319,11 @@ export const toModel = (hqdm: HQDMModel): Model => {
       ? getTimeValue(hqdm, activityToEvent)
       : EPOCH_END;
 
-    // Get the optional description of the activity.
     const descriptions = hqdm.getDescriptions(a, communityName);
-    const description = descriptions.first()?.id; // Assumes just one description
+    const description = descriptions.first()?.id;
 
-    // Get the parent activity, if any.
     const partOf = hqdm.getPartOf(a).first();
 
-    // Create the activity and add it to the model.
     const newA = new ActivityImpl(
       id,
       name,
@@ -279,39 +331,69 @@ export const toModel = (hqdm: HQDMModel): Model => {
       beginning,
       ending,
       description,
-      partOf ? getModelId(partOf) : undefined,
+      partOf ? getModelId(partOf) : undefined
     );
     m.addActivity(newA);
 
-    //
     // Find the participations to the activities and add them to the model.
-    //
     const participations = hqdm.getParticipants(a);
     participations.forEach((p) => {
-      // Get the role of the participant.
       const participantRole = hqdm.getRole(p).first();
       const roleType = kindOrDefault(participantRole, participantKind);
 
-      // Get the participant whole life object for this temporal part.
+      // Check if this participation has a virtual row ID saved
+      const virtualRowRef = hqdm
+        .getRelated(p, PARTICIPATION_VIRTUAL_ROW_PREDICATE)
+        .first();
+
       const participantThing = hqdm.getTemporalWhole(p);
 
-      // Get the individual from the model or create a dummy individual if the participant is not in the model.
-      const indiv = participantThing
-        ? m.individuals.get(getModelId(participantThing))
-        : new IndividualImpl(
-            uuidv4(),
-            "Unknown Individual",
-            ordPhysObjKind,
-            0,
-            EPOCH_END,
-            "Unknown Individual",
-            false,
-            false
+      if (virtualRowRef) {
+        // Use the saved virtual row ID
+        const virtualRowId = virtualRowRef.id;
+
+        // Add participation directly using the virtual row ID
+        // Don't create an IndividualImpl - just use the ID directly in the participation
+        const participation = new ParticipationImpl(virtualRowId, roleType);
+        newA.participations.set(virtualRowId, participation);
+      } else {
+        // Regular participation
+        const indiv = participantThing
+          ? m.individuals.get(getModelId(participantThing))
+          : undefined;
+
+        if (indiv) {
+          newA.addParticipation(indiv, roleType);
+        } else if (participantThing) {
+          console.warn(
+            `Could not find individual ${getModelId(
+              participantThing
+            )} for participation`
           );
-      if (indiv) {
-        newA.addParticipation(indiv, roleType);
+        }
       }
     });
+  });
+
+  // STEP 4: Sort activities by beginning time to maintain correct order
+  // First, get all activities as an array and sort them
+  const sortedActivities = Array.from(m.activities.values()).sort((a, b) => {
+    // First sort by beginning time
+    if (a.beginning !== b.beginning) {
+      return a.beginning - b.beginning;
+    }
+    // If same beginning, sort by ending time
+    if (a.ending !== b.ending) {
+      return a.ending - b.ending;
+    }
+    // If same times, sort by name
+    return a.name.localeCompare(b.name);
+  });
+
+  // Clear and re-add activities in sorted order
+  m.activities.clear();
+  sortedActivities.forEach((activity) => {
+    m.activities.set(activity.id, activity);
   });
 
   return addRefDataToModel(hqdm, m);
@@ -430,12 +512,16 @@ export const toHQDM = (model: Model): HQDMModel => {
    * @param baseKind The base kind to derive the HQDM kind from.
    * @returns the HQDM kind.
    */
-  const setKindFromUI = (hqdmSt: Thing, uiKind: Maybe<Kind>, baseKind: Thing) => {
+  const setKindFromUI = (
+    hqdmSt: Thing,
+    uiKind: Maybe<Kind>,
+    baseKind: Thing
+  ) => {
     if (!uiKind || uiKind.isCoreHqdm) {
       const stKind = uiKind ? new Thing(uiKind.id) : baseKind;
       hqdm.addMemberOfKind(hqdmSt, stKind);
       return stKind;
-    } 
+    }
 
     // The type is not actually optional - it's only optional because the UI model allows it to be undefined.
     const stKindId = BASE + uiKind.id;
@@ -451,6 +537,7 @@ export const toHQDM = (model: Model): HQDMModel => {
   };
 
   // Add the individuals to the model
+  let sortIndex = 0;
   model.individuals.forEach((i) => {
     // Create the individual and add it to the possible world, add the name and description.
     let playerEntityType;
@@ -466,6 +553,10 @@ export const toHQDM = (model: Model): HQDMModel => {
     }
     const player = hqdm.createThing(playerEntityType, BASE + i.id);
     hqdm.addToPossibleWorld(player, modelWorld);
+
+    // Save sort index to preserve order
+    hqdm.relate(SORT_INDEX_PREDICATE, player, new Thing(sortIndex.toString()));
+    sortIndex++;
 
     const individualStart = createTimeValue(hqdm, modelWorld, i.beginning);
     const individualEnd = createTimeValue(hqdm, modelWorld, i.ending);
@@ -495,6 +586,62 @@ export const toHQDM = (model: Model): HQDMModel => {
     }
 
     setKindFromUI(player, i.type, kind_of_ordinary_physical_object);
+
+    // Save entity type if present
+    if (i.entityType) {
+      hqdm.relate(ENTITY_TYPE_PREDICATE, player, new Thing(i.entityType));
+    }
+
+    // Save installations
+    if (i.installations && i.installations.length > 0) {
+      i.installations.forEach((inst) => {
+        const instThing = hqdm.createThing(
+          ordinary_physical_object,
+          BASE + inst.id
+        );
+        hqdm.addToPossibleWorld(instThing, modelWorld);
+
+        // Link installation to component
+        hqdm.relate(INSTALLATION_PREDICATE, player, instThing);
+
+        // Save installation properties
+        hqdm.relate(
+          INSTALLATION_TARGET_PREDICATE,
+          instThing,
+          new Thing(BASE + inst.targetId)
+        );
+        hqdm.relate(INSTALLATION_COMPONENT_PREDICATE, instThing, player);
+
+        if (inst.beginning !== undefined) {
+          hqdm.relate(
+            INSTALLATION_BEGINNING_PREDICATE,
+            instThing,
+            new Thing(String(inst.beginning))
+          );
+        }
+        if (inst.ending !== undefined) {
+          hqdm.relate(
+            INSTALLATION_ENDING_PREDICATE,
+            instThing,
+            new Thing(String(inst.ending))
+          );
+        }
+        if (inst.scInstallationContextId) {
+          hqdm.relate(
+            INSTALLATION_SC_CONTEXT_PREDICATE,
+            instThing,
+            new Thing(BASE + inst.scInstallationContextId)
+          );
+        }
+        if (inst.systemContextId) {
+          hqdm.relate(
+            INSTALLATION_SYSTEM_CONTEXT_PREDICATE,
+            instThing,
+            new Thing(BASE + inst.systemContextId)
+          );
+        }
+      });
+    }
   });
 
   // Add the activities to the model
@@ -536,34 +683,46 @@ export const toHQDM = (model: Model): HQDMModel => {
 
     // Add the participations to the model
     a.participations.forEach((p) => {
-      // Create the participant and add it to the possible world.
       const participation = hqdm.createThing(
         state_of_ordinary_physical_object,
         BASE + uuidv4()
       );
       hqdm.addToPossibleWorld(participation, modelWorld);
 
-      // Find or create the role (a role is a kind_of_participant).
       const pRole = setKindFromUI(participation, p.role, role);
       hqdm.addMemberOfKind(participation, participant);
 
-      // The kind_of_activity needs to define the roles it consists of,
-      // and the reverse relationship. However, we shouldn't define core
-      // HQDM kinds.
       if (p.role && !p.role.isCoreHqdm) {
         hqdm.relate(PART_OF_BY_CLASS, pRole, actKind);
         hqdm.relate(CONSISTS_OF_BY_CLASS, actKind, pRole);
       }
 
-      // Add the participant as a temporal part of the individual.
-      hqdm.addAsTemporalPartOf(participation, new Thing(BASE + p.individualId));
+      // Handle virtual row IDs for participations
+      // Extract the original individual ID from virtual row format
+      let actualIndividualId = p.individualId;
+      const isVirtualRow = p.individualId.includes("__installed_in__");
+
+      if (isVirtualRow) {
+        actualIndividualId = p.individualId.split("__installed_in__")[0];
+        // Save the full virtual row ID so we can restore it on load
+        hqdm.relate(
+          PARTICIPATION_VIRTUAL_ROW_PREDICATE,
+          participation,
+          new Thing(p.individualId)
+        );
+      }
+
+      hqdm.addAsTemporalPartOf(
+        participation,
+        new Thing(BASE + actualIndividualId)
+      );
       hqdm.addParticipant(participation, act);
 
-      // Make the participant have gthe same temporal bounds as the activity.
       hqdm.beginning(participation, activityFrom);
       hqdm.ending(participation, activityTo);
     });
   });
+
   return hqdm;
 };
 
@@ -619,7 +778,13 @@ export const loadRefDataFromTTL = (ttl: string): Model | Error => {
  * @param model The model to add the Individual to.
  * @returns void
  */
-const addIndividual = (thing: Thing, hqdm: HQDMModel, communityName: Thing, kind: Kind, model: Model):void => {
+const addIndividual = (
+  thing: Thing,
+  hqdm: HQDMModel,
+  communityName: Thing,
+  kind: Kind,
+  model: Model
+): void => {
   const id = getModelId(thing); // The UI Model doesn't use IRIs, so remove the base.
 
   // Find the name signs recognised by the community for this individual.
@@ -634,17 +799,95 @@ const addIndividual = (thing: Thing, hqdm: HQDMModel, communityName: Thing, kind
   const to = hqdm.getEnding(thing);
 
   if (from && to) {
-    // Create the individual and add it to the model.
-    model.addIndividual(new IndividualImpl(
+    // Get entity type if present - use string predicate
+    const entityTypeValue = hqdm
+      .getRelated(thing, ENTITY_TYPE_PREDICATE)
+      .first();
+    let entityType: EntityType | undefined = undefined;
+    if (entityTypeValue) {
+      const typeStr = entityTypeValue.id;
+      if (Object.values(EntityType).includes(typeStr as EntityType)) {
+        entityType = typeStr as EntityType;
+      }
+    }
+
+    // Create the individual with entityType in constructor
+    const individual = new IndividualImpl(
       id,
       name,
       kind,
       getTimeValue(hqdm, from),
       getTimeValue(hqdm, to),
-      description
-    ));
+      description,
+      false, // beginsWithParticipant
+      false, // endsWithParticipant
+      entityType // Pass entityType directly to constructor
+    );
+
+    // Add to model
+    model.addIndividual(individual);
   } else {
     console.error("Individual " + id + " has no temporal extent.");
   }
 };
 
+/**
+ * Load installations from HQDM model after all individuals are loaded
+ */
+const loadInstallations = (hqdm: HQDMModel, model: Model): void => {
+  model.individuals.forEach((individual) => {
+    // Find installations for this individual
+    const individualThing = new Thing(BASE + individual.id);
+    const installationRefs = hqdm.getRelated(
+      individualThing,
+      INSTALLATION_PREDICATE
+    );
+
+    const installations: Installation[] = [];
+
+    installationRefs.forEach((instRef) => {
+      const instId = getModelId(instRef);
+
+      // Get installation properties - use string predicates
+      const targetRef = hqdm
+        .getRelated(instRef, INSTALLATION_TARGET_PREDICATE)
+        .first();
+      const beginningRef = hqdm
+        .getRelated(instRef, INSTALLATION_BEGINNING_PREDICATE)
+        .first();
+      const endingRef = hqdm
+        .getRelated(instRef, INSTALLATION_ENDING_PREDICATE)
+        .first();
+      const scContextRef = hqdm
+        .getRelated(instRef, INSTALLATION_SC_CONTEXT_PREDICATE)
+        .first();
+      const systemContextRef = hqdm
+        .getRelated(instRef, INSTALLATION_SYSTEM_CONTEXT_PREDICATE)
+        .first();
+
+      if (targetRef) {
+        const installation: Installation = {
+          id: instId,
+          componentId: individual.id,
+          targetId: getModelId(targetRef),
+          beginning: beginningRef ? parseFloat(beginningRef.id) : undefined,
+          ending: endingRef ? parseFloat(endingRef.id) : undefined,
+          scInstallationContextId: scContextRef
+            ? getModelId(scContextRef)
+            : undefined,
+          systemContextId: systemContextRef
+            ? getModelId(systemContextRef)
+            : undefined,
+        };
+
+        installations.push(installation);
+        model.installations.set(instId, installation);
+      }
+    });
+
+    if (installations.length > 0) {
+      individual.installations = installations;
+      model.setIndividual(individual);
+    }
+  });
+};

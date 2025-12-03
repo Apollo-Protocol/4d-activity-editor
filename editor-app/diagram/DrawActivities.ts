@@ -1,5 +1,6 @@
 import { MouseEvent } from "react";
 import { Activity, Individual, Participation } from "@/lib/Schema";
+import { Model } from "@/lib/Model";
 import {
   DrawContext,
   Label,
@@ -12,10 +13,43 @@ import { activity } from "@apollo-protocol/hqdm-lib";
 let mouseOverElement: any | null = null;
 
 export function drawActivities(ctx: DrawContext) {
-  const { config, svgElement, activities, individuals } = ctx;
+  const { config, svgElement, activities, individuals, dataset } = ctx;
 
   let startOfTime = Math.min(...activities.map((a) => a.beginning));
   let endOfTime = Math.max(...activities.map((a) => a.ending));
+
+  // Expand time range to include installed components' actual installation periods
+  if (individuals) {
+    individuals.forEach((ind) => {
+      if (ind.id.includes("__installed_in__")) {
+        const parts = ind.id.split("__installed_in__");
+        if (parts.length === 2) {
+          const originalId = parts[0];
+          const slotId = parts[1];
+          const original = dataset.individuals.get(originalId);
+          if (original && original.installations) {
+            const inst = original.installations.find(
+              (x) => x.targetId === slotId
+            );
+            if (inst) {
+              // Ensure beginning is at least 0
+              const instBeginning = Math.max(0, inst.beginning ?? 0);
+
+              if (instBeginning < startOfTime) startOfTime = instBeginning;
+
+              if (
+                inst.ending !== undefined &&
+                inst.ending < Model.END_OF_TIME &&
+                inst.ending > endOfTime
+              )
+                endOfTime = inst.ending;
+            }
+          }
+        }
+      }
+    });
+  }
+
   let duration = endOfTime - startOfTime;
   let totalLeftMargin =
     config.viewPort.x * config.viewPort.zoom -
@@ -36,9 +70,29 @@ export function drawActivities(ctx: DrawContext) {
     x += config.layout.individual.textLength;
   }
 
+  // Filter out activities that have no valid participations (orphaned activities)
+  const getParticipationArray = (a: Activity): Participation[] => {
+    if (!a.participations) return [];
+    // support both Map and Array storage
+    if (a.participations instanceof Map) {
+      return Array.from(a.participations.values());
+    }
+    return a.participations as Participation[];
+  };
+
+  const validActivities = Array.from(activities.values()).filter((a) => {
+    const parts = getParticipationArray(a);
+    if (!parts || parts.length === 0) return false;
+    return parts.some((p) => {
+      const node = svgElement.select("#i" + CSS.escape(p.individualId)).node();
+      return node !== null;
+    });
+  });
+
   svgElement
     .selectAll(".activity")
-    .data(activities.values())
+    // FIX: Add key function (a.id) to ensure data binds to correct element even if reordered
+    .data(validActivities, (a: Activity) => a.id)
     .join("rect")
     .attr("class", "activity")
     .attr("id", (a: Activity) => "a" + a["id"])
@@ -63,19 +117,29 @@ export function drawActivities(ctx: DrawContext) {
             config.layout.individual.height
         : 0;
     })
-    .attr("stroke", (a: Activity, i: number) => {
-      return config.presentation.activity.stroke[
-        i % config.presentation.activity.stroke.length
-      ];
-    })
-    .attr("stroke-dasharray", config.presentation.activity.strokeDasharray)
-    .attr("stroke-width", config.presentation.activity.strokeWidth)
-    .attr("fill", (a: Activity, i: number) => {
-      return config.presentation.activity.fill[
-        i % config.presentation.activity.fill.length
-      ];
-    })
-    .attr("opacity", config.presentation.activity.opacity);
+    // Make the top-level activity rect invisible so per-participation blocks show clearly.
+    // (keeps DOM elements for hit-testing / layout if other code relies on them)
+    .attr("stroke", "none")
+    .attr("fill", "none")
+    .attr("opacity", 1);
+
+  // small helper functions to reuse computations
+  const xOf = (a: Activity) => x + timeInterval * (a.beginning - startOfTime);
+  const yOf = (a: Activity) =>
+    calculateTopPositionOfNewActivity(svgElement, a) -
+    config.layout.individual.gap * 0.3;
+  const widthOf = (a: Activity) => (a.ending - a.beginning) * timeInterval;
+  const heightOf = (a: Activity) => {
+    const h = calculateLengthOfNewActivity(svgElement, a);
+    return h
+      ? h -
+          calculateTopPositionOfNewActivity(svgElement, a) +
+          config.layout.individual.gap * 0.6 +
+          config.layout.individual.height
+      : 0;
+  };
+
+  // Subtask badge rendering removed — badge no longer drawn on activities.
 
   labelActivities(ctx, x, timeInterval, startOfTime);
 
@@ -88,67 +152,8 @@ function labelActivities(
   timeInterval: number,
   startOfTime: number
 ) {
-  const { config, svgElement, activities } = ctx;
-
-  if (config.labels.activity.enabled === false) {
-    return;
-  }
-
-  let labels: Label[] = [];
-
-  svgElement
-    .selectAll(".activityLabel")
-    .data(activities.values())
-    .join("text")
-    .attr("class", "activityLabel")
-    .attr("id", (d: Activity) => `al${d.id}`)
-    .attr("x", (d: Activity) => {
-      const box = getBoxOfExistingActivity(svgElement, d);
-      return box.x + box.width / 2;
-    })
-    .attr("y", (d: Activity) => {
-      const box = getBoxOfExistingActivity(svgElement, d);
-      const individualBoxHeight =
-        config.layout.individual.height + config.layout.individual.gap;
-      let position = box.y;
-      if (d.participations?.size === 1) {
-        position = box.y - config.labels.activity.topMargin / 1.5;
-        return position;
-      }
-      if (
-        ((box.height + config.layout.individual.gap * 0.4) /
-          individualBoxHeight) %
-          2 ==
-        0
-      ) {
-        position = box.y + box.height / 2;
-      } else {
-        position =
-          box.y +
-          box.height / 2 -
-          config.layout.individual.height / 2 -
-          config.layout.individual.gap / 2;
-      }
-      position += config.labels.activity.topMargin;
-      return position;
-    })
-    .attr("text-anchor", "middle")
-    .attr("font-family", "Roboto, Arial, sans-serif")
-    .attr("font-size", config.labels.activity.fontSize)
-    .attr("fill", config.labels.activity.color)
-    .text((d: Activity) => {
-      let label = d["name"];
-      if (label.length > config.labels.activity.maxChars) {
-        label = label.substring(0, config.labels.activity.maxChars);
-        label += "...";
-      }
-      return label;
-    })
-
-    .each((d: Activity, i: number, nodes: SVGGraphicsElement[]) => {
-      removeLabelIfItOverlaps(labels, nodes[i]);
-      labels.push(nodes[i].getBBox());
-    });
+  // Labels are now provided via the external legend; do not draw activity text on the SVG.
+  return;
 }
 
 export function hoverActivities(ctx: DrawContext) {
@@ -192,8 +197,7 @@ function activityTooltip(ctx: DrawContext, activity: Activity) {
   if (activity.beginning !== undefined)
     tip += "<br/> Beginning: " + activity.beginning;
   if (activity.ending) tip += "<br/> Ending: " + activity.ending;
-  if (ctx.dataset.hasParts(activity.id))
-    tip += "<br/> Has sub-tasks";
+  if (ctx.dataset.hasParts(activity.id)) tip += "<br/> Has sub-tasks";
   return tip;
 }
 
@@ -210,10 +214,12 @@ export function clickActivities(
       rightClickActivity(a);
     };
 
-    svgElement.select("#a" + a.id)
+    svgElement
+      .select("#a" + a.id)
       .on("click", lclick)
       .on("contextmenu", rclick);
-    svgElement.select("#al" + a.id)
+    svgElement
+      .select("#al" + a.id)
       .on("click", lclick)
       .on("contextmenu", rclick);
   });
@@ -221,14 +227,20 @@ export function clickActivities(
 
 function calculateLengthOfNewActivity(svgElement: any, activity: Activity) {
   let highestY = 0;
+  let foundAny = false;
+
   activity?.participations?.forEach((a: Participation) => {
-    const element = svgElement
-      .select("#i" + a.individualId)
-      .node()
-      .getBBox();
-    highestY = Math.max(highestY, element.y);
+    // Use CSS.escape to handle special characters in virtual row IDs (like __)
+    const escapedId = CSS.escape(a.individualId);
+    const node = svgElement.select("#i" + escapedId).node();
+    if (node) {
+      foundAny = true;
+      const element = node.getBBox();
+      highestY = Math.max(highestY, element.y + element.height);
+    }
   });
-  return highestY > 0 ? highestY : null;
+
+  return foundAny ? highestY : null;
 }
 
 function calculateTopPositionOfNewActivity(
@@ -236,19 +248,26 @@ function calculateTopPositionOfNewActivity(
   activity: Activity
 ) {
   let lowestY = Number.MAX_VALUE;
+  let foundAny = false;
+
   activity?.participations?.forEach((a: Participation) => {
-    const element = svgElement
-      .select("#i" + a.individualId)
-      .node()
-      .getBBox();
-    lowestY = Math.min(lowestY, element.y);
+    // Use CSS.escape to handle special characters in virtual row IDs (like __)
+    const escapedId = CSS.escape(a.individualId);
+    const node = svgElement.select("#i" + escapedId).node();
+    if (node) {
+      foundAny = true;
+      const element = node.getBBox();
+      lowestY = Math.min(lowestY, element.y);
+    }
   });
-  return lowestY;
+
+  return foundAny ? lowestY : 0;
 }
 
 function getBoxOfExistingActivity(svgElement: any, activity: Activity) {
-  return svgElement
-    .select("#a" + activity.id)
-    .node()
-    .getBBox();
+  const node = svgElement.select("#a" + activity.id).node();
+  if (node) {
+    return node.getBBox();
+  }
+  return { x: 0, y: 0, width: 0, height: 0 };
 }

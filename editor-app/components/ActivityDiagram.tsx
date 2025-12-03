@@ -237,8 +237,13 @@ const ActivityDiagram = (props: Props) => {
 
   // Calculate visible dimensions
   // Use measured wrapper height, fallback to calculation if 0 (initial render)
+  // FIX: Check if window is defined before accessing innerHeight
   const containerHeight =
-    wrapperHeight || Math.min(plot.height, window.innerHeight - 250);
+    wrapperHeight ||
+    Math.min(
+      plot.height,
+      (typeof window !== "undefined" ? window.innerHeight : 800) - 250
+    );
   const bottomAxisHeight = axisMargin + 30;
 
   return (

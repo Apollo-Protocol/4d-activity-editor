@@ -117,30 +117,89 @@ const ExportSvg = (props: Props) => {
     const viewBox = originalSvg.getAttribute("viewBox") || "0 0 1000 500";
     const [, , origWidth, origHeight] = viewBox.split(" ").map(Number);
 
+    // Axis configuration
+    const AXIS_SIZE = 40;
+    const AXIS_COLOR = "#9ca3af";
+    const AXIS_STROKE_WIDTH = 4;
+
     // Build legend
     const legend = buildLegendSvg();
     const legendWidth = legend.width;
     const legendHeight = legend.height;
 
-    // Calculate new dimensions
-    const totalWidth = legendWidth + origWidth + 20; // 20px gap
-    const totalHeight = Math.max(legendHeight, origHeight);
+    // Calculate dimensions for the diagram section (Diagram + Axes)
+    const diagramSectionWidth = AXIS_SIZE + origWidth;
+    const diagramSectionHeight = origHeight + AXIS_SIZE;
+
+    // Total SVG dimensions
+    const totalWidth = legendWidth + 20 + diagramSectionWidth;
+    const totalHeight = Math.max(legendHeight, diagramSectionHeight);
 
     // Get original SVG content
     const originalContent = originalSvg.innerHTML;
 
+    // Create Axis SVG parts
+    const defs = `
+      <defs>
+        <marker id="axis-arrow" viewBox="0 0 10 10" refX="5" refY="5" markerWidth="6" markerHeight="6" orient="auto">
+          <path d="M 0 0 L 10 5 L 0 10 z" fill="${AXIS_COLOR}" />
+        </marker>
+      </defs>
+    `;
+
+    const yAxis = `
+      <g transform="translate(0, 0)">
+        <!-- Y Axis Line -->
+        <line x1="${AXIS_SIZE / 2}" y1="${origHeight}" x2="${
+      AXIS_SIZE / 2
+    }" y2="10" stroke="${AXIS_COLOR}" stroke-width="${AXIS_STROKE_WIDTH}" marker-end="url(#axis-arrow)" />
+        <!-- Label -->
+        <text x="${AXIS_SIZE / 2 - 10}" y="${
+      origHeight / 2
+    }" fill="${AXIS_COLOR}" font-family="Arial, sans-serif" font-size="14" font-weight="bold" transform="rotate(-90, ${
+      AXIS_SIZE / 2 - 10
+    }, ${origHeight / 2})" text-anchor="middle">Space</text>
+      </g>
+    `;
+
+    const xAxis = `
+      <g transform="translate(${AXIS_SIZE}, ${origHeight})">
+        <!-- X Axis Line -->
+        <line x1="0" y1="${AXIS_SIZE / 2}" x2="${origWidth - 10}" y2="${
+      AXIS_SIZE / 2
+    }" stroke="${AXIS_COLOR}" stroke-width="${AXIS_STROKE_WIDTH}" marker-end="url(#axis-arrow)" />
+        <!-- Label -->
+        <text x="${origWidth / 2}" y="${
+      AXIS_SIZE / 2 + 5
+    }" fill="${AXIS_COLOR}" font-family="Arial, sans-serif" font-size="14" font-weight="bold" text-anchor="middle" dominant-baseline="hanging">Time</text>
+      </g>
+    `;
+
     // Build combined SVG
     const combinedSvg = `<?xml version="1.0" encoding="UTF-8"?>
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${totalWidth} ${totalHeight}" width="${totalWidth}" height="${totalHeight}">
+  ${defs}
+  
   <!-- Legend -->
   <g transform="translate(0, 0)">
     <rect x="0" y="0" width="${legendWidth}" height="${legendHeight}" fill="#ffffff" stroke="#e5e7eb" stroke-width="1" rx="4"/>
     ${legend.content}
   </g>
   
-  <!-- Diagram -->
+  <!-- Diagram Section -->
   <g transform="translate(${legendWidth + 20}, 0)">
-    ${originalContent}
+    
+    <!-- Y Axis (Space) -->
+    ${yAxis}
+
+    <!-- The Diagram Content -->
+    <g transform="translate(${AXIS_SIZE}, 0)">
+      ${originalContent}
+    </g>
+
+    <!-- X Axis (Time) -->
+    ${xAxis}
+    
   </g>
 </svg>`;
 

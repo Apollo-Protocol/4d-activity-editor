@@ -945,15 +945,16 @@ const SetActivity = (props: Props) => {
                     variant="secondary"
                     onClick={handlePromote}
                     title="Promote (move up one level)"
+                    disabled={!inputs.partOf}
                   >
                     Promote
                   </Button>
                   <Button
                     variant="outline-danger"
                     onClick={openChangeParent}
-                    title="Swap parent (assign as sub-task of another activity)"
+                    title="Change parent (assign as sub-task of another activity)"
                   >
-                    Swap Parent
+                    Change Parent
                   </Button>
                 </div>
               </div>

@@ -255,12 +255,12 @@ const EditInstalledComponent = (props: Props) => {
         newErrors.push(`${slotName}: "From" time is required.`);
       }
 
-      // "Until" is now optional - empty means infinity
+      // "Until" is now optional - empty means inherit from parent
 
       const beginning = parseInt(beginningStr, 10);
-      // Parse ending: empty string means END_OF_TIME
+      // Parse ending: empty string means inherit from parent slot
       const ending =
-        endingStr.trim() === "" ? Model.END_OF_TIME : parseInt(endingStr, 10);
+        endingStr.trim() === "" ? slotInfo.ending : parseInt(endingStr, 10);
 
       if (!isNaN(beginning)) {
         if (beginning < 0) {
@@ -281,6 +281,7 @@ const EditInstalledComponent = (props: Props) => {
         if (!isNaN(beginning) && beginning >= ending) {
           newErrors.push(`${slotName}: "From" must be less than "Until".`);
         }
+        // Allow ending to be equal to slot ending (changed from > to >)
         if (slotInfo.ending < Model.END_OF_TIME && ending > slotInfo.ending) {
           newErrors.push(
             `${slotName}: "Until" (${ending}) cannot be after slot ends (${slotInfo.ending}).`
@@ -296,8 +297,15 @@ const EditInstalledComponent = (props: Props) => {
       const raw = rawInputs.get(inst.id);
       const beginning = parseInt(raw?.beginning ?? String(inst.beginning), 10);
       const endingStr = raw?.ending ?? "";
+
+      // Get slot bounds for this installation
+      const slotInfo = getSlotTimeBounds(
+        inst.targetId,
+        inst.scInstallationContextId
+      );
+      // If ending is empty, use slot ending
       const ending =
-        endingStr.trim() === "" ? Model.END_OF_TIME : parseInt(endingStr, 10);
+        endingStr.trim() === "" ? slotInfo.ending : parseInt(endingStr, 10);
       if (isNaN(beginning)) return;
 
       const key = `${inst.targetId}__${inst.scInstallationContextId || "any"}`;
@@ -319,15 +327,15 @@ const EditInstalledComponent = (props: Props) => {
       for (let i = 0; i < installations.length - 1; i++) {
         const current = installations[i];
         const next = installations[i + 1];
-        const currentEnding = current.ending ?? Model.END_OF_TIME;
+        const currentEnding = current.ending ?? slotInfo.ending;
         const nextBeginning = next.beginning ?? 0;
         if (currentEnding > nextBeginning) {
           const currentEndingStr =
             currentEnding >= Model.END_OF_TIME ? "∞" : currentEnding;
           const nextEndingStr =
-            (next.ending ?? Model.END_OF_TIME) >= Model.END_OF_TIME
+            (next.ending ?? slotInfo.ending) >= Model.END_OF_TIME
               ? "∞"
-              : next.ending;
+              : next.ending ?? slotInfo.ending;
           newErrors.push(
             `${slotInfo.slotName}: Periods overlap (${current.beginning}-${currentEndingStr} and ${nextBeginning}-${nextEndingStr}).`
           );
@@ -350,11 +358,25 @@ const EditInstalledComponent = (props: Props) => {
       const raw = rawInputs.get(inst.id);
       const endingStr = raw?.ending ?? "";
 
+      // Get slot bounds for this installation
+      const slotInfo = inst.targetId
+        ? getSlotTimeBounds(inst.targetId, inst.scInstallationContextId)
+        : { beginning: 0, ending: Model.END_OF_TIME, slotName: "" };
+
+      // If ending is empty, inherit from parent slot
+      let endingValue: number | undefined;
+      if (endingStr.trim() === "") {
+        // Inherit from parent - use parent's ending if it's not infinity
+        endingValue =
+          slotInfo.ending < Model.END_OF_TIME ? slotInfo.ending : undefined;
+      } else {
+        endingValue = parseInt(endingStr, 10);
+      }
+
       return {
         ...inst,
         beginning: parseInt(raw?.beginning ?? String(inst.beginning), 10) || 0,
-        // Empty ending means undefined (infinity)
-        ending: endingStr.trim() === "" ? undefined : parseInt(endingStr, 10),
+        ending: endingValue,
       };
     });
 
@@ -764,7 +786,12 @@ const EditInstalledComponent = (props: Props) => {
                         onChange={(e) =>
                           updateRawInput(inst.id, "ending", e.target.value)
                         }
-                        placeholder="∞"
+                        placeholder={
+                          instSlotBounds &&
+                          instSlotBounds.ending < Model.END_OF_TIME
+                            ? String(instSlotBounds.ending)
+                            : "∞"
+                        }
                         className={endingOutOfBounds ? "border-danger" : ""}
                         isInvalid={endingOutOfBounds}
                       />

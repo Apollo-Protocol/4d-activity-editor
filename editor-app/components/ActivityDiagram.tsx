@@ -106,36 +106,88 @@ const ActivityDiagram = (props: Props) => {
       )
     );
 
-    // Apply highlighting logic directly to the SVG elements
+    // Apply highlighting logic to participation rects (the actual visible colored blocks)
     const svg = svgRef.current;
     if (svg) {
-      const allActivities = svg.querySelectorAll(".activity");
+      // Target participation-rect elements (the visible colored blocks)
+      const allParticipationRects = svg.querySelectorAll(".participation-rect");
 
       if (highlightedActivityId) {
-        // Dim all activities
-        allActivities.forEach((el: SVGElement) => {
+        // Dim all participation rects
+        allParticipationRects.forEach((el: SVGElement) => {
           el.style.opacity = "0.15";
           el.style.stroke = "";
           el.style.strokeWidth = "";
         });
 
-        // Highlight the selected one
-        const targetId = "a" + highlightedActivityId;
-        const target = svg.querySelector("#" + CSS.escape(targetId));
+        // Track bounding box of all highlighted rects
+        let minX = Infinity,
+          minY = Infinity,
+          maxX = -Infinity,
+          maxY = -Infinity;
+        let foundHighlighted = false;
 
-        if (target) {
-          target.style.opacity = "1";
-          target.style.stroke = "#000";
-          target.style.strokeWidth = "2px";
-          target.parentNode?.appendChild(target);
+        // Highlight participation rects belonging to the selected activity
+        // Participation rect IDs are in format: p_{activityId}_{individualId}_{segStart}_{segEnd}
+        allParticipationRects.forEach((el: SVGElement) => {
+          const elId = el.getAttribute("id") || "";
+
+          // Check if this participation rect belongs to the highlighted activity
+          // ID format: p_{activityId}_{rest...}
+          if (elId.startsWith("p_" + highlightedActivityId + "_")) {
+            el.style.opacity = "1";
+            el.style.stroke = "#000";
+            el.style.strokeWidth = "2px";
+            // Bring to front
+            el.parentNode?.appendChild(el);
+
+            // Calculate bounding box from this element
+            const rect = el as SVGGraphicsElement;
+            const bbox = rect.getBBox?.();
+            if (bbox) {
+              foundHighlighted = true;
+              minX = Math.min(minX, bbox.x);
+              minY = Math.min(minY, bbox.y);
+              maxX = Math.max(maxX, bbox.x + bbox.width);
+              maxY = Math.max(maxY, bbox.y + bbox.height);
+            }
+          }
+        });
+
+        // Remove any existing highlight borders first
+        svg
+          .querySelectorAll(".highlight-border")
+          .forEach((el: Element) => el.remove());
+
+        // Draw a dashed border around the calculated bounding box
+        if (foundHighlighted && minX < Infinity) {
+          const ns = "http://www.w3.org/2000/svg";
+          const highlightRect = document.createElementNS(ns, "rect");
+          highlightRect.setAttribute("class", "highlight-border");
+          highlightRect.setAttribute("x", String(minX - 3));
+          highlightRect.setAttribute("y", String(minY - 3));
+          highlightRect.setAttribute("width", String(maxX - minX + 6));
+          highlightRect.setAttribute("height", String(maxY - minY + 6));
+          highlightRect.setAttribute("fill", "none");
+          highlightRect.setAttribute("stroke", "#000000");
+          highlightRect.setAttribute("stroke-width", "2");
+          highlightRect.setAttribute("stroke-dasharray", "6,3");
+          highlightRect.setAttribute("rx", "6");
+          highlightRect.setAttribute("pointer-events", "none");
+          svg.appendChild(highlightRect);
         }
       } else {
         // Reset styles if nothing highlighted
-        allActivities.forEach((el: SVGElement) => {
+        allParticipationRects.forEach((el: SVGElement) => {
           el.style.opacity = "";
           el.style.stroke = "";
           el.style.strokeWidth = "";
         });
+
+        // Remove any highlight borders
+        svg
+          .querySelectorAll(".highlight-border")
+          .forEach((el: Element) => el.remove());
       }
     }
   }, [

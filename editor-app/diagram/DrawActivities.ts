@@ -227,14 +227,20 @@ export function clickActivities(
 
 function calculateLengthOfNewActivity(svgElement: any, activity: Activity) {
   let highestY = 0;
+  let foundAny = false;
+
   activity?.participations?.forEach((a: Participation) => {
-    const node = svgElement.select("#i" + CSS.escape(a.individualId)).node();
+    // Use CSS.escape to handle special characters in virtual row IDs (like __)
+    const escapedId = CSS.escape(a.individualId);
+    const node = svgElement.select("#i" + escapedId).node();
     if (node) {
+      foundAny = true;
       const element = node.getBBox();
-      highestY = Math.max(highestY, element.y);
+      highestY = Math.max(highestY, element.y + element.height);
     }
   });
-  return highestY > 0 ? highestY : null;
+
+  return foundAny ? highestY : null;
 }
 
 function calculateTopPositionOfNewActivity(
@@ -242,14 +248,20 @@ function calculateTopPositionOfNewActivity(
   activity: Activity
 ) {
   let lowestY = Number.MAX_VALUE;
+  let foundAny = false;
+
   activity?.participations?.forEach((a: Participation) => {
-    const node = svgElement.select("#i" + CSS.escape(a.individualId)).node();
+    // Use CSS.escape to handle special characters in virtual row IDs (like __)
+    const escapedId = CSS.escape(a.individualId);
+    const node = svgElement.select("#i" + escapedId).node();
     if (node) {
+      foundAny = true;
       const element = node.getBBox();
       lowestY = Math.min(lowestY, element.y);
     }
   });
-  return lowestY === Number.MAX_VALUE ? 0 : lowestY;
+
+  return foundAny ? lowestY : 0;
 }
 
 function getBoxOfExistingActivity(svgElement: any, activity: Activity) {

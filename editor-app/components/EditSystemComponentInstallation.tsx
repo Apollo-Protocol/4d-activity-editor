@@ -300,8 +300,8 @@ export default function EditSystemComponentInstallation({
       };
 
       const beginning = raw.beginning === "" ? 0 : parseFloat(raw.beginning);
-      const ending =
-        raw.ending === "" ? Model.END_OF_TIME : parseFloat(raw.ending);
+      // If ending is empty, inherit from parent bounds
+      const ending = raw.ending === "" ? bounds.ending : parseFloat(raw.ending);
 
       if (isNaN(beginning)) {
         newErrors[inst.id].beginning = "Must be a number";
@@ -323,6 +323,7 @@ export default function EditSystemComponentInstallation({
       } else if (ending <= beginning) {
         newErrors[inst.id].ending = "Must be > beginning";
       } else if (ending > bounds.ending && bounds.ending < Model.END_OF_TIME) {
+        // Changed from > to > (allow equal)
         newErrors[inst.id].ending = `Must be ≤ ${bounds.ending} (target end)`;
       }
 
@@ -348,9 +349,10 @@ export default function EditSystemComponentInstallation({
           };
           const otherBeginning =
             otherRaw.beginning === "" ? 0 : parseFloat(otherRaw.beginning);
+          // If other ending is empty, inherit from bounds
           const otherEnding =
             otherRaw.ending === ""
-              ? Model.END_OF_TIME
+              ? bounds.ending
               : parseFloat(otherRaw.ending);
 
           if (
@@ -489,11 +491,25 @@ export default function EditSystemComponentInstallation({
 
     const finalInstallations = installations.map((inst) => {
       const raw = rawInputs[inst.id];
+      const targetOption = getTargetForInstallation(inst);
+      const bounds = targetOption?.bounds || {
+        beginning: 0,
+        ending: Model.END_OF_TIME,
+      };
+
+      // If ending is empty, use parent bounds ending
+      const endingValue =
+        raw?.ending === ""
+          ? bounds.ending < Model.END_OF_TIME
+            ? bounds.ending
+            : undefined
+          : parseFloat(raw?.ending ?? "");
+
       return {
         ...inst,
         beginning:
           raw?.beginning === "" ? 0 : parseFloat(raw?.beginning ?? "0"),
-        ending: raw?.ending === "" ? undefined : parseFloat(raw?.ending ?? ""),
+        ending: endingValue,
       };
     });
 

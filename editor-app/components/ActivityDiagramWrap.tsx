@@ -52,6 +52,7 @@ export default function ActivityDiagramWrap() {
   const [configData, setConfigData] = useState(config);
   const [showConfigModal, setShowConfigModal] = useState(false);
   const [showSortIndividuals, setShowSortIndividuals] = useState(false);
+  const [highlightedActivityId, setHighlightedActivityId] = useState<string | null>(null);
 
   useEffect(() => {
     if (dirty) window.addEventListener("beforeunload", beforeUnloadHandler);
@@ -150,7 +151,7 @@ export default function ActivityDiagramWrap() {
     <>
       <Container fluid>
         <Row>
-          <Col xs="auto">
+          <Col xs="auto" style={{ position: "sticky", top: "100px", alignSelf: "flex-start" }}>
             <DiagramLegend
               activities={activitiesInView}
               activityColors={config.presentation.activity.fill}
@@ -159,6 +160,10 @@ export default function ActivityDiagramWrap() {
                 setSelectedActivity(a);
                 setShowActivity(true);
               }}
+              highlightedActivityId={highlightedActivityId}
+              onHighlightActivity={(id) =>
+                setHighlightedActivityId((prev) => (prev === id ? null : id))
+              }
             />
           </Col>
           <Col>
@@ -175,13 +180,14 @@ export default function ActivityDiagramWrap() {
               rightClickParticipation={rightClickParticipation}
               svgRef={svgRef}
               hideNonParticipating={compactMode}
+              highlightedActivityId={highlightedActivityId}
             />
           </Col>
         </Row>
 
-        {/* All buttons in a flex container that wraps */}
+        {/* All buttons in a flex container */}
         <div
-          className="mt-3 d-flex flex-wrap align-items-center justify-content-between gap-2"
+          className="mt-3 d-flex flex-wrap align-items-center gap-2"
           style={{ rowGap: "0.5rem" }}
         >
           {/* Left side buttons */}
@@ -232,18 +238,14 @@ export default function ActivityDiagramWrap() {
             />
           </div>
 
-          {/* Center - Load/Save TTL */}
-          <div className="d-flex justify-content-center">
+          {/* Right side - Load/Save TTL + Undo/Config/Export */}
+          <div className="d-flex flex-wrap align-items-center gap-1 ms-auto">
             <DiagramPersistence
               dataset={dataset}
               setDataset={replaceDataset}
               svgRef={svgRef}
               setDirty={setDirty}
             />
-          </div>
-
-          {/* Right side buttons */}
-          <div className="d-flex flex-wrap align-items-center gap-1">
             <Undo
               hasUndo={undoHistory.length > 0}
               undo={undo}

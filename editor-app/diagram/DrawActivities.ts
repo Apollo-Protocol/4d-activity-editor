@@ -71,7 +71,7 @@ export function drawActivities(ctx: DrawContext) {
     .attr("stroke-dasharray", config.presentation.activity.strokeDasharray)
     .attr("stroke-width", config.presentation.activity.strokeWidth)
     .attr("fill", (a: Activity, i: number) => {
-      return config.presentation.activity.fill[
+      return a.color || config.presentation.activity.fill[
         i % config.presentation.activity.fill.length
       ];
     })

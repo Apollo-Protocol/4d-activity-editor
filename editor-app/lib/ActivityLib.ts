@@ -46,6 +46,9 @@ const currentReprVersion = "1";
 // Custom predicate for preserving activity order
 const ACTIVITY_ORDER_PREDICATE = `${EDITOR_NS}#activityOrder`;
 
+// Custom predicate for preserving activity color
+const ACTIVITY_COLOR_PREDICATE = `${EDITOR_NS}#activityColor`;
+
 // A well-known ENTITY_NAME used to find the AMRC Community entity.
 const AMRC_COMMUNITY = "AMRC Community";
 
@@ -288,6 +291,10 @@ export const toModel = (hqdm: HQDMModel): Model => {
     // Get the parent activity, if any.
     const partOf = hqdm.getPartOf(a).first();
 
+    // Get the optional custom color.
+    const colorRef = hqdm.getRelated(a, ACTIVITY_COLOR_PREDICATE).first();
+    const color = colorRef ? colorRef.id : undefined;
+
     // Create the activity and add it to the model.
     const newA = new ActivityImpl(
       id,
@@ -297,6 +304,7 @@ export const toModel = (hqdm: HQDMModel): Model => {
       ending,
       description,
       partOf ? getModelId(partOf) : undefined,
+      color,
     );
     m.addActivity(newA);
 
@@ -528,6 +536,12 @@ export const toHQDM = (model: Model): HQDMModel => {
     // Save activity order to preserve ordering across save/load
     hqdm.relate(ACTIVITY_ORDER_PREDICATE, act, new Thing(activityOrder.toString()));
     activityOrder++;
+
+    // Save activity color if custom color is set
+    if (a.color) {
+      hqdm.relate(ACTIVITY_COLOR_PREDICATE, act, new Thing(a.color));
+    }
+
     hqdm.addIdentification(
       BASE,
       modelWorld,

@@ -52,6 +52,7 @@ const SetActivity = (props: Props) => {
     ending: 1,
     participations: new Map<string, Participation>(),
     partOf: activityContext,
+    color: undefined,
   };
 
   const [inputs, setInputs] = useState(defaultActivity);
@@ -546,6 +547,37 @@ const SetActivity = (props: Props) => {
                 onChange={handleChange}
                 className="form-control"
               />
+            </Form.Group>
+            <Form.Group className="mb-3" controlId="formActivityColor">
+              <Form.Label>Color</Form.Label>
+              <div className="d-flex align-items-center gap-2">
+                <Form.Control
+                  type="color"
+                  name="color"
+                  value={inputs.color || "#440099"}
+                  onChange={(e) => updateInputs("color", e.target.value)}
+                  style={{ width: "50px", height: "38px", padding: "2px" }}
+                />
+                <Form.Control
+                  type="text"
+                  name="colorText"
+                  value={inputs.color || ""}
+                  placeholder="Default (auto)"
+                  onChange={(e) =>
+                    updateInputs("color", e.target.value || undefined)
+                  }
+                  style={{ maxWidth: "140px" }}
+                />
+                {inputs.color && (
+                  <Button
+                    variant="outline-secondary"
+                    size="sm"
+                    onClick={() => updateInputs("color", undefined)}
+                  >
+                    Reset
+                  </Button>
+                )}
+              </div>
             </Form.Group>
             <Form.Group className="mb-3" controlId="formIndividualBeginning">
               <Form.Label>Beginning</Form.Label>

@@ -6,6 +6,7 @@ import { drawActivityDiagram } from "@/diagram/DrawActivityDiagram";
 import { ConfigData } from "@/diagram/config";
 import { Model } from "@/lib/Model";
 import { Activity, Id, Individual, Maybe, Participation } from "@/lib/Schema";
+import * as d3 from "d3";
 
 interface Props {
   dataset: Model;
@@ -20,6 +21,7 @@ interface Props {
   rightClickParticipation: (a: Activity, p: Participation) => void;
   svgRef: MutableRefObject<any>;
   hideNonParticipating?: boolean;
+  highlightedActivityId?: string | null;
 }
 
 const ActivityDiagram = (props: Props) => {
@@ -36,6 +38,7 @@ const ActivityDiagram = (props: Props) => {
     rightClickParticipation,
     svgRef,
     hideNonParticipating = false,
+    highlightedActivityId,
   } = props;
 
   const [plot, setPlot] = useState({
@@ -72,6 +75,40 @@ const ActivityDiagram = (props: Props) => {
     rightClickParticipation,
     hideNonParticipating,
   ]);
+
+  // Apply highlighting when highlightedActivityId changes
+  useEffect(() => {
+    if (!svgRef.current) return;
+    const svg = d3.select(svgRef.current);
+
+    if (highlightedActivityId) {
+      // Dim all activities and participations
+      svg.selectAll(".activity").attr("opacity", 0.15);
+      svg.selectAll(".participation").attr("opacity", 0.1);
+      svg.selectAll(".activityLabel").attr("opacity", 0.2);
+
+      // Highlight the selected activity
+      svg.select(`#a${highlightedActivityId}`)
+        .attr("opacity", 0.9)
+        .attr("stroke-width", "3px");
+      svg.select(`#al${highlightedActivityId}`)
+        .attr("opacity", 1);
+
+      // Highlight participations belonging to the selected activity
+      svg.selectAll(".participation")
+        .filter(function () {
+          const id = (this as SVGElement).getAttribute("id") || "";
+          return id.startsWith(`p${highlightedActivityId}`);
+        })
+        .attr("opacity", 0.8);
+    } else {
+      // Reset all to default
+      svg.selectAll(".activity").attr("opacity", configData.presentation.activity.opacity);
+      svg.selectAll(".activity").attr("stroke-width", configData.presentation.activity.strokeWidth);
+      svg.selectAll(".participation").attr("opacity", configData.presentation.activity.opacity);
+      svg.selectAll(".activityLabel").attr("opacity", 1);
+    }
+  }, [highlightedActivityId, plot, configData]);
 
   const buildCrumbs = () => {
     const context = [];

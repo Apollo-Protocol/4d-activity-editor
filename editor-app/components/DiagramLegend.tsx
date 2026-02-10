@@ -12,6 +12,8 @@ interface Props {
   activityColors: string[];
   partsCount?: Record<string, number>;
   onOpenActivity?: (a: Activity) => void;
+  highlightedActivityId?: string | null;
+  onHighlightActivity?: (id: string) => void;
 }
 
 const DiagramLegend = ({
@@ -19,6 +21,8 @@ const DiagramLegend = ({
   activityColors,
   partsCount,
   onOpenActivity,
+  highlightedActivityId,
+  onHighlightActivity,
 }: Props) => {
   const [hovered, setHovered] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
@@ -88,13 +92,22 @@ const DiagramLegend = ({
               return (
                 <div
                   key={activity.id}
-                  className="legend-item justify-content-between"
+                  className={`legend-item justify-content-between${
+                    highlightedActivityId === activity.id
+                      ? " legend-item-highlighted"
+                      : ""
+                  }`}
+                  style={{ cursor: "pointer" }}
+                  onClick={() =>
+                    onHighlightActivity && onHighlightActivity(activity.id)
+                  }
                 >
                   <div className="d-flex align-items-center overflow-hidden">
                     <span
                       className="legend-color-box"
                       style={{
                         background:
+                          activity.color ||
                           activityColors[originalIdx % activityColors.length],
                       }}
                     />

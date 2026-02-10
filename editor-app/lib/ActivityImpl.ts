@@ -13,6 +13,7 @@ export class ActivityImpl implements Activity {
   ending: number;
   participations: Map<string, Participation>;
   partOf: Maybe<Id>;
+  color?: string;
 
   constructor(
     id: Id,
@@ -21,7 +22,8 @@ export class ActivityImpl implements Activity {
     beginning: number,
     ending: number,
     description?: string,
-    partOf?: string
+    partOf?: string,
+    color?: string
   ) {
     this.id = id;
     this.name = name;
@@ -33,6 +35,7 @@ export class ActivityImpl implements Activity {
     }
     this.participations = new Map<string, Participation>();
     this.partOf = partOf;
+    this.color = color;
   }
 
   /**

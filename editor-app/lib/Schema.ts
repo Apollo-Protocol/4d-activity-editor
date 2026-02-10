@@ -27,6 +27,7 @@ export interface STExtent {
 export interface Activity extends STExtent {
   participations: Map<string, Participation>;
   partOf: Maybe<Id>;
+  color?: string;
 }
 
 /**

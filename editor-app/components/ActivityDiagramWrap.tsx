@@ -146,12 +146,22 @@ export default function ActivityDiagramWrap() {
         : 0;
   });
 
+  const selectedActivityIndex = selectedActivity
+    ? activitiesInView.findIndex((a) => a.id === selectedActivity.id)
+    : -1;
+  const selectedActivityAutoColor =
+    selectedActivityIndex >= 0
+      ? config.presentation.activity.fill[
+          selectedActivityIndex % config.presentation.activity.fill.length
+        ]
+      : config.presentation.activity.fill[0];
+
   // render
   return (
     <>
       <Container fluid>
         <Row>
-          <Col xs="auto" style={{ position: "sticky", top: "100px", alignSelf: "flex-start" }}>
+          <Col xs="auto" className="legend-column">
             <DiagramLegend
               activities={activitiesInView}
               activityColors={config.presentation.activity.fill}
@@ -187,11 +197,11 @@ export default function ActivityDiagramWrap() {
 
         {/* All buttons in a flex container */}
         <div
-          className="mt-3 d-flex flex-wrap align-items-center gap-2"
+          className="mt-3 diagram-actions"
           style={{ rowGap: "0.5rem" }}
         >
           {/* Left side buttons */}
-          <div className="d-flex flex-wrap align-items-center gap-1">
+          <div className="diagram-actions-left">
             <SetIndividual
               deleteIndividual={deleteIndividual}
               setIndividual={setIndividual}
@@ -212,6 +222,7 @@ export default function ActivityDiagramWrap() {
               updateDataset={updateDataset}
               activityContext={activityContext}
               setActivityContext={setActivityContext}
+              autoActivityColor={selectedActivityAutoColor}
             />
             <SetParticipation
               setActivity={setActivity}
@@ -239,7 +250,7 @@ export default function ActivityDiagramWrap() {
           </div>
 
           {/* Right side - Load/Save TTL + Undo/Config/Export */}
-          <div className="d-flex flex-wrap align-items-center gap-1 ms-auto">
+          <div className="diagram-actions-right">
             <DiagramPersistence
               dataset={dataset}
               setDataset={replaceDataset}

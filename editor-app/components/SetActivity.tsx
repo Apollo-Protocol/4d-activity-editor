@@ -29,6 +29,7 @@ interface Props {
   updateDataset: Dispatch<Dispatch<Model>>;
   activityContext: Maybe<Id>;
   setActivityContext: Dispatch<Maybe<Id>>;
+  autoActivityColor?: string;
 }
 
 const SetActivity = (props: Props) => {
@@ -42,6 +43,7 @@ const SetActivity = (props: Props) => {
     updateDataset,
     activityContext,
     setActivityContext,
+    autoActivityColor,
   } = props;
   let defaultActivity: Activity = {
     id: "",
@@ -67,6 +69,8 @@ const SetActivity = (props: Props) => {
   const typeDropdownRef = useRef<HTMLDivElement | null>(null);
   const [showParentModal, setShowParentModal] = useState(false);
   const [selectedParentId, setSelectedParentId] = useState<string | null>(null);
+
+  const pickerColor = inputs.color || autoActivityColor || "#440099";
 
   // Safe local ancestor check (walks partOf chain). Avoids depending on Model.isAncestor.
   const isAncestorLocal = (
@@ -554,7 +558,7 @@ const SetActivity = (props: Props) => {
                 <Form.Control
                   type="color"
                   name="color"
-                  value={inputs.color || "#440099"}
+                  value={pickerColor}
                   onChange={(e) => updateInputs("color", e.target.value)}
                   style={{ width: "50px", height: "38px", padding: "2px" }}
                 />
@@ -621,78 +625,88 @@ const SetActivity = (props: Props) => {
           </Form>
         </Modal.Body>
         <Modal.Footer>
-          <div className="w-100 d-flex justify-content-between align-items-center">
-            <div>
-              <Button
-                className={selectedActivity ? "d-inline-block me-2" : "d-none"}
-                variant="danger"
-                onClick={handleDelete}
-              >
-                Delete
-              </Button>
-              <Button
-                className={selectedActivity ? "d-inline-block me-2" : "d-none"}
-                variant="primary"
-                onClick={handleCopy}
-              >
-                Copy
-              </Button>
-              <Button
-                className={selectedActivity ? "d-inline-block me-2" : "d-none"}
-                variant="secondary"
-                onClick={handleContext}
-              >
-                Sub-tasks
-              </Button>
+          <div className="activity-modal-footer w-100">
+            <div className="activity-modal-footer-row">
+              <div className="activity-modal-group">
+                <Button
+                  className={
+                    selectedActivity ? "activity-modal-btn" : "d-none"
+                  }
+                  variant="danger"
+                  onClick={handleDelete}
+                >
+                  Delete
+                </Button>
+                <Button
+                  className={
+                    selectedActivity ? "activity-modal-btn" : "d-none"
+                  }
+                  variant="primary"
+                  onClick={handleCopy}
+                >
+                  Copy
+                </Button>
+                <Button
+                  className={
+                    selectedActivity ? "activity-modal-btn" : "d-none"
+                  }
+                  variant="secondary"
+                  onClick={handleContext}
+                >
+                  Sub-tasks
+                </Button>
+              </div>
+              <div className="activity-modal-group">
+                <Button
+                  className={
+                    selectedActivity ? "activity-modal-btn" : "d-none"
+                  }
+                  variant="secondary"
+                  onClick={handlePromote}
+                  title="Promote (move up one level)"
+                >
+                  Promote
+                </Button>
+                <Button
+                  className={
+                    selectedActivity ? "activity-modal-btn" : "d-none"
+                  }
+                  variant="danger"
+                  onClick={openChangeParent}
+                  title="Swap parent (assign as sub-task of another activity)"
+                >
+                  Swap Parent
+                </Button>
+              </div>
+              <div className="activity-modal-group activity-modal-primary">
+                <Button
+                  className="activity-modal-btn"
+                  variant="secondary"
+                  onClick={handleClose}
+                >
+                  Close
+                </Button>
+                <Button
+                  className="activity-modal-btn"
+                  variant="primary"
+                  onClick={handleAdd}
+                  disabled={!dirty}
+                >
+                  Save
+                </Button>
+              </div>
             </div>
-            <div className="d-flex">
-              <Button
-                className={selectedActivity ? "d-inline-block me-2" : "d-none"}
-                variant="secondary"
-                onClick={handlePromote}
-                title="Promote (move up one level)"
-              >
-                Promote
-              </Button>
-              <Button
-                className={selectedActivity ? "d-inline-block me-1" : "d-none"}
-                variant="danger"
-                onClick={openChangeParent}
-                title="Swap parent (assign as sub-task of another activity)"
-              >
-                Swap Parent
-              </Button>
+            <div className="activity-modal-errors">
+              {errors.length > 0 && (
+                <Alert variant={"danger"} className="p-2 m-0">
+                  {errors.map((error, i) => (
+                    <p key={i} className="mb-1">
+                      {error}
+                    </p>
+                  ))}
+                </Alert>
+              )}
             </div>
-          </div>
-          <div>
-            <div className="d-flex">
-              <Button
-                className="mx-1"
-                variant="secondary"
-                onClick={handleClose}
-              >
-                Close
-              </Button>
-              <Button
-                className="mx-1"
-                variant="primary"
-                onClick={handleAdd}
-                disabled={!dirty}
-              >
-                Save
-              </Button>
-            </div>
-          </div>
-          <div className="w-100 mt-2">
-            {errors.length > 0 && (
-              <Alert variant={"danger"} className="p-2 m-0">
-                {errors.map((error, i) => (
-                  <p key={i} className="mb-1">
-                    {error}
-                  </p>
-                ))}
-              </Alert>
-            )}
           </div>
         </Modal.Footer>
       </Modal>

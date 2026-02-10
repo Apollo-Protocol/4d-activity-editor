@@ -187,6 +187,14 @@ body {
 /* Legend responsive styles */
 .legend-card {
   transition: all 0.2s ease;
+  position: sticky;
+  top: 100px;
+  align-self: flex-start;
+  z-index: 2;
+}
+
+.legend-column {
+  align-self: flex-start;
 }
 
 .legend-body {
@@ -233,6 +241,81 @@ body {
   padding: 2px 4px;
   margin-left: -4px;
   margin-right: -4px;
+}
+
+.activity-modal-footer-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: stretch;
+  justify-content: space-between;
+}
+
+.activity-modal-group {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: stretch;
+}
+
+.activity-modal-primary {
+  margin-left: auto;
+}
+
+.activity-modal-btn {
+  height: 38px;
+  display: inline-flex;
+  align-items: center;
+}
+
+.activity-modal-errors {
+  margin-top: 0.5rem;
+}
+
+@media (max-width: 992px) {
+  .activity-modal-footer-row {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .activity-modal-group {
+    width: 100%;
+    justify-content: flex-start;
+  }
+
+  .activity-modal-primary {
+    margin-left: 0;
+    justify-content: flex-end;
+  }
+}
+
+.diagram-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.diagram-actions-left {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.diagram-actions-right {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.25rem;
+  margin-left: auto;
+}
+
+@media (max-width: 1200px) {
+  .diagram-actions-right {
+    width: 100%;
+    justify-content: flex-end;
+  }
 }
 
 /* Activity Legend scrollable content */

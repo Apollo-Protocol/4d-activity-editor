@@ -49,6 +49,9 @@ const ACTIVITY_ORDER_PREDICATE = `${EDITOR_NS}#activityOrder`;
 // Custom predicate for preserving activity color
 const ACTIVITY_COLOR_PREDICATE = `${EDITOR_NS}#activityColor`;
 
+// Custom predicate for preserving individual order
+const INDIVIDUAL_ORDER_PREDICATE = `${EDITOR_NS}#individualOrder`;
+
 // A well-known ENTITY_NAME used to find the AMRC Community entity.
 const AMRC_COMMUNITY = "AMRC Community";
 
@@ -217,6 +220,21 @@ export const toModel = (hqdm: HQDMModel): Model => {
     m.description = hqdm.getDescriptions(possibleWorld, communityName).first()?.id;
   }
 
+  const individualCandidates: { thing: Thing; kind: Kind; order: number }[] = [];
+  const seenIndividuals = new Set<string>();
+  const addIndividualCandidate = (thing: Thing, kind: Kind) => {
+    const id = getModelId(thing);
+    if (seenIndividuals.has(id)) return;
+    seenIndividuals.add(id);
+    const orderRef = hqdm.getRelated(thing, INDIVIDUAL_ORDER_PREDICATE).first();
+    const order = orderRef ? parseInt(orderRef.id, 10) : Number.MAX_SAFE_INTEGER;
+    individualCandidates.push({
+      thing,
+      kind,
+      order: isNaN(order) ? Number.MAX_SAFE_INTEGER : order,
+    });
+  };
+
   /**
    * TODO: It may be necessary in future to filter the ordinary_physical_objects to remove any that are not part of the model.
    *
@@ -231,16 +249,21 @@ export const toModel = (hqdm: HQDMModel): Model => {
       .first(); // Matches every element, so returns the first
 
     const kindOfIndividual = kindOrDefault(kind, ordPhysObjKind);
-    addIndividual(obj, hqdm, communityName, kindOfIndividual, m);
+    addIndividualCandidate(obj, kindOfIndividual);
   });
 
   // Handle person and organization kinds.
   hqdm.findByType(person).forEach((persona) => {
-    addIndividual(persona, hqdm, communityName, personKind, m);
+    addIndividualCandidate(persona, personKind);
   });
 
   hqdm.findByType(organization).forEach((org) => {
-    addIndividual(org, hqdm, communityName, organizationKind, m);
+    addIndividualCandidate(org, organizationKind);
+  });
+
+  individualCandidates.sort((a, b) => a.order - b.order);
+  individualCandidates.forEach(({ thing, kind }) => {
+    addIndividual(thing, hqdm, communityName, kind, m);
   });
 
   //

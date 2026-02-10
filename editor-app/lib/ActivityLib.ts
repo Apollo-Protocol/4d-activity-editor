@@ -43,6 +43,9 @@ const AMRC_BASE = "https://www.amrc.co.uk/hqdm/activities#";
 
 const currentReprVersion = "1";
 
+// Custom predicate for preserving activity order
+const ACTIVITY_ORDER_PREDICATE = `${EDITOR_NS}#activityOrder`;
+
 // A well-known ENTITY_NAME used to find the AMRC Community entity.
 const AMRC_COMMUNITY = "AMRC Community";
 
@@ -240,7 +243,21 @@ export const toModel = (hqdm: HQDMModel): Model => {
   //
   // Add each Activity to the model.
   //
+  // Collect activities with their order so we can sort them
+  const activityCandidates: { thing: any; order: number }[] = [];
   hqdm.findByType(activity).forEach((a) => {
+    const orderRef = hqdm.getRelated(a, ACTIVITY_ORDER_PREDICATE).first();
+    const order = orderRef ? parseInt(orderRef.id, 10) : Number.MAX_SAFE_INTEGER;
+    activityCandidates.push({ thing: a, order: isNaN(order) ? Number.MAX_SAFE_INTEGER : order });
+  });
+
+  // Sort by saved order, then by name as fallback
+  activityCandidates.sort((a, b) => {
+    if (a.order !== b.order) return a.order - b.order;
+    return 0;
+  });
+
+  activityCandidates.forEach(({ thing: a }) => {
     const id = getModelId(a);
 
     // Get the activity name.
@@ -498,6 +515,7 @@ export const toHQDM = (model: Model): HQDMModel => {
   });
 
   // Add the activities to the model
+  let activityOrder = 0;
   model.activities.forEach((a) => {
     // Create the temporal bounds for the activity.
     const activityFrom = createTimeValue(hqdm, modelWorld, a.beginning);
@@ -506,6 +524,10 @@ export const toHQDM = (model: Model): HQDMModel => {
     // Create the activity and add it to the possible world, add the name and description and temporal bounds.
     const act = hqdm.createThing(activity, BASE + a.id);
     hqdm.addToPossibleWorld(act, modelWorld);
+
+    // Save activity order to preserve ordering across save/load
+    hqdm.relate(ACTIVITY_ORDER_PREDICATE, act, new Thing(activityOrder.toString()));
+    activityOrder++;
     hqdm.addIdentification(
       BASE,
       modelWorld,

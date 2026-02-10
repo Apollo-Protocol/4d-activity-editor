@@ -178,8 +178,14 @@ export default function ActivityDiagramWrap() {
             />
           </Col>
         </Row>
-        <Row className="mt-3 justify-content-between">
-          <Col className="d-flex justify-content-start">
+
+        {/* All buttons in a flex container that wraps */}
+        <div
+          className="mt-3 d-flex flex-wrap align-items-center justify-content-between gap-2"
+          style={{ rowGap: "0.5rem" }}
+        >
+          {/* Left side buttons */}
+          <div className="d-flex flex-wrap align-items-center gap-1">
             <SetIndividual
               deleteIndividual={deleteIndividual}
               setIndividual={setIndividual}
@@ -224,8 +230,20 @@ export default function ActivityDiagramWrap() {
               dataset={dataset}
               activitiesInView={activitiesInView}
             />
-          </Col>
-          <Col className="d-flex justify-content-end">
+          </div>
+
+          {/* Center - Load/Save TTL */}
+          <div className="d-flex justify-content-center">
+            <DiagramPersistence
+              dataset={dataset}
+              setDataset={replaceDataset}
+              svgRef={svgRef}
+              setDirty={setDirty}
+            />
+          </div>
+
+          {/* Right side buttons */}
+          <div className="d-flex flex-wrap align-items-center gap-1">
             <Undo
               hasUndo={undoHistory.length > 0}
               undo={undo}
@@ -239,42 +257,9 @@ export default function ActivityDiagramWrap() {
             />
             <ExportSvg dataset={dataset} svgRef={svgRef} />
             <ExportJson dataset={dataset} />
-          </Col>
-        </Row>
-        <Row className="mt-3">
-          <Col className="d-flex justify-content-center align-items-center">
-            <DiagramPersistence
-              dataset={dataset}
-              setDataset={replaceDataset}
-              svgRef={svgRef}
-              setDirty={setDirty}
-            />
-          </Col>
-        </Row>
+          </div>
+        </div>
       </Container>
     </>
   );
 }
-
-// Pass compactMode down to ActivityDiagram (already rendered above)
-// Update ActivityDiagram invocation near top of file:
-
-/*
-  Replace the existing ActivityDiagram invocation with:
-  <ActivityDiagram
-    dataset={dataset}
-    configData={configData}
-    activityContext={activityContext}
-    setActivityContext={setActivityContext}
-    clickIndividual={clickIndividual}
-    clickActivity={clickActivity}
-    clickParticipation={clickParticipation}
-    rightClickIndividual={rightClickIndividual}
-    rightClickActivity={rightClickActivity}
-    rightClickParticipation={rightClickParticipation}
-    svgRef={svgRef}
-    hideNonParticipating={compactMode}
-  />
-
-  (The earlier invocation should be replaced so ActivityDiagram receives the prop.)
-*/

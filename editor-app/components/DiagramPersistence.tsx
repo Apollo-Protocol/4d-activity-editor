@@ -1,9 +1,7 @@
 import { useEffect, useState } from "react";
-import { Button, Container, Form } from "react-bootstrap";
+import { Button, Form } from "react-bootstrap";
 import Dropdown from 'react-bootstrap/Dropdown';
 import DropdownButton from 'react-bootstrap/DropdownButton';
-import Row from "react-bootstrap/Row";
-import Col from "react-bootstrap/Col";
 
 import {
   save,
@@ -84,42 +82,56 @@ const DiagramPersistence = (props: any) => {
   }
 
   return (
-    <Container>
-      <Row>
-        <Col
-          md={12}
-          lg={6}
-          className="mt-2 d-flex align-items-start justify-content-center justify-content-lg-start"
+    <div className="d-flex flex-wrap align-items-center justify-content-center gap-2">
+      {/* Load Example dropdown */}
+      <DropdownButton variant="primary" title="Load example">
+        {examples.map(e => 
+          <Dropdown.Item key={e.path} onClick={() => loadExample(e.path)}>
+            {e.name}
+          </Dropdown.Item>)}
+      </DropdownButton>
+
+      {/* TTL Load/Save buttons */}
+      <Button variant="primary" onClick={uploadTtl}>
+        Load TTL
+      </Button>
+      <Button variant="primary" onClick={downloadTtl}>
+        Save TTL
+      </Button>
+
+      {/* Reference Types Only toggle */}
+      <button
+        type="button"
+        className="btn btn-primary d-inline-flex align-items-center"
+        style={{
+          lineHeight: 1.5,
+          padding: "0.375rem 0.75rem",
+        }}
+        onClick={() => setRefDataOnly(!refDataOnly)}
+      >
+        <Form.Check
+          type="checkbox"
+          id="refDataOnlyCheck"
+          checked={refDataOnly}
+          onChange={() => setRefDataOnly(!refDataOnly)}
+          style={{
+            margin: 0,
+            marginRight: "0.35rem",
+          }}
+        />
+        <span
+          style={{
+            fontWeight: 400,
+            whiteSpace: "nowrap",
+          }}
         >
-          <DropdownButton title="Load example">
-            {examples.map(e => 
-              <Dropdown.Item key={e.path} onClick={() => loadExample(e.path)}>
-                {e.name}
-              </Dropdown.Item>)}
-          </DropdownButton>
-        </Col>
-        <Col
-          md={12}
-          lg={6}
-          className="mt-2 d-flex align-items-start justify-content-center justify-content-lg-end"
-        >
-          <Form.Group controlId="formFile">
-            <Button variant="primary" onClick={uploadTtl}>Load TTL</Button>
-            <Form.Text className="text-muted">{uploadText}</Form.Text>
-            <Form.Check
-              type="switch"
-              label="Reference Types only"
-              checked={refDataOnly}
-              onChange={() => setRefDataOnly(!refDataOnly)}
-            />
-          </Form.Group>
-          <Button variant="primary" onClick={downloadTtl} className={"mx-1"}>
-            Save&nbsp;TTL
-          </Button>
-        </Col>
-      </Row>
-      <Row className="mt-2"></Row>
-    </Container>
+          Reference Types only
+        </span>
+      </button>
+
+      {/* Error message if any */}
+      {uploadText && <span className="text-danger small">{uploadText}</span>}
+    </div>
   );
 };
 

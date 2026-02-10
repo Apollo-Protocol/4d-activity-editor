@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import Card from "react-bootstrap/Card";
 import Button from "react-bootstrap/Button";
+import Form from "react-bootstrap/Form";
 import OverlayTrigger from "react-bootstrap/OverlayTrigger";
 import Tooltip from "react-bootstrap/Tooltip";
 import { Activity } from "@/lib/Schema";
@@ -20,85 +21,133 @@ const DiagramLegend = ({
   onOpenActivity,
 }: Props) => {
   const [hovered, setHovered] = useState<string | null>(null);
+  const [searchTerm, setSearchTerm] = useState("");
+
+  // Filter activities based on search term
+  const filteredActivities = activities.filter((activity) =>
+    activity.name.toLowerCase().includes(searchTerm.toLowerCase())
+  );
+
+  // Decide threshold based on screen size
+  const [scrollThreshold, setScrollThreshold] = useState(12);
+
+  React.useEffect(() => {
+    const updateThreshold = () => {
+      const width = window.innerWidth;
+      const height = window.innerHeight;
+      if (width <= 1400 || height <= 800) {
+        setScrollThreshold(8);
+      } else {
+        setScrollThreshold(12);
+      }
+    };
+    updateThreshold();
+    window.addEventListener("resize", updateThreshold);
+    return () => window.removeEventListener("resize", updateThreshold);
+  }, []);
+
+  const needsScroll = filteredActivities.length > scrollThreshold;
+
   return (
-    <Card className="ms-3 mb-2" style={{ minWidth: 180, maxWidth: 220 }}>
-      <Card.Body className="p-2">
-        <Card.Title className="mb-2" style={{ fontSize: "1rem" }}>
+    <Card className="legend-card mb-2">
+      <Card.Body className="legend-body">
+        <Card.Title className="legend-title">
           Activity Legend
         </Card.Title>
-        {activities.map((activity, idx) => {
-          const count = partsCount ? partsCount[activity.id] ?? 0 : 0;
-          return (
-            <div
-              key={activity.id}
-              className="mb-1 d-flex align-items-start justify-content-between small"
-            >
-              <div className="d-flex align-items-start">
-                <span
-                  style={{
-                    display: "inline-block",
-                    width: 16,
-                    height: 16,
-                    background: activityColors[idx % activityColors.length],
-                    borderRadius: 3,
-                    marginRight: 8,
-                    border: "1px solid #888",
-                  }}
-                />
-                {count > 0 ? (
-                  <span className="d-flex flex-column">
-                    <span>{activity.name}</span>
-                    <span className="small fw-semibold">
-                      ({count} subtask{count !== 1 ? "s" : ""})
-                    </span>
-                  </span>
-                ) : (
-                  <span>{activity.name}</span>
-                )}
-              </div>
 
-              {/* open/edit button on the right */}
-              <div>
-                {onOpenActivity ? (
-                  <OverlayTrigger
-                    placement="top"
-                    overlay={
-                      <Tooltip id={`open-act-${activity.id}`}>
-                        Open activity editor
-                      </Tooltip>
-                    }
-                  >
-                    <Button
-                      variant="none"
-                      size="sm"
-                      onClick={() => onOpenActivity(activity)}
-                      aria-label={`Open ${activity.name}`}
-                      onMouseEnter={() => setHovered(activity.id)}
-                      onMouseLeave={() => setHovered(null)}
-                    >
-                      <ArrowUp />
-                    </Button>
-                  </OverlayTrigger>
-                ) : null}
-              </div>
-            </div>
-          );
-        })}
-        <div className="mt-2 d-flex align-items-center justify-content-between small">
-          <div className="d-flex align-items-center">
-            <span
-              style={{
-                display: "inline-block",
-                width: 16,
-                height: 16,
-                background: "#ccc",
-                borderRadius: 3,
-                marginRight: 8,
-                border: "1px solid #888",
-              }}
-            />
-            <span>No Activity</span>
-          </div>
+        {/* Search input - only show if there are more than 5 activities */}
+        {activities.length > 5 && (
+          <Form.Control
+            type="text"
+            placeholder="Search activities..."
+            size="sm"
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="mb-2"
+            style={{ fontSize: "0.8rem" }}
+          />
+        )}
+
+        {/* Scrollable container - only scroll when needed */}
+        <div
+          style={{
+            maxHeight: needsScroll ? "200px" : "none",
+            overflowY: needsScroll ? "auto" : "visible",
+            overflowX: "hidden",
+          }}
+        >
+          {filteredActivities.length === 0 && searchTerm ? (
+            <div className="text-muted small">No activities found</div>
+          ) : (
+            filteredActivities.map((activity) => {
+              const originalIdx = activities.findIndex(
+                (a) => a.id === activity.id
+              );
+              const count = partsCount ? partsCount[activity.id] ?? 0 : 0;
+
+              return (
+                <div
+                  key={activity.id}
+                  className="legend-item justify-content-between"
+                >
+                  <div className="d-flex align-items-center overflow-hidden">
+                    <span
+                      className="legend-color-box"
+                      style={{
+                        background:
+                          activityColors[originalIdx % activityColors.length],
+                      }}
+                    />
+                    <span className="legend-label">
+                      {activity.name}
+                      {count > 0 && (
+                        <>
+                          <br />
+                          <span style={{ fontWeight: "bolder", fontSize: "0.8em" }}>
+                            ({count} subtask{count !== 1 ? "s" : ""})
+                          </span>
+                        </>
+                      )}
+                    </span>
+                  </div>
+
+                  <div className="flex-shrink-0">
+                    {onOpenActivity && (
+                      <OverlayTrigger
+                        placement="top"
+                        overlay={
+                          <Tooltip id={`open-act-${activity.id}`}>
+                            Open activity editor
+                          </Tooltip>
+                        }
+                      >
+                        <Button
+                          variant="none"
+                          size="sm"
+                          className="legend-action-btn"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            onOpenActivity(activity);
+                          }}
+                          aria-label={`Open ${activity.name}`}
+                          onMouseEnter={() => setHovered(activity.id)}
+                          onMouseLeave={() => setHovered(null)}
+                        >
+                          <ArrowUp />
+                        </Button>
+                      </OverlayTrigger>
+                    )}
+                  </div>
+                </div>
+              );
+            })
+          )}
+        </div>
+
+        {/* No Activity item - outside scrollable area */}
+        <div className="legend-item mt-2">
+          <span className="legend-color-box" style={{ background: "#ccc" }} />
+          <span className="legend-label">No Activity</span>
         </div>
       </Card.Body>
     </Card>

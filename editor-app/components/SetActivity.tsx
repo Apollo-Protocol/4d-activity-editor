@@ -458,6 +458,8 @@ const SetActivity = (props: Props) => {
                                 onChange={(e) =>
                                   setEditingTypeValue(e.target.value)
                                 }
+                                onMouseDown={(e) => e.stopPropagation()}
+                                onClick={(e) => e.stopPropagation()}
                                 onKeyDown={(e) => {
                                   if (e.key === "Enter") saveEditType();
                                   if (e.key === "Escape") cancelEditType();

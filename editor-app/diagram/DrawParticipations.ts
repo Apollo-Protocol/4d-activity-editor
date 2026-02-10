@@ -1,6 +1,5 @@
 import { MouseEvent } from "react";
-import { Activity, Participation } from "@/lib/Schema";
-import { ConfigData } from "./config";
+import { Activity } from "@/lib/Schema";
 import { DrawContext } from "./DrawHelpers";
 
 let mouseOverElement: any | null = null;
@@ -8,119 +7,51 @@ let mouseOverElement: any | null = null;
 export function drawParticipations(ctx: DrawContext) {
   const { config, svgElement, activities } = ctx;
 
-  if (!activities || activities.length === 0) return svgElement;
-
-  const startOfTime = Math.min(...activities.map((a) => a.beginning));
-  const endOfTime = Math.max(...activities.map((a) => a.ending));
-  const duration = Math.max(1, endOfTime - startOfTime);
-  let totalLeftMargin =
-    config.viewPort.x * config.viewPort.zoom -
-    config.layout.individual.xMargin * 2;
-  totalLeftMargin -= config.layout.individual.temporalMargin;
-
-  try {
-    const { keepIndividualLabels } = require("./DrawHelpers");
-    if (
-      config.labels.individual.enabled &&
-      keepIndividualLabels(ctx.individuals)
-    ) {
-      totalLeftMargin -= config.layout.individual.textLength;
-    }
-  } catch {
-    // ignore
-  }
-
-  const timeInterval = totalLeftMargin / duration;
-  const xBase =
-    config.layout.individual.xMargin +
-    config.layout.individual.temporalMargin +
-    (config.labels.individual.enabled
-      ? config.layout.individual.textLength
-      : 0);
-
-  const parts: {
-    activity: Activity;
-    participation: Participation;
-    activityIndex: number;
-  }[] = [];
-  activities.forEach((a, idx) => {
-    (a.participations || []).forEach((p: Participation) =>
-      parts.push({ activity: a, participation: p, activityIndex: idx })
-    );
+  const parts: any[] = [];
+  activities.forEach((a) => {
+    a.participations?.forEach((p) => {
+      parts.push({
+        box: getPositionOfParticipation(svgElement, a.id, p.individualId),
+        activityId: a.id,
+        individualId: p.individualId,
+        participation: p,
+      });
+    });
   });
 
-  const rectHeight = Math.min(36, config.layout.individual.height); // glass height, bounded by row
-  const rx = 4; // border-radius
-  const strokeWidth = 1;
-  const fillOpacity = 0.85;
-
   svgElement
-    .selectAll(".participation-rect")
-    .data(parts, (d: any) => `${d.activity.id}:${d.participation.individualId}`)
+    .selectAll(".participation")
+    .data(parts.values())
     .join("rect")
-    .attr("class", "participation-rect")
-    .attr(
-      "id",
-      (d: any) => `p_${d.activity.id}_${d.participation.individualId}`
-    )
-    .attr(
-      "x",
-      (d: any) => xBase + timeInterval * (d.activity.beginning - startOfTime)
-    )
-    .attr("width", (d: any) =>
-      Math.max(1, (d.activity.ending - d.activity.beginning) * timeInterval)
-    )
-    .attr("y", (d: any) => {
-      const node = svgElement
-        .select("#i" + d.participation.individualId)
-        .node();
-      if (!node) return 0;
-      const box = node.getBBox();
-      // vertically center the glass rect inside the individual row
-      return box.y + Math.max(0, (box.height - rectHeight) / 2);
-    })
-    .attr("height", () => rectHeight)
-    .attr("rx", rx)
-    .attr("ry", rx)
-    .attr(
-      "fill",
-      (d: any) =>
-        config.presentation.activity.fill[
-          d.activityIndex % config.presentation.activity.fill.length
-        ]
-    )
-    .attr("fill-opacity", fillOpacity)
-    .attr("stroke", (d: any) =>
-      darkenHex(
-        config.presentation.activity.fill[
-          d.activityIndex % config.presentation.activity.fill.length
-        ],
-        0.28
-      )
-    )
-    .attr("stroke-width", strokeWidth)
-    .attr("opacity", 1);
+    .attr("class", "participation")
+    .attr("id", (p: any) => "p" + p.activityId + p.individualId)
+    .attr("x", (d: any) => d.box.x)
+    .attr("y", (d: any) => d.box.y)
+    .attr("width", (d: any) => d.box.width)
+    .attr("height", (d: any) => d.box.height)
+    .attr("stroke", config.presentation.participation.stroke)
+    .attr("stroke-dasharray", config.presentation.participation.strokeDasharray)
+    .attr("stroke-width", config.presentation.participation.strokeWidth)
+    .attr("fill", config.presentation.participation.fill)
+    .attr("opacity", config.presentation.participation.opacity);
 
-  // Add hover behavior using the same pattern as original
   hoverParticipations(ctx);
-
-  return svgElement;
 }
 
 function hoverParticipations(ctx: DrawContext) {
   const { config, svgElement, tooltip } = ctx;
   svgElement
-    .selectAll(".participation-rect")
+    .selectAll(".participation")
     .on("mouseover", function (event: MouseEvent) {
       mouseOverElement = event.target as HTMLElement;
-      mouseOverElement.style.opacity = String(
-        config.presentation.activity.opacityHover ?? 0.9
-      );
+      mouseOverElement.style.opacity =
+        config.presentation.participation.opacityHover;
       tooltip.style("display", "block");
     })
     .on("mouseout", function (event: MouseEvent) {
       if (mouseOverElement) {
-        mouseOverElement.style.opacity = "1";
+        mouseOverElement.style.opacity =
+          config.presentation.participation.opacity;
         mouseOverElement = null;
       }
       tooltip.style("display", "none");
@@ -145,23 +76,23 @@ export function clickParticipations(
   clickParticipation: any,
   rightClickParticipation: any
 ) {
-  const { svgElement } = ctx;
+  const { svgElement, activities } = ctx;
 
-  // Attach handlers directly to the participation rects created in drawParticipations.
-  svgElement
-    .selectAll(".participation-rect")
-    .on("click", function (event: any, d: any) {
-      // d has shape { activity, participation, activityIndex }
-      if (d && d.activity && d.participation) {
-        clickParticipation(d.activity, d.participation);
-      }
-    })
-    .on("contextmenu", function (event: any, d: any) {
-      event.preventDefault();
-      if (d && d.activity && d.participation) {
-        rightClickParticipation(d.activity, d.participation);
-      }
+  activities.forEach((a) => {
+    a.participations.forEach((p) => {
+      svgElement
+        .select("#p" + a.id + p.individualId)
+        .on("click", function (event: MouseEvent) {
+          clickParticipation(a, p);
+        });
+      svgElement
+        .select("#p" + a.id + p.individualId)
+        .on("contextmenu", function (event: MouseEvent) {
+          event.preventDefault();
+          rightClickParticipation(a, p);
+        });
     });
+  });
 }
 
 function participationTooltip(part: any) {
@@ -198,18 +129,4 @@ function getPositionOfParticipation(
     width: width,
     height: height,
   };
-}
-
-/** darken a #rrggbb colour by pct (0..1) */
-function darkenHex(hex: string, pct: number) {
-  if (!hex) return "#000";
-  const h = hex.replace("#", "");
-  const r = parseInt(h.substring(0, 2), 16);
-  const g = parseInt(h.substring(2, 4), 16);
-  const b = parseInt(h.substring(4, 6), 16);
-  const dr = Math.max(0, Math.min(255, Math.floor(r * (1 - pct))));
-  const dg = Math.max(0, Math.min(255, Math.floor(g * (1 - pct))));
-  const db = Math.max(0, Math.min(255, Math.floor(b * (1 - pct))));
-  const toHex = (v: number) => v.toString(16).padStart(2, "0");
-  return `#${toHex(dr)}${toHex(dg)}${toHex(db)}`;
 }

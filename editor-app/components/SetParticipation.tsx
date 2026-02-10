@@ -271,6 +271,8 @@ const SetParticipation = (props: Props) => {
                                 onChange={(e) =>
                                   setEditingRoleValue(e.target.value)
                                 }
+                                onMouseDown={(e) => e.stopPropagation()}
+                                onClick={(e) => e.stopPropagation()}
                                 onKeyDown={(e) => {
                                   if (e.key === "Enter") saveEditRole();
                                   if (e.key === "Escape") cancelEditRole();

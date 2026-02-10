@@ -21,17 +21,19 @@ const DiagramLegend = ({
 }: Props) => {
   const [hovered, setHovered] = useState<string | null>(null);
   return (
-    <Card className="ms-3 mb-2" style={{ minWidth: 220 }}>
-      <Card.Body>
-        <Card.Title>Activity Legend</Card.Title>
+    <Card className="ms-3 mb-2" style={{ minWidth: 180, maxWidth: 220 }}>
+      <Card.Body className="p-2">
+        <Card.Title className="mb-2" style={{ fontSize: "1rem" }}>
+          Activity Legend
+        </Card.Title>
         {activities.map((activity, idx) => {
           const count = partsCount ? partsCount[activity.id] ?? 0 : 0;
           return (
             <div
               key={activity.id}
-              className="mb-1 d-flex align-items-center justify-content-between"
+              className="mb-1 d-flex align-items-start justify-content-between small"
             >
-              <div className="d-flex align-items-center">
+              <div className="d-flex align-items-start">
                 <span
                   style={{
                     display: "inline-block",
@@ -44,9 +46,9 @@ const DiagramLegend = ({
                   }}
                 />
                 {count > 0 ? (
-                  <span>
-                    {activity.name}{" "}
-                    <span style={{ fontWeight: "bolder" }}>
+                  <span className="d-flex flex-column">
+                    <span>{activity.name}</span>
+                    <span className="small fw-semibold">
                       ({count} subtask{count !== 1 ? "s" : ""})
                     </span>
                   </span>
@@ -82,7 +84,7 @@ const DiagramLegend = ({
             </div>
           );
         })}
-        <div className="mt-2 d-flex align-items-center justify-content-between">
+        <div className="mt-2 d-flex align-items-center justify-content-between small">
           <div className="d-flex align-items-center">
             <span
               style={{

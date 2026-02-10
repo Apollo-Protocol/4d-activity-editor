@@ -26,6 +26,7 @@ interface Props {
 
 const ActivityDiagram = (props: Props) => {
   const {
+    svgRef,
     dataset,
     configData,
     activityContext,
@@ -36,7 +37,6 @@ const ActivityDiagram = (props: Props) => {
     rightClickIndividual,
     rightClickActivity,
     rightClickParticipation,
-    svgRef,
     hideNonParticipating = false,
     highlightedActivityId,
   } = props;
@@ -108,7 +108,7 @@ const ActivityDiagram = (props: Props) => {
       svg.selectAll(".participation").attr("opacity", configData.presentation.activity.opacity);
       svg.selectAll(".activityLabel").attr("opacity", 1);
     }
-  }, [highlightedActivityId, plot, configData]);
+  }, [highlightedActivityId, plot, configData, svgRef]);
 
   const buildCrumbs = () => {
     const context = [];

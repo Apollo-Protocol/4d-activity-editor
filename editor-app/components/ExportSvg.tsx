@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import Button from "react-bootstrap/Button";
 import { saveJSONLD } from "lib/ActivityLib";
+import { Activity } from "@/lib/Schema";
 
 const ExportJson = (props: any) => {
   const { dataset, svgRef } = props;
@@ -12,8 +13,11 @@ const ExportJson = (props: any) => {
 
   function addExportLabels(svgNode: SVGSVGElement) {
     const svgCopy = svgNode.cloneNode(true) as SVGSVGElement;
-    const activities = new Map(
-      Array.from(dataset.activities.values()).map((a) => [a.id, a])
+    const activities = new Map<string, Activity>(
+      Array.from(dataset.activities.values() as Iterable<Activity>).map((a) => [
+        a.id,
+        a,
+      ])
     );
 
     const rects = svgCopy.querySelectorAll("rect.activity");

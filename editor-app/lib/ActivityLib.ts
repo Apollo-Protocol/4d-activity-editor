@@ -51,6 +51,7 @@ const ACTIVITY_COLOR_PREDICATE = `${EDITOR_NS}#activityColor`;
 
 // Custom predicate for preserving individual order
 const INDIVIDUAL_ORDER_PREDICATE = `${EDITOR_NS}#individualOrder`;
+const SORT_INDEX_PREDICATE = `${EDITOR_NS}#sortIndex`;
 
 // A well-known ENTITY_NAME used to find the AMRC Community entity.
 const AMRC_COMMUNITY = "AMRC Community";
@@ -226,8 +227,10 @@ export const toModel = (hqdm: HQDMModel): Model => {
     const id = getModelId(thing);
     if (seenIndividuals.has(id)) return;
     seenIndividuals.add(id);
+    const sortRef = hqdm.getRelated(thing, SORT_INDEX_PREDICATE).first();
     const orderRef = hqdm.getRelated(thing, INDIVIDUAL_ORDER_PREDICATE).first();
-    const order = orderRef ? parseInt(orderRef.id, 10) : Number.MAX_SAFE_INTEGER;
+    const orderValue = sortRef?.id ?? orderRef?.id;
+    const order = orderValue ? parseInt(orderValue, 10) : Number.MAX_SAFE_INTEGER;
     individualCandidates.push({
       thing,
       kind,
@@ -499,6 +502,7 @@ export const toHQDM = (model: Model): HQDMModel => {
   };
 
   // Add the individuals to the model
+  let individualOrder = 0;
   model.individuals.forEach((i) => {
     // Create the individual and add it to the possible world, add the name and description.
     let playerEntityType;
@@ -514,6 +518,19 @@ export const toHQDM = (model: Model): HQDMModel => {
     }
     const player = hqdm.createThing(playerEntityType, BASE + i.id);
     hqdm.addToPossibleWorld(player, modelWorld);
+
+    // Save individual order to preserve ordering across save/load
+    hqdm.relate(
+      INDIVIDUAL_ORDER_PREDICATE,
+      player,
+      new Thing(individualOrder.toString())
+    );
+    hqdm.relate(
+      SORT_INDEX_PREDICATE,
+      player,
+      new Thing(individualOrder.toString())
+    );
+    individualOrder++;
 
     const individualStart = createTimeValue(hqdm, modelWorld, i.beginning);
     const individualEnd = createTimeValue(hqdm, modelWorld, i.ending);

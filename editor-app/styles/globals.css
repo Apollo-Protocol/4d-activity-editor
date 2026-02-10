@@ -187,13 +187,18 @@ body {
 /* Legend responsive styles */
 .legend-card {
   transition: all 0.2s ease;
+}
+
+.legend-column {
   position: sticky;
   top: 100px;
   align-self: flex-start;
   z-index: 2;
 }
 
-.legend-column {
+.legend-sticky {
+  position: sticky;
+  top: 100px;
   align-self: flex-start;
 }
 
@@ -289,34 +294,6 @@ body {
   }
 }
 
-.diagram-actions {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 0.5rem;
-}
-
-.diagram-actions-left {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 0.25rem;
-}
-
-.diagram-actions-right {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 0.25rem;
-  margin-left: auto;
-}
-
-@media (max-width: 1200px) {
-  .diagram-actions-right {
-    width: 100%;
-    justify-content: flex-end;
-  }
-}
 
 /* Activity Legend scrollable content */
 .legend-items-container {

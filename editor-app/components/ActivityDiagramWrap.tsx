@@ -59,6 +59,10 @@ export default function ActivityDiagramWrap() {
     else window.removeEventListener("beforeunload", beforeUnloadHandler);
   }, [dirty]);
 
+  useEffect(() => {
+    setHighlightedActivityId(null);
+  }, [activityContext]);
+
   const updateDataset = (updater: Dispatch<Model>) => {
     setUndoHistory([dataset, ...undoHistory.slice(0, 5)]);
     const d = dataset.clone();
@@ -162,19 +166,21 @@ export default function ActivityDiagramWrap() {
       <Container fluid>
         <Row>
           <Col xs="auto" className="legend-column">
-            <DiagramLegend
-              activities={activitiesInView}
-              activityColors={config.presentation.activity.fill}
-              partsCount={partsCountMap}
-              onOpenActivity={(a) => {
-                setSelectedActivity(a);
-                setShowActivity(true);
-              }}
-              highlightedActivityId={highlightedActivityId}
-              onHighlightActivity={(id) =>
-                setHighlightedActivityId((prev) => (prev === id ? null : id))
-              }
-            />
+            <div className="legend-sticky">
+              <DiagramLegend
+                activities={activitiesInView}
+                activityColors={config.presentation.activity.fill}
+                partsCount={partsCountMap}
+                onOpenActivity={(a) => {
+                  setSelectedActivity(a);
+                  setShowActivity(true);
+                }}
+                highlightedActivityId={highlightedActivityId}
+                onHighlightActivity={(id) =>
+                  setHighlightedActivityId((prev) => (prev === id ? null : id))
+                }
+              />
+            </div>
           </Col>
           <Col>
             <ActivityDiagram
@@ -195,13 +201,13 @@ export default function ActivityDiagramWrap() {
           </Col>
         </Row>
 
-        {/* All buttons in a flex container */}
+        {/* All buttons in a flex container that wraps */}
         <div
-          className="mt-3 diagram-actions"
+          className="mt-3 d-flex flex-wrap align-items-center justify-content-between gap-2"
           style={{ rowGap: "0.5rem" }}
         >
           {/* Left side buttons */}
-          <div className="diagram-actions-left">
+          <div className="d-flex flex-wrap align-items-center gap-1">
             <SetIndividual
               deleteIndividual={deleteIndividual}
               setIndividual={setIndividual}
@@ -249,14 +255,18 @@ export default function ActivityDiagramWrap() {
             />
           </div>
 
-          {/* Right side - Load/Save TTL + Undo/Config/Export */}
-          <div className="diagram-actions-right">
+          {/* Center - Load/Save TTL */}
+          <div className="d-flex justify-content-center">
             <DiagramPersistence
               dataset={dataset}
               setDataset={replaceDataset}
               svgRef={svgRef}
               setDirty={setDirty}
             />
+          </div>
+
+          {/* Right side buttons */}
+          <div className="d-flex flex-wrap align-items-center gap-1">
             <Undo
               hasUndo={undoHistory.length > 0}
               undo={undo}

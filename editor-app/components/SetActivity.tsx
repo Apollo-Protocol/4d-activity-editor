@@ -521,7 +521,7 @@ const SetActivity = (props: Props) => {
                           style={{ cursor: "pointer" }}
                           onClick={handleCreateTypeFromSearch}
                         >
-                          Create "{typeSearch}"
+                          Create &quot;{typeSearch}&quot;
                         </div>
                       )}
 

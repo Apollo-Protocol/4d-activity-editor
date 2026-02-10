@@ -334,7 +334,7 @@ const SetParticipation = (props: Props) => {
                           style={{ cursor: "pointer" }}
                           onClick={handleCreateRoleFromSearch}
                         >
-                          Create "{roleSearch}"
+                          Create &quot;{roleSearch}&quot;
                         </div>
                       )}
 

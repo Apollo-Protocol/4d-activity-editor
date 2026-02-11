@@ -67,6 +67,8 @@ const SetActivity = (props: Props) => {
   const [editingTypeId, setEditingTypeId] = useState<string | null>(null);
   const [editingTypeValue, setEditingTypeValue] = useState("");
   const typeDropdownRef = useRef<HTMLDivElement | null>(null);
+  const [highlightedIndex, setHighlightedIndex] = useState<number>(-1);
+  const itemRefs = useRef<Array<HTMLDivElement | null>>([]);
   const [showParentModal, setShowParentModal] = useState(false);
   const [selectedParentId, setSelectedParentId] = useState<string | null>(null);
 
@@ -114,6 +116,14 @@ const SetActivity = (props: Props) => {
     if (typeOpen) document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, [typeOpen]);
+
+  // Ensure a highlighted item is visible when changed
+  useEffect(() => {
+    if (highlightedIndex >= 0 && itemRefs.current[highlightedIndex]) {
+      const el = itemRefs.current[highlightedIndex];
+      el?.scrollIntoView({ block: "nearest" });
+    }
+  }, [highlightedIndex]);
 
   const handleClose = () => {
     setShow(false);
@@ -260,6 +270,22 @@ const SetActivity = (props: Props) => {
     setTypeSearch("");
     setEditingTypeId(null);
     setEditingTypeValue("");
+  };
+
+  const moveHighlight = (delta: number) => {
+    if (filteredTypes.length === 0) return;
+    setHighlightedIndex((prev) => {
+      let next = prev + delta;
+      if (next < 0) next = filteredTypes.length - 1;
+      if (next >= filteredTypes.length) next = 0;
+      return next;
+    });
+  };
+
+  const selectHighlighted = () => {
+    if (highlightedIndex >= 0 && highlightedIndex < filteredTypes.length) {
+      handleSelectType(filteredTypes[highlightedIndex].id);
+    }
   };
 
   const handleCreateTypeFromSearch = () => {
@@ -437,6 +463,35 @@ const SetActivity = (props: Props) => {
                           if (e.key === "Enter" && showCreateTypeOption) {
                             e.preventDefault();
                             handleCreateTypeFromSearch();
+                            return;
+                          }
+
+                          if (e.key === "ArrowDown") {
+                            e.preventDefault();
+                            setHighlightedIndex((prev) =>
+                              prev < filteredTypes.length - 1 ? prev + 1 : 0
+                            );
+                            return;
+                          }
+
+                          if (e.key === "ArrowUp") {
+                            e.preventDefault();
+                            setHighlightedIndex((prev) =>
+                              prev > 0 ? prev - 1 : filteredTypes.length - 1
+                            );
+                            return;
+                          }
+
+                          if (e.key === "Escape") {
+                            setTypeOpen(false);
+                            return;
+                          }
+
+                          // If Enter and there are filtered types, select highlighted
+                          if (e.key === "Enter" && filteredTypes.length > 0 && !showCreateTypeOption) {
+                            e.preventDefault();
+                            selectHighlighted();
+                            return;
                           }
                         }}
                         autoFocus
@@ -444,16 +499,25 @@ const SetActivity = (props: Props) => {
                     </div>
 
                     <div style={{ maxHeight: 180, overflow: "auto" }}>
-                      {filteredTypes.map((t) => (
+                      {filteredTypes.map((t, idx) => (
                         <div
                           key={t.id}
+                          ref={(el) => {
+                            itemRefs.current[idx] = el;
+                          }}
+                          tabIndex={-1}
                           className={`d-flex align-items-center justify-content-between px-3 py-2 ${
-                            inputs?.type?.id === t.id
+                            highlightedIndex === idx
                               ? "bg-primary text-white"
                               : ""
                           }`}
                           style={{ cursor: "pointer" }}
                           onClick={() => handleSelectType(t.id)}
+                          onMouseEnter={() => setHighlightedIndex(idx)}
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter") selectHighlighted();
+                            if (e.key === "Escape") setTypeOpen(false);
+                          }}
                         >
                           {editingTypeId === t.id ? (
                             <div className="d-flex align-items-center w-100">
@@ -505,7 +569,7 @@ const SetActivity = (props: Props) => {
                                   <button
                                     type="button"
                                     className={`btn btn-sm btn-link p-0 ${
-                                      inputs?.type?.id === t.id
+                                      highlightedIndex === idx
                                         ? "text-white"
                                         : ""
                                     }`}
@@ -614,6 +678,7 @@ const SetActivity = (props: Props) => {
               <Select
                 defaultValue={getSelectedIndividuals}
                 isMulti
+                classNamePrefix="participants-select"
                 // @ts-ignore
                 options={individuals}
                 getOptionLabel={(option) => option.name}

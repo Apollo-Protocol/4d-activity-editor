@@ -46,6 +46,8 @@ const SetParticipation = (props: Props) => {
   const [editingRoleId, setEditingRoleId] = useState<string | null>(null);
   const [editingRoleValue, setEditingRoleValue] = useState("");
   const roleDropdownRef = useRef<HTMLDivElement | null>(null);
+  const [highlightedIndex, setHighlightedIndex] = useState<number>(-1);
+  const itemRefs = useRef<Array<HTMLDivElement | null>>([]);
 
   // click outside to close role dropdown
   useEffect(() => {
@@ -62,6 +64,14 @@ const SetParticipation = (props: Props) => {
     if (roleOpen) document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, [roleOpen]);
+
+  // Ensure a highlighted item is visible when changed
+  useEffect(() => {
+    if (highlightedIndex >= 0 && itemRefs.current[highlightedIndex]) {
+      const el = itemRefs.current[highlightedIndex];
+      el?.scrollIntoView({ block: "nearest" });
+    }
+  }, [highlightedIndex]);
 
   const handleClose = () => {
     setShow(false);
@@ -107,6 +117,17 @@ const SetParticipation = (props: Props) => {
     r.name.toLowerCase().includes(roleSearch.toLowerCase())
   );
 
+  useEffect(() => {
+    if (!roleOpen || filteredRoles.length === 0) {
+      setHighlightedIndex(-1);
+      return;
+    }
+    const selectedIndex = filteredRoles.findIndex(
+      (r) => r.id === selectedParticipation?.role?.id
+    );
+    setHighlightedIndex(selectedIndex >= 0 ? selectedIndex : 0);
+  }, [roleOpen, roleSearch, selectedParticipation?.role?.id, filteredRoles.length]);
+
   const showCreateRoleOption =
     roleSearch.trim().length > 0 &&
     !dataset.roles.some(
@@ -123,6 +144,22 @@ const SetParticipation = (props: Props) => {
     setRoleSearch("");
     setEditingRoleId(null);
     setEditingRoleValue("");
+  };
+
+  const moveHighlight = (delta: number) => {
+    if (filteredRoles.length === 0) return;
+    setHighlightedIndex((prev) => {
+      let next = prev + delta;
+      if (next < 0) next = filteredRoles.length - 1;
+      if (next >= filteredRoles.length) next = 0;
+      return next;
+    });
+  };
+
+  const selectHighlighted = () => {
+    if (highlightedIndex >= 0 && highlightedIndex < filteredRoles.length) {
+      handleSelectRole(filteredRoles[highlightedIndex].id);
+    }
   };
 
   const handleCreateRoleFromSearch = () => {
@@ -245,6 +282,34 @@ const SetParticipation = (props: Props) => {
                           if (e.key === "Enter" && showCreateRoleOption) {
                             e.preventDefault();
                             handleCreateRoleFromSearch();
+                            return;
+                          }
+
+                          if (e.key === "ArrowDown") {
+                            e.preventDefault();
+                            moveHighlight(1);
+                            return;
+                          }
+
+                          if (e.key === "ArrowUp") {
+                            e.preventDefault();
+                            moveHighlight(-1);
+                            return;
+                          }
+
+                          if (e.key === "Escape") {
+                            setRoleOpen(false);
+                            return;
+                          }
+
+                          if (
+                            e.key === "Enter" &&
+                            filteredRoles.length > 0 &&
+                            !showCreateRoleOption
+                          ) {
+                            e.preventDefault();
+                            selectHighlighted();
+                            return;
                           }
                         }}
                         autoFocus
@@ -252,16 +317,25 @@ const SetParticipation = (props: Props) => {
                     </div>
 
                     <div style={{ maxHeight: 180, overflow: "auto" }}>
-                      {filteredRoles.map((r) => (
+                      {filteredRoles.map((r, idx) => (
                         <div
                           key={r.id}
+                          ref={(el) => {
+                            itemRefs.current[idx] = el;
+                          }}
+                          tabIndex={-1}
                           className={`d-flex align-items-center justify-content-between px-3 py-2 ${
-                            selectedParticipation?.role?.id === r.id
+                            highlightedIndex === idx
                               ? "bg-primary text-white"
                               : ""
                           }`}
                           style={{ cursor: "pointer" }}
                           onClick={() => handleSelectRole(r.id)}
+                          onMouseEnter={() => setHighlightedIndex(idx)}
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter") selectHighlighted();
+                            if (e.key === "Escape") setRoleOpen(false);
+                          }}
                         >
                           {editingRoleId === r.id ? (
                             <div className="d-flex align-items-center w-100">
@@ -313,7 +387,7 @@ const SetParticipation = (props: Props) => {
                                   <button
                                     type="button"
                                     className={`btn btn-sm btn-link p-0 ${
-                                      selectedParticipation?.role?.id === r.id
+                                      highlightedIndex === idx
                                         ? "text-white"
                                         : ""
                                     }`}

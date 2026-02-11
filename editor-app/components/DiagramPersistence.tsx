@@ -1,7 +1,6 @@
 import { useEffect, useState } from "react";
 import { Button, Form } from "react-bootstrap";
-import Dropdown from 'react-bootstrap/Dropdown';
-import DropdownButton from 'react-bootstrap/DropdownButton';
+import Dropdown from "react-bootstrap/Dropdown";
 
 import {
   save,
@@ -84,12 +83,18 @@ const DiagramPersistence = (props: any) => {
   return (
     <div className="d-flex flex-wrap align-items-center justify-content-center gap-2 mobile-contents">
       {/* Load Example dropdown */}
-      <DropdownButton className="toolbar-dropdown" variant="primary" title="Load example">
-        {examples.map(e => 
-          <Dropdown.Item key={e.path} onClick={() => loadExample(e.path)}>
-            {e.name}
-          </Dropdown.Item>)}
-      </DropdownButton>
+      <Dropdown className="toolbar-dropdown" align="start">
+        <Dropdown.Toggle id="load-example-toggle" variant="primary">
+          Load example
+        </Dropdown.Toggle>
+        <Dropdown.Menu renderOnMount>
+          {examples.map((e) => (
+            <Dropdown.Item key={e.path} onClick={() => loadExample(e.path)}>
+              {e.name}
+            </Dropdown.Item>
+          ))}
+        </Dropdown.Menu>
+      </Dropdown>
 
       {/* TTL Load/Save buttons */}
       <Button variant="primary" onClick={uploadTtl}>

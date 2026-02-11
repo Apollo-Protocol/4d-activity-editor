@@ -205,8 +205,10 @@ const ActivityDiagram = (props: Props) => {
             style={{ width: "32px", height: "32px", padding: 0, display: "flex", alignItems: "center", justifyContent: "center" }}
           >
             <svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true">
-              <circle cx="7" cy="7" r="5" stroke="currentColor" strokeWidth="2" fill="none" />
-              <path d="M11 11l3 3" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+              <circle cx="7" cy="7" r="4" stroke="currentColor" strokeWidth="1.5" fill="none" />
+              <path d="M11 11l3 3" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+              <path d="M7 4.5v4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+              <path d="M5 7h4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
             </svg>
           </Button>
         </div>

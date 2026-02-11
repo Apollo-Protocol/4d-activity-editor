@@ -16,11 +16,11 @@ export default function App({ Component, pageProps }: AppProps) {
     >
       <Navbar />
       <main
+        className="app-main"
         style={{
           flex: 1,
           display: "flex",
           flexDirection: "column",
-          justifyContent: "center",
           padding: "1.5rem",
           paddingTop: "100px",
         }}

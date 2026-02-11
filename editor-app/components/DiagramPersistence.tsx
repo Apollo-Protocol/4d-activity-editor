@@ -82,9 +82,9 @@ const DiagramPersistence = (props: any) => {
   }
 
   return (
-    <div className="d-flex flex-wrap align-items-center justify-content-center gap-2">
+    <div className="d-flex flex-wrap align-items-center justify-content-center gap-2 mobile-contents">
       {/* Load Example dropdown */}
-      <DropdownButton variant="primary" title="Load example">
+      <DropdownButton className="toolbar-dropdown" variant="primary" title="Load example">
         {examples.map(e => 
           <Dropdown.Item key={e.path} onClick={() => loadExample(e.path)}>
             {e.name}

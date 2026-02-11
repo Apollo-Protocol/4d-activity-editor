@@ -43,7 +43,7 @@ const HideIndividuals = ({
   );
 
   return (
-    <div className="ms-2 d-flex align-items-center">
+    <div className="ms-2 d-flex align-items-center mobile-contents">
       <OverlayTrigger placement="top" overlay={tooltip}>
         <Button
           variant={compactMode ? "secondary" : "primary"}

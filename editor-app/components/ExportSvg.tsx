@@ -3,7 +3,7 @@ import Button from "react-bootstrap/Button";
 import { saveJSONLD } from "lib/ActivityLib";
 import { Activity } from "@/lib/Schema";
 
-const ExportJson = (props: any) => {
+const ExportSvg = (props: any) => {
   const { dataset, svgRef } = props;
 
   function serializeNode(node: any) {
@@ -89,4 +89,4 @@ const ExportJson = (props: any) => {
   );
 };
 
-export default ExportJson;
+export default ExportSvg;

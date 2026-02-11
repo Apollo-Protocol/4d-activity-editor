@@ -4,8 +4,6 @@ import SetIndividual from "@/components/SetIndividual";
 import SetActivity from "@/components/SetActivity";
 import SetConfig from "@/components/SetConfig";
 import ActivityDiagram from "@/components/ActivityDiagram";
-import Row from "react-bootstrap/Row";
-import Col from "react-bootstrap/Col";
 import Container from "react-bootstrap/Container";
 import DiagramPersistence from "@/components/DiagramPersistence";
 import SortIndividuals from "./SortIndividuals";
@@ -15,10 +13,7 @@ import { Model } from "@/lib/Model";
 import { Activity, Id, Individual, Maybe, Participation } from "@/lib/Schema";
 import ExportJson from "./ExportJson";
 import ExportSvg from "./ExportSvg";
-import { Button } from "react-bootstrap";
 import HideIndividuals from "./HideIndividuals";
-import React from "react";
-import Card from "react-bootstrap/Card";
 import DiagramLegend from "./DiagramLegend";
 
 const beforeUnloadHandler = (ev: BeforeUnloadEvent) => {
@@ -164,8 +159,8 @@ export default function ActivityDiagramWrap() {
   return (
     <>
       <Container fluid>
-        <Row>
-          <Col xs="auto" className="legend-column">
+        <div className="editor-layout">
+          <div className="editor-legend">
             <div className="legend-sticky">
               <DiagramLegend
                 activities={activitiesInView}
@@ -181,11 +176,12 @@ export default function ActivityDiagramWrap() {
                 }
               />
             </div>
-          </Col>
-          <Col>
+          </div>
+          <div className="editor-diagram">
             <ActivityDiagram
               dataset={dataset}
               configData={configData}
+              setConfigData={setConfigData}
               activityContext={activityContext}
               setActivityContext={setActivityContext}
               clickIndividual={clickIndividual}
@@ -198,16 +194,10 @@ export default function ActivityDiagramWrap() {
               hideNonParticipating={compactMode}
               highlightedActivityId={highlightedActivityId}
             />
-          </Col>
-        </Row>
+          </div>
 
-        {/* All buttons in a flex container that wraps */}
-        <div
-          className="mt-3 d-flex flex-wrap align-items-center justify-content-between gap-2"
-          style={{ rowGap: "0.5rem" }}
-        >
-          {/* Left side buttons */}
-          <div className="d-flex flex-wrap align-items-center gap-1">
+          <div className="editor-toolbar">
+            <div className="toolbar-group">
             <SetIndividual
               deleteIndividual={deleteIndividual}
               setIndividual={setIndividual}
@@ -253,33 +243,32 @@ export default function ActivityDiagramWrap() {
               dataset={dataset}
               activitiesInView={activitiesInView}
             />
-          </div>
+            </div>
 
-          {/* Center - Load/Save TTL */}
-          <div className="d-flex justify-content-center">
-            <DiagramPersistence
-              dataset={dataset}
-              setDataset={replaceDataset}
-              svgRef={svgRef}
-              setDirty={setDirty}
-            />
-          </div>
+            <div className="toolbar-group toolbar-center">
+              <DiagramPersistence
+                dataset={dataset}
+                setDataset={replaceDataset}
+                svgRef={svgRef}
+                setDirty={setDirty}
+              />
+            </div>
 
-          {/* Right side buttons */}
-          <div className="d-flex flex-wrap align-items-center gap-1">
-            <Undo
-              hasUndo={undoHistory.length > 0}
-              undo={undo}
-              clearDiagram={clearDiagram}
-            />
-            <SetConfig
-              configData={configData}
-              setConfigData={setConfigData}
-              showConfigModal={showConfigModal}
-              setShowConfigModal={setShowConfigModal}
-            />
-            <ExportSvg dataset={dataset} svgRef={svgRef} />
-            <ExportJson dataset={dataset} />
+            <div className="toolbar-group">
+              <Undo
+                hasUndo={undoHistory.length > 0}
+                undo={undo}
+                clearDiagram={clearDiagram}
+              />
+              <SetConfig
+                configData={configData}
+                setConfigData={setConfigData}
+                showConfigModal={showConfigModal}
+                setShowConfigModal={setShowConfigModal}
+              />
+              <ExportSvg dataset={dataset} svgRef={svgRef} />
+              <ExportJson dataset={dataset} />
+            </div>
           </div>
         </div>
       </Container>

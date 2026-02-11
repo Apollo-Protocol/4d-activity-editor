@@ -6,6 +6,7 @@ import OverlayTrigger from "react-bootstrap/OverlayTrigger";
 import Tooltip from "react-bootstrap/Tooltip";
 import { Activity } from "@/lib/Schema";
 import { ArrowUp } from "../components/svg/ArrowUp";
+import { Target } from "../components/svg/Target";
 
 interface Props {
   activities: Activity[];
@@ -92,15 +93,7 @@ const DiagramLegend = ({
               return (
                 <div
                   key={activity.id}
-                  className={`legend-item justify-content-between${
-                    highlightedActivityId === activity.id
-                      ? " legend-item-highlighted"
-                      : ""
-                  }`}
-                  style={{ cursor: "pointer" }}
-                  onClick={() =>
-                    onHighlightActivity && onHighlightActivity(activity.id)
-                  }
+                  className="legend-item justify-content-between"
                 >
                   <div className="d-flex align-items-center overflow-hidden">
                     <span
@@ -124,7 +117,32 @@ const DiagramLegend = ({
                     </span>
                   </div>
 
-                  <div className="flex-shrink-0">
+                  <div className="flex-shrink-0 d-flex gap-1">
+                    {onHighlightActivity && (
+                      <OverlayTrigger
+                        placement="top"
+                        overlay={
+                          <Tooltip id={`high-act-${activity.id}`}>
+                            {highlightedActivityId === activity.id
+                              ? "Clear highlight"
+                              : "Highlight activity"}
+                          </Tooltip>
+                        }
+                      >
+                        <Button
+                          variant="none"
+                          size="sm"
+                          className="legend-action-btn"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            onHighlightActivity(activity.id);
+                          }}
+                          aria-label={`Highlight ${activity.name}`}
+                        >
+                          <Target />
+                        </Button>
+                      </OverlayTrigger>
+                    )}
                     {onOpenActivity && (
                       <OverlayTrigger
                         placement="top"

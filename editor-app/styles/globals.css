@@ -239,6 +239,22 @@ body {
   color: #fff;
 }
 
+.diagram-icon-toggle {
+  margin-top: -40px;
+}
+
+@media (max-width: 576px) {
+  .diagram-icon-toggle button {
+    width: 26px !important;
+    height: 26px !important;
+  }
+
+  .diagram-icon-toggle svg {
+    width: 13px;
+    height: 13px;
+  }
+}
+
 .participants-select__option--is-focused,
 .participants-select__option--is-selected {
   background-color: #0d6efd !important;

@@ -183,7 +183,18 @@ const ActivityDiagram = (props: Props) => {
     <>
       <Breadcrumb>{crumbs}</Breadcrumb>
       <div style={{ position: "relative" }}>
-        <div style={{ display: "flex", justifyContent: "flex-end", gap: "6px", marginBottom: "6px" }}>
+        <div
+          className="diagram-icon-toggle"
+          style={{
+            position: "absolute",
+            top: 0,
+            right: 0,
+            display: "flex",
+            justifyContent: "flex-end",
+            gap: "6px",
+            zIndex: 2,
+          }}
+        >
           <Button
             variant={interactionMode === "pointer" ? "primary" : "secondary"}
             size="sm"

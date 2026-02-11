@@ -132,12 +132,17 @@ const DiagramLegend = ({
                         <Button
                           variant="none"
                           size="sm"
-                          className="legend-action-btn"
+                          className={`legend-action-btn ${
+                            highlightedActivityId === activity.id
+                              ? "legend-action-active"
+                              : ""
+                          }`}
                           onClick={(e) => {
                             e.stopPropagation();
                             onHighlightActivity(activity.id);
                           }}
                           aria-label={`Highlight ${activity.name}`}
+                          aria-pressed={highlightedActivityId === activity.id}
                         >
                           <Target />
                         </Button>

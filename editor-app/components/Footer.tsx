@@ -19,25 +19,27 @@ function Footer() {
         <div className="row">
           {/* Left - Links */}
           <div className="col-lg-3 col-md-3 col-sm-12 mb-3 mb-lg-0 text-center text-md-start">
-            <h6 className="text-dark mb-2">More</h6>
-            <ul className="list-unstyled mb-0">
-              <li className="mb-1">
+            <div className="footer-links">
+              <h6 className="footer-links-title text-dark mb-2">More</h6>
+              <ul className="footer-links-list list-unstyled mb-0">
+                <li className="footer-links-item mb-1">
                 <Link
                   className="text-muted text-decoration-none"
                   href="https://digitaltwinhub.co.uk/networks/29-the-apollo-protocol"
                 >
                   Get in touch
                 </Link>
-              </li>
-              <li>
+                </li>
+                <li className="footer-links-item">
                 <Link
                   className="text-muted text-decoration-none"
                   href="https://github.com/Apollo-Protocol/4d-activity-editor/discussions"
                 >
                   Give feedback
                 </Link>
-              </li>
-            </ul>
+                </li>
+              </ul>
+            </div>
           </div>
 
           {/* Center - Copyright */}

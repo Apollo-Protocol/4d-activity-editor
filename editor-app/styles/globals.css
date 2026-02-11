@@ -317,6 +317,23 @@ body {
   padding: 0.125rem 0.25rem;
 }
 
+.legend-action-btn:hover {
+  background-color: rgba(13, 110, 253, 0.1);
+  color: #0d6efd;
+  border-radius: 4px;
+}
+
+.legend-action-active {
+  background-color: #0d6efd !important;
+  color: #fff !important;
+  border-radius: 4px;
+}
+
+.legend-action-active:hover {
+  background-color: #0b5ed7 !important;
+  color: #fff !important;
+}
+
 .activity-modal-footer-row {
   display: flex;
   flex-wrap: wrap;
@@ -518,7 +535,9 @@ body {
     padding: 0.75rem !important;
     padding-top: 80px !important;
   }
+}
 
+@media (max-width: 767.98px) {
   .app-footer {
     padding: 1rem 0 !important;
   }
@@ -529,6 +548,48 @@ body {
 
   .app-footer .footer-logos {
     justify-content: center !important;
+  }
+
+  .app-footer .footer-links {
+    display: flex;
+    align-items: baseline;
+    justify-content: center;
+    gap: 0.5rem;
+    flex-wrap: nowrap;
+  }
+
+  .app-footer .footer-links-title {
+    display: inline-flex;
+    align-items: center;
+    margin: 0 !important;
+    line-height: 1.2;
+    font-size: 0.95rem;
+    white-space: nowrap;
+  }
+
+  .app-footer .footer-links-title::after {
+    content: "|";
+    margin: 0 0.5rem;
+    color: #adb5bd;
+  }
+
+  .app-footer .footer-links-list {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0;
+    margin: 0;
+    white-space: nowrap;
+  }
+
+  .app-footer .footer-links-item {
+    margin: 0 !important;
+  }
+
+  .app-footer .footer-links-item + .footer-links-item::before {
+    content: "|";
+    margin-right: 0.5rem;
+    color: #adb5bd;
   }
 }
 

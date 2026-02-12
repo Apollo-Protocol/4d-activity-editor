@@ -50,7 +50,14 @@ const ExportSvg = (props: any) => {
       text.setAttribute("fill", "#441d62");
       text.textContent = activity.name || "";
 
-      svgCopy.appendChild(text);
+      // Append the label into the same group that contains the activity rects so
+      // it inherits any transform (zoom/translate) applied to the diagram group.
+      const activityGroup = svgCopy.querySelector('#activity-diagram-group');
+      if (activityGroup) {
+        activityGroup.appendChild(text);
+      } else {
+        svgCopy.appendChild(text);
+      }
     });
 
     return svgCopy;

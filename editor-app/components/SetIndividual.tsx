@@ -123,6 +123,17 @@ const SetIndividual = (props: Props) => {
     setEditingTypeId(null);
     setEditingTypeValue("");
   };
+
+  // Prevent closing the Modal while inline "edit type" is active. Backdrop
+  // clicks or mouseup outside the dialog during a text selection were
+  // closing the modal — ignore those when `editingTypeId` is set.
+  const handleModalHide = () => {
+    if (editingTypeId) {
+      return; // keep modal open while user is editing a type name
+    }
+    handleClose();
+  };
+
   const handleShow = () => {
     if (selectedIndividual) {
       setInputs(selectedIndividual);
@@ -335,7 +346,7 @@ const SetIndividual = (props: Props) => {
         Add Individual
       </Button>
 
-      <Modal show={show} onHide={handleClose} onShow={handleShow}>
+      <Modal show={show} onHide={handleModalHide} onShow={handleShow}>
         <Modal.Header closeButton>
           <Modal.Title>
             {selectedIndividual ? "Edit Individual" : "Add Individual"}

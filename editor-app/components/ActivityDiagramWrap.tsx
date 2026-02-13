@@ -4,8 +4,6 @@ import SetIndividual from "@/components/SetIndividual";
 import SetActivity from "@/components/SetActivity";
 import SetConfig from "@/components/SetConfig";
 import ActivityDiagram from "@/components/ActivityDiagram";
-import Row from "react-bootstrap/Row";
-import Col from "react-bootstrap/Col";
 import Container from "react-bootstrap/Container";
 import DiagramPersistence from "@/components/DiagramPersistence";
 import SortIndividuals from "./SortIndividuals";
@@ -15,6 +13,8 @@ import { Model } from "@/lib/Model";
 import { Activity, Id, Individual, Maybe, Participation } from "@/lib/Schema";
 import ExportJson from "./ExportJson";
 import ExportSvg from "./ExportSvg";
+import HideIndividuals from "./HideIndividuals";
+import DiagramLegend from "./DiagramLegend";
 
 const beforeUnloadHandler = (ev: BeforeUnloadEvent) => {
   ev.returnValue = "";
@@ -25,6 +25,8 @@ const beforeUnloadHandler = (ev: BeforeUnloadEvent) => {
 /* XXX Most of this component needs refactoring into a Controller class,
  * leaving the react component as just the View. */
 export default function ActivityDiagramWrap() {
+  // compactMode hides individuals that participate in zero activities
+  const [compactMode, setCompactMode] = useState(false);
   const model = new Model();
   const [dataset, setDataset] = useState(model);
   const [dirty, setDirty] = useState(false);
@@ -45,13 +47,16 @@ export default function ActivityDiagramWrap() {
   const [configData, setConfigData] = useState(config);
   const [showConfigModal, setShowConfigModal] = useState(false);
   const [showSortIndividuals, setShowSortIndividuals] = useState(false);
+  const [highlightedActivityId, setHighlightedActivityId] = useState<string | null>(null);
 
   useEffect(() => {
-    if (dirty)
-      window.addEventListener("beforeunload", beforeUnloadHandler);
-    else
-      window.removeEventListener("beforeunload", beforeUnloadHandler);
+    if (dirty) window.addEventListener("beforeunload", beforeUnloadHandler);
+    else window.removeEventListener("beforeunload", beforeUnloadHandler);
   }, [dirty]);
+
+  useEffect(() => {
+    setHighlightedActivityId(null);
+  }, [activityContext]);
 
   const updateDataset = (updater: Dispatch<Model>) => {
     setUndoHistory([dataset, ...undoHistory.slice(0, 5)]);
@@ -120,24 +125,79 @@ export default function ActivityDiagramWrap() {
   const activitiesArray: Activity[] = [];
   dataset.activities.forEach((a: Activity) => activitiesArray.push(a));
 
+  // Filter activities for the current context
+  let activitiesInView: Activity[] = [];
+  if (activityContext) {
+    // Only include activities that are part of the current context
+    activitiesInView = activitiesArray.filter(
+      (a) => a.partOf === activityContext
+    );
+  } else {
+    // Top-level activities (no parent)
+    activitiesInView = activitiesArray.filter((a) => !a.partOf);
+  }
+
+  const partsCountMap: Record<string, number> = {};
+  activitiesInView.forEach((a) => {
+    partsCountMap[a.id] =
+      typeof dataset.getPartsCount === "function"
+        ? dataset.getPartsCount(a.id)
+        : 0;
+  });
+
+  const selectedActivityIndex = selectedActivity
+    ? activitiesInView.findIndex((a) => a.id === selectedActivity.id)
+    : -1;
+  const selectedActivityAutoColor =
+    selectedActivityIndex >= 0
+      ? config.presentation.activity.fill[
+          selectedActivityIndex % config.presentation.activity.fill.length
+        ]
+      : config.presentation.activity.fill[0];
+
+  // render
   return (
     <>
       <Container fluid>
-        <ActivityDiagram
-          dataset={dataset}
-          configData={configData}
-          activityContext={activityContext}
-          setActivityContext={setActivityContext}
-          clickIndividual={clickIndividual}
-          clickActivity={clickActivity}
-          clickParticipation={clickParticipation}
-          rightClickIndividual={rightClickIndividual}
-          rightClickActivity={rightClickActivity}
-          rightClickParticipation={rightClickParticipation}
-          svgRef={svgRef}
-        />
-        <Row className="mt-3 justify-content-between">
-          <Col className="d-flex justify-content-start">
+        <div className="editor-layout">
+          <div className="editor-legend">
+            <div className="legend-sticky">
+              <DiagramLegend
+                activities={activitiesInView}
+                activityColors={config.presentation.activity.fill}
+                partsCount={partsCountMap}
+                onOpenActivity={(a) => {
+                  setSelectedActivity(a);
+                  setShowActivity(true);
+                }}
+                highlightedActivityId={highlightedActivityId}
+                onHighlightActivity={(id) =>
+                  setHighlightedActivityId((prev) => (prev === id ? null : id))
+                }
+              />
+            </div>
+          </div>
+          <div className="editor-diagram">
+            <ActivityDiagram
+              dataset={dataset}
+              configData={configData}
+              setConfigData={setConfigData}
+              activityContext={activityContext}
+              setActivityContext={setActivityContext}
+              clickIndividual={clickIndividual}
+              clickActivity={clickActivity}
+              clickParticipation={clickParticipation}
+              rightClickIndividual={rightClickIndividual}
+              rightClickActivity={rightClickActivity}
+              rightClickParticipation={rightClickParticipation}
+              svgRef={svgRef}
+              hideNonParticipating={compactMode}
+              highlightedActivityId={highlightedActivityId}
+            />
+          </div>
+
+          <div className="editor-toolbar">
+            <div className="toolbar-group">
             <SetIndividual
               deleteIndividual={deleteIndividual}
               setIndividual={setIndividual}
@@ -158,6 +218,7 @@ export default function ActivityDiagramWrap() {
               updateDataset={updateDataset}
               activityContext={activityContext}
               setActivityContext={setActivityContext}
+              autoActivityColor={selectedActivityAutoColor}
             />
             <SetParticipation
               setActivity={setActivity}
@@ -176,32 +237,40 @@ export default function ActivityDiagramWrap() {
               showSortIndividuals={showSortIndividuals}
               setShowSortIndividuals={setShowSortIndividuals}
             />
-          </Col>
-          <Col className="d-flex justify-content-end">
-            <Undo 
-              hasUndo={undoHistory.length > 0}
-              undo={undo}
-              clearDiagram={clearDiagram}/>
-            <SetConfig
-              configData={configData}
-              setConfigData={setConfigData}
-              showConfigModal={showConfigModal}
-              setShowConfigModal={setShowConfigModal}
-            />
-            <ExportSvg dataset={dataset} svgRef={svgRef} />
-            <ExportJson dataset={dataset} />
-          </Col>
-        </Row>
-        <Row className="mt-3">
-          <Col className="d-flex justify-content-center align-items-center">
-            <DiagramPersistence
+            <HideIndividuals
+              compactMode={compactMode}
+              setCompactMode={setCompactMode}
               dataset={dataset}
-              setDataset={replaceDataset}
-              svgRef={svgRef}
-              setDirty={setDirty}
+              activitiesInView={activitiesInView}
             />
-          </Col>
-        </Row>
+            </div>
+
+            <div className="toolbar-group toolbar-center">
+              <DiagramPersistence
+                dataset={dataset}
+                setDataset={replaceDataset}
+                svgRef={svgRef}
+                setDirty={setDirty}
+              />
+            </div>
+
+            <div className="toolbar-group">
+              <Undo
+                hasUndo={undoHistory.length > 0}
+                undo={undo}
+                clearDiagram={clearDiagram}
+              />
+              <SetConfig
+                configData={configData}
+                setConfigData={setConfigData}
+                showConfigModal={showConfigModal}
+                setShowConfigModal={setShowConfigModal}
+              />
+              <ExportSvg dataset={dataset} svgRef={svgRef} />
+              <ExportJson dataset={dataset} />
+            </div>
+          </div>
+        </div>
       </Container>
     </>
   );

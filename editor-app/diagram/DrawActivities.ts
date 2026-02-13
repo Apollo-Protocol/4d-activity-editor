@@ -12,7 +12,7 @@ import { activity } from "@apollo-protocol/hqdm-lib";
 let mouseOverElement: any | null = null;
 
 export function drawActivities(ctx: DrawContext) {
-  const { config, svgElement, activities, individuals } = ctx;
+  const { config, svgElement, activities, individuals, dataset } = ctx;
 
   let startOfTime = Math.min(...activities.map((a) => a.beginning));
   let endOfTime = Math.max(...activities.map((a) => a.ending));
@@ -71,11 +71,29 @@ export function drawActivities(ctx: DrawContext) {
     .attr("stroke-dasharray", config.presentation.activity.strokeDasharray)
     .attr("stroke-width", config.presentation.activity.strokeWidth)
     .attr("fill", (a: Activity, i: number) => {
-      return config.presentation.activity.fill[
+      return a.color || config.presentation.activity.fill[
         i % config.presentation.activity.fill.length
       ];
     })
     .attr("opacity", config.presentation.activity.opacity);
+
+  // small helper functions to reuse computations
+  const xOf = (a: Activity) => x + timeInterval * (a.beginning - startOfTime);
+  const yOf = (a: Activity) =>
+    calculateTopPositionOfNewActivity(svgElement, a) -
+    config.layout.individual.gap * 0.3;
+  const widthOf = (a: Activity) => (a.ending - a.beginning) * timeInterval;
+  const heightOf = (a: Activity) => {
+    const h = calculateLengthOfNewActivity(svgElement, a);
+    return h
+      ? h -
+          calculateTopPositionOfNewActivity(svgElement, a) +
+          config.layout.individual.gap * 0.6 +
+          config.layout.individual.height
+      : 0;
+  };
+
+  // Subtask badge rendering removed — badge no longer drawn on activities.
 
   labelActivities(ctx, x, timeInterval, startOfTime);
 
@@ -88,67 +106,8 @@ function labelActivities(
   timeInterval: number,
   startOfTime: number
 ) {
-  const { config, svgElement, activities } = ctx;
-
-  if (config.labels.activity.enabled === false) {
-    return;
-  }
-
-  let labels: Label[] = [];
-
-  svgElement
-    .selectAll(".activityLabel")
-    .data(activities.values())
-    .join("text")
-    .attr("class", "activityLabel")
-    .attr("id", (d: Activity) => `al${d.id}`)
-    .attr("x", (d: Activity) => {
-      const box = getBoxOfExistingActivity(svgElement, d);
-      return box.x + box.width / 2;
-    })
-    .attr("y", (d: Activity) => {
-      const box = getBoxOfExistingActivity(svgElement, d);
-      const individualBoxHeight =
-        config.layout.individual.height + config.layout.individual.gap;
-      let position = box.y;
-      if (d.participations?.size === 1) {
-        position = box.y - config.labels.activity.topMargin / 1.5;
-        return position;
-      }
-      if (
-        ((box.height + config.layout.individual.gap * 0.4) /
-          individualBoxHeight) %
-          2 ==
-        0
-      ) {
-        position = box.y + box.height / 2;
-      } else {
-        position =
-          box.y +
-          box.height / 2 -
-          config.layout.individual.height / 2 -
-          config.layout.individual.gap / 2;
-      }
-      position += config.labels.activity.topMargin;
-      return position;
-    })
-    .attr("text-anchor", "middle")
-    .attr("font-family", "Roboto, Arial, sans-serif")
-    .attr("font-size", config.labels.activity.fontSize)
-    .attr("fill", config.labels.activity.color)
-    .text((d: Activity) => {
-      let label = d["name"];
-      if (label.length > config.labels.activity.maxChars) {
-        label = label.substring(0, config.labels.activity.maxChars);
-        label += "...";
-      }
-      return label;
-    })
-
-    .each((d: Activity, i: number, nodes: SVGGraphicsElement[]) => {
-      removeLabelIfItOverlaps(labels, nodes[i]);
-      labels.push(nodes[i].getBBox());
-    });
+  // Labels are now provided via the external legend; do not draw activity text on the SVG.
+  return;
 }
 
 export function hoverActivities(ctx: DrawContext) {
@@ -192,8 +151,7 @@ function activityTooltip(ctx: DrawContext, activity: Activity) {
   if (activity.beginning !== undefined)
     tip += "<br/> Beginning: " + activity.beginning;
   if (activity.ending) tip += "<br/> Ending: " + activity.ending;
-  if (ctx.dataset.hasParts(activity.id))
-    tip += "<br/> Has sub-tasks";
+  if (ctx.dataset.hasParts(activity.id)) tip += "<br/> Has sub-tasks";
   return tip;
 }
 
@@ -210,10 +168,12 @@ export function clickActivities(
       rightClickActivity(a);
     };
 
-    svgElement.select("#a" + a.id)
+    svgElement
+      .select("#a" + a.id)
       .on("click", lclick)
       .on("contextmenu", rclick);
-    svgElement.select("#al" + a.id)
+    svgElement
+      .select("#al" + a.id)
       .on("click", lclick)
       .on("contextmenu", rclick);
   });

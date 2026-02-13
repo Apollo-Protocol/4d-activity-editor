@@ -7,11 +7,15 @@ import { EPOCH_END } from "./ActivityLib";
  * A class used to list the types needed for drop-downs in the UI.
  */
 export class Kind {
-  constructor(
-    readonly id: Id,
-    readonly name: string,
-    readonly isCoreHqdm: boolean
-  ) {}
+  readonly id: Id;
+  name: string;
+  readonly isCoreHqdm: boolean;
+
+  constructor(id: Id, name: string, isCoreHqdm: boolean) {
+    this.id = id;
+    this.name = name;
+    this.isCoreHqdm = isCoreHqdm;
+  }
 }
 
 /**
@@ -25,9 +29,9 @@ export class Model {
   readonly activityTypes: Array<Kind>;
   readonly individualTypes: Array<Kind>;
 
-  readonly defaultRole: Kind;
-  readonly defaultActivityType: Kind;
-  readonly defaultIndividualType: Kind;
+  defaultRole: Kind;
+  defaultActivityType: Kind;
+  defaultIndividualType: Kind;
 
   // Overall information about the model
   name: Maybe<string>;
@@ -47,13 +51,9 @@ export class Model {
 
     /* These default roles created here need to match the equivalents
      * created in ActivityLib:toModel. */
-    this.roles = [
-      new Kind(HQDM_NS + "participant", "Participant", true),
-    ];
+    this.roles = [new Kind(HQDM_NS + "participant", "Participant", true)];
     this.defaultRole = this.roles[0];
-    this.activityTypes = [
-        new Kind(HQDM_NS + "activity", "Task", true),
-    ];
+    this.activityTypes = [new Kind(HQDM_NS + "activity", "Task", true)];
     this.defaultActivityType = this.activityTypes[0];
     this.individualTypes = [
       new Kind(HQDM_NS + "person", "Person", true),
@@ -83,10 +83,10 @@ export class Model {
         newModel.roles.push(r);
       });
     this.activityTypes
-        .filter((a) => !a.isCoreHqdm)
-        .forEach((a) => {
-          newModel.activityTypes.push(a);
-        });
+      .filter((a) => !a.isCoreHqdm)
+      .forEach((a) => {
+        newModel.activityTypes.push(a);
+      });
     this.individualTypes
       .filter((i) => !i.isCoreHqdm)
       .forEach((i) => {
@@ -213,13 +213,29 @@ export class Model {
    * Given an activity ID, finds if the activity has any parts.
    */
   hasParts(activityId: string) {
-    const it = this.activities.values();
-    for (let res = it.next(); !res.done; res = it.next()) {
-      if (res.value.partOf == activityId) {
-        return true;
-      }
-    }
-    return false;
+    return this.getPartsCount(activityId) > 0;
+  }
+
+  /**
+   * Return the list of child activities (parts) for a given activity id.
+   */
+  getParts(activityId: string): Activity[] {
+    const parts: Activity[] = [];
+    this.activities.forEach((a) => {
+      if (a.partOf === activityId) parts.push(a);
+    });
+    return parts;
+  }
+
+  /**
+   * Return the number of child activities (parts) for a given activity id.
+   */
+  getPartsCount(activityId: string): number {
+    let count = 0;
+    this.activities.forEach((a) => {
+      if (a.partOf === activityId) count++;
+    });
+    return count;
   }
 
   /**
@@ -260,12 +276,10 @@ export class Model {
     console.log("Normalising activity bounds: %o", this.activities);
 
     const parts = new Map<Maybe<Id>, Id[]>();
-    this.activities.forEach(a => {
+    this.activities.forEach((a) => {
       const list = parts.get(a.partOf);
-      if (list)
-        list.push(a.id);
-      else
-        parts.set(a.partOf, [a.id]);
+      if (list) list.push(a.id);
+      else parts.set(a.partOf, [a.id]);
     });
 
     const to_process: Id[] = [];
@@ -276,8 +290,7 @@ export class Model {
       if (list) {
         /* This skips the top-level activities. We could instead rescale
          * to some standard boundaries (e.g. 0-1000). */
-        if (next)
-          to_process.push(next);
+        if (next) to_process.push(next);
         to_check.push(...list);
       }
     }
@@ -285,9 +298,9 @@ export class Model {
     for (const id of to_process) {
       const act = this.activities.get(id)!;
 
-      const kids = parts.get(id)!.map(id => this.activities.get(id)!);
-      const earliest = Math.min(...kids.map(a => a.beginning));
-      const latest = Math.max(...kids.map(a => a.ending));
+      const kids = parts.get(id)!.map((id) => this.activities.get(id)!);
+      const earliest = Math.min(...kids.map((a) => a.beginning));
+      const latest = Math.max(...kids.map((a) => a.ending));
 
       const scale = (act.ending - act.beginning) / (latest - earliest);
       const offset = act.beginning - earliest;
@@ -299,5 +312,69 @@ export class Model {
     }
 
     console.log("Normalised activity bounds: %o", this.activities);
+  }
+
+  // Return the activity object for a given id (or undefined)
+  getActivity(activityId: Id): Activity | undefined {
+    return this.activities.get(activityId);
+  }
+
+  // Set the parent (partOf) for an activity. parentId may be null for top-level.
+  setActivityParent(
+    activityId: Id,
+    parentId: Id | null,
+    expandAncestors = false
+  ) {
+    const a = this.activities.get(activityId);
+    if (!a) return;
+    a.partOf = parentId ?? undefined;
+    this.activities.set(a.id, a);
+
+    if (expandAncestors && parentId) {
+      let cur = this.activities.get(parentId);
+      while (cur) {
+        // ensure parent contains child
+        if (a.beginning < cur.beginning) cur.beginning = a.beginning;
+        if (a.ending > cur.ending) cur.ending = a.ending;
+        this.activities.set(cur.id, cur);
+        if (!cur.partOf) break;
+        cur = this.activities.get(cur.partOf);
+      }
+    }
+  }
+
+  // Get parent activity (or undefined)
+  getParent(activityId: Id): Activity | undefined {
+    const a = this.activities.get(activityId);
+    if (!a || !a.partOf) return undefined;
+    return this.activities.get(a.partOf);
+  }
+
+  // Return ancestors chain (closest parent first)
+  getAncestors(activityId: Id): Activity[] {
+    const ancestors: Activity[] = [];
+    let cur = this.getParent(activityId);
+    while (cur) {
+      ancestors.push(cur);
+      if (!cur.partOf) break;
+      cur = this.getParent(cur.id);
+    }
+    return ancestors;
+  }
+
+  // True if candidateAncestorId is an ancestor of descendantId
+  isAncestor(candidateAncestorId: Id, descendantId: Id): boolean {
+    let cur = this.getParent(descendantId);
+    while (cur) {
+      if (cur.id === candidateAncestorId) return true;
+      if (!cur.partOf) break;
+      cur = this.getParent(cur.id);
+    }
+    return false;
+  }
+
+  // True if descendantId is a descendant of ancestorId
+  isDescendant(ancestorId: Id, descendantId: Id): boolean {
+    return this.isAncestor(ancestorId, descendantId);
   }
 }

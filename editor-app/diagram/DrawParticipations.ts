@@ -1,6 +1,5 @@
 import { MouseEvent } from "react";
 import { Activity } from "@/lib/Schema";
-import { ConfigData } from "./config";
 import { DrawContext } from "./DrawHelpers";
 
 let mouseOverElement: any | null = null;

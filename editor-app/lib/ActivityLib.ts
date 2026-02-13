@@ -43,6 +43,16 @@ const AMRC_BASE = "https://www.amrc.co.uk/hqdm/activities#";
 
 const currentReprVersion = "1";
 
+// Custom predicate for preserving activity order
+const ACTIVITY_ORDER_PREDICATE = `${EDITOR_NS}#activityOrder`;
+
+// Custom predicate for preserving activity color
+const ACTIVITY_COLOR_PREDICATE = `${EDITOR_NS}#activityColor`;
+
+// Custom predicate for preserving individual order
+const INDIVIDUAL_ORDER_PREDICATE = `${EDITOR_NS}#individualOrder`;
+const SORT_INDEX_PREDICATE = `${EDITOR_NS}#sortIndex`;
+
 // A well-known ENTITY_NAME used to find the AMRC Community entity.
 const AMRC_COMMUNITY = "AMRC Community";
 
@@ -211,6 +221,23 @@ export const toModel = (hqdm: HQDMModel): Model => {
     m.description = hqdm.getDescriptions(possibleWorld, communityName).first()?.id;
   }
 
+  const individualCandidates: { thing: Thing; kind: Kind; order: number }[] = [];
+  const seenIndividuals = new Set<string>();
+  const addIndividualCandidate = (thing: Thing, kind: Kind) => {
+    const id = getModelId(thing);
+    if (seenIndividuals.has(id)) return;
+    seenIndividuals.add(id);
+    const sortRef = hqdm.getRelated(thing, SORT_INDEX_PREDICATE).first();
+    const orderRef = hqdm.getRelated(thing, INDIVIDUAL_ORDER_PREDICATE).first();
+    const orderValue = sortRef?.id ?? orderRef?.id;
+    const order = orderValue ? parseInt(orderValue, 10) : Number.MAX_SAFE_INTEGER;
+    individualCandidates.push({
+      thing,
+      kind,
+      order: isNaN(order) ? Number.MAX_SAFE_INTEGER : order,
+    });
+  };
+
   /**
    * TODO: It may be necessary in future to filter the ordinary_physical_objects to remove any that are not part of the model.
    *
@@ -225,22 +252,41 @@ export const toModel = (hqdm: HQDMModel): Model => {
       .first(); // Matches every element, so returns the first
 
     const kindOfIndividual = kindOrDefault(kind, ordPhysObjKind);
-    addIndividual(obj, hqdm, communityName, kindOfIndividual, m);
+    addIndividualCandidate(obj, kindOfIndividual);
   });
 
   // Handle person and organization kinds.
   hqdm.findByType(person).forEach((persona) => {
-    addIndividual(persona, hqdm, communityName, personKind, m);
+    addIndividualCandidate(persona, personKind);
   });
 
   hqdm.findByType(organization).forEach((org) => {
-    addIndividual(org, hqdm, communityName, organizationKind, m);
+    addIndividualCandidate(org, organizationKind);
+  });
+
+  individualCandidates.sort((a, b) => a.order - b.order);
+  individualCandidates.forEach(({ thing, kind }) => {
+    addIndividual(thing, hqdm, communityName, kind, m);
   });
 
   //
   // Add each Activity to the model.
   //
+  // Collect activities with their order so we can sort them
+  const activityCandidates: { thing: any; order: number }[] = [];
   hqdm.findByType(activity).forEach((a) => {
+    const orderRef = hqdm.getRelated(a, ACTIVITY_ORDER_PREDICATE).first();
+    const order = orderRef ? parseInt(orderRef.id, 10) : Number.MAX_SAFE_INTEGER;
+    activityCandidates.push({ thing: a, order: isNaN(order) ? Number.MAX_SAFE_INTEGER : order });
+  });
+
+  // Sort by saved order, then by name as fallback
+  activityCandidates.sort((a, b) => {
+    if (a.order !== b.order) return a.order - b.order;
+    return 0;
+  });
+
+  activityCandidates.forEach(({ thing: a }) => {
     const id = getModelId(a);
 
     // Get the activity name.
@@ -271,6 +317,10 @@ export const toModel = (hqdm: HQDMModel): Model => {
     // Get the parent activity, if any.
     const partOf = hqdm.getPartOf(a).first();
 
+    // Get the optional custom color.
+    const colorRef = hqdm.getRelated(a, ACTIVITY_COLOR_PREDICATE).first();
+    const color = colorRef ? colorRef.id : undefined;
+
     // Create the activity and add it to the model.
     const newA = new ActivityImpl(
       id,
@@ -280,6 +330,7 @@ export const toModel = (hqdm: HQDMModel): Model => {
       ending,
       description,
       partOf ? getModelId(partOf) : undefined,
+      color,
     );
     m.addActivity(newA);
 
@@ -451,6 +502,7 @@ export const toHQDM = (model: Model): HQDMModel => {
   };
 
   // Add the individuals to the model
+  let individualOrder = 0;
   model.individuals.forEach((i) => {
     // Create the individual and add it to the possible world, add the name and description.
     let playerEntityType;
@@ -466,6 +518,19 @@ export const toHQDM = (model: Model): HQDMModel => {
     }
     const player = hqdm.createThing(playerEntityType, BASE + i.id);
     hqdm.addToPossibleWorld(player, modelWorld);
+
+    // Save individual order to preserve ordering across save/load
+    hqdm.relate(
+      INDIVIDUAL_ORDER_PREDICATE,
+      player,
+      new Thing(individualOrder.toString())
+    );
+    hqdm.relate(
+      SORT_INDEX_PREDICATE,
+      player,
+      new Thing(individualOrder.toString())
+    );
+    individualOrder++;
 
     const individualStart = createTimeValue(hqdm, modelWorld, i.beginning);
     const individualEnd = createTimeValue(hqdm, modelWorld, i.ending);
@@ -498,6 +563,7 @@ export const toHQDM = (model: Model): HQDMModel => {
   });
 
   // Add the activities to the model
+  let activityOrder = 0;
   model.activities.forEach((a) => {
     // Create the temporal bounds for the activity.
     const activityFrom = createTimeValue(hqdm, modelWorld, a.beginning);
@@ -506,6 +572,16 @@ export const toHQDM = (model: Model): HQDMModel => {
     // Create the activity and add it to the possible world, add the name and description and temporal bounds.
     const act = hqdm.createThing(activity, BASE + a.id);
     hqdm.addToPossibleWorld(act, modelWorld);
+
+    // Save activity order to preserve ordering across save/load
+    hqdm.relate(ACTIVITY_ORDER_PREDICATE, act, new Thing(activityOrder.toString()));
+    activityOrder++;
+
+    // Save activity color if custom color is set
+    if (a.color) {
+      hqdm.relate(ACTIVITY_COLOR_PREDICATE, act, new Thing(a.color));
+    }
+
     hqdm.addIdentification(
       BASE,
       modelWorld,

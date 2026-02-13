@@ -1,7 +1,14 @@
-import React, { Dispatch, SetStateAction, useRef, useState } from "react";
+import React, {
+  Dispatch,
+  SetStateAction,
+  useRef,
+  useState,
+  useEffect,
+} from "react";
 import Button from "react-bootstrap/Button";
 import Modal from "react-bootstrap/Modal";
 import Form from "react-bootstrap/Form";
+import ListGroup from "react-bootstrap/ListGroup";
 import Alert from "react-bootstrap/Alert";
 import Container from "react-bootstrap/Container";
 import Row from "react-bootstrap/Row";
@@ -22,6 +29,7 @@ interface Props {
   updateDataset: Dispatch<Dispatch<Model>>;
   activityContext: Maybe<Id>;
   setActivityContext: Dispatch<Maybe<Id>>;
+  autoActivityColor?: string;
 }
 
 const SetActivity = (props: Props) => {
@@ -35,6 +43,7 @@ const SetActivity = (props: Props) => {
     updateDataset,
     activityContext,
     setActivityContext,
+    autoActivityColor,
   } = props;
   let defaultActivity: Activity = {
     id: "",
@@ -45,12 +54,38 @@ const SetActivity = (props: Props) => {
     ending: 1,
     participations: new Map<string, Participation>(),
     partOf: activityContext,
+    color: undefined,
   };
 
-  const newType = useRef<any>(null);
   const [inputs, setInputs] = useState(defaultActivity);
   const [errors, setErrors] = useState([]);
   const [dirty, setDirty] = useState(false);
+
+  // Custom activity-type selector state (search / create / inline edit)
+  const [typeOpen, setTypeOpen] = useState(false);
+  const [typeSearch, setTypeSearch] = useState("");
+  const [editingTypeId, setEditingTypeId] = useState<string | null>(null);
+  const [editingTypeValue, setEditingTypeValue] = useState("");
+  const typeDropdownRef = useRef<HTMLDivElement | null>(null);
+  const [highlightedIndex, setHighlightedIndex] = useState<number>(-1);
+  const itemRefs = useRef<Array<HTMLDivElement | null>>([]);
+  const [showParentModal, setShowParentModal] = useState(false);
+  const [selectedParentId, setSelectedParentId] = useState<string | null>(null);
+
+  const pickerColor = inputs.color || autoActivityColor || "#440099";
+
+  // Safe local ancestor check (walks partOf chain). Avoids depending on Model.isAncestor.
+  const isAncestorLocal = (
+    ancestorId: string,
+    descendantId: string
+  ): boolean => {
+    let cur = dataset.activities.get(descendantId);
+    while (cur && cur.partOf) {
+      if (cur.partOf === ancestorId) return true;
+      cur = dataset.activities.get(cur.partOf as string);
+    }
+    return false;
+  };
 
   function updateIndividuals(d: Model) {
     d.individuals.forEach((individual) => {
@@ -66,6 +101,30 @@ const SetActivity = (props: Props) => {
     });
   }
 
+  // click outside to close type dropdown
+  useEffect(() => {
+    function handleClickOutside(ev: MouseEvent) {
+      if (
+        typeDropdownRef.current &&
+        !typeDropdownRef.current.contains(ev.target as Node)
+      ) {
+        setTypeOpen(false);
+        setEditingTypeId(null);
+        setEditingTypeValue("");
+      }
+    }
+    if (typeOpen) document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [typeOpen]);
+
+  // Ensure a highlighted item is visible when changed
+  useEffect(() => {
+    if (highlightedIndex >= 0 && itemRefs.current[highlightedIndex]) {
+      const el = itemRefs.current[highlightedIndex];
+      el?.scrollIntoView({ block: "nearest" });
+    }
+  }, [highlightedIndex]);
+
   const handleClose = () => {
     setShow(false);
     setInputs(defaultActivity);
@@ -73,6 +132,20 @@ const SetActivity = (props: Props) => {
     setErrors([]);
     setDirty(false);
   };
+
+  // Prevent closing the parent Modal while the inline "edit type" input is active.
+  // If the user begins a text selection inside the inline editor and releases
+  // the mouse outside the modal (backdrop), react-bootstrap would normally
+  // call `onHide` and close the modal — that causes the bug you reported.
+  // Ignore onHide requests while `editingTypeId` is non-null.
+  const handleModalHide = () => {
+    if (editingTypeId) {
+      // keep modal open while editing a type to avoid losing focus/selection
+      return;
+    }
+    handleClose();
+  };
+
   const handleShow = () => {
     if (selectedActivity) {
       setInputs(selectedActivity);
@@ -83,8 +156,7 @@ const SetActivity = (props: Props) => {
   };
   const handleAdd = (event: any) => {
     event.preventDefault();
-    if (!dirty)
-      return handleClose();
+    if (!dirty) return handleClose();
     const isValid = validateInputs();
     if (isValid) {
       updateDataset((d) => {
@@ -123,11 +195,7 @@ const SetActivity = (props: Props) => {
   };
 
   const handleTypeChange = (e: any) => {
-    dataset.activityTypes.forEach((type) => {
-      if (e.target.value == type.id) {
-        updateInputs(e.target.name, type)
-      }
-    });
+    // deprecated: replaced by custom selector
   };
 
   const handleChangeNumeric = (e: any) => {
@@ -198,11 +266,154 @@ const SetActivity = (props: Props) => {
     }
   };
 
-  const addType = (e: any) => {
-    if (newType.current && newType.current.value) {
-      updateDataset((d) => d.addActivityType(uuidv4(), newType.current.value));
-      newType.current.value = null;
+  // ----- New helper functions for custom activity-type selector -----
+  const filteredTypes = dataset.activityTypes.filter((t) =>
+    t.name.toLowerCase().includes(typeSearch.toLowerCase())
+  );
+
+  const showCreateTypeOption =
+    typeSearch.trim().length > 0 &&
+    !dataset.activityTypes.some(
+      (t) => t.name.toLowerCase() === typeSearch.trim().toLowerCase()
+    );
+
+  const handleSelectType = (typeId: string) => {
+    const t = dataset.activityTypes.find((x) => x.id === typeId);
+    if (t) updateInputs("type", t);
+    setTypeOpen(false);
+    setTypeSearch("");
+    setEditingTypeId(null);
+    setEditingTypeValue("");
+  };
+
+  const moveHighlight = (delta: number) => {
+    if (filteredTypes.length === 0) return;
+    setHighlightedIndex((prev) => {
+      let next = prev + delta;
+      if (next < 0) next = filteredTypes.length - 1;
+      if (next >= filteredTypes.length) next = 0;
+      return next;
+    });
+  };
+
+  const selectHighlighted = () => {
+    if (highlightedIndex >= 0 && highlightedIndex < filteredTypes.length) {
+      handleSelectType(filteredTypes[highlightedIndex].id);
     }
+  };
+
+  const handleCreateTypeFromSearch = () => {
+    const name = typeSearch.trim();
+    if (!name) return;
+    const newId = uuidv4();
+
+    updateDataset((d) => {
+      d.addActivityType(newId, name);
+      return d;
+    });
+
+    // Immediately select the newly created type for this form
+    updateInputs("type", { id: newId, name, isCoreHqdm: false });
+    setTypeOpen(false);
+    setTypeSearch("");
+  };
+
+  const startEditType = (typeId: string, currentName: string, e: any) => {
+    e.stopPropagation();
+    const found = dataset.activityTypes.find((x) => x.id === typeId);
+    if (found && found.isCoreHqdm) return;
+    setEditingTypeId(typeId);
+    setEditingTypeValue(currentName);
+  };
+
+  const saveEditType = () => {
+    if (!editingTypeId) return;
+    const newName = editingTypeValue.trim();
+    if (!newName) return;
+
+    updateDataset((d) => {
+      const kind = d.activityTypes.find((x) => x.id === editingTypeId);
+      if (kind) kind.name = newName;
+
+      // update activities that reference this type to use canonical Kind
+      d.activities.forEach((a) => {
+        if (a.type && a.type.id === editingTypeId) {
+          const canonical = d.activityTypes.find((x) => x.id === editingTypeId);
+          if (canonical) a.type = canonical;
+        }
+      });
+
+      if (d.defaultActivityType && d.defaultActivityType.id === editingTypeId) {
+        const canonical = d.activityTypes.find((x) => x.id === editingTypeId);
+        if (canonical) d.defaultActivityType = canonical;
+      }
+
+      return d;
+    });
+
+    updateInputs("type", {
+      id: editingTypeId,
+      name: newName,
+      isCoreHqdm: false,
+    });
+    setEditingTypeId(null);
+    setEditingTypeValue("");
+  };
+
+  const cancelEditType = () => {
+    setEditingTypeId(null);
+    setEditingTypeValue("");
+  };
+  // ----- end helpers -----
+
+  // ...existing code...
+  const handlePromote = () => {
+    if (!inputs || !inputs.partOf) return;
+    // find current parent and then its parent (grandparent) - that's the new parent
+    const currentParent = dataset.getParent(inputs.partOf as Id);
+    const grandParent = currentParent
+      ? dataset.getParent(currentParent.id)
+      : undefined;
+    const newParentId = grandParent ? grandParent.id : null;
+
+    // confirm if child outside of new parent's timeframe
+    if (newParentId) {
+      const parentAct = dataset.activities.get(newParentId);
+      if (
+        parentAct &&
+        (inputs.beginning < parentAct.beginning ||
+          inputs.ending > parentAct.ending)
+      ) {
+        if (
+          !window.confirm(
+            `Promoting will require expanding "${parentAct.name}" timeframe to include this activity. Proceed?`
+          )
+        ) {
+          return;
+        }
+      }
+    }
+
+    updateDataset((d) => {
+      d.setActivityParent(inputs.id, newParentId, true);
+      return d;
+    });
+    updateInputs("partOf", newParentId ?? undefined);
+  };
+
+  const openChangeParent = () => {
+    // prepare list in modal by setting default selection to current parent
+    setSelectedParentId(inputs.partOf ? (inputs.partOf as string) : null);
+    setShowParentModal(true);
+  };
+
+  const handleApplyParent = () => {
+    updateDataset((d) => {
+      d.setActivityParent(inputs.id, selectedParentId ?? null);
+      return d;
+    });
+    updateInputs("partOf", selectedParentId ?? undefined);
+    setShowParentModal(false);
   };
 
   return (
@@ -215,7 +426,7 @@ const SetActivity = (props: Props) => {
         Add Activity
       </Button>
 
-      <Modal show={show} onHide={handleClose} onShow={handleShow}>
+      <Modal show={show} onHide={handleModalHide} onShow={handleShow}>
         <Modal.Header closeButton>
           <Modal.Title>
             {selectedActivity ? "Edit Activity" : "Add Activity"}
@@ -235,37 +446,180 @@ const SetActivity = (props: Props) => {
             </Form.Group>
             <Form.Group className="mb-3" controlId="formIndividualType">
               <Form.Label>Type</Form.Label>
-              <Form.Select
-                name="type"
-                value={inputs?.type?.id}
-                onChange={handleTypeChange}
-                className="form-control"
+              <div
+                ref={typeDropdownRef}
+                className="position-relative"
+                style={{ zIndex: 1050 }}
               >
-                {inputs.type == undefined && (
-                  <option value={undefined}>Choose type</option>
+                <button
+                  type="button"
+                  className="w-100 btn btn-outline-secondary d-flex justify-content-between align-items-center"
+                  onClick={() => setTypeOpen((s) => !s)}
+                >
+                  <span className="text-truncate">
+                    {inputs?.type?.name || "Select type..."}
+                  </span>
+                  <span style={{ marginLeft: 8 }}>▾</span>
+                </button>
+
+                {typeOpen && (
+                  <div
+                    className="card mt-1"
+                    style={{ maxHeight: 300, overflow: "hidden" }}
+                  >
+                    <div className="card-body p-2 border-bottom">
+                      <input
+                        className="form-control form-control-sm"
+                        placeholder="Search or create type..."
+                        value={typeSearch}
+                        onChange={(e) => setTypeSearch(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter" && showCreateTypeOption) {
+                            e.preventDefault();
+                            handleCreateTypeFromSearch();
+                            return;
+                          }
+
+                          if (e.key === "ArrowDown") {
+                            e.preventDefault();
+                            setHighlightedIndex((prev) =>
+                              prev < filteredTypes.length - 1 ? prev + 1 : 0
+                            );
+                            return;
+                          }
+
+                          if (e.key === "ArrowUp") {
+                            e.preventDefault();
+                            setHighlightedIndex((prev) =>
+                              prev > 0 ? prev - 1 : filteredTypes.length - 1
+                            );
+                            return;
+                          }
+
+                          if (e.key === "Escape") {
+                            setTypeOpen(false);
+                            return;
+                          }
+
+                          // If Enter and there are filtered types, select highlighted
+                          if (e.key === "Enter" && filteredTypes.length > 0 && !showCreateTypeOption) {
+                            e.preventDefault();
+                            selectHighlighted();
+                            return;
+                          }
+                        }}
+                        autoFocus
+                      />
+                    </div>
+
+                    <div style={{ maxHeight: 180, overflow: "auto" }}>
+                      {filteredTypes.map((t, idx) => (
+                        <div
+                          key={t.id}
+                          ref={(el) => {
+                            itemRefs.current[idx] = el;
+                          }}
+                          tabIndex={-1}
+                          className={`d-flex align-items-center justify-content-between px-3 py-2 ${
+                            highlightedIndex === idx
+                              ? "bg-primary text-white"
+                              : ""
+                          }`}
+                          style={{ cursor: "pointer" }}
+                          onClick={() => handleSelectType(t.id)}
+                          onMouseEnter={() => setHighlightedIndex(idx)}
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter") selectHighlighted();
+                            if (e.key === "Escape") setTypeOpen(false);
+                          }}
+                        >
+                          {editingTypeId === t.id ? (
+                            <div className="d-flex align-items-center w-100">
+                              <input
+                                className="form-control form-control-sm me-2"
+                                value={editingTypeValue}
+                                onChange={(e) =>
+                                  setEditingTypeValue(e.target.value)
+                                }
+                                onMouseDown={(e) => e.stopPropagation()}
+                                onClick={(e) => e.stopPropagation()}
+                                onKeyDown={(e) => {
+                                  if (e.key === "Enter") saveEditType();
+                                  if (e.key === "Escape") cancelEditType();
+                                }}
+                                autoFocus
+                              />
+                              <div className="d-flex align-items-center">
+                                <button
+                                  type="button"
+                                  className="btn btn-sm btn-success me-1"
+                                  onClick={(ev) => {
+                                    ev.stopPropagation();
+                                    saveEditType();
+                                  }}
+                                >
+                                  Save
+                                </button>
+                                <button
+                                  type="button"
+                                  className="btn btn-sm btn-secondary"
+                                  onClick={(ev) => {
+                                    ev.stopPropagation();
+                                    cancelEditType();
+                                  }}
+                                >
+                                  Cancel
+                                </button>
+                              </div>
+                            </div>
+                          ) : (
+                            <>
+                              <div className="flex-grow-1">{t.name}</div>
+                              <div className="d-flex align-items-center">
+                                {inputs?.type?.id === t.id && (
+                                  <span className="me-2">✓</span>
+                                )}
+                                {!t.isCoreHqdm && (
+                                  <button
+                                    type="button"
+                                    className={`btn btn-sm btn-link p-0 ${
+                                      highlightedIndex === idx
+                                        ? "text-white"
+                                        : ""
+                                    }`}
+                                    onClick={(e) =>
+                                      startEditType(t.id, t.name, e)
+                                    }
+                                  >
+                                    edit
+                                  </button>
+                                )}
+                              </div>
+                            </>
+                          )}
+                        </div>
+                      ))}
+
+                      {showCreateTypeOption && (
+                        <div
+                          className="px-3 py-2 text-primary fw-medium border-top"
+                          style={{ cursor: "pointer" }}
+                          onClick={handleCreateTypeFromSearch}
+                        >
+                          Create &quot;{typeSearch}&quot;
+                        </div>
+                      )}
+
+                      {filteredTypes.length === 0 && !showCreateTypeOption && (
+                        <div className="p-3 text-muted small">
+                          No results found
+                        </div>
+                      )}
+                    </div>
+                  </div>
                 )}
-                {dataset.activityTypes.map((type) => (
-                  <option key={type.id} value={type.id}>
-                    {type.name}
-                  </option>
-                ))}
-              </Form.Select>
+              </div>
             </Form.Group>
-            <InputGroup className="mb-3" size="sm">
-              <InputGroup.Text id="basic-addon1">Add option</InputGroup.Text>
-              <Form.Control
-                placeholder="New type"
-                aria-label="New Type"
-                ref={newType}
-              />
-              <Button
-                variant="outline-secondary"
-                id="button-addon2"
-                onClick={addType}
-              >
-                Add Type
-              </Button>
-            </InputGroup>
             <Form.Group className="mb-3" controlId="formIndividualDescription">
               <Form.Label>Description</Form.Label>
               <Form.Control
@@ -275,6 +629,37 @@ const SetActivity = (props: Props) => {
                 onChange={handleChange}
                 className="form-control"
               />
+            </Form.Group>
+            <Form.Group className="mb-3" controlId="formActivityColor">
+              <Form.Label>Color</Form.Label>
+              <div className="d-flex align-items-center gap-2">
+                <Form.Control
+                  type="color"
+                  name="color"
+                  value={pickerColor}
+                  onChange={(e) => updateInputs("color", e.target.value)}
+                  style={{ width: "50px", height: "38px", padding: "2px" }}
+                />
+                <Form.Control
+                  type="text"
+                  name="colorText"
+                  value={inputs.color || ""}
+                  placeholder="Default (auto)"
+                  onChange={(e) =>
+                    updateInputs("color", e.target.value || undefined)
+                  }
+                  style={{ maxWidth: "140px" }}
+                />
+                {inputs.color && (
+                  <Button
+                    variant="outline-secondary"
+                    size="sm"
+                    onClick={() => updateInputs("color", undefined)}
+                  >
+                    Reset
+                  </Button>
+                )}
+              </div>
             </Form.Group>
             <Form.Group className="mb-3" controlId="formIndividualBeginning">
               <Form.Label>Beginning</Form.Label>
@@ -307,6 +692,7 @@ const SetActivity = (props: Props) => {
               <Select
                 defaultValue={getSelectedIndividuals}
                 isMulti
+                classNamePrefix="participants-select"
                 // @ts-ignore
                 options={individuals}
                 getOptionLabel={(option) => option.name}
@@ -318,60 +704,139 @@ const SetActivity = (props: Props) => {
           </Form>
         </Modal.Body>
         <Modal.Footer>
-          <Container>
-            <Row className="justify-content-between">
-              <Col xs="auto">
+          <div className="activity-modal-footer w-100">
+            <div className="activity-modal-footer-row">
+              <div className="activity-modal-group">
                 <Button
-                  className={selectedActivity ? "mx-1" : "d-none mx-1"}
+                  className={
+                    selectedActivity ? "activity-modal-btn" : "d-none"
+                  }
                   variant="danger"
                   onClick={handleDelete}
                 >
                   Delete
                 </Button>
                 <Button
-                  className={selectedActivity ? "mx-1" : "d-none mx-1"}
+                  className={
+                    selectedActivity ? "activity-modal-btn" : "d-none"
+                  }
                   variant="primary"
                   onClick={handleCopy}
                 >
                   Copy
                 </Button>
                 <Button
-                  className={selectedActivity ? "mx-1" : "d-none mx-1"}
+                  className={
+                    selectedActivity ? "activity-modal-btn" : "d-none"
+                  }
                   variant="secondary"
                   onClick={handleContext}
                 >
                   Sub-tasks
                 </Button>
-              </Col>
-              <Col xs="auto">
+              </div>
+              <div className="activity-modal-group">
                 <Button
-                  className="mx-1" variant="secondary"
+                  className={
+                    selectedActivity ? "activity-modal-btn" : "d-none"
+                  }
+                  variant="secondary"
+                  onClick={handlePromote}
+                  title="Promote (move up one level)"
+                >
+                  Promote
+                </Button>
+                <Button
+                  className={
+                    selectedActivity ? "activity-modal-btn" : "d-none"
+                  }
+                  variant="danger"
+                  onClick={openChangeParent}
+                  title="Swap parent (assign as sub-task of another activity)"
+                >
+                  Swap Parent
+                </Button>
+              </div>
+              <div className="activity-modal-group activity-modal-primary">
+                <Button
+                  className="activity-modal-btn"
+                  variant="secondary"
                   onClick={handleClose}
                 >
                   Close
                 </Button>
-                <Button 
-                  className="mx-1" variant="primary" 
-                  onClick={handleAdd} disabled={!dirty}
+                <Button
+                  className="activity-modal-btn"
+                  variant="primary"
+                  onClick={handleAdd}
+                  disabled={!dirty}
                 >
                   Save
                 </Button>
-              </Col>
-            </Row>
-            <Row className="mt-2">
-              <Col>
-                {errors.length > 0 && (
-                  <Alert variant={"danger"} className="p-2 m-0">
-                    {errors.map((error, i) => (
-                      <p key={i} className="mb-1">
-                        {error}
-                      </p>
-                    ))}
-                  </Alert>
-                )}
-              </Col>
-            </Row>
-          </Container>
+              </div>
+            </div>
+            <div className="activity-modal-errors">
+              {errors.length > 0 && (
+                <Alert variant={"danger"} className="p-2 m-0">
+                  {errors.map((error, i) => (
+                    <p key={i} className="mb-1">
+                      {error}
+                    </p>
+                  ))}
+                </Alert>
+              )}
+            </div>
+          </div>
+        </Modal.Footer>
+      </Modal>
+
+      {/* Parent chooser modal */}
+      <Modal show={showParentModal} onHide={() => setShowParentModal(false)}>
+        <Modal.Header closeButton>
+          <Modal.Title>Choose parent activity (or None)</Modal.Title>
+        </Modal.Header>
+        <Modal.Body>
+          <ListGroup>
+            <ListGroup.Item
+              action
+              active={selectedParentId === null}
+              onClick={() => setSelectedParentId(null)}
+            >
+              None (make top-level)
+            </ListGroup.Item>
+            {Array.from(dataset.activities.values())
+              .filter((a) => {
+                // exclude self and descendants
+                if (!inputs || !inputs.id) return false;
+                if (a.id === inputs.id) return false;
+                if (isAncestorLocal(inputs.id, a.id)) return false; // avoid cycles
+                return true;
+              })
+              .map((a) => {
+                const parentName =
+                  a.partOf && dataset.activities.get(a.partOf as string)
+                    ? dataset.activities.get(a.partOf as string)!.name
+                    : a.partOf ?? "";
+                return (
+                  <ListGroup.Item
+                    key={a.id}
+                    action
+                    active={selectedParentId === a.id}
+                    onClick={() => setSelectedParentId(a.id)}
+                  >
+                    {a.name} {parentName ? `(Part of ${parentName})` : ""}
+                  </ListGroup.Item>
+                );
+              })}
+          </ListGroup>
+        </Modal.Body>
+        <Modal.Footer>
+          <Button variant="secondary" onClick={() => setShowParentModal(false)}>
+            Cancel
+          </Button>
+          <Button variant="primary" onClick={handleApplyParent}>
+            Apply
+          </Button>
         </Modal.Footer>
       </Modal>
     </>

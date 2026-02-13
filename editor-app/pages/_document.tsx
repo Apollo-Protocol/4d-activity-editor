@@ -1,6 +1,4 @@
-import Footer from "@/components/Footer";
 import { Html, Head, Main, NextScript } from "next/document";
-import { Navbar } from "react-bootstrap";
 
 export default function Document() {
   return (
@@ -19,18 +17,8 @@ export default function Document() {
         />
       </Head>
       <body>
-        <div
-          id="page-container"
-          style={{ position: "relative", minHeight: "100vh" }}
-        >
-          <div id="content-wrap" style={{ paddingBottom: "2rem" }}>
-            <Main />
-            <NextScript />
-          </div>
-          <div style={{ height: "2em" }}>
-            <Footer />
-          </div>
-        </div>
+        <Main />
+        <NextScript />
       </body>
     </Html>
   );

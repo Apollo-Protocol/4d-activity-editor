@@ -132,6 +132,20 @@ const SetActivity = (props: Props) => {
     setErrors([]);
     setDirty(false);
   };
+
+  // Prevent closing the parent Modal while the inline "edit type" input is active.
+  // If the user begins a text selection inside the inline editor and releases
+  // the mouse outside the modal (backdrop), react-bootstrap would normally
+  // call `onHide` and close the modal — that causes the bug you reported.
+  // Ignore onHide requests while `editingTypeId` is non-null.
+  const handleModalHide = () => {
+    if (editingTypeId) {
+      // keep modal open while editing a type to avoid losing focus/selection
+      return;
+    }
+    handleClose();
+  };
+
   const handleShow = () => {
     if (selectedActivity) {
       setInputs(selectedActivity);
@@ -412,7 +426,7 @@ const SetActivity = (props: Props) => {
         Add Activity
       </Button>
 
-      <Modal show={show} onHide={handleClose} onShow={handleShow}>
+      <Modal show={show} onHide={handleModalHide} onShow={handleShow}>
         <Modal.Header closeButton>
           <Modal.Title>
             {selectedActivity ? "Edit Activity" : "Add Activity"}

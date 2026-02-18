@@ -30,7 +30,7 @@ export const SYSTEM_CONTAINER_INSET = 4;
 export const SYSTEM_HORIZONTAL_INSET = 24; // Increased to keep components inside tapered ends
 export const SYSTEM_COMPONENT_GAP = 4;
 export const SYSTEM_COMPONENT_HEIGHT_FACTOR = 1;
-export const SYSTEM_MIN_HOST_HEIGHT_FACTOR = 5;
+export const SYSTEM_MIN_HOST_HEIGHT_FACTOR = 3;
 
 export function calculateViewportHeight(
   config: ConfigData,

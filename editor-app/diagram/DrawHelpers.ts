@@ -2,6 +2,10 @@ import * as d3 from "d3";
 
 import { Model } from "@/lib/Model";
 import { Activity, Individual } from "@/lib/Schema";
+import {
+  ENTITY_TYPE_IDS,
+  getEntityTypeIdFromIndividual,
+} from "@/lib/entityTypes";
 
 import { ConfigData } from "./config";
 
@@ -22,16 +26,79 @@ export interface Label {
   height: number;
 }
 
+export const SYSTEM_CONTAINER_INSET = 4;
+export const SYSTEM_HORIZONTAL_INSET = 24; // Increased to keep components inside tapered ends
+export const SYSTEM_COMPONENT_GAP = 4;
+export const SYSTEM_COMPONENT_HEIGHT_FACTOR = 1;
+export const SYSTEM_MIN_HOST_HEIGHT_FACTOR = 5;
+
 export function calculateViewportHeight(
   config: ConfigData,
   individualsMap: Map<string, Individual>
 ) {
   let viewPortHeight = 0;
-  const individualCount = Math.max(1, individualsMap.size);
+  const individuals = Array.from(individualsMap.values());
+  const baseHeight = config.layout.individual.height;
+  const componentHeight = Math.max(
+    10,
+    Math.floor(baseHeight * SYSTEM_COMPONENT_HEIGHT_FACTOR)
+  );
+
+  const componentsBySystem = new Map<string, Individual[]>();
+  individuals.forEach((individual) => {
+    if (!individual.installedIn) return;
+    if (
+      getEntityTypeIdFromIndividual(individual) !==
+      ENTITY_TYPE_IDS.SYSTEM_COMPONENT
+    ) {
+      return;
+    }
+
+    const host = individualsMap.get(individual.installedIn);
+    if (!host || getEntityTypeIdFromIndividual(host) !== ENTITY_TYPE_IDS.SYSTEM) {
+      return;
+    }
+
+    const list = componentsBySystem.get(host.id);
+    if (list) list.push(individual);
+    else componentsBySystem.set(host.id, [individual]);
+  });
+
   viewPortHeight += config.layout.individual.topMargin;
   viewPortHeight += config.layout.individual.gap;
-  viewPortHeight += config.layout.individual.height * individualCount;
-  viewPortHeight += config.layout.individual.gap * individualCount;
+
+  individuals.forEach((individual) => {
+    const host = individual.installedIn
+      ? individualsMap.get(individual.installedIn)
+      : undefined;
+    const isNestedComponent =
+      !!host &&
+      getEntityTypeIdFromIndividual(host) === ENTITY_TYPE_IDS.SYSTEM &&
+      getEntityTypeIdFromIndividual(individual) ===
+        ENTITY_TYPE_IDS.SYSTEM_COMPONENT;
+    if (isNestedComponent) {
+      return;
+    }
+
+    const childComponents = componentsBySystem.get(individual.id) ?? [];
+    const expandedHeight =
+      childComponents.length > 0
+        ? Math.max(
+            Math.floor(baseHeight * SYSTEM_MIN_HOST_HEIGHT_FACTOR),
+            SYSTEM_CONTAINER_INSET * 2 +
+              childComponents.length * componentHeight +
+              (childComponents.length - 1) * SYSTEM_COMPONENT_GAP
+          )
+        : baseHeight;
+
+    viewPortHeight += expandedHeight;
+    viewPortHeight += config.layout.individual.gap;
+  });
+
+  if (individuals.length === 0) {
+    viewPortHeight += baseHeight + config.layout.individual.gap;
+  }
+
   viewPortHeight += config.layout.individual.bottomMargin;
   return viewPortHeight;
 }

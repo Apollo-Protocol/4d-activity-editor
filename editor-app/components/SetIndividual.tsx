@@ -2,19 +2,25 @@ import React, {
   Dispatch,
   SetStateAction,
   useEffect,
+  useMemo,
   useRef,
   useState,
 } from "react";
 import Button from "react-bootstrap/Button";
 import Modal from "react-bootstrap/Modal";
-import Row from "react-bootstrap/Row";
-import Col from "react-bootstrap/Col";
 import Form from "react-bootstrap/Form";
-import Container from "react-bootstrap/Container";
 import { Individual } from "@/lib/Schema";
 import { Model } from "@/lib/Model";
 import { v4 as uuidv4 } from "uuid";
-import { Alert, InputGroup } from "react-bootstrap";
+import { Alert } from "react-bootstrap";
+import {
+  ENTITY_CATEGORY,
+  ENTITY_TYPE_IDS,
+  ENTITY_TYPE_OPTIONS,
+  getEntityCategoryFromTypeId,
+  getEntityTypeId,
+  getEntityTypeIdFromIndividual,
+} from "@/lib/entityTypes";
 
 interface Props {
   deleteIndividual: (id: string) => void;
@@ -38,7 +44,8 @@ const SetIndividual = (props: Props) => {
     dataset,
     updateDataset,
   } = props;
-  let defaultIndividual: Individual = {
+
+  const defaultIndividual: Individual = {
     id: "",
     name: "",
     type: dataset.defaultIndividualType,
@@ -47,10 +54,12 @@ const SetIndividual = (props: Props) => {
     ending: Model.END_OF_TIME,
     beginsWithParticipant: false,
     endsWithParticipant: false,
+    installedIn: undefined,
+    entityType: ENTITY_CATEGORY.INDIVIDUAL,
   };
 
-  const [errors, setErrors] = useState([]);
-  const [inputs, setInputs] = useState(
+  const [errors, setErrors] = useState<string[]>([]);
+  const [inputs, setInputs] = useState<Individual>(
     selectedIndividual ? selectedIndividual : defaultIndividual
   );
   const [dirty, setDirty] = useState(false);
@@ -59,7 +68,6 @@ const SetIndividual = (props: Props) => {
   const [individualHasParticipants, setIndividualHasParticipants] =
     useState(false);
 
-  // New state for custom type selector
   const [typeOpen, setTypeOpen] = useState(false);
   const [typeSearch, setTypeSearch] = useState("");
   const [editingTypeId, setEditingTypeId] = useState<string | null>(null);
@@ -68,11 +76,34 @@ const SetIndividual = (props: Props) => {
   const [highlightedIndex, setHighlightedIndex] = useState<number>(-1);
   const itemRefs = useRef<Array<HTMLDivElement | null>>([]);
 
+  const isEditMode = !!selectedIndividual;
+
+  const selectedEntityTypeId = getEntityTypeIdFromIndividual(inputs);
+
+  const systems = useMemo(
+    () =>
+      Array.from(dataset.individuals.values()).filter(
+        (individual) =>
+          individual.id !== inputs.id &&
+          getEntityTypeIdFromIndividual(individual) === ENTITY_TYPE_IDS.SYSTEM
+      ),
+    [dataset.individuals, inputs.id]
+  );
+
+  const systemComponents = useMemo(
+    () =>
+      Array.from(dataset.individuals.values()).filter(
+        (individual) =>
+          individual.id !== inputs.id &&
+          getEntityTypeIdFromIndividual(individual) ===
+            ENTITY_TYPE_IDS.SYSTEM_COMPONENT
+      ),
+    [dataset.individuals, inputs.id]
+  );
+
   useEffect(() => {
     if (selectedIndividual) {
-      setIndividualHasParticipants(
-        dataset.hasParticipants(selectedIndividual.id)
-      );
+      setIndividualHasParticipants(dataset.hasParticipants(selectedIndividual.id));
     }
 
     if (selectedIndividual && selectedIndividual.beginning > -1) {
@@ -88,7 +119,6 @@ const SetIndividual = (props: Props) => {
     }
   }, [selectedIndividual, dataset]);
 
-  // click outside to close type dropdown
   useEffect(() => {
     function handleClickOutside(ev: MouseEvent) {
       if (
@@ -104,7 +134,6 @@ const SetIndividual = (props: Props) => {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, [typeOpen]);
 
-  // Ensure a highlighted item is visible when changed
   useEffect(() => {
     if (highlightedIndex >= 0 && itemRefs.current[highlightedIndex]) {
       const el = itemRefs.current[highlightedIndex];
@@ -124,39 +153,25 @@ const SetIndividual = (props: Props) => {
     setEditingTypeValue("");
   };
 
-  // Prevent closing the Modal while inline "edit type" is active. Backdrop
-  // clicks or mouseup outside the dialog during a text selection were
-  // closing the modal — ignore those when `editingTypeId` is set.
   const handleModalHide = () => {
     if (editingTypeId) {
-      return; // keep modal open while user is editing a type name
+      return;
     }
     handleClose();
   };
 
   const handleShow = () => {
     if (selectedIndividual) {
-      setInputs(selectedIndividual);
+      const selectedCategory =
+        selectedIndividual.entityType ??
+        getEntityCategoryFromTypeId(getEntityTypeIdFromIndividual(selectedIndividual));
+      setInputs({ ...selectedIndividual, entityType: selectedCategory });
     } else {
-      defaultIndividual.id = uuidv4();
-      setInputs(defaultIndividual);
+      setInputs({ ...defaultIndividual, id: uuidv4() });
     }
-  };
-  const handleAdd = (event: any) => {
-    event.preventDefault();
-    if (!dirty) return handleClose();
-    const isValid = validateInputs();
-    if (isValid) {
-      setIndividual(inputs);
-      handleClose();
-    }
-  };
-  const handleDelete = (event: any) => {
-    deleteIndividual(inputs.id);
-    handleClose();
   };
 
-  const updateInputs = (key: string, value: any) => {
+  const updateInputs = (key: keyof Individual, value: any) => {
     setInputs({ ...inputs, [key]: value });
     setDirty(true);
   };
@@ -165,7 +180,28 @@ const SetIndividual = (props: Props) => {
     updateInputs(e.target.name, e.target.value);
   };
 
-  // remove old handleTypeChange and add new type handlers below
+  const handleChangeNumeric = (e: any) => {
+    updateInputs(e.target.name, e.target.valueAsNumber);
+  };
+
+  const handleSelectEntityType = (typeId: string) => {
+    if (isEditMode) return;
+
+    setInputs((prev) => {
+      const entityType = getEntityCategoryFromTypeId(typeId);
+      const next: Individual = {
+        ...prev,
+        entityType,
+      };
+
+      if (entityType !== ENTITY_CATEGORY.SYSTEM_COMPONENT) {
+        next.installedIn = undefined;
+      }
+
+      return next;
+    });
+    setDirty(true);
+  };
 
   const handleBeginsWithParticipant = (e: any) => {
     const checked = e.target.checked;
@@ -180,8 +216,6 @@ const SetIndividual = (props: Props) => {
     }
   };
 
-  /* XXX Why does this use Number.MAX_VALUE rather than
-   * Model.END_OF_TIME? */
   const handleEndsWithParticipant = (e: any) => {
     const checked = e.target.checked;
     const lastEnding = selectedIndividual
@@ -191,28 +225,8 @@ const SetIndividual = (props: Props) => {
     updateInputs("ending", checked ? lastEnding : Number.MAX_VALUE);
   };
 
-  const validateInputs = () => {
-    let runningErrors = [];
-    //Name
-    if (!inputs.name) {
-      runningErrors.push("Name field is required");
-    }
-    //Type
-    if (!inputs.type) {
-      runningErrors.push("Type field is required");
-    }
-    if (runningErrors.length == 0) {
-      return true;
-    } else {
-      // @ts-ignore
-      setErrors(runningErrors);
-      return false;
-    }
-  };
-
-  // ----- New helper functions for custom type selector -----
-  const filteredTypes = dataset.individualTypes.filter((t) =>
-    t.name.toLowerCase().includes(typeSearch.toLowerCase())
+  const filteredTypes = dataset.individualTypes.filter((type) =>
+    type.name.toLowerCase().includes(typeSearch.toLowerCase())
   );
 
   useEffect(() => {
@@ -221,7 +235,7 @@ const SetIndividual = (props: Props) => {
       return;
     }
     const selectedIndex = filteredTypes.findIndex(
-      (t) => t.id === inputs?.type?.id
+      (type) => type.id === inputs?.type?.id
     );
     setHighlightedIndex(selectedIndex >= 0 ? selectedIndex : 0);
   }, [typeOpen, typeSearch, inputs?.type?.id, filteredTypes.length]);
@@ -229,13 +243,13 @@ const SetIndividual = (props: Props) => {
   const showCreateTypeOption =
     typeSearch.trim().length > 0 &&
     !dataset.individualTypes.some(
-      (t) => t.name.toLowerCase() === typeSearch.trim().toLowerCase()
+      (type) => type.name.toLowerCase() === typeSearch.trim().toLowerCase()
     );
 
   const handleSelectType = (typeId: string) => {
-    const t = dataset.individualTypes.find((x) => x.id === typeId);
-    if (t) {
-      updateInputs("type", t);
+    const selectedType = dataset.individualTypes.find((type) => type.id === typeId);
+    if (selectedType) {
+      updateInputs("type", selectedType);
     }
     setTypeOpen(false);
     setTypeSearch("");
@@ -264,17 +278,12 @@ const SetIndividual = (props: Props) => {
     if (!name) return;
     const newId = uuidv4();
 
-    // add to dataset (keeps existing project pattern)
     updateDataset((d) => {
       d.addIndividualType(newId, name);
       return d;
     });
 
-    // Immediately select the newly created type for this form.
-    // Create a minimal Kind-like object so selection is immediate even
-    // if the dataset state hasn't re-rendered yet.
-    const createdType = { id: newId, name, isCoreHqdm: false };
-    updateInputs("type", createdType);
+    updateInputs("type", { id: newId, name, isCoreHqdm: false });
 
     setTypeOpen(false);
     setTypeSearch("");
@@ -282,8 +291,7 @@ const SetIndividual = (props: Props) => {
 
   const startEditType = (typeId: string, currentName: string, e: any) => {
     e.stopPropagation();
-    // prevent editing core HQDM defaults
-    const found = dataset.individualTypes.find((x) => x.id === typeId);
+    const found = dataset.individualTypes.find((type) => type.id === typeId);
     if (found && found.isCoreHqdm) return;
     setEditingTypeId(typeId);
     setEditingTypeValue(currentName);
@@ -294,36 +302,32 @@ const SetIndividual = (props: Props) => {
     const newName = editingTypeValue.trim();
     if (!newName) return;
 
-    // Update model: rename the Kind and update all Individuals that reference it
     updateDataset((d) => {
-      // find the canonical kind in the model and rename it
-      const kind = d.individualTypes.find((x) => x.id === editingTypeId);
+      const kind = d.individualTypes.find((type) => type.id === editingTypeId);
       if (kind) kind.name = newName;
 
-      // update any Individuals that still reference the old Kind object
-      // by replacing their .type with the canonical Kind from the model
-      d.individuals.forEach((ind /*, key */) => {
-        if (ind.type && ind.type.id === editingTypeId) {
+      d.individuals.forEach((individual) => {
+        if (individual.type && individual.type.id === editingTypeId) {
           const canonical = d.individualTypes.find(
-            (x) => x.id === editingTypeId
+            (type) => type.id === editingTypeId
           );
-          if (canonical) ind.type = canonical;
+          if (canonical) individual.type = canonical;
         }
       });
 
-      // if defaultIndividualType matches, update that reference too
       if (
         d.defaultIndividualType &&
         d.defaultIndividualType.id === editingTypeId
       ) {
-        const canonical = d.individualTypes.find((x) => x.id === editingTypeId);
+        const canonical = d.individualTypes.find(
+          (type) => type.id === editingTypeId
+        );
         if (canonical) d.defaultIndividualType = canonical;
       }
 
       return d;
     });
 
-    // Update the form selection immediately to show edited name
     updateInputs("type", {
       id: editingTypeId,
       name: newName,
@@ -338,23 +342,112 @@ const SetIndividual = (props: Props) => {
     setEditingTypeId(null);
     setEditingTypeValue("");
   };
-  // ----- end helpers -----
+
+  const validateInputs = () => {
+    const runningErrors: string[] = [];
+
+    if (!inputs.name) {
+      runningErrors.push("Name field is required");
+    }
+
+    if (!inputs.type) {
+      runningErrors.push("Type field is required");
+    }
+
+    if (
+      selectedEntityTypeId === ENTITY_TYPE_IDS.SYSTEM_COMPONENT &&
+      !inputs.installedIn
+    ) {
+      runningErrors.push("System Component must be installed to a System");
+    }
+
+    if (
+      selectedEntityTypeId === ENTITY_TYPE_IDS.INDIVIDUAL &&
+      inputs.installedIn
+    ) {
+      const installedInEntity = dataset.individuals.get(inputs.installedIn);
+      const installedInType = installedInEntity
+        ? getEntityTypeIdFromIndividual(installedInEntity)
+        : undefined;
+
+      if (installedInType !== ENTITY_TYPE_IDS.SYSTEM_COMPONENT) {
+        runningErrors.push(
+          "Individual can only be installed into a System Component"
+        );
+      }
+
+      if (!Number.isFinite(inputs.beginning) || inputs.beginning < 0) {
+        runningErrors.push("Beginning must be 0 or greater");
+      }
+
+      if (!Number.isFinite(inputs.ending) || inputs.ending <= inputs.beginning) {
+        runningErrors.push("Ending must be after Beginning");
+      }
+
+      if (inputs.ending >= Model.END_OF_TIME) {
+        runningErrors.push(`Ending must be less than ${Model.END_OF_TIME}`);
+      }
+    }
+
+    if (runningErrors.length === 0) {
+      return true;
+    }
+
+    setErrors(runningErrors);
+    return false;
+  };
+
+  const handleAdd = (event: any) => {
+    event.preventDefault();
+    if (!dirty) return handleClose();
+
+    const isValid = validateInputs();
+    if (isValid) {
+      setIndividual(inputs);
+      handleClose();
+    }
+  };
+
+  const handleDelete = () => {
+    deleteIndividual(inputs.id);
+    handleClose();
+  };
 
   return (
     <>
       <Button variant="primary" onClick={() => setShow(true)} className="mx-1">
-        Add Individual
+        Add Entity
       </Button>
 
       <Modal show={show} onHide={handleModalHide} onShow={handleShow}>
         <Modal.Header closeButton>
-          <Modal.Title>
-            {selectedIndividual ? "Edit Individual" : "Add Individual"}
-          </Modal.Title>
+          <Modal.Title>{selectedIndividual ? "Edit Entity" : "Add Entity"}</Modal.Title>
         </Modal.Header>
         <Modal.Body>
           <Form onSubmit={handleAdd}>
-            <Form.Group className="mb-3" controlId="formIndividualName">
+            <Form.Group className="mb-3" controlId="formEntityType">
+              <Form.Label>Entity Type</Form.Label>
+              <div className="d-flex flex-wrap gap-2">
+                {ENTITY_TYPE_OPTIONS.map((option) => {
+                  const selected = selectedEntityTypeId === option.id;
+                  const disabled = isEditMode && !selected;
+                  return (
+                    <Button
+                      key={option.id}
+                      type="button"
+                      size="sm"
+                      variant={selected ? "primary" : "outline-secondary"}
+                      disabled={disabled}
+                      onClick={() => handleSelectEntityType(option.id)}
+                    >
+                      {option.glyph} {option.label}
+                    </Button>
+                  );
+                })}
+              </div>
+            </Form.Group>
+
+            <Form.Group className="mb-3" controlId="formEntityName">
               <Form.Label>Name</Form.Label>
               <Form.Control
                 type="text"
@@ -365,10 +458,8 @@ const SetIndividual = (props: Props) => {
               />
             </Form.Group>
 
-            {/* ----------------- REPLACED Type field: custom select/create ----------------- */}
-            <Form.Group className="mb-3" controlId="formIndividualType">
+            <Form.Group className="mb-3" controlId="formEntityTypeName">
               <Form.Label>Type</Form.Label>
-
               <div
                 ref={typeDropdownRef}
                 className="position-relative"
@@ -377,7 +468,7 @@ const SetIndividual = (props: Props) => {
                 <button
                   type="button"
                   className="w-100 btn btn-outline-secondary d-flex justify-content-between align-items-center"
-                  onClick={() => setTypeOpen((s) => !s)}
+                  onClick={() => setTypeOpen((current) => !current)}
                 >
                   <span className="text-truncate">
                     {inputs?.type?.name || "Select type..."}
@@ -435,27 +526,25 @@ const SetIndividual = (props: Props) => {
                     </div>
 
                     <div style={{ maxHeight: 180, overflow: "auto" }}>
-                      {filteredTypes.map((t, idx) => (
+                      {filteredTypes.map((type, idx) => (
                         <div
-                          key={t.id}
+                          key={type.id}
                           ref={(el) => {
                             itemRefs.current[idx] = el;
                           }}
                           tabIndex={-1}
                           className={`d-flex align-items-center justify-content-between px-3 py-2 ${
-                            highlightedIndex === idx
-                              ? "bg-primary text-white"
-                              : ""
+                            highlightedIndex === idx ? "bg-primary text-white" : ""
                           }`}
                           style={{ cursor: "pointer" }}
-                          onClick={() => handleSelectType(t.id)}
+                          onClick={() => handleSelectType(type.id)}
                           onMouseEnter={() => setHighlightedIndex(idx)}
                           onKeyDown={(e) => {
                             if (e.key === "Enter") selectHighlighted();
                             if (e.key === "Escape") setTypeOpen(false);
                           }}
                         >
-                          {editingTypeId === t.id ? (
+                          {editingTypeId === type.id ? (
                             <div className="d-flex align-items-center w-100">
                               <input
                                 className="form-control form-control-sm me-2"
@@ -496,22 +585,19 @@ const SetIndividual = (props: Props) => {
                             </div>
                           ) : (
                             <>
-                              <div className="flex-grow-1">{t.name}</div>
+                              <div className="flex-grow-1">{type.name}</div>
                               <div className="d-flex align-items-center">
-                                {inputs?.type?.id === t.id && (
+                                {inputs?.type?.id === type.id && (
                                   <span className="me-2">✓</span>
                                 )}
-                                {/* hide/disable edit for core HQDM types */}
-                                {!t.isCoreHqdm && (
+                                {!type.isCoreHqdm && (
                                   <button
                                     type="button"
                                     className={`btn btn-sm btn-link p-0 ${
-                                      highlightedIndex === idx
-                                        ? "text-white"
-                                        : ""
+                                      highlightedIndex === idx ? "text-white" : ""
                                     }`}
                                     onClick={(e) =>
-                                      startEditType(t.id, t.name, e)
+                                      startEditType(type.id, type.name, e)
                                     }
                                   >
                                     edit
@@ -534,18 +620,128 @@ const SetIndividual = (props: Props) => {
                       )}
 
                       {filteredTypes.length === 0 && !showCreateTypeOption && (
-                        <div className="p-3 text-muted small">
-                          No results found
-                        </div>
+                        <div className="p-3 text-muted small">No results found</div>
                       )}
                     </div>
                   </div>
                 )}
               </div>
             </Form.Group>
-            {/* ----------------- end replaced Type field ----------------- */}
 
-            <Form.Group className="mb-3" controlId="formIndividualDescription">
+            {selectedEntityTypeId === ENTITY_TYPE_IDS.SYSTEM_COMPONENT && (
+              <Form.Group className="mb-3" controlId="formEntityInstalledIn">
+                <Form.Label>Install To System</Form.Label>
+                <Form.Select
+                  name="installedIn"
+                  value={inputs?.installedIn || ""}
+                  onChange={(e) =>
+                    updateInputs("installedIn", e.target.value || undefined)
+                  }
+                >
+                  <option value="">Select system...</option>
+                  {systems.map((system) => (
+                    <option key={system.id} value={system.id}>
+                      {system.name}
+                    </option>
+                  ))}
+                </Form.Select>
+                {systems.length === 0 && (
+                  <Form.Text className="text-danger">
+                    Create a System entity before adding a System Component.
+                  </Form.Text>
+                )}
+              </Form.Group>
+            )}
+
+            {selectedEntityTypeId === ENTITY_TYPE_IDS.INDIVIDUAL && (
+              <>
+                <Form.Group
+                  className="mb-3"
+                  controlId="formEntityInstalledInSystemComponent"
+                >
+                  <Form.Label>Install Into System Component (Optional)</Form.Label>
+                  <Form.Select
+                    name="installedIn"
+                    value={inputs?.installedIn || ""}
+                    onChange={(e) => {
+                      const selectedValue = e.target.value || undefined;
+
+                      if (!selectedValue) {
+                        setBeginsWithParticipant(false);
+                        setEndsWithParticipant(false);
+                        setInputs((prev) => ({
+                          ...prev,
+                          installedIn: undefined,
+                          beginning: -1,
+                          ending: Model.END_OF_TIME,
+                        }));
+                        setDirty(true);
+                        return;
+                      }
+
+                      const nextBeginning =
+                        inputs.beginning >= 0 && Number.isFinite(inputs.beginning)
+                          ? inputs.beginning
+                          : 0;
+                      const nextEnding =
+                        inputs.ending > nextBeginning &&
+                        inputs.ending < Model.END_OF_TIME
+                          ? inputs.ending
+                          : nextBeginning + 1;
+
+                      setInputs((prev) => ({
+                        ...prev,
+                        installedIn: selectedValue,
+                        beginning: nextBeginning,
+                        ending: nextEnding,
+                      }));
+                      setDirty(true);
+                    }}
+                  >
+                    <option value="">None</option>
+                    {systemComponents.map((component) => (
+                      <option key={component.id} value={component.id}>
+                        {component.name}
+                      </option>
+                    ))}
+                  </Form.Select>
+                </Form.Group>
+
+                {!!inputs.installedIn && (
+                  <>
+                    <Form.Group className="mb-3" controlId="formEntityBeginning">
+                      <Form.Label>Beginning</Form.Label>
+                      <Form.Control
+                        type="number"
+                        name="beginning"
+                        value={inputs.beginning}
+                        onChange={handleChangeNumeric}
+                        step="1"
+                        min="0"
+                        max={Model.END_OF_TIME - 2}
+                        className="form-control"
+                      />
+                    </Form.Group>
+
+                    <Form.Group className="mb-3" controlId="formEntityEnding">
+                      <Form.Label>Ending</Form.Label>
+                      <Form.Control
+                        type="number"
+                        name="ending"
+                        value={inputs.ending}
+                        onChange={handleChangeNumeric}
+                        step="1"
+                        min="1"
+                        max={Model.END_OF_TIME - 1}
+                        className="form-control"
+                      />
+                    </Form.Group>
+                  </>
+                )}
+              </>
+            )}
+
+            <Form.Group className="mb-3" controlId="formEntityDescription">
               <Form.Label>Description</Form.Label>
               <Form.Control
                 type="text"
@@ -555,43 +751,51 @@ const SetIndividual = (props: Props) => {
                 className="form-control"
               />
             </Form.Group>
-            <Form.Group
-              className="mb-3"
-              controlId="formIndividualBeginsWithParticipant"
-            >
-              <Form.Check
-                type="switch"
-                name="beginsWithParticipant"
-                label="Begins With Participant"
-                disabled={!individualHasParticipants}
-                checked={beginsWithParticipant}
-                onChange={handleBeginsWithParticipant}
-              />
-            </Form.Group>
-            <Form.Group
-              className="mb-3"
-              controlId="formIndividualEndsWithParticipant"
-            >
-              <Form.Check
-                type="switch"
-                name="endsWithParticipant"
-                label="Ends With Participant"
-                disabled={!individualHasParticipants}
-                checked={endsWithParticipant}
-                onChange={handleEndsWithParticipant}
-              />
-            </Form.Group>
+
+            {!(
+              selectedEntityTypeId === ENTITY_TYPE_IDS.INDIVIDUAL &&
+              !!inputs.installedIn
+            ) && (
+              <>
+                <Form.Group
+                  className="mb-3"
+                  controlId="formEntityBeginsWithParticipant"
+                >
+                  <Form.Check
+                    type="switch"
+                    name="beginsWithParticipant"
+                    label="Begins With Participant"
+                    disabled={!individualHasParticipants}
+                    checked={beginsWithParticipant}
+                    onChange={handleBeginsWithParticipant}
+                  />
+                </Form.Group>
+
+                <Form.Group
+                  className="mb-3"
+                  controlId="formEntityEndsWithParticipant"
+                >
+                  <Form.Check
+                    type="switch"
+                    name="endsWithParticipant"
+                    label="Ends With Participant"
+                    disabled={!individualHasParticipants}
+                    checked={endsWithParticipant}
+                    onChange={handleEndsWithParticipant}
+                  />
+                </Form.Group>
+              </>
+            )}
           </Form>
         </Modal.Body>
+
         <Modal.Footer>
           <div className="w-100 d-flex justify-content-between align-items-center">
             <div>
               <Button
                 variant="danger"
                 onClick={handleDelete}
-                className={
-                  selectedIndividual ? "d-inline-block me-2" : "d-none"
-                }
+                className={selectedIndividual ? "d-inline-block me-2" : "d-none"}
               >
                 Delete
               </Button>
@@ -601,15 +805,16 @@ const SetIndividual = (props: Props) => {
                 Cancel
               </Button>
               <Button variant="primary" onClick={handleAdd} disabled={!dirty}>
-                Save
+                {selectedIndividual ? "Save" : "Add"}
               </Button>
             </div>
           </div>
+
           <div className="w-100 mt-2">
             {errors.length > 0 && (
-              <Alert variant={"danger"} className="p-2 m-0">
-                {errors.map((error, i) => (
-                  <p key={i} className="mb-1">
+              <Alert variant="danger" className="p-2 m-0">
+                {errors.map((error, idx) => (
+                  <p key={idx} className="mb-1">
                     {error}
                   </p>
                 ))}

@@ -26,6 +26,8 @@ import {
 import { IndividualImpl } from "./IndividualImpl";
 import { Kind, Model } from "./Model";
 import { EDITOR_VERSION } from "./version";
+import { ENTITY_CATEGORY } from "./entityTypes";
+import type { EntityCategory } from "./entityTypes";
 
 /**
  * ActivityLib
@@ -52,6 +54,8 @@ const ACTIVITY_COLOR_PREDICATE = `${EDITOR_NS}#activityColor`;
 // Custom predicate for preserving individual order
 const INDIVIDUAL_ORDER_PREDICATE = `${EDITOR_NS}#individualOrder`;
 const SORT_INDEX_PREDICATE = `${EDITOR_NS}#sortIndex`;
+const INDIVIDUAL_INSTALLED_IN_PREDICATE = `${EDITOR_NS}#individualInstalledIn`;
+const INDIVIDUAL_ENTITY_TYPE_PREDICATE = `${EDITOR_NS}#individualEntityType`;
 
 // A well-known ENTITY_NAME used to find the AMRC Community entity.
 const AMRC_COMMUNITY = "AMRC Community";
@@ -505,16 +509,24 @@ export const toHQDM = (model: Model): HQDMModel => {
   let individualOrder = 0;
   model.individuals.forEach((i) => {
     // Create the individual and add it to the possible world, add the name and description.
-    let playerEntityType;
-    switch (i.type?.id) {
-      case person.id:
-        playerEntityType = person;
-        break;
-      case organization.id:
-        playerEntityType = organization;
-        break;
-      default:
-        playerEntityType = ordinary_physical_object;
+    let playerEntityType = ordinary_physical_object;
+    if (i.entityType === ENTITY_CATEGORY.SYSTEM) {
+      playerEntityType = organization;
+    } else if (i.entityType === ENTITY_CATEGORY.INDIVIDUAL) {
+      playerEntityType = person;
+    } else if (i.entityType === ENTITY_CATEGORY.SYSTEM_COMPONENT) {
+      playerEntityType = ordinary_physical_object;
+    } else {
+      switch (i.type?.id) {
+        case person.id:
+          playerEntityType = person;
+          break;
+        case organization.id:
+          playerEntityType = organization;
+          break;
+        default:
+          playerEntityType = ordinary_physical_object;
+      }
     }
     const player = hqdm.createThing(playerEntityType, BASE + i.id);
     hqdm.addToPossibleWorld(player, modelWorld);
@@ -556,6 +568,22 @@ export const toHQDM = (model: Model): HQDMModel => {
         communityName,
         individualStart,
         individualEnd
+      );
+    }
+
+    if (i.installedIn) {
+      hqdm.relate(
+        INDIVIDUAL_INSTALLED_IN_PREDICATE,
+        player,
+        new Thing(BASE + i.installedIn)
+      );
+    }
+
+    if (i.entityType) {
+      hqdm.relate(
+        INDIVIDUAL_ENTITY_TYPE_PREDICATE,
+        player,
+        new Thing(i.entityType)
       );
     }
 
@@ -706,6 +734,32 @@ const addIndividual = (thing: Thing, hqdm: HQDMModel, communityName: Thing, kind
   const descriptions = hqdm.getDescriptions(thing, communityName);
   const description = descriptions.first()?.id; // Assumes just one description
 
+  const installedInThing = hqdm
+    .getRelated(thing, INDIVIDUAL_INSTALLED_IN_PREDICATE)
+    .first();
+  const installedIn = installedInThing
+    ? installedInThing.id.replace(BASE, "")
+    : undefined;
+
+  const entityTypeThing = hqdm
+    .getRelated(thing, INDIVIDUAL_ENTITY_TYPE_PREDICATE)
+    .first();
+  const rawEntityType = entityTypeThing?.id as EntityCategory | undefined;
+  let entityType: EntityCategory | undefined;
+  if (
+    rawEntityType === ENTITY_CATEGORY.INDIVIDUAL ||
+    rawEntityType === ENTITY_CATEGORY.SYSTEM ||
+    rawEntityType === ENTITY_CATEGORY.SYSTEM_COMPONENT
+  ) {
+    entityType = rawEntityType;
+  } else if (hqdm.isMemberOf(thing, organization)) {
+    entityType = ENTITY_CATEGORY.SYSTEM;
+  } else if (installedIn) {
+    entityType = ENTITY_CATEGORY.SYSTEM_COMPONENT;
+  } else {
+    entityType = ENTITY_CATEGORY.INDIVIDUAL;
+  }
+
   const from = hqdm.getBeginning(thing);
   const to = hqdm.getEnding(thing);
 
@@ -717,7 +771,11 @@ const addIndividual = (thing: Thing, hqdm: HQDMModel, communityName: Thing, kind
       kind,
       getTimeValue(hqdm, from),
       getTimeValue(hqdm, to),
-      description
+      description,
+      false,
+      false,
+      installedIn,
+      entityType
     ));
   } else {
     console.error("Individual " + id + " has no temporal extent.");

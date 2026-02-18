@@ -1,5 +1,6 @@
 import type { Kind } from './Model.js';
 import type { Id, Individual } from './Schema.js';
+import type { EntityCategory } from './entityTypes.js';
 
 /**
  * A class that implements the Individual interface.
@@ -13,6 +14,8 @@ export class IndividualImpl implements Individual {
   ending: number;
   beginsWithParticipant: boolean;
   endsWithParticipant: boolean;
+  installedIn?: Id;
+  entityType?: EntityCategory;
 
   constructor(
     id: Id,
@@ -22,7 +25,9 @@ export class IndividualImpl implements Individual {
     ending: number,
     description?: string,
     beginsWithParticipant?: boolean,
-    endsWithParticipant?: boolean
+    endsWithParticipant?: boolean,
+    installedIn?: Id,
+    entityType?: EntityCategory
   ) {
     this.id = id;
     this.name = name;
@@ -38,5 +43,7 @@ export class IndividualImpl implements Individual {
     this.endsWithParticipant = endsWithParticipant
       ? endsWithParticipant
       : false;
+    this.installedIn = installedIn;
+    this.entityType = entityType;
   }
 }

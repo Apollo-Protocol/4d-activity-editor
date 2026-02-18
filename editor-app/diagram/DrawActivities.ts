@@ -55,12 +55,10 @@ export function drawActivities(ctx: DrawContext) {
       return (a.ending - a.beginning) * timeInterval;
     })
     .attr("height", (a: Activity) => {
-      const height = calculateLengthOfNewActivity(svgElement, a);
-      return height
-        ? height -
-            calculateTopPositionOfNewActivity(svgElement, a) +
-            config.layout.individual.gap * 0.6 +
-            config.layout.individual.height
+      const bottomY = calculateLengthOfNewActivity(svgElement, a);
+      const topY = calculateTopPositionOfNewActivity(svgElement, a);
+      return bottomY
+        ? bottomY - topY + config.layout.individual.gap * 0.6
         : 0;
     })
     .attr("stroke", (a: Activity, i: number) => {
@@ -84,13 +82,9 @@ export function drawActivities(ctx: DrawContext) {
     config.layout.individual.gap * 0.3;
   const widthOf = (a: Activity) => (a.ending - a.beginning) * timeInterval;
   const heightOf = (a: Activity) => {
-    const h = calculateLengthOfNewActivity(svgElement, a);
-    return h
-      ? h -
-          calculateTopPositionOfNewActivity(svgElement, a) +
-          config.layout.individual.gap * 0.6 +
-          config.layout.individual.height
-      : 0;
+    const bottomY = calculateLengthOfNewActivity(svgElement, a);
+    const topY = calculateTopPositionOfNewActivity(svgElement, a);
+    return bottomY ? bottomY - topY + config.layout.individual.gap * 0.6 : 0;
   };
 
   // Subtask badge rendering removed — badge no longer drawn on activities.
@@ -180,15 +174,15 @@ export function clickActivities(
 }
 
 function calculateLengthOfNewActivity(svgElement: any, activity: Activity) {
-  let highestY = 0;
+  let maxBottom = 0;
   activity?.participations?.forEach((a: Participation) => {
-    const element = svgElement
-      .select("#i" + a.individualId)
-      .node()
-      .getBBox();
-    highestY = Math.max(highestY, element.y);
+    const node = svgElement.select("#i" + a.individualId).node();
+    if (node) {
+      const bbox = node.getBBox();
+      maxBottom = Math.max(maxBottom, bbox.y + bbox.height);
+    }
   });
-  return highestY > 0 ? highestY : null;
+  return maxBottom > 0 ? maxBottom : null;
 }
 
 function calculateTopPositionOfNewActivity(

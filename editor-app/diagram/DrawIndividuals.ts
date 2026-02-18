@@ -1,31 +1,83 @@
 import { MouseEvent } from "react";
 import { Activity, Individual } from "@/lib/Schema";
-import { Model } from "@/lib/Model";
+import {
+  ENTITY_TYPE_IDS,
+  getEntityTypeGlyph,
+  getEntityTypeIdFromIndividual,
+  getEntityTypeLabel,
+} from "@/lib/entityTypes";
 import {
   DrawContext,
   keepIndividualLabels,
   Label,
   removeLabelIfItOverlaps,
+  SYSTEM_COMPONENT_GAP,
+  SYSTEM_COMPONENT_HEIGHT_FACTOR,
+  SYSTEM_CONTAINER_INSET,
+  SYSTEM_HORIZONTAL_INSET,
+  SYSTEM_MIN_HOST_HEIGHT_FACTOR,
 } from "./DrawHelpers";
-import { ConfigData } from "./config";
 
 let mouseOverElement: any | null = null;
 
-interface Layout {
+interface Span {
   x: number;
   y: number;
   w: number;
   h: number;
   start: boolean;
   stop: boolean;
+  indent: number;
 }
+
+const INDENT_STEP_PX = 18;
+const MAX_INDENT_LEVEL = 4;
+const INSTALL_RIBBON_RUN_PX = 24;
+
+const getInstallDepth = (
+  individual: Individual,
+  byId: Map<string, Individual>
+): number => {
+  let depth = 0;
+  let cursor = individual;
+  const seen = new Set<string>();
+
+  // Check if initial individual is installed in a system component
+  // If so, we do not want to indent it, because it is drawn as a main row
+  if (cursor.installedIn && byId.has(cursor.installedIn)) {
+    const parent = byId.get(cursor.installedIn);
+    if (
+      parent &&
+      getEntityTypeIdFromIndividual(parent) === ENTITY_TYPE_IDS.SYSTEM_COMPONENT
+    ) {
+      return 0;
+    }
+  }
+
+  while (cursor.installedIn && byId.has(cursor.installedIn)) {
+    if (seen.has(cursor.id) || depth >= MAX_INDENT_LEVEL) {
+      break;
+    }
+    seen.add(cursor.id);
+    const parent = byId.get(cursor.installedIn);
+    if (!parent) break;
+    cursor = parent;
+    depth += 1;
+  }
+
+  return depth;
+};
 
 export function drawIndividuals(ctx: DrawContext) {
   const { config, svgElement, individuals, activities } = ctx;
 
+  const individualsById = new Map(
+    individuals.map((individual) => [individual.id, individual])
+  );
+
   let startOfTime = Math.min(...activities.map((a) => a.beginning));
   let endOfTime = Math.max(...activities.map((a) => a.ending));
-  let duration = endOfTime - startOfTime;
+  let duration = Math.max(1, endOfTime - startOfTime);
   let totalLeftMargin =
     config.viewPort.x * config.viewPort.zoom -
     config.layout.individual.xMargin * 2;
@@ -45,64 +97,437 @@ export function drawIndividuals(ctx: DrawContext) {
     lhs_x += config.layout.individual.textLength;
   }
 
-  const chevOff = config.layout.individual.height / 3;
-  const fullWidth = chevOff +
-    config.viewPort.x * config.viewPort.zoom +
-    config.layout.individual.temporalMargin -
-    config.layout.individual.xMargin * 2;
+  const baseHeight = config.layout.individual.height;
+  const componentHeight = Math.max(
+    10,
+    Math.floor(baseHeight * SYSTEM_COMPONENT_HEIGHT_FACTOR)
+  );
 
-  const layout = new Map<string, Layout>();
+  const componentsBySystem = new Map<string, Individual[]>();
+  individuals.forEach((individual) => {
+    if (!individual.installedIn) return;
+    if (
+      getEntityTypeIdFromIndividual(individual) !==
+      ENTITY_TYPE_IDS.SYSTEM_COMPONENT
+    ) {
+      return;
+    }
+    const host = individualsById.get(individual.installedIn);
+    if (!host || getEntityTypeIdFromIndividual(host) !== ENTITY_TYPE_IDS.SYSTEM) {
+      return;
+    }
 
-  /* yuck */
-  let next_y = config.layout.individual.topMargin + config.layout.individual.gap;
-  for (const i of individuals) {
-    const start = i.beginning >= startOfTime;
-    const stop = i.ending <= endOfTime;
+    const list = componentsBySystem.get(host.id);
+    if (list) list.push(individual);
+    else componentsBySystem.set(host.id, [individual]);
+  });
 
-    const x = start
-      ? lhs_x + timeInterval * (i.beginning - startOfTime)
-      : config.layout.individual.xMargin - chevOff;
+  // Check if an individual is installed into a system component (not nested visually)
+  const isInstalledIndividual = (ind: Individual) =>
+    getEntityTypeIdFromIndividual(ind) === ENTITY_TYPE_IDS.INDIVIDUAL &&
+    !!ind.installedIn &&
+    individualsById.has(ind.installedIn) &&
+    getEntityTypeIdFromIndividual(individualsById.get(ind.installedIn)!) ===
+      ENTITY_TYPE_IDS.SYSTEM_COMPONENT;
 
-    const y = next_y;
-    next_y = y + config.layout.individual.height + config.layout.individual.gap;
+  const getSpans = (
+    individual: Individual, 
+    y: number, 
+    h: number, 
+    indent = 0,
+    isInstalled = false
+  ): Span[] => {
+    const timeToX = (t: number) => 
+      lhs_x + timeInterval * (t - startOfTime) + indent;
 
-    const w = 
-      (!start && !stop)   ? fullWidth
-      : (start && !stop)  ? (
-        (endOfTime - i.beginning) * timeInterval +
-        config.layout.individual.temporalMargin
-      )
-      : (!start && stop)  ? (
-        fullWidth -
-        (endOfTime - i.ending) * timeInterval -
-        config.layout.individual.temporalMargin
-      )
-      : (i.ending - i.beginning) * timeInterval;
+    const createSingleSpan = (tStart: number, tEnd: number): Span => {
+      // Handle infinity
+      // For System/Component: usually start=-1 (Inf Past), end=-1 (Inf Future) or end > start
+      // For Individual: usually defined start/end
+      
+      const infPast = tStart === -1; 
+      const infFuture = tEnd === -1; // Unless specific meaning?
 
-    const h = config.layout.individual.height;
+      // Determine visible range
+      // If infPast, we start from left edge (start=false)
+      // If infFuture, we end at right edge (stop=false)
 
-    layout.set(i.id, { x, y, w, h, start, stop });
+      // Start condition: tStart >= startOfTime
+      // Stop condition: tEnd <= endOfTime
+
+      // Logic check:
+      // If tStart = -1. effectiveStart = -1. start = false.
+      // If tEnd = -1. effectiveEnd = -1. stop = false (treating -1 as Infinity)
+      
+      // We need to map -1 to logical infinity for comparison
+      const logicalStart = infPast ? -Infinity : tStart;
+      const logicalEnd = infFuture ? Infinity : tEnd;
+
+      const start = logicalStart >= startOfTime;
+      const stop = logicalEnd <= endOfTime;
+      
+      const chevOff = h / 3;
+
+      // Coordinate calc
+      // If start is true, x determined by time. Else left margin.
+      // If stop is true, width determined by time diff. Else extends to right.
+
+      let x = 0;
+      let w = 0;
+
+      if (start) {
+        x = timeToX(logicalStart);
+      } else {
+        // Starts off-screen left
+        x = config.layout.individual.xMargin - Math.min(chevOff, baseHeight / 3) + indent;
+      }
+
+      const endX = stop ? timeToX(logicalEnd) : timeToX(endOfTime);
+
+      if (stop) {
+        // Ends at specific time
+        w = endX - x;
+      } else {
+        // Ends at endOfTime (for consistent layout)
+        w = endX - x + config.layout.individual.temporalMargin;
+      }
+      
+      return { x, y, w, h, start, stop, indent };
+    };
+
+    if (isInstalled) {
+      // Split into two segments: -Inf -> beginning, ending -> Inf
+      // Note: "Beginning" and "Ending" on individual are used as installation window here
+      const installStart = individual.beginning;
+      const installEnd = individual.ending;
+      const leadTime = INSTALL_RIBBON_RUN_PX / Math.max(timeInterval, 0.0001);
+      
+      const spans: Span[] = [];
+      
+      // Segment 1: Pre-installation
+      // From (Inf Past or Actual Start?) -> installStart
+      // Assuming individual exists "forever" outside installation for now, or based on other data?
+      // Since we don't have separate "Life Start" and "Install Start" fields, we assume
+      // the individual exists indefinitely outside the installation window, OR 
+      // we treat startOfTime/endOfTime as bounds.
+      
+      // Let's create a segment from startOfTime -> installStart
+      // Logical range: -Infinity to installStart
+      const timelineGapStart = installStart - leadTime;
+      const timelineGapEnd = installEnd + leadTime;
+
+      if (timelineGapStart > startOfTime) {
+        spans.push(createSingleSpan(-1, timelineGapStart));
+      } else if (installStart === -1) {
+         // Starts installed? No pre-segment.
+      }
+      
+      // Segment 2: Post-installation
+      // From installEnd -> Infinity
+      if (timelineGapEnd < endOfTime || installEnd === -1) { // If installEnd is -1 (infinite), we handle effectively? No, installEnd should be finite.
+         // If installEnd is -1, it means installed forever. No post-segment.
+         if (installEnd !== -1) {
+          spans.push(createSingleSpan(timelineGapEnd, -1));
+         }
+      }
+      
+      return spans;
+    } 
+    
+    // Normal case (1 span)
+    return [createSingleSpan(individual.beginning, individual.ending)];
   };
+
+  const layout = new Map<string, Span[]>();
+
+  let next_y = config.layout.individual.topMargin + config.layout.individual.gap;
+  for (const individual of individuals) {
+    const host = individual.installedIn
+      ? individualsById.get(individual.installedIn)
+      : undefined;
+    const isNestedComponent =
+      !!host &&
+      getEntityTypeIdFromIndividual(host) === ENTITY_TYPE_IDS.SYSTEM &&
+      getEntityTypeIdFromIndividual(individual) ===
+        ENTITY_TYPE_IDS.SYSTEM_COMPONENT;
+    if (isNestedComponent) {
+      continue;
+    }
+
+    const childComponents = componentsBySystem.get(individual.id) ?? [];
+    const rowHeight =
+      childComponents.length > 0
+        ? Math.max(
+            Math.floor(baseHeight * SYSTEM_MIN_HOST_HEIGHT_FACTOR),
+            SYSTEM_CONTAINER_INSET * 2 +
+              childComponents.length * componentHeight +
+              (childComponents.length - 1) * SYSTEM_COMPONENT_GAP
+          )
+        : baseHeight;
+
+    const rowY = next_y;
+    next_y = rowY + rowHeight + config.layout.individual.gap;
+
+    const indent = getInstallDepth(individual, individualsById) * INDENT_STEP_PX;
+    const isInstalled = isInstalledIndividual(individual);
+    
+    layout.set(individual.id, getSpans(individual, rowY, rowHeight, indent, isInstalled));
+
+    const componentsBlockHeight =
+      childComponents.length > 0
+        ? childComponents.length * componentHeight +
+          (childComponents.length - 1) * SYSTEM_COMPONENT_GAP
+        : 0;
+    const componentsStartY = rowY + (rowHeight - componentsBlockHeight) / 2;
+
+    childComponents.forEach((component, index) => {
+      const childY =
+        componentsStartY +
+        index * (componentHeight + SYSTEM_COMPONENT_GAP);
+      let spans = getSpans(component, childY, componentHeight);
+      let span = spans[0]; // Components are not split
+
+      // Clamp component horizontal span to be fully inside its host container
+      const hostSpans = layout.get(individual.id);
+      if (hostSpans && hostSpans.length > 0) {
+        const hostSpan = hostSpans[0]; // Host is not split
+        const strokePad = (Number(config.presentation.individual.strokeWidth) || 1) / 2;
+        const hasOpenStart =
+          component.beginning === -1 || component.beginning <= startOfTime;
+        const hasOpenEnd =
+          component.ending === -1 || component.ending >= endOfTime;
+        const minX =
+          hostSpan.x + (hasOpenStart ? 0 : SYSTEM_HORIZONTAL_INSET) + strokePad;
+        const maxRight =
+          hostSpan.x +
+          hostSpan.w -
+          (hasOpenEnd ? 0 : SYSTEM_HORIZONTAL_INSET) -
+          strokePad;
+
+        // ensure left edge is not outside host (include stroke padding)
+        if (span.x < minX) {
+          const rightEdge = span.x + span.w;
+          span.x = minX;
+          span.w = Math.max(1, rightEdge - span.x);
+        }
+
+        // ensure right edge is not outside host (include stroke padding)
+        if (span.x + span.w > maxRight) {
+          span.w = Math.max(1, maxRight - span.x);
+        }
+      }
+      
+      // Update span in list
+      spans[0] = span;
+      layout.set(component.id, spans);
+    });
+  }
+
+  const drawnIndividuals = individuals.filter((individual) =>
+    layout.has(individual.id)
+  );
 
   svgElement
     .selectAll(".individual")
-    .data(individuals.values())
+    .data(drawnIndividuals.values())
     .join("path")
     .attr("class", "individual")
     .attr("id", (d: Individual) => "i" + d["id"])
     .attr("d", (i: Individual) => {
-      const { x, y, w, h, start, stop } = layout.get(i.id)!;
-      return `M ${x} ${y} l ${w} 0`
-        + (stop ? `l 0 ${h}` : `l ${chevOff} ${h/2} ${-chevOff} ${h/2}`)
-        + `l ${-w} 0`
-        + (start ? "" : `l ${chevOff} ${-h/2} ${-chevOff} ${-h/2}`)
-        + "Z";
+      const spans = layout.get(i.id)!;
+      const baseHeight = config.layout.individual.height;
+      
+      return spans.map(s => {
+          const { x, y, w, h, start, stop } = s;
+          const chevOff = Math.min(h / 3, baseHeight / 3);
+          
+          return `M ${x} ${y} l ${w} 0`
+            + (stop ? `l 0 ${h}` : `l ${chevOff} ${h / 2} ${-chevOff} ${h / 2}`)
+            + `l ${-w} 0`
+            + (start ? "" : `l ${chevOff} ${-h / 2} ${-chevOff} ${-h / 2}`)
+            + "Z";
+      }).join(" ");
     })
     .attr("stroke", config.presentation.individual.stroke)
     .attr("stroke-width", config.presentation.individual.strokeWidth)
-    .attr("fill", config.presentation.individual.fill);
+    .attr("fill", (d: Individual) =>
+      getEntityTypeIdFromIndividual(d) === ENTITY_TYPE_IDS.SYSTEM
+        ? "white"
+        : config.presentation.individual.fill
+    )
+    .attr("data-row-y", (d: Individual) => {
+         const spans = layout.get(d.id);
+         return spans && spans.length > 0 ? spans[0].y : 0;
+    });
 
   return svgElement;
+}
+
+/**
+ * Draw installation connectors: vertical lines from an installed individual
+ * up to its target system component, and hatching on the component during
+ * the installation window.
+ */
+export function drawInstallationConnectors(ctx: DrawContext) {
+  const { config, svgElement, individuals, activities } = ctx;
+
+  if (activities.length === 0) return;
+
+  svgElement
+    .selectAll(".installHatch,.installConnectorRibbon")
+    .remove();
+
+  const individualsById = new Map(
+    individuals.map((ind) => [ind.id, ind])
+  );
+
+  let startOfTime = Math.min(...activities.map((a) => a.beginning));
+  let endOfTime = Math.max(...activities.map((a) => a.ending));
+  let totalLeftMargin =
+    config.viewPort.x * config.viewPort.zoom -
+    config.layout.individual.xMargin * 2;
+  totalLeftMargin -= config.layout.individual.temporalMargin;
+
+  const individualLabelsEnabled =
+    config.labels.individual.enabled && keepIndividualLabels(individuals);
+  if (individualLabelsEnabled) {
+    totalLeftMargin -= config.layout.individual.textLength;
+  }
+
+  let timeInterval = totalLeftMargin / Math.max(1, endOfTime - startOfTime);
+
+  let lhs_x = config.layout.individual.xMargin;
+  lhs_x += config.layout.individual.temporalMargin;
+  if (individualLabelsEnabled) {
+    lhs_x += config.layout.individual.textLength;
+  }
+
+  // Create a hatch pattern definition if not already present
+  const defs = svgElement.select("defs").empty()
+    ? svgElement.append("defs")
+    : svgElement.select("defs");
+
+  if (defs.select("#installHatch").empty()) {
+    const pattern = defs
+      .append("pattern")
+      .attr("id", "installHatch")
+      .attr("width", 8)
+      .attr("height", 8)
+      .attr("patternUnits", "userSpaceOnUse")
+      .attr("patternTransform", "rotate(45)");
+    pattern
+      .append("line")
+      .attr("x1", 0)
+      .attr("y1", 0)
+      .attr("x2", 0)
+      .attr("y2", 8)
+      .attr("stroke", "#666")
+      .attr("stroke-width", 1.5);
+  }
+
+  const timeToX = (t: number) => lhs_x + timeInterval * (t - startOfTime);
+
+  // Find individuals installed into system components
+  individuals.forEach((ind) => {
+    if (
+      getEntityTypeIdFromIndividual(ind) !== ENTITY_TYPE_IDS.INDIVIDUAL ||
+      !ind.installedIn
+    ) {
+      return;
+    }
+
+    const target = individualsById.get(ind.installedIn);
+    if (
+      !target ||
+      getEntityTypeIdFromIndividual(target) !== ENTITY_TYPE_IDS.SYSTEM_COMPONENT
+    ) {
+      return;
+    }
+
+    // Get bounding boxes of drawn shapes
+    const indNode = svgElement.select("#i" + ind.id).node() as SVGGraphicsElement;
+    const targetNode = svgElement.select("#i" + target.id).node() as SVGGraphicsElement;
+    if (!indNode || !targetNode) return;
+
+    const indBox = indNode.getBBox();
+    const targetBox = targetNode.getBBox();
+
+    const installStart = ind.beginning;
+    const installEnd = ind.ending;
+    const visibleStart = Math.max(installStart, startOfTime);
+    const visibleEnd = Math.min(installEnd, endOfTime);
+
+    if (visibleEnd <= visibleStart) return;
+
+    const x1 = timeToX(visibleStart);
+    const x2 = timeToX(visibleEnd);
+
+    const lowerTop = indBox.y;
+    const lowerBottom = indBox.y + indBox.height;
+    const upperTop = targetBox.y;
+    const upperBottom = targetBox.y + targetBox.height;
+
+    const targetPathD = targetNode.getAttribute("d") || "";
+    const clipId = `installClip-${target.id}`;
+    const clipSelector = `#${clipId}`;
+    if (defs.select(clipSelector).empty()) {
+      defs
+        .append("clipPath")
+        .attr("id", clipId)
+        .append("path")
+        .attr("d", targetPathD);
+    } else {
+      defs.select(`${clipSelector} path`).attr("d", targetPathD);
+    }
+
+    svgElement
+      .append("rect")
+      .attr("class", "installHatch")
+      .attr("x", x1)
+      .attr("y", targetBox.y)
+      .attr("width", Math.max(1, x2 - x1))
+      .attr("height", targetBox.height)
+      .attr("fill", "url(#installHatch)")
+      .attr("stroke", config.presentation.individual.stroke)
+      .attr("stroke-width", 0.5)
+      .attr("opacity", 0.4)
+      .attr("clip-path", `url(#${clipId})`);
+
+    const startLiftDx = INSTALL_RIBBON_RUN_PX;
+    const endDropDx = INSTALL_RIBBON_RUN_PX;
+
+    if (installStart >= startOfTime) {
+      const pathData = `M ${x1 - startLiftDx} ${lowerTop}
+L ${x1 - startLiftDx} ${lowerBottom}
+L ${x1} ${upperBottom}
+L ${x1} ${upperTop} Z`;
+
+      svgElement
+        .append("path")
+        .attr("class", "installConnectorRibbon")
+        .attr("d", pathData)
+        .attr("fill", config.presentation.individual.fill)
+        .attr("fill-opacity", 0.9)
+        .attr("stroke", config.presentation.individual.stroke)
+        .attr("stroke-width", 0.45);
+    }
+
+    if (installEnd <= endOfTime) {
+      const pathData = `M ${x2} ${upperTop}
+L ${x2} ${upperBottom}
+L ${x2 + endDropDx} ${lowerBottom}
+L ${x2 + endDropDx} ${lowerTop} Z`;
+
+      svgElement
+        .append("path")
+        .attr("class", "installConnectorRibbon")
+        .attr("d", pathData)
+        .attr("fill", config.presentation.individual.fill)
+        .attr("fill-opacity", 0.9)
+        .attr("stroke", config.presentation.individual.stroke)
+        .attr("stroke-width", 0.45);
+    }
+  });
 }
 
 export function hoverIndividuals(ctx: DrawContext) {
@@ -114,9 +539,17 @@ export function hoverIndividuals(ctx: DrawContext) {
       mouseOverElement.style.fill = config.presentation.individual.fillHover;
       tooltip.style("display", "block");
     })
-    .on("mouseout", function (event: MouseEvent) {
+    .on("mouseout", function (event: MouseEvent, d: any) {
       if (mouseOverElement) {
-        mouseOverElement.style.fill = config.presentation.individual.fill;
+        // use d if available, else infer from id
+        const targetInd = d || ctx.individuals.find(x => "i" + x.id === (mouseOverElement as HTMLElement).getAttribute("id"));
+        
+        let restoreFill = config.presentation.individual.fill;
+        if (targetInd && getEntityTypeIdFromIndividual(targetInd) === ENTITY_TYPE_IDS.SYSTEM) {
+          restoreFill = "white";
+        }
+        
+        mouseOverElement.style.fill = restoreFill;
         mouseOverElement = null;
       }
       tooltip.style("display", "none");
@@ -137,9 +570,16 @@ export function hoverIndividuals(ctx: DrawContext) {
 }
 
 function individualTooltip(individual: Individual) {
-  let tip = "<strong>Individual</strong>";
+  let tip = "<strong>Entity</strong>";
   if (individual.name) tip += "<br/> Name: " + individual.name;
-  if (individual.type) tip += "<br/> Type: " + individual.type.name;
+  if (individual.type)
+    tip +=
+      "<br/> Type: " +
+      getEntityTypeLabel(
+        individual.type,
+        individual.installedIn,
+        individual.entityType
+      );
   if (individual.description)
     tip += "<br/> Description: " + individual.description;
   return tip;
@@ -174,13 +614,26 @@ export function labelIndividuals(ctx: DrawContext) {
     return;
   }
 
-  let labels: Label[] = [];
+  const individualsById = new Map(individuals.map((individual) => [individual.id, individual]));
+  const componentsBySystem = new Map<string, Individual[]>();
+  individuals.forEach((individual) => {
+    if (!individual.installedIn) return;
+    if (
+      getEntityTypeIdFromIndividual(individual) !==
+      ENTITY_TYPE_IDS.SYSTEM_COMPONENT
+    ) {
+      return;
+    }
+    const host = individualsById.get(individual.installedIn);
+    if (!host || getEntityTypeIdFromIndividual(host) !== ENTITY_TYPE_IDS.SYSTEM) {
+      return;
+    }
+    const list = componentsBySystem.get(host.id);
+    if (list) list.push(individual);
+    else componentsBySystem.set(host.id, [individual]);
+  });
 
-  let y =
-    config.layout.individual.topMargin +
-    config.layout.individual.gap +
-    config.layout.individual.height / 2 +
-    config.labels.individual.topMargin;
+  let labels: Label[] = [];
 
   svgElement
     .selectAll(".individualLabel")
@@ -188,20 +641,73 @@ export function labelIndividuals(ctx: DrawContext) {
     .join("text")
     .attr("class", "individualLabel")
     .attr("id", (i: Individual) => `il${i.id}`)
-    .attr(
-      "x",
-      config.layout.individual.xMargin + config.labels.individual.leftMargin
-    )
-    .attr("y", () => {
-      const oldY = y;
-      y = y + config.layout.individual.height + config.layout.individual.gap;
-      return oldY;
+    .attr("x", (d: Individual) => {
+      // Keep system-component labels at the start (no indent)
+      const isComponent =
+        getEntityTypeIdFromIndividual(d) === ENTITY_TYPE_IDS.SYSTEM_COMPONENT;
+      const depth = isComponent ? 0 : getInstallDepth(d, individualsById);
+      return (
+        config.layout.individual.xMargin +
+        config.labels.individual.leftMargin +
+        depth * INDENT_STEP_PX
+      );
+    })
+    .attr("y", (d: Individual) => {
+      const shape = svgElement.select("#i" + d.id).node() as SVGGraphicsElement;
+      if (!shape) {
+        return (
+          config.layout.individual.topMargin +
+          config.layout.individual.gap +
+          config.layout.individual.height / 2 +
+          config.labels.individual.topMargin
+        );
+      }
+      
+      let startY = 0;
+      let height = 0;
+      
+      // Try to get stored row Y, useful if the shape is invisible/split
+      const rowYAttr = shape.getAttribute("data-row-y");
+      
+      const hasContainedComponents = (componentsBySystem.get(d.id)?.length ?? 0) > 0;
+      
+      // If it's a Host (has components), it draws a large box so BBox is reliable and necessary for height
+      // If it's not a Host, it might be a split individual timeline.
+      if (hasContainedComponents) {
+          const bbox = shape.getBBox();
+          startY = bbox.y;
+          height = config.layout.individual.height; // Label is at top of container usually? 
+          // Code says: bbox.y + config.layout.individual.height / 2
+          // This puts it at the top "header" area of the system.
+          
+          return (
+            bbox.y +
+            config.layout.individual.height / 2 +
+            config.labels.individual.topMargin
+          );
+      } else {
+          // Leaf node or simple individual
+          if (rowYAttr) {
+              startY = parseFloat(rowYAttr);
+              height = config.layout.individual.height;
+          } else {
+              const bbox = shape.getBBox();
+              startY = bbox.y;
+              height = bbox.height;
+          }
+      }
+
+      return startY + height / 2 + config.labels.individual.topMargin;
     })
     .attr("text-anchor", "start")
     .attr("font-family", "Roboto, Arial, sans-serif")
     .attr("font-size", config.labels.individual.fontSize)
     .text((d: Individual) => {
-      let label = d["name"];
+      let label = `${getEntityTypeGlyph(
+        d.type,
+        d.installedIn,
+        d.entityType
+      )} ${d["name"]}`;
       if (label.length > config.labels.individual.maxChars) {
         label = label.substring(0, config.labels.individual.maxChars);
         label += "...";
@@ -209,7 +715,14 @@ export function labelIndividuals(ctx: DrawContext) {
       return label;
     })
     .each((d: Individual, i: number, nodes: SVGGraphicsElement[]) => {
-      removeLabelIfItOverlaps(labels, nodes[i]);
+      const isNested =
+        !!d.installedIn &&
+        getEntityTypeIdFromIndividual(d) === ENTITY_TYPE_IDS.SYSTEM_COMPONENT;
+      const isHost = componentsBySystem.has(d.id);
+
+      if (!isNested && !isHost) {
+        removeLabelIfItOverlaps(labels, nodes[i]);
+      }
       labels.push(nodes[i].getBBox());
     });
 }

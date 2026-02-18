@@ -4,6 +4,7 @@
 
 import type { Maybe } from '@apollo-protocol/hqdm-lib';
 import type { Kind } from './Model';
+import type { EntityCategory } from './entityTypes';
 
 export { Maybe };
 export type Id = string;
@@ -36,6 +37,8 @@ export interface Activity extends STExtent {
 export interface Individual extends STExtent {
   beginsWithParticipant: boolean; //not persisted to HQDM. Indicates that the beginning time should be synchronised to participants.
   endsWithParticipant: boolean; //not persisted to HQDM. Indicates that the ending time should be synchronised to participants.
+  installedIn?: Id; // optional parent system id for system components.
+  entityType?: EntityCategory; // explicit entity category shown in UI.
 }
 
 /**

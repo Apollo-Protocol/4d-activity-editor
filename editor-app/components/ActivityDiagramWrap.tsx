@@ -15,6 +15,7 @@ import ExportJson from "./ExportJson";
 import ExportSvg from "./ExportSvg";
 import HideIndividuals from "./HideIndividuals";
 import DiagramLegend from "./DiagramLegend";
+import EntityTypeLegend from "./EntityTypeLegend";
 
 const beforeUnloadHandler = (ev: BeforeUnloadEvent) => {
   ev.returnValue = "";
@@ -162,6 +163,7 @@ export default function ActivityDiagramWrap() {
         <div className="editor-layout">
           <div className="editor-legend">
             <div className="legend-sticky">
+              <EntityTypeLegend />
               <DiagramLegend
                 activities={activitiesInView}
                 activityColors={config.presentation.activity.fill}

@@ -9,6 +9,7 @@ import { drawAxisArrows } from "./DrawAxis";
 import {
   clickIndividuals,
   drawIndividuals,
+  drawInstallationConnectors,
   hoverIndividuals,
   labelIndividuals,
 } from "./DrawIndividuals";
@@ -84,6 +85,7 @@ export function drawActivityDiagram(
   drawIndividuals(drawCtx);
   hoverIndividuals(drawCtx);
   labelIndividuals(drawCtx);
+  drawInstallationConnectors(drawCtx);
   clickIndividuals(drawCtx, clickIndividual, rightClickIndividual);
   drawActivities(drawCtx);
   hoverActivities(drawCtx);

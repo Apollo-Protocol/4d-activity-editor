@@ -60,7 +60,7 @@ export class Model {
       new Kind(HQDM_NS + "organization", "Organization", true),
       new Kind(HQDM_NS + "ordinary_physical_object", "Resource", true),
     ];
-    this.defaultIndividualType = this.individualTypes[2];
+    this.defaultIndividualType = this.individualTypes[0];
   }
 
   static END_OF_TIME = EPOCH_END;

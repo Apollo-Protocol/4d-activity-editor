@@ -32,16 +32,31 @@ export const SYSTEM_COMPONENT_GAP = 4;
 export const SYSTEM_COMPONENT_HEIGHT_FACTOR = 1;
 export const SYSTEM_MIN_HOST_HEIGHT_FACTOR = 3;
 
+export function getSystemLayout(config: ConfigData) {
+  const system = config.layout.system;
+  return {
+    containerInset: system?.containerInset ?? SYSTEM_CONTAINER_INSET,
+    horizontalInset: system?.horizontalInset ?? SYSTEM_HORIZONTAL_INSET,
+    componentGap: system?.componentGap ?? SYSTEM_COMPONENT_GAP,
+    componentHeightFactor:
+      system?.componentHeightFactor ?? SYSTEM_COMPONENT_HEIGHT_FACTOR,
+    minHostHeightFactor:
+      system?.minHostHeightFactor ?? SYSTEM_MIN_HOST_HEIGHT_FACTOR,
+    hostHeightGrowthPerComponent: system?.hostHeightGrowthPerComponent ?? 1,
+  };
+}
+
 export function calculateViewportHeight(
   config: ConfigData,
   individualsMap: Map<string, Individual>
 ) {
   let viewPortHeight = 0;
+  const systemLayout = getSystemLayout(config);
   const individuals = Array.from(individualsMap.values());
   const baseHeight = config.layout.individual.height;
   const componentHeight = Math.max(
     10,
-    Math.floor(baseHeight * SYSTEM_COMPONENT_HEIGHT_FACTOR)
+    Math.floor(baseHeight * systemLayout.componentHeightFactor)
   );
 
   const componentsBySystem = new Map<string, Individual[]>();
@@ -84,10 +99,15 @@ export function calculateViewportHeight(
     const expandedHeight =
       childComponents.length > 0
         ? Math.max(
-            Math.floor(baseHeight * SYSTEM_MIN_HOST_HEIGHT_FACTOR),
-            SYSTEM_CONTAINER_INSET * 2 +
+            Math.floor(
+              baseHeight *
+                (systemLayout.minHostHeightFactor +
+                  Math.max(0, childComponents.length - 1) *
+                    systemLayout.hostHeightGrowthPerComponent)
+            ),
+            systemLayout.containerInset * 2 +
               childComponents.length * componentHeight +
-              (childComponents.length - 1) * SYSTEM_COMPONENT_GAP
+              (childComponents.length - 1) * systemLayout.componentGap
           )
         : baseHeight;
 

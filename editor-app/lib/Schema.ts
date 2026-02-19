@@ -31,6 +31,13 @@ export interface Activity extends STExtent {
   color?: string;
 }
 
+export interface InstallationPeriod {
+  id: Id;
+  systemComponentId: Id;
+  beginning: number;
+  ending: number;
+}
+
 /**
  * An individual is a person, place, or thing that participates in an activity.
  */
@@ -40,6 +47,7 @@ export interface Individual extends STExtent {
   installedIn?: Id; // optional parent system id for system components.
   installedBeginning?: number; // optional installation window start when installedIn is a system component.
   installedEnding?: number; // optional installation window end when installedIn is a system component.
+  installations?: InstallationPeriod[]; // optional installation periods for individuals installed in system components.
   entityType?: EntityCategory; // explicit entity category shown in UI.
 }
 

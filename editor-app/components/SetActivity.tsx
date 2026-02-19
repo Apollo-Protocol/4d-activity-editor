@@ -22,6 +22,7 @@ import {
   ENTITY_TYPE_IDS,
   getEntityTypeIdFromIndividual,
 } from "@/lib/entityTypes";
+import { getInstallationPeriods } from "@/utils/installations";
 
 interface Props {
   show: boolean;
@@ -101,9 +102,13 @@ const SetActivity = (props: Props) => {
 
   function updateIndividuals(d: Model) {
     d.individuals.forEach((individual) => {
-      const installedTarget = individual.installedIn
-        ? d.individuals.get(individual.installedIn)
-        : undefined;
+      const periods = getInstallationPeriods(individual);
+      const installedTarget =
+        periods.length > 0
+          ? d.individuals.get(periods[0].systemComponentId)
+          : individual.installedIn
+          ? d.individuals.get(individual.installedIn)
+          : undefined;
       const isInstalledInComponent =
         getEntityTypeIdFromIndividual(individual) === ENTITY_TYPE_IDS.INDIVIDUAL &&
         !!installedTarget &&
@@ -251,9 +256,13 @@ const SetActivity = (props: Props) => {
   };
 
   const getParticipantWindow = (individual: Individual) => {
-    const installedTarget = individual.installedIn
-      ? dataset.individuals.get(individual.installedIn)
-      : undefined;
+    const periods = getInstallationPeriods(individual);
+    const installedTarget =
+      periods.length > 0
+        ? dataset.individuals.get(periods[0].systemComponentId)
+        : individual.installedIn
+        ? dataset.individuals.get(individual.installedIn)
+        : undefined;
     const isInstalledInComponent =
       getEntityTypeIdFromIndividual(individual) === ENTITY_TYPE_IDS.INDIVIDUAL &&
       !!installedTarget &&
@@ -266,14 +275,8 @@ const SetActivity = (props: Props) => {
     const overallEnd = Number.isFinite(individual.ending)
       ? individual.ending
       : Model.END_OF_TIME;
-    const installStart =
-      individual.installedBeginning ??
-      (Number.isFinite(individual.beginning) ? individual.beginning : 0);
-    const installEnd =
-      individual.installedEnding ??
-      (Number.isFinite(individual.ending)
-        ? individual.ending
-        : Model.END_OF_TIME);
+    const installStart = periods.length > 0 ? periods[0].beginning : undefined;
+    const installEnd = periods.length > 0 ? periods[0].ending : undefined;
 
     return {
       isInstalledInComponent,
@@ -281,6 +284,7 @@ const SetActivity = (props: Props) => {
       overallEnd,
       installStart,
       installEnd,
+      periods,
       installedTarget,
     };
   };
@@ -295,19 +299,33 @@ const SetActivity = (props: Props) => {
       return true;
     }
 
-    const inInstalledWindow =
-      inputs.beginning >= window.installStart &&
-      inputs.ending <= window.installEnd;
-    const inOutsideBefore =
-      inputs.beginning >= window.overallStart &&
-      inputs.ending <= window.installStart;
-    const inOutsideAfter =
-      inputs.beginning >= window.installEnd &&
-      inputs.ending <= window.overallEnd;
+    const inInstalledWindow = window.periods.some(
+      (period) =>
+        inputs.beginning >= period.beginning && inputs.ending <= period.ending
+    );
+
+    const sortedPeriods = [...window.periods].sort(
+      (first, second) => first.beginning - second.beginning
+    );
+
+    let outsideEligible = false;
+    let cursor = window.overallStart;
+    sortedPeriods.forEach((period) => {
+      if (
+        inputs.beginning >= cursor &&
+        inputs.ending <= period.beginning
+      ) {
+        outsideEligible = true;
+      }
+      cursor = Math.max(cursor, period.ending);
+    });
+    if (inputs.beginning >= cursor && inputs.ending <= window.overallEnd) {
+      outsideEligible = true;
+    }
 
     if (mode === "installed") return inInstalledWindow;
-    if (mode === "outside") return inOutsideBefore || inOutsideAfter;
-    return inInstalledWindow || inOutsideBefore || inOutsideAfter;
+    if (mode === "outside") return outsideEligible;
+    return inInstalledWindow || outsideEligible;
   };
 
   const selectedParticipantIds = getSelectedIndividualIds();
@@ -334,11 +352,14 @@ const SetActivity = (props: Props) => {
         }
 
         if (installedEligible || isSelected) {
+          const periodsLabel = window.periods
+            .map((period) => `${period.beginning}-${period.ending >= Model.END_OF_TIME ? "∞" : period.ending}`)
+            .join(", ");
           options.push({
             optionKey: `${individual.id}::installed`,
             individual,
             mode: "installed",
-            label: `${individual.name} [installed in ${window.installedTarget.name} (${window.installStart}-${window.installEnd})]`,
+            label: `${individual.name} [installed in ${window.installedTarget.name} (${periodsLabel})]`,
             group: "Installed Object",
           });
         }

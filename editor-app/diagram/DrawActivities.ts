@@ -9,6 +9,7 @@ import {
 import { ENTITY_TYPE_IDS, getEntityTypeIdFromIndividual } from "@/lib/entityTypes";
 import { ConfigData } from "./config";
 import { activity } from "@apollo-protocol/hqdm-lib";
+import { getActiveInstallationForActivity } from "@/utils/installations";
 
 let mouseOverElement: any | null = null;
 
@@ -187,7 +188,10 @@ function resolveParticipationRowId(
   individual: Individual,
   individuals: Individual[]
 ) {
-  const installedTarget = individual.installedIn
+  const activeInstallation = getActiveInstallationForActivity(individual, activity);
+  const installedTarget = activeInstallation
+    ? individuals.find((i) => i.id === activeInstallation.systemComponentId)
+    : individual.installedIn
     ? individuals.find((i) => i.id === individual.installedIn)
     : undefined;
   const isInstalledInComponent =
@@ -196,17 +200,7 @@ function resolveParticipationRowId(
 
   if (!isInstalledInComponent) return individual.id;
 
-  const installStart =
-    individual.installedBeginning ??
-    (Number.isFinite(individual.beginning) ? individual.beginning : 0);
-  const installEnd =
-    individual.installedEnding ??
-    (Number.isFinite(individual.ending) ? individual.ending : Number.MAX_VALUE);
-
-  const isInsideInstallWindow =
-    activity.beginning >= installStart && activity.ending <= installEnd;
-
-  if (!isInsideInstallWindow) {
+  if (!activeInstallation) {
     return individual.id;
   }
 

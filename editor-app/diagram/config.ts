@@ -13,6 +13,14 @@ export interface ConfigData {
       temporalMargin: number;
       textLength: number;
     };
+    system: {
+      containerInset: number;
+      horizontalInset: number;
+      componentGap: number;
+      componentHeightFactor: number;
+      minHostHeightFactor: number;
+      hostHeightGrowthPerComponent: number;
+    };
   };
   presentation: {
     individual: {
@@ -79,6 +87,14 @@ export const config: ConfigData = {
       xMargin: 40,
       temporalMargin: 10,
       textLength: 100,
+    },
+    system: {
+      containerInset: 4,
+      horizontalInset: 24,
+      componentGap: 10,
+      componentHeightFactor: 1,
+      minHostHeightFactor: 3,
+      hostHeightGrowthPerComponent: 1,
     },
   },
   presentation: {

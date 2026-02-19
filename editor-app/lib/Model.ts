@@ -2,6 +2,8 @@
 import { HQDM_NS } from "@apollo-protocol/hqdm-lib";
 import type { Activity, Id, Individual, Maybe } from "./Schema.js";
 import { EPOCH_END } from "./ActivityLib";
+import { ENTITY_TYPE_IDS, getEntityTypeIdFromIndividual } from "./entityTypes";
+import { getInstallationPeriods, syncLegacyInstallationFields } from "@/utils/installations";
 
 /**
  * A class used to list the types needed for drop-downs in the UI.
@@ -139,11 +141,51 @@ export class Model {
    * @param id The id of the individual to remove.
    */
   removeIndividual(id: string): void {
-    this.individuals.delete(id);
+    const queue: string[] = [id];
+    const deleted = new Set<string>();
+
+    while (queue.length > 0) {
+      const nextId = queue.shift()!;
+      if (deleted.has(nextId)) continue;
+      deleted.add(nextId);
+
+      const current = this.individuals.get(nextId);
+      if (
+        current &&
+        getEntityTypeIdFromIndividual(current) === ENTITY_TYPE_IDS.SYSTEM
+      ) {
+        this.individuals.forEach((candidate) => {
+          if (
+            candidate.installedIn === current.id &&
+            getEntityTypeIdFromIndividual(candidate) ===
+              ENTITY_TYPE_IDS.SYSTEM_COMPONENT
+          ) {
+            queue.push(candidate.id);
+          }
+        });
+      }
+
+      this.individuals.delete(nextId);
+    }
+
+    this.individuals.forEach((individual) => {
+      const filteredPeriods = getInstallationPeriods(individual).filter(
+        (period) => !deleted.has(period.systemComponentId)
+      );
+
+      if (filteredPeriods.length !== getInstallationPeriods(individual).length) {
+        const updated = syncLegacyInstallationFields({
+          ...individual,
+          installations: filteredPeriods,
+        });
+        this.individuals.set(individual.id, updated);
+      }
+    });
+
     this.activities.forEach((a) => {
       a.participations?.forEach((p) => {
-        if (p.individualId === id) {
-          a.participations?.delete(id);
+        if (deleted.has(p.individualId)) {
+          a.participations?.delete(p.individualId);
         }
       });
     });

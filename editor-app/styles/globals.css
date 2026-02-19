@@ -184,6 +184,55 @@ body {
   background: #555;
 }
 
+/* Modals: Ensure top-most modal is highlighted and others dimmed */
+.modal-backdrop.show {
+  opacity: 0.5; /* Ensure sufficient dimming */
+  z-index: 1050; /* Base backdrop z-index */
+}
+
+/* Specific z-indices for tiered modals */
+.modal.tier-1 { z-index: 1055; }
+.modal-backdrop.tier-1 { z-index: 1050; }
+
+.modal.tier-2 { z-index: 1065; }
+.modal-backdrop.tier-2 { z-index: 1060; }
+
+.modal.tier-3 { 
+  z-index: 1075; 
+}
+
+/* Shift the 3rd tier modal dialog to the right/down for cascading effect */
+.modal.tier-3 .modal-dialog {
+  transform: translate(70px, 140px); /* Adjust pixels as needed */
+  transition: transform 0.3s ease-out;
+}
+
+.modal-backdrop.tier-3 { z-index: 1070; }
+
+.modal-content {
+  box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.5); /* Strong shadow for highlighted effect */
+}
+
+/* Installation Table: Highlight the active/newest row, dim others */
+.installation-row {
+  transition: opacity 0.2s, background-color 0.2s;
+  opacity: 0.6;
+}
+
+.installation-row:last-child {
+  opacity: 1;
+  background-color: rgba(13, 110, 253, 0.05); /* Slight highlight tint */
+  font-weight: 500;
+  border-left: 3px solid #0d6efd;
+}
+
+.installation-row:focus-within {
+  opacity: 1 !important;
+  background-color: rgba(13, 110, 253, 0.05);
+  border-left: 3px solid #0d6efd;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
 /* Legend responsive styles */
 .legend-card {
   transition: all 0.2s ease;

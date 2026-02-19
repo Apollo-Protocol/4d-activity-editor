@@ -1,5 +1,5 @@
 import type { Kind } from './Model.js';
-import type { Id, Individual } from './Schema.js';
+import type { Id, Individual, InstallationPeriod } from './Schema.js';
 import type { EntityCategory } from './entityTypes.js';
 
 /**
@@ -17,6 +17,7 @@ export class IndividualImpl implements Individual {
   installedIn?: Id;
   installedBeginning?: number;
   installedEnding?: number;
+  installations?: InstallationPeriod[];
   entityType?: EntityCategory;
 
   constructor(
@@ -29,9 +30,10 @@ export class IndividualImpl implements Individual {
     beginsWithParticipant?: boolean,
     endsWithParticipant?: boolean,
     installedIn?: Id,
-    installedBeginning?: number,
+    installedBeginningOrEntityType?: number | EntityCategory,
     installedEnding?: number,
-    entityType?: EntityCategory
+    entityType?: EntityCategory,
+    installations?: InstallationPeriod[]
   ) {
     this.id = id;
     this.name = name;
@@ -47,9 +49,23 @@ export class IndividualImpl implements Individual {
     this.endsWithParticipant = endsWithParticipant
       ? endsWithParticipant
       : false;
+
+    const isLegacyEntityTypeArg =
+      installedBeginningOrEntityType === "individual" ||
+      installedBeginningOrEntityType === "system" ||
+      installedBeginningOrEntityType === "system_component";
+
+    const installedBeginning = isLegacyEntityTypeArg
+      ? undefined
+      : installedBeginningOrEntityType;
+    const resolvedEntityType = isLegacyEntityTypeArg
+      ? installedBeginningOrEntityType
+      : entityType;
+
     this.installedIn = installedIn;
     this.installedBeginning = installedBeginning;
     this.installedEnding = installedEnding;
-    this.entityType = entityType;
+    this.entityType = resolvedEntityType;
+    this.installations = installations;
   }
 }

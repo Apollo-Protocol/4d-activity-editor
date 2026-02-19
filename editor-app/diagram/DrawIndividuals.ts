@@ -9,14 +9,11 @@ import {
 import {
   DrawContext,
   keepIndividualLabels,
+  getSystemLayout,
   Label,
   removeLabelIfItOverlaps,
-  SYSTEM_COMPONENT_GAP,
-  SYSTEM_COMPONENT_HEIGHT_FACTOR,
-  SYSTEM_CONTAINER_INSET,
-  SYSTEM_HORIZONTAL_INSET,
-  SYSTEM_MIN_HOST_HEIGHT_FACTOR,
 } from "./DrawHelpers";
+import { getInstallationPeriods, isInstalledInSystemComponent } from "@/utils/installations";
 
 let mouseOverElement: any | null = null;
 
@@ -98,6 +95,7 @@ const getInstallDepth = (
 
 export function drawIndividuals(ctx: DrawContext) {
   const { config, svgElement, individuals, activities } = ctx;
+  const systemLayout = getSystemLayout(config);
 
   const individualsById = new Map(
     individuals.map((individual) => [individual.id, individual])
@@ -128,7 +126,7 @@ export function drawIndividuals(ctx: DrawContext) {
   const baseHeight = config.layout.individual.height;
   const componentHeight = Math.max(
     10,
-    Math.floor(baseHeight * SYSTEM_COMPONENT_HEIGHT_FACTOR)
+    Math.floor(baseHeight * systemLayout.componentHeightFactor)
   );
 
   const componentsBySystem = new Map<string, Individual[]>();
@@ -153,10 +151,7 @@ export function drawIndividuals(ctx: DrawContext) {
   // Check if an individual is installed into a system component (not nested visually)
   const isInstalledIndividual = (ind: Individual) =>
     getEntityTypeIdFromIndividual(ind) === ENTITY_TYPE_IDS.INDIVIDUAL &&
-    !!ind.installedIn &&
-    individualsById.has(ind.installedIn) &&
-    getEntityTypeIdFromIndividual(individualsById.get(ind.installedIn)!) ===
-      ENTITY_TYPE_IDS.SYSTEM_COMPONENT;
+    isInstalledInSystemComponent(ind, individualsById);
 
   const getSpans = (
     individual: Individual, 
@@ -224,41 +219,45 @@ export function drawIndividuals(ctx: DrawContext) {
     };
 
     if (isInstalled) {
-      const installStart =
-        individual.installedBeginning ??
-        (Number.isFinite(individual.beginning) ? individual.beginning : 0);
-      const installEnd =
-        individual.installedEnding ??
-        (Number.isFinite(individual.ending) ? individual.ending : endOfTime);
+      const installations = getInstallationPeriods(individual);
+      if (installations.length === 0) {
+        return [createSingleSpan(individual.beginning, individual.ending)];
+      }
+
       const overallStart = individual.beginning;
       const overallEnd = individual.ending;
       const leadTime = INSTALL_RIBBON_RUN_PX / Math.max(timeInterval, 0.0001);
       
       const spans: Span[] = [];
 
-      const timelineGapStart = installStart - leadTime;
-      const timelineGapEnd = installEnd + leadTime;
-
       const toStartValue = (t: number) => (t === -1 ? -Infinity : t);
       const toEndValue = (t: number) => (t === -1 ? Infinity : t);
       const hasPositiveRange = (start: number, end: number) =>
         toEndValue(end) > toStartValue(start);
 
-      const preStart = overallStart;
-      const preEnd =
-        overallEnd === -1 ? timelineGapStart : Math.min(timelineGapStart, overallEnd);
+      const blocked = installations
+        .map((period) => ({
+          start: period.beginning - leadTime,
+          end: period.ending + leadTime,
+        }))
+        .sort((first, second) => first.start - second.start);
 
-      if (hasPositiveRange(preStart, preEnd)) {
-        spans.push(createSingleSpan(preStart, preEnd));
-      }
-
-      if (installEnd !== -1) {
-        const postStart =
-          overallStart === -1 ? timelineGapEnd : Math.max(timelineGapEnd, overallStart);
-        const postEnd = overallEnd;
-        if (hasPositiveRange(postStart, postEnd)) {
-          spans.push(createSingleSpan(postStart, postEnd));
+      let cursor = overallStart;
+      blocked.forEach((slot) => {
+        const segmentEnd =
+          overallEnd === -1 ? slot.start : Math.min(overallEnd, slot.start);
+        if (hasPositiveRange(cursor, segmentEnd)) {
+          spans.push(createSingleSpan(cursor, segmentEnd));
         }
+        if (overallEnd !== -1 && slot.end >= overallEnd) {
+          cursor = overallEnd;
+          return;
+        }
+        cursor = overallStart === -1 ? slot.end : Math.max(slot.end, overallStart);
+      });
+
+      if (hasPositiveRange(cursor, overallEnd)) {
+        spans.push(createSingleSpan(cursor, overallEnd));
       }
       
       return spans;
@@ -288,10 +287,15 @@ export function drawIndividuals(ctx: DrawContext) {
     const rowHeight =
       childComponents.length > 0
         ? Math.max(
-            Math.floor(baseHeight * SYSTEM_MIN_HOST_HEIGHT_FACTOR),
-            SYSTEM_CONTAINER_INSET * 2 +
+            Math.floor(
+              baseHeight *
+                (systemLayout.minHostHeightFactor +
+                  Math.max(0, childComponents.length - 1) *
+                    systemLayout.hostHeightGrowthPerComponent)
+            ),
+            systemLayout.containerInset * 2 +
               childComponents.length * componentHeight +
-              (childComponents.length - 1) * SYSTEM_COMPONENT_GAP
+              (childComponents.length - 1) * systemLayout.componentGap
           )
         : baseHeight;
 
@@ -306,14 +310,14 @@ export function drawIndividuals(ctx: DrawContext) {
     const componentsBlockHeight =
       childComponents.length > 0
         ? childComponents.length * componentHeight +
-          (childComponents.length - 1) * SYSTEM_COMPONENT_GAP
+          (childComponents.length - 1) * systemLayout.componentGap
         : 0;
     const componentsStartY = rowY + (rowHeight - componentsBlockHeight) / 2;
 
     childComponents.forEach((component, index) => {
       const childY =
         componentsStartY +
-        index * (componentHeight + SYSTEM_COMPONENT_GAP);
+        index * (componentHeight + systemLayout.componentGap);
       let spans = getSpans(component, childY, componentHeight);
       let span = spans[0]; // Components are not split
 
@@ -327,11 +331,11 @@ export function drawIndividuals(ctx: DrawContext) {
         const hasOpenEnd =
           component.ending === -1 || component.ending >= endOfTime;
         const minX =
-          hostSpan.x + (hasOpenStart ? 0 : SYSTEM_HORIZONTAL_INSET) + strokePad;
+          hostSpan.x + (hasOpenStart ? 0 : systemLayout.horizontalInset) + strokePad;
         const maxRight =
           hostSpan.x +
           hostSpan.w -
-          (hasOpenEnd ? 0 : SYSTEM_HORIZONTAL_INSET) -
+          (hasOpenEnd ? 0 : systemLayout.horizontalInset) -
           strokePad;
 
         // ensure left edge is not outside host (include stroke padding)
@@ -477,114 +481,117 @@ export function drawInstallationConnectors(ctx: DrawContext) {
 
   // Find individuals installed into system components
   individuals.forEach((ind) => {
-    if (
-      getEntityTypeIdFromIndividual(ind) !== ENTITY_TYPE_IDS.INDIVIDUAL ||
-      !ind.installedIn
-    ) {
-      return;
-    }
-
-    const target = individualsById.get(ind.installedIn);
-    if (
-      !target ||
-      getEntityTypeIdFromIndividual(target) !== ENTITY_TYPE_IDS.SYSTEM_COMPONENT
-    ) {
+    if (getEntityTypeIdFromIndividual(ind) !== ENTITY_TYPE_IDS.INDIVIDUAL) {
       return;
     }
 
     // Get bounding boxes of drawn shapes
     const indNode = svgElement.select("#i" + ind.id).node() as SVGGraphicsElement;
-    const targetNode = svgElement.select("#i" + target.id).node() as SVGGraphicsElement;
-    if (!indNode || !targetNode) return;
+    if (!indNode) return;
 
     const indBox = indNode.getBBox();
-    const targetBox = targetNode.getBBox();
+    const periods = getInstallationPeriods(ind);
+    periods.forEach((period, index) => {
+      const target = individualsById.get(period.systemComponentId);
+      if (
+        !target ||
+        getEntityTypeIdFromIndividual(target) !== ENTITY_TYPE_IDS.SYSTEM_COMPONENT
+      ) {
+        return;
+      }
 
-    const installStart =
-      ind.installedBeginning ??
-      (Number.isFinite(ind.beginning) ? ind.beginning : startOfTime);
-    const installEnd =
-      ind.installedEnding ??
-      (Number.isFinite(ind.ending) ? ind.ending : endOfTime);
-    const visibleStart = Math.max(installStart, startOfTime);
-    const visibleEnd = Math.min(installEnd, endOfTime);
+      const targetNode = svgElement.select("#i" + target.id).node() as SVGGraphicsElement;
+      if (!targetNode) return;
 
-    if (visibleEnd <= visibleStart) return;
+      const targetBox = targetNode.getBBox();
+      const installStart = period.beginning;
+      const installEnd = period.ending;
+      const visibleStart = Math.max(installStart, startOfTime);
+      const visibleEnd = Math.min(installEnd, endOfTime);
 
-    const x1 = timeToX(visibleStart);
-    const x2 = timeToX(visibleEnd);
+      if (visibleEnd <= visibleStart) return;
 
-    const lowerTop = indBox.y;
-    const lowerBottom = indBox.y + indBox.height;
-    const upperTop = targetBox.y;
-    const upperBottom = targetBox.y + targetBox.height;
+      const x1 = timeToX(visibleStart);
+      const x2 = timeToX(visibleEnd);
 
-    const targetPathD = targetNode.getAttribute("d") || "";
-    const clipId = `installClip-${target.id}`;
-    const clipSelector = `#${clipId}`;
-    if (defs.select(clipSelector).empty()) {
-      defs
-        .append("clipPath")
-        .attr("id", clipId)
-        .append("path")
-        .attr("d", targetPathD);
-    } else {
-      defs.select(`${clipSelector} path`).attr("d", targetPathD);
-    }
+      const lowerTop = indBox.y;
+      const lowerBottom = indBox.y + indBox.height;
+      const upperTop = targetBox.y;
+      const upperBottom = targetBox.y + targetBox.height;
 
-    svgElement
-      .append("rect")
-      .attr("class", "installHatch")
-      .attr("x", x1)
-      .attr("y", targetBox.y)
-      .attr("width", Math.max(1, x2 - x1))
-      .attr("height", targetBox.height)
-      .attr("fill", "url(#installHatch)")
-      .attr("stroke", config.presentation.individual.stroke)
-      .attr("stroke-width", 0.5)
-      .attr("opacity", 0.4)
-      .attr("clip-path", `url(#${clipId})`)
-      .attr("data-installed-id", ind.id)
-      .attr("data-target-id", target.id);
+      const targetPathD = targetNode.getAttribute("d") || "";
+      const clipId = `installClip-${target.id}`;
+      const clipSelector = `#${clipId}`;
+      if (defs.select(clipSelector).empty()) {
+        defs
+          .append("clipPath")
+          .attr("id", clipId)
+          .append("path")
+          .attr("d", targetPathD);
+      } else {
+        defs.select(`${clipSelector} path`).attr("d", targetPathD);
+      }
 
-    const startLiftDx = INSTALL_RIBBON_RUN_PX;
-    const endDropDx = INSTALL_RIBBON_RUN_PX;
+      svgElement
+        .append("rect")
+        .attr("class", "installHatch")
+        .attr("x", x1)
+        .attr("y", targetBox.y)
+        .attr("width", Math.max(1, x2 - x1))
+        .attr("height", targetBox.height)
+        .attr("fill", "url(#installHatch)")
+        .attr("stroke", config.presentation.individual.stroke)
+        .attr("stroke-width", 0.5)
+        .attr("opacity", 0.4)
+        .attr("clip-path", `url(#${clipId})`)
+        .attr("data-installed-id", ind.id)
+        .attr("data-target-id", target.id);
 
-    if (installStart >= startOfTime) {
-      const pathData = `M ${x1 - startLiftDx} ${lowerTop}
+      const startLiftDx = INSTALL_RIBBON_RUN_PX;
+      const endDropDx = INSTALL_RIBBON_RUN_PX;
+
+      const previous = index > 0 ? periods[index - 1] : undefined;
+      const next = index < periods.length - 1 ? periods[index + 1] : undefined;
+      const touchesPrevious =
+        !!previous && previous.ending === period.beginning;
+      const touchesNext = !!next && next.beginning === period.ending;
+
+      if (installStart >= startOfTime && !touchesPrevious) {
+        const pathData = `M ${x1 - startLiftDx} ${lowerTop}
 L ${x1 - startLiftDx} ${lowerBottom}
 L ${x1} ${upperBottom}
 L ${x1} ${upperTop} Z`;
 
-      svgElement
-        .append("path")
-        .attr("class", "installConnectorRibbon")
-        .attr("d", pathData)
-        .attr("fill", config.presentation.individual.fill)
-        .attr("fill-opacity", 0.9)
-        .attr("stroke", config.presentation.individual.stroke)
-        .attr("stroke-width", 0.45)
-        .attr("data-installed-id", ind.id)
-        .attr("data-target-id", target.id);
-    }
+        svgElement
+          .append("path")
+          .attr("class", "installConnectorRibbon")
+          .attr("d", pathData)
+          .attr("fill", config.presentation.individual.fill)
+          .attr("fill-opacity", 0.9)
+          .attr("stroke", config.presentation.individual.stroke)
+          .attr("stroke-width", 0.45)
+          .attr("data-installed-id", ind.id)
+          .attr("data-target-id", target.id);
+      }
 
-    if (installEnd <= endOfTime) {
-      const pathData = `M ${x2} ${upperTop}
+      if (installEnd <= endOfTime && !touchesNext) {
+        const pathData = `M ${x2} ${upperTop}
 L ${x2} ${upperBottom}
 L ${x2 + endDropDx} ${lowerBottom}
 L ${x2 + endDropDx} ${lowerTop} Z`;
 
-      svgElement
-        .append("path")
-        .attr("class", "installConnectorRibbon")
-        .attr("d", pathData)
-        .attr("fill", config.presentation.individual.fill)
-        .attr("fill-opacity", 0.9)
-        .attr("stroke", config.presentation.individual.stroke)
-        .attr("stroke-width", 0.45)
-        .attr("data-installed-id", ind.id)
-        .attr("data-target-id", target.id);
-    }
+        svgElement
+          .append("path")
+          .attr("class", "installConnectorRibbon")
+          .attr("d", pathData)
+          .attr("fill", config.presentation.individual.fill)
+          .attr("fill-opacity", 0.9)
+          .attr("stroke", config.presentation.individual.stroke)
+          .attr("stroke-width", 0.45)
+          .attr("data-installed-id", ind.id)
+          .attr("data-target-id", target.id);
+      }
+    });
   });
 }
 

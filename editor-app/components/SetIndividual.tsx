@@ -1,26 +1,26 @@
-import React, {
-  Dispatch,
-  SetStateAction,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-} from "react";
+import React, { Dispatch, SetStateAction, useEffect, useMemo, useState } from "react";
 import Button from "react-bootstrap/Button";
 import Modal from "react-bootstrap/Modal";
 import Form from "react-bootstrap/Form";
-import { Individual } from "@/lib/Schema";
-import { Model } from "@/lib/Model";
+import Table from "react-bootstrap/Table";
+import Alert from "react-bootstrap/Alert";
+import Card from "react-bootstrap/Card";
 import { v4 as uuidv4 } from "uuid";
-import { Alert } from "react-bootstrap";
+import { Individual, InstallationPeriod } from "@/lib/Schema";
+import { Model } from "@/lib/Model";
 import {
   ENTITY_CATEGORY,
   ENTITY_TYPE_IDS,
   ENTITY_TYPE_OPTIONS,
   getEntityCategoryFromTypeId,
-  getEntityTypeId,
   getEntityTypeIdFromIndividual,
 } from "@/lib/entityTypes";
+import {
+  getInstallationPeriods,
+  normalizeEnd,
+  normalizeStart,
+  syncLegacyInstallationFields,
+} from "@/utils/installations";
 
 interface Props {
   deleteIndividual: (id: string) => void;
@@ -33,6 +33,24 @@ interface Props {
   updateDataset: Dispatch<Dispatch<Model>>;
 }
 
+type InstallationRow = {
+  id: string;
+  systemComponentId: string;
+  beginningText: string;
+  endingText: string;
+};
+
+type NormalizedInstallationRow = {
+  id: string;
+  systemComponentId: string;
+  beginning: number;
+  ending: number;
+  systemId?: string;
+};
+
+const EMPTY_BEGINNING = "";
+const EMPTY_ENDING = "";
+
 const SetIndividual = (props: Props) => {
   const {
     deleteIndividual,
@@ -42,7 +60,6 @@ const SetIndividual = (props: Props) => {
     selectedIndividual,
     setSelectedIndividual,
     dataset,
-    updateDataset,
   } = props;
 
   const defaultIndividual: Individual = {
@@ -57,29 +74,26 @@ const SetIndividual = (props: Props) => {
     installedIn: undefined,
     installedBeginning: undefined,
     installedEnding: undefined,
+    installations: [],
     entityType: ENTITY_CATEGORY.INDIVIDUAL,
   };
 
-  const [errors, setErrors] = useState<string[]>([]);
-  const [inputs, setInputs] = useState<Individual>(
-    selectedIndividual ? selectedIndividual : defaultIndividual
-  );
+  const [inputs, setInputs] = useState<Individual>(defaultIndividual);
   const [dirty, setDirty] = useState(false);
-  const [beginsWithParticipant, setBeginsWithParticipant] = useState(false);
-  const [endsWithParticipant, setEndsWithParticipant] = useState(false);
-  const [individualHasParticipants, setIndividualHasParticipants] =
-    useState(false);
+  const [errors, setErrors] = useState<string[]>([]);
 
-  const [typeOpen, setTypeOpen] = useState(false);
-  const [typeSearch, setTypeSearch] = useState("");
-  const [editingTypeId, setEditingTypeId] = useState<string | null>(null);
-  const [editingTypeValue, setEditingTypeValue] = useState("");
-  const typeDropdownRef = useRef<HTMLDivElement | null>(null);
-  const [highlightedIndex, setHighlightedIndex] = useState<number>(-1);
-  const itemRefs = useRef<Array<HTMLDivElement | null>>([]);
+  const [beginningText, setBeginningText] = useState(EMPTY_BEGINNING);
+  const [endingText, setEndingText] = useState(EMPTY_ENDING);
+
+  const [showInstallationsModal, setShowInstallationsModal] = useState(false);
+  const [installationRows, setInstallationRows] = useState<InstallationRow[]>([]);
+  const [installationErrors, setInstallationErrors] = useState<string[]>([]);
+  const [showBoundsWarningModal, setShowBoundsWarningModal] = useState(false);
+  const [pendingSaveIndividual, setPendingSaveIndividual] =
+    useState<Individual | null>(null);
+  const [pendingDeletionCount, setPendingDeletionCount] = useState(0);
 
   const isEditMode = !!selectedIndividual;
-
   const selectedEntityTypeId = getEntityTypeIdFromIndividual(inputs);
 
   const systems = useMemo(
@@ -103,384 +117,138 @@ const SetIndividual = (props: Props) => {
     [dataset.individuals, inputs.id]
   );
 
-  const formatInstallTargetLabel = (target: Individual) => {
-    const parent = target.installedIn
-      ? dataset.individuals.get(target.installedIn)
-      : undefined;
-
-    const beginLabel =
-      target.installedBeginning ??
-      (Number.isFinite(target.beginning) ? target.beginning : "-");
-    const endLabel =
-      target.installedEnding ??
-      (target.ending === Model.END_OF_TIME ? "∞" : target.ending);
-
-    if (parent) {
-      return `${target.name} (${parent.name}) [${beginLabel}-${endLabel}]`;
-    }
-
-    return `${target.name} [${beginLabel}-${endLabel}]`;
-  };
-
-  const selectedInstallComponent = useMemo(
+  const selectedParentSystem = useMemo(
     () =>
       inputs.installedIn ? dataset.individuals.get(inputs.installedIn) : undefined,
     [dataset.individuals, inputs.installedIn]
   );
 
-  const installWindowStart =
-    inputs.installedBeginning ??
-    (Number.isFinite(inputs.beginning) && inputs.beginning >= 0 ? inputs.beginning : 0);
-  const installWindowEnd =
-    inputs.installedEnding ??
-    (Number.isFinite(inputs.ending) && inputs.ending > installWindowStart
-      ? inputs.ending
-      : installWindowStart + 1);
+  const systemComponentSlotHints = useMemo(() => {
+    if (!selectedParentSystem) return null;
 
-  const installWindowHints = useMemo(() => {
-    if (!inputs.installedIn || !selectedInstallComponent) return null;
-
-    const componentStart =
-      selectedInstallComponent.beginning >= 0 ? selectedInstallComponent.beginning : 0;
-    const componentEnd =
-      selectedInstallComponent.ending === -1 ||
-      selectedInstallComponent.ending >= Model.END_OF_TIME
-        ? Model.END_OF_TIME
-        : selectedInstallComponent.ending;
-
-    const occupied = Array.from(dataset.individuals.values())
-      .filter((individual) => {
-        if (individual.id === inputs.id) return false;
-        if (
-          getEntityTypeIdFromIndividual(individual) !== ENTITY_TYPE_IDS.INDIVIDUAL
-        ) {
-          return false;
-        }
-        return individual.installedIn === inputs.installedIn;
-      })
-      .map((individual) => {
-        const start =
-          individual.installedBeginning ??
-          (Number.isFinite(individual.beginning) ? individual.beginning : -1);
-        const end =
-          individual.installedEnding ??
-          (Number.isFinite(individual.ending) ? individual.ending : Model.END_OF_TIME);
-        return { start, end };
-      })
-      .filter((slot) => slot.start >= 0 && slot.end > slot.start)
-      .sort((a, b) => a.start - b.start);
-
-    const merged: Array<{ start: number; end: number }> = [];
-    occupied.forEach((slot) => {
-      if (merged.length === 0) {
-        merged.push({ start: slot.start, end: slot.end });
-        return;
-      }
-      const last = merged[merged.length - 1];
-      if (slot.start <= last.end) {
-        last.end = Math.max(last.end, slot.end);
-      } else {
-        merged.push({ start: slot.start, end: slot.end });
-      }
-    });
-
-    const available: Array<{ start: number; end: number }> = [];
-    let cursor = componentStart;
-    merged.forEach((slot) => {
-      if (slot.start > cursor) {
-        available.push({ start: cursor, end: slot.start });
-      }
-      cursor = Math.max(cursor, slot.end);
-    });
-    if (cursor < componentEnd) {
-      available.push({ start: cursor, end: componentEnd });
-    }
-
-    const formatIntervals = (intervals: Array<{ start: number; end: number }>) =>
-      intervals.length === 0
-        ? "None"
-        : intervals.map((s) => `[${s.start}, ${s.end})`).join(", ");
+    const systemStart = normalizeStart(selectedParentSystem.beginning);
+    const systemEnd = normalizeEnd(selectedParentSystem.ending);
 
     return {
-      boundsLabel:
-        selectedInstallComponent.ending === -1
-          ? `[${componentStart}, ∞)`
-          : `[${componentStart}, ${componentEnd})`,
-      occupiedLabel: formatIntervals(merged),
-      availableLabel: formatIntervals(available),
+      bounds: `${systemStart}-${
+        systemEnd >= Model.END_OF_TIME ? "∞" : String(systemEnd)
+      }`,
     };
-  }, [dataset.individuals, inputs.id, inputs.installedIn, selectedInstallComponent]);
+  }, [selectedParentSystem]);
 
-  useEffect(() => {
-    if (selectedIndividual) {
-      setIndividualHasParticipants(dataset.hasParticipants(selectedIndividual.id));
-    }
+  const asInputText = (value: number, isBeginning: boolean) => {
+    if (isBeginning && value === -1) return "";
+    if (!isBeginning && value >= Model.END_OF_TIME) return "";
+    return String(value);
+  };
 
-    if (selectedIndividual && selectedIndividual.beginning > -1) {
-      setBeginsWithParticipant(true);
-    } else {
-      setBeginsWithParticipant(false);
+  const parseBoundary = (text: string, isBeginning: boolean) => {
+    if (text.trim() === "") {
+      return isBeginning ? -1 : Model.END_OF_TIME;
     }
+    const numeric = Number(text);
+    if (!Number.isFinite(numeric)) {
+      return isBeginning ? -1 : Model.END_OF_TIME;
+    }
+    return Math.trunc(numeric);
+  };
 
-    if (selectedIndividual && selectedIndividual.ending < Model.END_OF_TIME) {
-      setEndsWithParticipant(true);
-    } else {
-      setEndsWithParticipant(false);
-    }
-  }, [selectedIndividual, dataset]);
-
-  useEffect(() => {
-    function handleClickOutside(ev: MouseEvent) {
-      if (
-        typeDropdownRef.current &&
-        !typeDropdownRef.current.contains(ev.target as Node)
-      ) {
-        setTypeOpen(false);
-        setEditingTypeId(null);
-        setEditingTypeValue("");
-      }
-    }
-    if (typeOpen) document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, [typeOpen]);
-
-  useEffect(() => {
-    if (highlightedIndex >= 0 && itemRefs.current[highlightedIndex]) {
-      const el = itemRefs.current[highlightedIndex];
-      el?.scrollIntoView({ block: "nearest" });
-    }
-  }, [highlightedIndex]);
+  const updateInputs = (key: keyof Individual, value: any) => {
+    setInputs((previous) => ({ ...previous, [key]: value }));
+    setDirty(true);
+  };
 
   const handleClose = () => {
     setShow(false);
-    setInputs(defaultIndividual);
     setSelectedIndividual(undefined);
-    setErrors([]);
+    setInputs(defaultIndividual);
     setDirty(false);
-    setTypeOpen(false);
-    setTypeSearch("");
-    setEditingTypeId(null);
-    setEditingTypeValue("");
+    setErrors([]);
+    setBeginningText(EMPTY_BEGINNING);
+    setEndingText(EMPTY_ENDING);
+    setInstallationRows([]);
+    setInstallationErrors([]);
+    setShowInstallationsModal(false);
+    setShowBoundsWarningModal(false);
+    setPendingSaveIndividual(null);
+    setPendingDeletionCount(0);
   };
 
-  const handleModalHide = () => {
-    if (editingTypeId) {
-      return;
-    }
+  const commitIndividualSave = (next: Individual) => {
+    setIndividual(next);
     handleClose();
   };
 
   const handleShow = () => {
-    if (selectedIndividual) {
-      const selectedCategory =
-        selectedIndividual.entityType ??
-        getEntityCategoryFromTypeId(getEntityTypeIdFromIndividual(selectedIndividual));
-      const withInstallWindow: Individual = {
-        ...selectedIndividual,
-        entityType: selectedCategory,
-      };
+    const base = selectedIndividual
+      ? { ...selectedIndividual }
+      : { ...defaultIndividual, id: uuidv4() };
 
-      if (
-        withInstallWindow.installedIn &&
-        !Number.isFinite(withInstallWindow.installedBeginning)
-      ) {
-        withInstallWindow.installedBeginning =
-          withInstallWindow.beginning >= 0 ? withInstallWindow.beginning : 0;
-      }
-      if (
-        withInstallWindow.installedIn &&
-        !Number.isFinite(withInstallWindow.installedEnding)
-      ) {
-        withInstallWindow.installedEnding =
-          withInstallWindow.ending > (withInstallWindow.installedBeginning ?? 0)
-            ? withInstallWindow.ending
-            : (withInstallWindow.installedBeginning ?? 0) + 1;
-      }
+    const category =
+      base.entityType ??
+      getEntityCategoryFromTypeId(getEntityTypeIdFromIndividual(base));
 
-      setInputs(withInstallWindow);
-    } else {
-      setInputs({ ...defaultIndividual, id: uuidv4() });
-    }
+    const normalized = syncLegacyInstallationFields({
+      ...base,
+      entityType: category,
+      installations: getInstallationPeriods(base),
+    });
+
+    setInputs(normalized);
+    setBeginningText(asInputText(normalized.beginning, true));
+    setEndingText(asInputText(normalized.ending, false));
+    setDirty(false);
+    setErrors([]);
   };
 
-  const updateInputs = (key: keyof Individual, value: any) => {
-    setInputs({ ...inputs, [key]: value });
-    setDirty(true);
+  useEffect(() => {
+    if (!show) return;
+    handleShow();
+  }, [show]);
+
+  const handleChangeText = (e: React.ChangeEvent<HTMLInputElement>) => {
+    updateInputs(e.target.name as keyof Individual, e.target.value);
   };
 
-  const handleChange = (e: any) => {
-    updateInputs(e.target.name, e.target.value);
+  const handleBeginChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const nextText = e.target.value;
+    setBeginningText(nextText);
+    updateInputs("beginning", parseBoundary(nextText, true));
   };
 
-  const handleChangeNumeric = (e: any) => {
-    updateInputs(e.target.name, e.target.valueAsNumber);
+  const handleEndChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const nextText = e.target.value;
+    setEndingText(nextText);
+    updateInputs("ending", parseBoundary(nextText, false));
   };
 
-  const handleSelectEntityType = (typeId: string) => {
+  const handleEntityType = (typeId: string) => {
     if (isEditMode) return;
 
-    setInputs((prev) => {
-      const entityType = getEntityCategoryFromTypeId(typeId);
+    const category = getEntityCategoryFromTypeId(typeId);
+    setInputs((previous) => {
       const next: Individual = {
-        ...prev,
-        entityType,
+        ...previous,
+        entityType: category,
       };
-
-      if (entityType !== ENTITY_CATEGORY.SYSTEM_COMPONENT) {
+      if (typeId !== ENTITY_TYPE_IDS.SYSTEM_COMPONENT) {
+        next.installedIn = undefined;
+      }
+      if (typeId !== ENTITY_TYPE_IDS.INDIVIDUAL) {
+        next.installations = [];
         next.installedIn = undefined;
         next.installedBeginning = undefined;
         next.installedEnding = undefined;
       }
-
       return next;
     });
     setDirty(true);
   };
 
-  const handleBeginsWithParticipant = (e: any) => {
-    const checked = e.target.checked;
-    const earliestBeginning = selectedIndividual
-      ? dataset.earliestParticipantBeginning(selectedIndividual.id)
-      : 0;
-    setBeginsWithParticipant(checked);
-    if (checked) {
-      updateInputs("beginning", earliestBeginning ? earliestBeginning : 0);
-    } else {
-      updateInputs("beginning", -1);
-    }
-  };
-
-  const handleEndsWithParticipant = (e: any) => {
-    const checked = e.target.checked;
-    const lastEnding = selectedIndividual
-      ? dataset.lastParticipantEnding(selectedIndividual.id)
-      : Number.MAX_VALUE;
-    setEndsWithParticipant(checked);
-    updateInputs("ending", checked ? lastEnding : Number.MAX_VALUE);
-  };
-
-  const filteredTypes = dataset.individualTypes.filter((type) =>
-    type.name.toLowerCase().includes(typeSearch.toLowerCase())
-  );
-
-  useEffect(() => {
-    if (!typeOpen || filteredTypes.length === 0) {
-      setHighlightedIndex(-1);
-      return;
-    }
-    const selectedIndex = filteredTypes.findIndex(
-      (type) => type.id === inputs?.type?.id
-    );
-    setHighlightedIndex(selectedIndex >= 0 ? selectedIndex : 0);
-  }, [typeOpen, typeSearch, inputs?.type?.id, filteredTypes.length]);
-
-  const showCreateTypeOption =
-    typeSearch.trim().length > 0 &&
-    !dataset.individualTypes.some(
-      (type) => type.name.toLowerCase() === typeSearch.trim().toLowerCase()
-    );
-
-  const handleSelectType = (typeId: string) => {
-    const selectedType = dataset.individualTypes.find((type) => type.id === typeId);
-    if (selectedType) {
-      updateInputs("type", selectedType);
-    }
-    setTypeOpen(false);
-    setTypeSearch("");
-    setEditingTypeId(null);
-    setEditingTypeValue("");
-  };
-
-  const moveHighlight = (delta: number) => {
-    if (filteredTypes.length === 0) return;
-    setHighlightedIndex((prev) => {
-      let next = prev + delta;
-      if (next < 0) next = filteredTypes.length - 1;
-      if (next >= filteredTypes.length) next = 0;
-      return next;
-    });
-  };
-
-  const selectHighlighted = () => {
-    if (highlightedIndex >= 0 && highlightedIndex < filteredTypes.length) {
-      handleSelectType(filteredTypes[highlightedIndex].id);
-    }
-  };
-
-  const handleCreateTypeFromSearch = () => {
-    const name = typeSearch.trim();
-    if (!name) return;
-    const newId = uuidv4();
-
-    updateDataset((d) => {
-      d.addIndividualType(newId, name);
-      return d;
-    });
-
-    updateInputs("type", { id: newId, name, isCoreHqdm: false });
-
-    setTypeOpen(false);
-    setTypeSearch("");
-  };
-
-  const startEditType = (typeId: string, currentName: string, e: any) => {
-    e.stopPropagation();
-    const found = dataset.individualTypes.find((type) => type.id === typeId);
-    if (found && found.isCoreHqdm) return;
-    setEditingTypeId(typeId);
-    setEditingTypeValue(currentName);
-  };
-
-  const saveEditType = () => {
-    if (!editingTypeId) return;
-    const newName = editingTypeValue.trim();
-    if (!newName) return;
-
-    updateDataset((d) => {
-      const kind = d.individualTypes.find((type) => type.id === editingTypeId);
-      if (kind) kind.name = newName;
-
-      d.individuals.forEach((individual) => {
-        if (individual.type && individual.type.id === editingTypeId) {
-          const canonical = d.individualTypes.find(
-            (type) => type.id === editingTypeId
-          );
-          if (canonical) individual.type = canonical;
-        }
-      });
-
-      if (
-        d.defaultIndividualType &&
-        d.defaultIndividualType.id === editingTypeId
-      ) {
-        const canonical = d.individualTypes.find(
-          (type) => type.id === editingTypeId
-        );
-        if (canonical) d.defaultIndividualType = canonical;
-      }
-
-      return d;
-    });
-
-    updateInputs("type", {
-      id: editingTypeId,
-      name: newName,
-      isCoreHqdm: false,
-    });
-
-    setEditingTypeId(null);
-    setEditingTypeValue("");
-  };
-
-  const cancelEditType = () => {
-    setEditingTypeId(null);
-    setEditingTypeValue("");
-  };
-
-  const validateInputs = () => {
+  const validateMainInputs = () => {
     const runningErrors: string[] = [];
 
-    if (!inputs.name) {
+    if (!inputs.name?.trim()) {
       runningErrors.push("Name field is required");
     }
 
@@ -489,154 +257,418 @@ const SetIndividual = (props: Props) => {
     }
 
     if (
-      selectedEntityTypeId === ENTITY_TYPE_IDS.SYSTEM_COMPONENT &&
-      !inputs.installedIn
+      Number.isFinite(inputs.beginning) &&
+      Number.isFinite(inputs.ending) &&
+      inputs.beginning >= 0 &&
+      inputs.ending < Model.END_OF_TIME &&
+      inputs.ending <= inputs.beginning
     ) {
-      runningErrors.push("System Component must be installed to a System");
+      runningErrors.push("Ending must be after Beginning");
     }
 
-    if (
-      selectedEntityTypeId === ENTITY_TYPE_IDS.SYSTEM_COMPONENT &&
-      inputs.installedIn
-    ) {
-      const host = dataset.individuals.get(inputs.installedIn);
-      const hostType = host ? getEntityTypeIdFromIndividual(host) : undefined;
-      if (hostType !== ENTITY_TYPE_IDS.SYSTEM) {
-        runningErrors.push("System Component can only be installed into a System");
-      }
-
-      if (!Number.isFinite(inputs.beginning) || !Number.isFinite(inputs.ending)) {
-        runningErrors.push("Beginning and Ending are required");
+    if (selectedEntityTypeId === ENTITY_TYPE_IDS.SYSTEM_COMPONENT) {
+      if (!inputs.installedIn) {
+        runningErrors.push("System Component must be installed to a System");
       } else {
-        if (inputs.ending <= inputs.beginning) {
-          runningErrors.push("Ending must be after Beginning");
-        }
-        if (host) {
-          if (host.beginning >= 0 && inputs.beginning < host.beginning) {
-            runningErrors.push("System Component beginning is outside System bounds");
-          }
-          if (
-            host.ending !== -1 &&
-            host.ending < Model.END_OF_TIME &&
-            inputs.ending > host.ending
-          ) {
-            runningErrors.push("System Component ending is outside System bounds");
-          }
-        }
-      }
-    }
-
-    if (
-      selectedEntityTypeId === ENTITY_TYPE_IDS.INDIVIDUAL &&
-      inputs.installedIn
-    ) {
-      const installedInEntity = dataset.individuals.get(inputs.installedIn);
-      const installedInType = installedInEntity
-        ? getEntityTypeIdFromIndividual(installedInEntity)
-        : undefined;
-
-      if (installedInType !== ENTITY_TYPE_IDS.SYSTEM_COMPONENT) {
-        runningErrors.push(
-          "Individual can only be installed into a System Component"
-        );
-      }
-
-      const installStart = installWindowStart;
-      const installEnd = installWindowEnd;
-
-      if (!Number.isFinite(installStart) || installStart < 0) {
-        runningErrors.push("Beginning must be 0 or greater");
-      }
-
-      if (!Number.isFinite(installEnd) || installEnd <= installStart) {
-        runningErrors.push("Ending must be after Beginning");
-      }
-
-      if (installEnd >= Model.END_OF_TIME) {
-        runningErrors.push(`Ending must be less than ${Model.END_OF_TIME}`);
-      }
-
-      if (installedInEntity) {
-        const componentStart = installedInEntity.beginning;
-        const componentEnd = installedInEntity.ending;
-        if (componentStart >= 0 && installStart < componentStart) {
-          runningErrors.push(
-            `Beginning must be within ${installedInEntity.name} bounds`
-          );
-        }
+        const parentSystem = dataset.individuals.get(inputs.installedIn);
         if (
-          componentEnd !== -1 &&
-          componentEnd < Model.END_OF_TIME &&
-          installEnd > componentEnd
+          !parentSystem ||
+          getEntityTypeIdFromIndividual(parentSystem) !== ENTITY_TYPE_IDS.SYSTEM
         ) {
-          runningErrors.push(
-            `Ending must be within ${installedInEntity.name} bounds`
-          );
+          runningErrors.push("System Component can only be installed into a System");
+        } else {
+          const parentStart = normalizeStart(parentSystem.beginning);
+          const parentEnd = normalizeEnd(parentSystem.ending);
+          const ownStart = normalizeStart(inputs.beginning);
+          const ownEnd = normalizeEnd(inputs.ending);
+
+          if (ownStart < parentStart) {
+            runningErrors.push(
+              `System Component beginning must be within ${parentSystem.name}`
+            );
+          }
+          if (ownEnd > parentEnd) {
+            runningErrors.push(
+              `System Component ending must be within ${parentSystem.name}`
+            );
+          }
         }
       }
-
-      if (inputs.beginning >= 0 && installStart < inputs.beginning) {
-        runningErrors.push("Installation Beginning cannot be before Individual Beginning");
-      }
-      if (
-        inputs.ending < Model.END_OF_TIME &&
-        Number.isFinite(inputs.ending) &&
-        installEnd > inputs.ending
-      ) {
-        runningErrors.push("Installation Ending cannot be after Individual Ending");
-      }
-
-      const overlapsInstalledIndividual = Array.from(dataset.individuals.values())
-        .filter((individual) => {
-          if (individual.id === inputs.id) return false;
-          if (
-            getEntityTypeIdFromIndividual(individual) !== ENTITY_TYPE_IDS.INDIVIDUAL
-          ) {
-            return false;
-          }
-          return individual.installedIn === inputs.installedIn;
-        })
-        .some((other) => {
-          const otherStart =
-            other.installedBeginning ??
-            (Number.isFinite(other.beginning) ? other.beginning : -1);
-          const otherEnd =
-            other.installedEnding ??
-            (Number.isFinite(other.ending) ? other.ending : Model.END_OF_TIME);
-
-          if (otherStart < 0 || otherEnd <= otherStart) return false;
-          return installStart < otherEnd && otherStart < installEnd;
-        });
-
-      if (overlapsInstalledIndividual) {
-        runningErrors.push(
-          "Installation window overlaps another Individual in this System Component"
-        );
-      }
     }
 
-    if (runningErrors.length === 0) {
-      return true;
+    if (runningErrors.length > 0) {
+      setErrors(runningErrors);
+      return false;
     }
 
-    setErrors(runningErrors);
-    return false;
+    setErrors([]);
+    return true;
   };
 
-  const handleAdd = (event: any) => {
+  const handleSave = (event: React.FormEvent) => {
     event.preventDefault();
-    if (!dirty) return handleClose();
-
-    const isValid = validateInputs();
-    if (isValid) {
-      setIndividual(inputs);
+    if (!dirty) {
       handleClose();
+      return;
     }
+
+    if (!validateMainInputs()) return;
+
+    let next = { ...inputs };
+
+    if (selectedEntityTypeId === ENTITY_TYPE_IDS.INDIVIDUAL) {
+      let periods = getInstallationPeriods(next);
+      const ownStart = normalizeStart(next.beginning);
+      const ownEnd = normalizeEnd(next.ending);
+      const outsideBounds = periods.filter(
+        (period) => period.beginning < ownStart || period.ending > ownEnd
+      );
+
+      if (outsideBounds.length > 0) {
+        periods = periods.filter(
+          (period) => !outsideBounds.some((out) => out.id === period.id)
+        );
+
+        const pending = syncLegacyInstallationFields({
+          ...next,
+          installations: periods,
+        });
+
+        setPendingSaveIndividual(pending);
+        setPendingDeletionCount(outsideBounds.length);
+        setShowBoundsWarningModal(true);
+        return;
+      }
+
+      next = syncLegacyInstallationFields({
+        ...next,
+        installations: periods,
+      });
+    } else {
+      next = {
+        ...next,
+        installations: [],
+        installedBeginning: undefined,
+        installedEnding: undefined,
+      };
+      if (selectedEntityTypeId !== ENTITY_TYPE_IDS.SYSTEM_COMPONENT) {
+        next.installedIn = undefined;
+      }
+    }
+
+    commitIndividualSave(next);
+  };
+
+  const confirmBoundsDeletion = () => {
+    if (!pendingSaveIndividual) {
+      setShowBoundsWarningModal(false);
+      return;
+    }
+    commitIndividualSave(pendingSaveIndividual);
   };
 
   const handleDelete = () => {
     deleteIndividual(inputs.id);
     handleClose();
+  };
+
+  const openInstallationsModal = () => {
+    const rows = getInstallationPeriods(inputs).map((period) => ({
+      id: period.id,
+      systemComponentId: period.systemComponentId,
+      beginningText: String(period.beginning),
+      endingText: period.ending >= Model.END_OF_TIME ? "" : String(period.ending),
+    }));
+    setInstallationRows(
+      rows.length > 0
+        ? rows
+        : [
+            {
+              id: uuidv4(),
+              systemComponentId: "",
+              beginningText: "0",
+              endingText: "",
+            },
+          ]
+    );
+    setInstallationErrors([]);
+    setShowInstallationsModal(true);
+  };
+
+  const addInstallationRow = () => {
+    setInstallationRows((previous) => [
+      ...previous,
+      {
+        id: uuidv4(),
+        systemComponentId: "",
+        beginningText: "0",
+        endingText: "",
+      },
+    ]);
+  };
+
+  const removeInstallationRow = (rowId: string) => {
+    setInstallationRows((previous) => previous.filter((row) => row.id !== rowId));
+  };
+
+  const updateInstallationRow = (
+    rowId: string,
+    key: keyof InstallationRow,
+    value: string
+  ) => {
+    setInstallationRows((previous) =>
+      previous.map((row) => (row.id === rowId ? { ...row, [key]: value } : row))
+    );
+  };
+
+  const componentSystemIdById = useMemo(() => {
+    const map = new Map<string, string | undefined>();
+    systemComponents.forEach((component) => {
+      map.set(component.id, component.installedIn);
+    });
+    return map;
+  }, [systemComponents]);
+
+  const normalizeInstallationRows = (rows: InstallationRow[]) => {
+    const rowErrors: string[] = [];
+    const normalized: NormalizedInstallationRow[] = [];
+
+    rows.forEach((row, index) => {
+      const rowPrefix = `Row ${index + 1}`;
+
+      if (!row.systemComponentId) {
+        rowErrors.push(`${rowPrefix}: System Component is required`);
+        return;
+      }
+
+      const component = dataset.individuals.get(row.systemComponentId);
+      if (
+        !component ||
+        getEntityTypeIdFromIndividual(component) !== ENTITY_TYPE_IDS.SYSTEM_COMPONENT
+      ) {
+        rowErrors.push(`${rowPrefix}: Selected System Component is invalid`);
+        return;
+      }
+
+      if (row.beginningText.trim() === "") {
+        rowErrors.push(`${rowPrefix}: Beginning is required`);
+        return;
+      }
+
+      const beginning = Math.trunc(Number(row.beginningText));
+      const ending =
+        row.endingText.trim() === ""
+          ? Model.END_OF_TIME
+          : Math.trunc(Number(row.endingText));
+
+      if (!Number.isFinite(beginning) || beginning < 0) {
+        rowErrors.push(`${rowPrefix}: Beginning must be 0 or greater`);
+        return;
+      }
+
+      if (!Number.isFinite(ending) || ending <= beginning) {
+        rowErrors.push(`${rowPrefix}: Ending must be after Beginning`);
+        return;
+      }
+
+      const componentStart = normalizeStart(component.beginning);
+      const componentEnd = normalizeEnd(component.ending);
+
+      if (beginning < componentStart) {
+        rowErrors.push(
+          `${rowPrefix}: Beginning must be within ${component.name} bounds`
+        );
+      }
+      if (ending > componentEnd) {
+        rowErrors.push(`${rowPrefix}: Ending must be within ${component.name} bounds`);
+      }
+
+      const ownStart = normalizeStart(inputs.beginning);
+      const ownEnd = normalizeEnd(inputs.ending);
+      if (beginning < ownStart) {
+        rowErrors.push(`${rowPrefix}: Beginning must be within entity bounds`);
+      }
+      if (ending > ownEnd) {
+        rowErrors.push(`${rowPrefix}: Ending must be within entity bounds`);
+      }
+
+      normalized.push({
+        id: row.id,
+        systemComponentId: row.systemComponentId,
+        beginning,
+        ending,
+        systemId: componentSystemIdById.get(row.systemComponentId),
+      });
+    });
+
+    for (let first = 0; first < normalized.length; first += 1) {
+      for (let second = first + 1; second < normalized.length; second += 1) {
+        const a = normalized[first];
+        const b = normalized[second];
+        if (!a.systemId || !b.systemId || a.systemId !== b.systemId) continue;
+
+        const overlap = a.beginning < b.ending && b.beginning < a.ending;
+        if (!overlap) continue;
+
+        rowErrors.push(
+          `Rows ${first + 1} and ${second + 1} overlap within the same system`
+        );
+      }
+    }
+
+    normalized.forEach((candidate, index) => {
+      const overlappingOther = Array.from(dataset.individuals.values())
+        .filter((other) => other.id !== inputs.id)
+        .some((other) =>
+          getInstallationPeriods(other).some((period) => {
+            if (period.systemComponentId !== candidate.systemComponentId) {
+              return false;
+            }
+            return (
+              candidate.beginning < period.ending &&
+              period.beginning < candidate.ending
+            );
+          })
+        );
+
+      if (overlappingOther) {
+        rowErrors.push(
+          `Row ${index + 1} overlaps another individual in the same system component slot`
+        );
+      }
+    });
+
+    return { normalized, rowErrors };
+  };
+
+  useEffect(() => {
+    if (!showInstallationsModal) return;
+    const { rowErrors } = normalizeInstallationRows(installationRows);
+    setInstallationErrors(rowErrors);
+  }, [installationRows, showInstallationsModal]);
+
+  const saveInstallations = () => {
+    const { normalized, rowErrors } = normalizeInstallationRows(installationRows);
+    if (rowErrors.length > 0) {
+      setInstallationErrors(rowErrors);
+      return;
+    }
+
+    const nextInstallations: InstallationPeriod[] = normalized
+      .sort((first, second) => first.beginning - second.beginning)
+      .map((row) => ({
+        id: row.id,
+        systemComponentId: row.systemComponentId,
+        beginning: row.beginning,
+        ending: row.ending,
+      }));
+
+    const synced = syncLegacyInstallationFields({
+      ...inputs,
+      installations: nextInstallations,
+    });
+
+    setInputs(synced);
+    setDirty(true);
+    setShowInstallationsModal(false);
+    setInstallationErrors([]);
+  };
+
+  const getAvailabilityForRow = (row: InstallationRow) => {
+    if (!row.systemComponentId) return null;
+
+    const component = dataset.individuals.get(row.systemComponentId);
+    if (!component) return null;
+
+    const start = normalizeStart(component.beginning);
+    const end = normalizeEnd(component.ending);
+
+    const occupied = installationRows
+      .filter((entry) => entry.id !== row.id)
+      .map((entry) => {
+        if (!entry.systemComponentId || entry.systemComponentId !== row.systemComponentId)
+          return undefined;
+
+        const from = Math.trunc(Number(entry.beginningText));
+        const until =
+          entry.endingText.trim() === ""
+            ? Model.END_OF_TIME
+            : Math.trunc(Number(entry.endingText));
+
+        if (!Number.isFinite(from) || !Number.isFinite(until) || until <= from) {
+          return undefined;
+        }
+
+        return { from, until };
+      })
+      .filter(
+        (value): value is { from: number; until: number } =>
+          !!value && value.until > start && value.from < end
+      )
+      .map((value) => ({
+        from: Math.max(start, value.from),
+        until: Math.min(end, value.until),
+      }));
+
+    const occupiedByDataset = Array.from(dataset.individuals.values())
+      .filter((other) => other.id !== inputs.id)
+      .flatMap((other) =>
+        getInstallationPeriods(other)
+          .map((period) => {
+            if (period.systemComponentId !== row.systemComponentId) {
+              return undefined;
+            }
+            return {
+              from: Math.max(start, period.beginning),
+              until: Math.min(end, period.ending),
+            };
+          })
+          .filter(
+            (value): value is { from: number; until: number } =>
+              !!value && value.until > value.from
+          )
+      );
+
+    const combinedOccupied = [...occupied, ...occupiedByDataset]
+      .sort((first, second) => first.from - second.from);
+
+    const merged: Array<{ from: number; until: number }> = [];
+    combinedOccupied.forEach((slot) => {
+      const previous = merged[merged.length - 1];
+      if (!previous || slot.from > previous.until) {
+        merged.push({ ...slot });
+        return;
+      }
+      previous.until = Math.max(previous.until, slot.until);
+    });
+
+    const available: Array<{ from: number; until: number }> = [];
+    let cursor = start;
+    merged.forEach((slot) => {
+      if (slot.from > cursor) {
+        available.push({ from: cursor, until: slot.from });
+      }
+      cursor = Math.max(cursor, slot.until);
+    });
+    if (cursor < end) {
+      available.push({ from: cursor, until: end });
+    }
+
+    const formatIntervals = (intervals: Array<{ from: number; until: number }>) =>
+      intervals.length === 0
+        ? "None"
+        : intervals
+            .map((interval) =>
+              interval.until >= Model.END_OF_TIME
+                ? `${interval.from}-∞`
+                : `${interval.from}-${interval.until}`
+            )
+            .join(", ");
+
+    return {
+      occupied: formatIntervals(merged),
+      available: formatIntervals(available),
+    };
   };
 
   return (
@@ -645,13 +677,13 @@ const SetIndividual = (props: Props) => {
         Add Entity
       </Button>
 
-      <Modal show={show} onHide={handleModalHide} onShow={handleShow}>
+      <Modal show={show} onHide={handleClose} className="tier-1" backdropClassName="tier-1-backdrop">
         <Modal.Header closeButton>
-          <Modal.Title>{selectedIndividual ? "Edit Entity" : "Add Entity"}</Modal.Title>
+          <Modal.Title>{isEditMode ? "Edit Entity" : "Add Entity"}</Modal.Title>
         </Modal.Header>
         <Modal.Body>
-          <Form onSubmit={handleAdd}>
-            <Form.Group className="mb-3" controlId="formEntityType">
+          <Form onSubmit={handleSave}>
+            <Form.Group className="mb-3" controlId="formEntityCategory">
               <Form.Label>Entity Type</Form.Label>
               <div className="d-flex flex-wrap gap-2">
                 {ENTITY_TYPE_OPTIONS.map((option) => {
@@ -664,7 +696,7 @@ const SetIndividual = (props: Props) => {
                       size="sm"
                       variant={selected ? "primary" : "outline-secondary"}
                       disabled={disabled}
-                      onClick={() => handleSelectEntityType(option.id)}
+                      onClick={() => handleEntityType(option.id)}
                     >
                       {option.glyph} {option.label}
                     </Button>
@@ -678,198 +710,63 @@ const SetIndividual = (props: Props) => {
               <Form.Control
                 type="text"
                 name="name"
-                value={inputs?.name}
-                onChange={handleChange}
-                className="form-control"
+                value={inputs.name}
+                onChange={handleChangeText}
               />
             </Form.Group>
 
-            <Form.Group className="mb-3" controlId="formEntityTypeName">
+            <Form.Group className="mb-3" controlId="formEntityType">
               <Form.Label>Type</Form.Label>
-              <div
-                ref={typeDropdownRef}
-                className="position-relative"
-                style={{ zIndex: 1050 }}
+              <Form.Select
+                value={inputs.type?.id ?? ""}
+                onChange={(event) => {
+                  const selected = dataset.individualTypes.find(
+                    (type) => type.id === event.target.value
+                  );
+                  if (selected) {
+                    updateInputs("type", selected);
+                  }
+                }}
               >
-                <button
-                  type="button"
-                  className="w-100 btn btn-outline-secondary d-flex justify-content-between align-items-center"
-                  onClick={() => setTypeOpen((current) => !current)}
-                >
-                  <span className="text-truncate">
-                    {inputs?.type?.name || "Select type..."}
-                  </span>
-                  <span style={{ marginLeft: 8 }}>▾</span>
-                </button>
-
-                {typeOpen && (
-                  <div
-                    className="card mt-1"
-                    style={{ maxHeight: 300, overflow: "hidden" }}
-                  >
-                    <div className="card-body p-2 border-bottom">
-                      <input
-                        className="form-control form-control-sm"
-                        placeholder="Search or create type..."
-                        value={typeSearch}
-                        onChange={(e) => setTypeSearch(e.target.value)}
-                        onKeyDown={(e) => {
-                          if (e.key === "Enter" && showCreateTypeOption) {
-                            e.preventDefault();
-                            handleCreateTypeFromSearch();
-                            return;
-                          }
-
-                          if (e.key === "ArrowDown") {
-                            e.preventDefault();
-                            moveHighlight(1);
-                            return;
-                          }
-
-                          if (e.key === "ArrowUp") {
-                            e.preventDefault();
-                            moveHighlight(-1);
-                            return;
-                          }
-
-                          if (e.key === "Escape") {
-                            setTypeOpen(false);
-                            return;
-                          }
-
-                          if (
-                            e.key === "Enter" &&
-                            filteredTypes.length > 0 &&
-                            !showCreateTypeOption
-                          ) {
-                            e.preventDefault();
-                            selectHighlighted();
-                            return;
-                          }
-                        }}
-                        autoFocus
-                      />
-                    </div>
-
-                    <div style={{ maxHeight: 180, overflow: "auto" }}>
-                      {filteredTypes.map((type, idx) => (
-                        <div
-                          key={type.id}
-                          ref={(el) => {
-                            itemRefs.current[idx] = el;
-                          }}
-                          tabIndex={-1}
-                          className={`d-flex align-items-center justify-content-between px-3 py-2 ${
-                            highlightedIndex === idx ? "bg-primary text-white" : ""
-                          }`}
-                          style={{ cursor: "pointer" }}
-                          onClick={() => handleSelectType(type.id)}
-                          onMouseEnter={() => setHighlightedIndex(idx)}
-                          onKeyDown={(e) => {
-                            if (e.key === "Enter") selectHighlighted();
-                            if (e.key === "Escape") setTypeOpen(false);
-                          }}
-                        >
-                          {editingTypeId === type.id ? (
-                            <div className="d-flex align-items-center w-100">
-                              <input
-                                className="form-control form-control-sm me-2"
-                                value={editingTypeValue}
-                                onChange={(e) =>
-                                  setEditingTypeValue(e.target.value)
-                                }
-                                onMouseDown={(e) => e.stopPropagation()}
-                                onClick={(e) => e.stopPropagation()}
-                                onKeyDown={(e) => {
-                                  if (e.key === "Enter") saveEditType();
-                                  if (e.key === "Escape") cancelEditType();
-                                }}
-                                autoFocus
-                              />
-                              <div className="d-flex align-items-center">
-                                <button
-                                  type="button"
-                                  className="btn btn-sm btn-success me-1"
-                                  onClick={(ev) => {
-                                    ev.stopPropagation();
-                                    saveEditType();
-                                  }}
-                                >
-                                  Save
-                                </button>
-                                <button
-                                  type="button"
-                                  className="btn btn-sm btn-secondary"
-                                  onClick={(ev) => {
-                                    ev.stopPropagation();
-                                    cancelEditType();
-                                  }}
-                                >
-                                  Cancel
-                                </button>
-                              </div>
-                            </div>
-                          ) : (
-                            <>
-                              <div className="flex-grow-1">{type.name}</div>
-                              <div className="d-flex align-items-center">
-                                {inputs?.type?.id === type.id && (
-                                  <span className="me-2">✓</span>
-                                )}
-                                {!type.isCoreHqdm && (
-                                  <button
-                                    type="button"
-                                    className={`btn btn-sm btn-link p-0 ${
-                                      highlightedIndex === idx ? "text-white" : ""
-                                    }`}
-                                    onClick={(e) =>
-                                      startEditType(type.id, type.name, e)
-                                    }
-                                  >
-                                    edit
-                                  </button>
-                                )}
-                              </div>
-                            </>
-                          )}
-                        </div>
-                      ))}
-
-                      {showCreateTypeOption && (
-                        <div
-                          className="px-3 py-2 text-primary fw-medium border-top"
-                          style={{ cursor: "pointer" }}
-                          onClick={handleCreateTypeFromSearch}
-                        >
-                          Create &quot;{typeSearch}&quot;
-                        </div>
-                      )}
-
-                      {filteredTypes.length === 0 && !showCreateTypeOption && (
-                        <div className="p-3 text-muted small">No results found</div>
-                      )}
-                    </div>
-                  </div>
-                )}
-              </div>
+                <option value="">Select type...</option>
+                {dataset.individualTypes.map((type) => (
+                  <option key={type.id} value={type.id}>
+                    {type.name}
+                  </option>
+                ))}
+              </Form.Select>
             </Form.Group>
 
             {selectedEntityTypeId === ENTITY_TYPE_IDS.SYSTEM_COMPONENT && (
-              <Form.Group className="mb-3" controlId="formEntityInstalledIn">
+              <Form.Group className="mb-3" controlId="formSystemComponentParent">
                 <Form.Label>Install To System</Form.Label>
                 <Form.Select
-                  name="installedIn"
-                  value={inputs?.installedIn || ""}
-                  onChange={(e) =>
-                    updateInputs("installedIn", e.target.value || undefined)
-                  }
+                  value={inputs.installedIn ?? ""}
+                  onChange={(event) => {
+                    const systemId = event.target.value || undefined;
+                    const selectedSystem = systemId
+                      ? dataset.individuals.get(systemId)
+                      : undefined;
+                    if (!selectedSystem) {
+                      updateInputs("installedIn", undefined);
+                      return;
+                    }
+
+                    setBeginningText("");
+                    setEndingText("");
+                    setInputs((previous) => ({
+                      ...previous,
+                      installedIn: systemId,
+                      beginning: -1,
+                      ending: Model.END_OF_TIME,
+                    }));
+                    setDirty(true);
+                  }}
                 >
                   <option value="">Select system...</option>
                   {systems.map((system) => (
                     <option key={system.id} value={system.id}>
-                      {`${system.name} [${system.beginning}-${
-                        system.ending === Model.END_OF_TIME ? "∞" : system.ending
-                      }]`}
+                      {system.name}
                     </option>
                   ))}
                 </Form.Select>
@@ -878,153 +775,52 @@ const SetIndividual = (props: Props) => {
                     Create a System entity before adding a System Component.
                   </Form.Text>
                 )}
+                {systemComponentSlotHints && (
+                  <Form.Text className="text-muted d-block mt-1">
+                    System bounds: {systemComponentSlotHints.bounds} | Multiple system components can share the same slot range.
+                  </Form.Text>
+                )}
               </Form.Group>
             )}
 
-            {selectedEntityTypeId === ENTITY_TYPE_IDS.SYSTEM_COMPONENT &&
-              !!inputs.installedIn && (
-                <>
-                  <Form.Group className="mb-3" controlId="formSystemComponentBeginning">
-                    <Form.Label>Installation Beginning</Form.Label>
-                    <Form.Control
-                      type="number"
-                      name="beginning"
-                      value={inputs.beginning}
-                      onChange={handleChangeNumeric}
-                      step="1"
-                      min="0"
-                      max={Model.END_OF_TIME - 2}
-                      className="form-control"
-                    />
-                  </Form.Group>
+            <Form.Group className="mb-3" controlId="formEntityBeginning">
+              <Form.Label>Beginning</Form.Label>
+              <Form.Control
+                type="number"
+                value={beginningText}
+                onChange={handleBeginChange}
+              />
+            </Form.Group>
 
-                  <Form.Group className="mb-3" controlId="formSystemComponentEnding">
-                    <Form.Label>Installation Ending</Form.Label>
-                    <Form.Control
-                      type="number"
-                      name="ending"
-                      value={inputs.ending}
-                      onChange={handleChangeNumeric}
-                      step="1"
-                      min="1"
-                      max={Model.END_OF_TIME - 1}
-                      className="form-control"
-                    />
-                  </Form.Group>
-                </>
-              )}
+            <Form.Group className="mb-3" controlId="formEntityEnding">
+              <Form.Label>Ending</Form.Label>
+              <Form.Control
+                type="number"
+                value={endingText}
+                onChange={handleEndChange}
+              />
+            </Form.Group>
 
-            {selectedEntityTypeId === ENTITY_TYPE_IDS.INDIVIDUAL && (
-              <>
-                <Form.Group
-                  className="mb-3"
-                  controlId="formEntityInstalledInSystemComponent"
-                >
-                  <Form.Label>Install Into System Component (Optional)</Form.Label>
-                  <Form.Select
-                    name="installedIn"
-                    value={inputs?.installedIn || ""}
-                    onChange={(e) => {
-                      const selectedValue = e.target.value || undefined;
-
-                      if (!selectedValue) {
-                        setInputs((prev) => ({
-                          ...prev,
-                          installedIn: undefined,
-                          installedBeginning: undefined,
-                          installedEnding: undefined,
-                        }));
-                        setDirty(true);
-                        return;
-                      }
-
-                      const selectedComponent = dataset.individuals.get(selectedValue);
-                      const componentStart =
-                        selectedComponent && selectedComponent.beginning >= 0
-                          ? selectedComponent.beginning
-                          : 0;
-                      const componentEnd =
-                        selectedComponent &&
-                        selectedComponent.ending > componentStart &&
-                        selectedComponent.ending < Model.END_OF_TIME
-                          ? selectedComponent.ending
-                          : componentStart + 1;
-
-                      const nextBeginning = Number.isFinite(inputs.installedBeginning)
-                        ? (inputs.installedBeginning as number)
-                        : componentStart;
-                      const nextEnding =
-                        Number.isFinite(inputs.installedEnding) &&
-                        (inputs.installedEnding as number) > nextBeginning
-                          ? (inputs.installedEnding as number)
-                          : Math.min(componentEnd, nextBeginning + 1);
-
-                      setInputs((prev) => ({
-                        ...prev,
-                        installedIn: selectedValue,
-                        installedBeginning: nextBeginning,
-                        installedEnding: nextEnding,
-                      }));
-                      setDirty(true);
-                    }}
-                  >
-                    <option value="">None</option>
-                    {systemComponents.map((component) => (
-                      <option key={component.id} value={component.id}>
-                        {formatInstallTargetLabel(component)}
-                      </option>
-                    ))}
-                  </Form.Select>
-                </Form.Group>
-
-                {!!inputs.installedIn && (
-                  <>
-                    <Form.Group className="mb-3" controlId="formEntityBeginning">
-                      <Form.Label>Installation Beginning</Form.Label>
-                      <Form.Control
-                        type="number"
-                        name="installedBeginning"
-                        value={installWindowStart}
-                        onChange={(e) =>
-                          updateInputs(
-                            "installedBeginning",
-                            (e.currentTarget as HTMLInputElement).valueAsNumber
-                          )
-                        }
-                        step="1"
-                        min="0"
-                        max={Model.END_OF_TIME - 2}
-                        className="form-control"
-                      />
-                    </Form.Group>
-
-                    <Form.Group className="mb-3" controlId="formEntityEnding">
-                      <Form.Label>Installation Ending</Form.Label>
-                      <Form.Control
-                        type="number"
-                        name="installedEnding"
-                        value={installWindowEnd}
-                        onChange={(e) =>
-                          updateInputs(
-                            "installedEnding",
-                            (e.currentTarget as HTMLInputElement).valueAsNumber
-                          )
-                        }
-                        step="1"
-                        min="1"
-                        max={Model.END_OF_TIME - 1}
-                        className="form-control"
-                      />
-                    </Form.Group>
-
-                    {installWindowHints && (
-                      <Form.Text className="text-muted d-block mb-3">
-                        Component bounds: {installWindowHints.boundsLabel} | Occupied: {installWindowHints.occupiedLabel} | Available: {installWindowHints.availableLabel}
-                      </Form.Text>
-                    )}
-                  </>
-                )}
-              </>
+            {isEditMode && selectedEntityTypeId === ENTITY_TYPE_IDS.INDIVIDUAL && (
+              <Card className="mb-3">
+                <Card.Body className="d-flex justify-content-between align-items-center">
+                  <div>
+                    <div className="fw-semibold">Installations</div>
+                    <div className="text-muted">
+                      {getInstallationPeriods(inputs).length === 0
+                        ? "Not installed in any slot yet."
+                        : `${getInstallationPeriods(inputs).length} total installation${
+                            getInstallationPeriods(inputs).length > 1 ? "s" : ""
+                          }`}
+                    </div>
+                  </div>
+                  <Button variant="outline-primary" onClick={openInstallationsModal}>
+                    {getInstallationPeriods(inputs).length > 0
+                      ? "Add/Edit Installation(s)"
+                      : "Add Installation"}
+                  </Button>
+                </Card.Body>
+              </Card>
             )}
 
             <Form.Group className="mb-3" controlId="formEntityDescription">
@@ -1032,41 +828,10 @@ const SetIndividual = (props: Props) => {
               <Form.Control
                 type="text"
                 name="description"
-                value={inputs?.description}
-                onChange={handleChange}
-                className="form-control"
+                value={inputs.description ?? ""}
+                onChange={handleChangeText}
               />
             </Form.Group>
-
-            <>
-              <Form.Group
-                className="mb-3"
-                controlId="formEntityBeginsWithParticipant"
-              >
-                <Form.Check
-                  type="switch"
-                  name="beginsWithParticipant"
-                  label="Begins With Participant"
-                  disabled={!individualHasParticipants}
-                  checked={beginsWithParticipant}
-                  onChange={handleBeginsWithParticipant}
-                />
-              </Form.Group>
-
-              <Form.Group
-                className="mb-3"
-                controlId="formEntityEndsWithParticipant"
-              >
-                <Form.Check
-                  type="switch"
-                  name="endsWithParticipant"
-                  label="Ends With Participant"
-                  disabled={!individualHasParticipants}
-                  checked={endsWithParticipant}
-                  onChange={handleEndsWithParticipant}
-                />
-              </Form.Group>
-            </>
           </Form>
         </Modal.Body>
 
@@ -1076,7 +841,7 @@ const SetIndividual = (props: Props) => {
               <Button
                 variant="danger"
                 onClick={handleDelete}
-                className={selectedIndividual ? "d-inline-block me-2" : "d-none"}
+                className={isEditMode ? "d-inline-block" : "d-none"}
               >
                 Delete
               </Button>
@@ -1085,23 +850,171 @@ const SetIndividual = (props: Props) => {
               <Button variant="secondary" onClick={handleClose}>
                 Cancel
               </Button>
-              <Button variant="primary" onClick={handleAdd} disabled={!dirty}>
-                {selectedIndividual ? "Save" : "Add"}
+              <Button variant="primary" onClick={handleSave} disabled={!dirty}>
+                Save
               </Button>
             </div>
           </div>
 
-          <div className="w-100 mt-2">
-            {errors.length > 0 && (
-              <Alert variant="danger" className="p-2 m-0">
-                {errors.map((error, idx) => (
-                  <p key={idx} className="mb-1">
-                    {error}
-                  </p>
-                ))}
-              </Alert>
-            )}
+          {errors.length > 0 && (
+            <Alert variant="danger" className="w-100 p-2 m-0 mt-2">
+              {errors.map((error) => (
+                <div key={error}>{error}</div>
+              ))}
+            </Alert>
+          )}
+        </Modal.Footer>
+      </Modal>
+
+      <Modal
+        show={showInstallationsModal}
+        onHide={() => setShowInstallationsModal(false)}
+        size="xl"
+        className="tier-2"
+        backdropClassName="tier-2-backdrop"
+      >
+        <Modal.Header closeButton>
+          <Modal.Title>Add Installation</Modal.Title>
+        </Modal.Header>
+        <Modal.Body>
+          <Table bordered responsive>
+            <thead>
+              <tr>
+                <th>#</th>
+                <th>System Component *</th>
+                <th>From *</th>
+                <th>Until</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {installationRows.map((row, index) => {
+                const availability = getAvailabilityForRow(row);
+                return (
+                  <tr key={row.id} className="installation-row">
+                    <td>{index + 1}</td>
+                    <td>
+                      <Form.Select
+                        value={row.systemComponentId}
+                        onChange={(event) =>
+                          updateInstallationRow(
+                            row.id,
+                            "systemComponentId",
+                            event.target.value
+                          )
+                        }
+                      >
+                        <option value="">-- Select slot --</option>
+                        {systemComponents.map((component) => {
+                          const system = component.installedIn
+                            ? dataset.individuals.get(component.installedIn)
+                            : undefined;
+                          const begin = normalizeStart(component.beginning);
+                          const end = normalizeEnd(component.ending);
+                          return (
+                            <option key={component.id} value={component.id}>
+                              {`${component.name}${
+                                system ? ` (in ${system.name})` : ""
+                              } (${begin}-${
+                                end >= Model.END_OF_TIME ? "∞" : String(end)
+                              })`}
+                            </option>
+                          );
+                        })}
+                      </Form.Select>
+                      {availability && (
+                        <Form.Text className="text-muted d-block mt-1">
+                          Occupied: {availability.occupied} | Available: {availability.available}
+                        </Form.Text>
+                      )}
+                    </td>
+                    <td>
+                      <Form.Control
+                        type="number"
+                        value={row.beginningText}
+                        onChange={(event) =>
+                          updateInstallationRow(row.id, "beginningText", event.target.value)
+                        }
+                      />
+                    </td>
+                    <td>
+                      <Form.Control
+                        type="number"
+                        placeholder="∞"
+                        value={row.endingText}
+                        onChange={(event) =>
+                          updateInstallationRow(row.id, "endingText", event.target.value)
+                        }
+                      />
+                    </td>
+                    <td>
+                      <Button
+                        variant="outline-danger"
+                        onClick={() => removeInstallationRow(row.id)}
+                      >
+                        Remove
+                      </Button>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </Table>
+
+          <Button variant="outline-primary" onClick={addInstallationRow}>
+            + Add Another Installation Period
+          </Button>
+
+          {installationErrors.length > 0 && (
+            <Alert variant="danger" className="mt-3 mb-0">
+              {installationErrors.map((error) => (
+                <div key={error}>{error}</div>
+              ))}
+            </Alert>
+          )}
+        </Modal.Body>
+        <Modal.Footer>
+          <div className="w-100 d-flex justify-content-between align-items-center">
+            <div className="text-muted">
+              {installationRows.length} total installation
+              {installationRows.length === 1 ? "" : "s"}
+            </div>
+            <div className="d-flex gap-2">
+              <Button variant="secondary" onClick={() => setShowInstallationsModal(false)}>
+                Cancel
+              </Button>
+              <Button variant="primary" onClick={saveInstallations}>
+                Save
+              </Button>
+            </div>
           </div>
+        </Modal.Footer>
+      </Modal>
+
+      <Modal
+        show={showBoundsWarningModal}
+        onHide={() => setShowBoundsWarningModal(false)}
+        centered
+        className="tier-3"
+        backdropClassName="tier-3-backdrop"
+      >
+        <Modal.Header closeButton>
+          <Modal.Title>Confirm Installation Changes</Modal.Title>
+        </Modal.Header>
+        <Modal.Body>
+          {pendingDeletionCount} installation period(s) are outside the updated
+          entity bounds and will be deleted if you continue.
+        </Modal.Body>
+        <Modal.Footer>
+          <Button
+            variant="secondary"
+            onClick={() => setShowBoundsWarningModal(false)}
+          >
+            Keep Editing
+          </Button>
+          <Button variant="danger" onClick={confirmBoundsDeletion}>
+            Delete Out-of-Bounds & Save
+          </Button>
         </Modal.Footer>
       </Modal>
     </>

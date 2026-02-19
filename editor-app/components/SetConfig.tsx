@@ -439,6 +439,71 @@ const SetConfig = (props: Props) => {
                     className="form-control"
                   />
                 </Form.Group>
+                <hr />
+                <h4>System Layout</h4>
+                <Form.Group className="mb-2" controlId="formLayoutSystemInset">
+                  <Form.Label>Container Inset</Form.Label>
+                  <Form.Control
+                    type="number"
+                    name="layout.system.containerInset"
+                    value={inputs?.layout?.system?.containerInset}
+                    onChange={handleChangeNumber}
+                    className="form-control"
+                  />
+                </Form.Group>
+                <Form.Group className="mb-2" controlId="formLayoutSystemHInset">
+                  <Form.Label>Horizontal Inset</Form.Label>
+                  <Form.Control
+                    type="number"
+                    name="layout.system.horizontalInset"
+                    value={inputs?.layout?.system?.horizontalInset}
+                    onChange={handleChangeNumber}
+                    className="form-control"
+                  />
+                </Form.Group>
+                <Form.Group className="mb-2" controlId="formLayoutSystemGap">
+                  <Form.Label>Component Gap</Form.Label>
+                  <Form.Control
+                    type="number"
+                    name="layout.system.componentGap"
+                    value={inputs?.layout?.system?.componentGap}
+                    onChange={handleChangeNumber}
+                    className="form-control"
+                  />
+                </Form.Group>
+                <Form.Group className="mb-2" controlId="formLayoutSystemCompFactor">
+                  <Form.Label>Component Height Factor</Form.Label>
+                  <Form.Control
+                    type="number"
+                    step="0.1"
+                    name="layout.system.componentHeightFactor"
+                    value={inputs?.layout?.system?.componentHeightFactor}
+                    onChange={handleChangeNumber}
+                    className="form-control"
+                  />
+                </Form.Group>
+                <Form.Group className="mb-2" controlId="formLayoutSystemHostFactor">
+                  <Form.Label>Min Host Height Factor</Form.Label>
+                  <Form.Control
+                    type="number"
+                    step="0.1"
+                    name="layout.system.minHostHeightFactor"
+                    value={inputs?.layout?.system?.minHostHeightFactor}
+                    onChange={handleChangeNumber}
+                    className="form-control"
+                  />
+                </Form.Group>
+                <Form.Group className="mb-2" controlId="formLayoutSystemHostGrowth">
+                  <Form.Label>Host Height Growth Per Component</Form.Label>
+                  <Form.Control
+                    type="number"
+                    step="0.1"
+                    name="layout.system.hostHeightGrowthPerComponent"
+                    value={inputs?.layout?.system?.hostHeightGrowthPerComponent}
+                    onChange={handleChangeNumber}
+                    className="form-control"
+                  />
+                </Form.Group>
               </Col>
             </Row>
           </Form>

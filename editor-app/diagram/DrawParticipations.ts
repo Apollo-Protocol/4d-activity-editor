@@ -2,6 +2,7 @@ import { MouseEvent } from "react";
 import { Activity } from "@/lib/Schema";
 import { ENTITY_TYPE_IDS, getEntityTypeIdFromIndividual } from "@/lib/entityTypes";
 import { DrawContext } from "./DrawHelpers";
+import { getActiveInstallationForActivity } from "@/utils/installations";
 
 let mouseOverElement: any | null = null;
 
@@ -122,26 +123,18 @@ function getPositionOfParticipation(
   if (!individual) return null;
 
   let drawRowId = individualId;
-  const installedTarget = individual.installedIn
+  const activeInstallation = getActiveInstallationForActivity(individual, activity);
+  const installedTarget = activeInstallation
+    ? ctx.individuals.find((i) => i.id === activeInstallation.systemComponentId)
+    : individual.installedIn
     ? ctx.individuals.find((i) => i.id === individual.installedIn)
     : undefined;
   const isInstalledInComponent =
     !!installedTarget &&
     getEntityTypeIdFromIndividual(installedTarget) === ENTITY_TYPE_IDS.SYSTEM_COMPONENT;
 
-  if (isInstalledInComponent) {
-    const installStart =
-      individual.installedBeginning ??
-      (Number.isFinite(individual.beginning) ? individual.beginning : 0);
-    const installEnd =
-      individual.installedEnding ??
-      (Number.isFinite(individual.ending)
-        ? individual.ending
-        : Number.MAX_VALUE);
-
-    if (activity.beginning >= installStart && activity.ending <= installEnd) {
-      drawRowId = installedTarget.id;
-    }
+  if (isInstalledInComponent && activeInstallation) {
+    drawRowId = installedTarget.id;
   }
 
   const individualNode = svgElement.select("#i" + drawRowId).node();

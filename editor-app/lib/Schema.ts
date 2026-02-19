@@ -38,6 +38,8 @@ export interface Individual extends STExtent {
   beginsWithParticipant: boolean; //not persisted to HQDM. Indicates that the beginning time should be synchronised to participants.
   endsWithParticipant: boolean; //not persisted to HQDM. Indicates that the ending time should be synchronised to participants.
   installedIn?: Id; // optional parent system id for system components.
+  installedBeginning?: number; // optional installation window start when installedIn is a system component.
+  installedEnding?: number; // optional installation window end when installedIn is a system component.
   entityType?: EntityCategory; // explicit entity category shown in UI.
 }
 

@@ -55,6 +55,8 @@ const SetIndividual = (props: Props) => {
     beginsWithParticipant: false,
     endsWithParticipant: false,
     installedIn: undefined,
+    installedBeginning: undefined,
+    installedEnding: undefined,
     entityType: ENTITY_CATEGORY.INDIVIDUAL,
   };
 
@@ -100,6 +102,114 @@ const SetIndividual = (props: Props) => {
       ),
     [dataset.individuals, inputs.id]
   );
+
+  const formatInstallTargetLabel = (target: Individual) => {
+    const parent = target.installedIn
+      ? dataset.individuals.get(target.installedIn)
+      : undefined;
+
+    const beginLabel =
+      target.installedBeginning ??
+      (Number.isFinite(target.beginning) ? target.beginning : "-");
+    const endLabel =
+      target.installedEnding ??
+      (target.ending === Model.END_OF_TIME ? "∞" : target.ending);
+
+    if (parent) {
+      return `${target.name} (${parent.name}) [${beginLabel}-${endLabel}]`;
+    }
+
+    return `${target.name} [${beginLabel}-${endLabel}]`;
+  };
+
+  const selectedInstallComponent = useMemo(
+    () =>
+      inputs.installedIn ? dataset.individuals.get(inputs.installedIn) : undefined,
+    [dataset.individuals, inputs.installedIn]
+  );
+
+  const installWindowStart =
+    inputs.installedBeginning ??
+    (Number.isFinite(inputs.beginning) && inputs.beginning >= 0 ? inputs.beginning : 0);
+  const installWindowEnd =
+    inputs.installedEnding ??
+    (Number.isFinite(inputs.ending) && inputs.ending > installWindowStart
+      ? inputs.ending
+      : installWindowStart + 1);
+
+  const installWindowHints = useMemo(() => {
+    if (!inputs.installedIn || !selectedInstallComponent) return null;
+
+    const componentStart =
+      selectedInstallComponent.beginning >= 0 ? selectedInstallComponent.beginning : 0;
+    const componentEnd =
+      selectedInstallComponent.ending === -1 ||
+      selectedInstallComponent.ending >= Model.END_OF_TIME
+        ? Model.END_OF_TIME
+        : selectedInstallComponent.ending;
+
+    const occupied = Array.from(dataset.individuals.values())
+      .filter((individual) => {
+        if (individual.id === inputs.id) return false;
+        if (
+          getEntityTypeIdFromIndividual(individual) !== ENTITY_TYPE_IDS.INDIVIDUAL
+        ) {
+          return false;
+        }
+        return individual.installedIn === inputs.installedIn;
+      })
+      .map((individual) => {
+        const start =
+          individual.installedBeginning ??
+          (Number.isFinite(individual.beginning) ? individual.beginning : -1);
+        const end =
+          individual.installedEnding ??
+          (Number.isFinite(individual.ending) ? individual.ending : Model.END_OF_TIME);
+        return { start, end };
+      })
+      .filter((slot) => slot.start >= 0 && slot.end > slot.start)
+      .sort((a, b) => a.start - b.start);
+
+    const merged: Array<{ start: number; end: number }> = [];
+    occupied.forEach((slot) => {
+      if (merged.length === 0) {
+        merged.push({ start: slot.start, end: slot.end });
+        return;
+      }
+      const last = merged[merged.length - 1];
+      if (slot.start <= last.end) {
+        last.end = Math.max(last.end, slot.end);
+      } else {
+        merged.push({ start: slot.start, end: slot.end });
+      }
+    });
+
+    const available: Array<{ start: number; end: number }> = [];
+    let cursor = componentStart;
+    merged.forEach((slot) => {
+      if (slot.start > cursor) {
+        available.push({ start: cursor, end: slot.start });
+      }
+      cursor = Math.max(cursor, slot.end);
+    });
+    if (cursor < componentEnd) {
+      available.push({ start: cursor, end: componentEnd });
+    }
+
+    const formatIntervals = (intervals: Array<{ start: number; end: number }>) =>
+      intervals.length === 0
+        ? "None"
+        : intervals.map((s) => `[${s.start}, ${s.end})`).join(", ");
+
+    return {
+      boundsLabel:
+        selectedInstallComponent.ending === -1
+          ? `[${componentStart}, ∞)`
+          : `[${componentStart}, ${componentEnd})`,
+      occupiedLabel: formatIntervals(merged),
+      availableLabel: formatIntervals(available),
+    };
+  }, [dataset.individuals, inputs.id, inputs.installedIn, selectedInstallComponent]);
 
   useEffect(() => {
     if (selectedIndividual) {
@@ -165,7 +275,29 @@ const SetIndividual = (props: Props) => {
       const selectedCategory =
         selectedIndividual.entityType ??
         getEntityCategoryFromTypeId(getEntityTypeIdFromIndividual(selectedIndividual));
-      setInputs({ ...selectedIndividual, entityType: selectedCategory });
+      const withInstallWindow: Individual = {
+        ...selectedIndividual,
+        entityType: selectedCategory,
+      };
+
+      if (
+        withInstallWindow.installedIn &&
+        !Number.isFinite(withInstallWindow.installedBeginning)
+      ) {
+        withInstallWindow.installedBeginning =
+          withInstallWindow.beginning >= 0 ? withInstallWindow.beginning : 0;
+      }
+      if (
+        withInstallWindow.installedIn &&
+        !Number.isFinite(withInstallWindow.installedEnding)
+      ) {
+        withInstallWindow.installedEnding =
+          withInstallWindow.ending > (withInstallWindow.installedBeginning ?? 0)
+            ? withInstallWindow.ending
+            : (withInstallWindow.installedBeginning ?? 0) + 1;
+      }
+
+      setInputs(withInstallWindow);
     } else {
       setInputs({ ...defaultIndividual, id: uuidv4() });
     }
@@ -196,6 +328,8 @@ const SetIndividual = (props: Props) => {
 
       if (entityType !== ENTITY_CATEGORY.SYSTEM_COMPONENT) {
         next.installedIn = undefined;
+        next.installedBeginning = undefined;
+        next.installedEnding = undefined;
       }
 
       return next;
@@ -362,6 +496,37 @@ const SetIndividual = (props: Props) => {
     }
 
     if (
+      selectedEntityTypeId === ENTITY_TYPE_IDS.SYSTEM_COMPONENT &&
+      inputs.installedIn
+    ) {
+      const host = dataset.individuals.get(inputs.installedIn);
+      const hostType = host ? getEntityTypeIdFromIndividual(host) : undefined;
+      if (hostType !== ENTITY_TYPE_IDS.SYSTEM) {
+        runningErrors.push("System Component can only be installed into a System");
+      }
+
+      if (!Number.isFinite(inputs.beginning) || !Number.isFinite(inputs.ending)) {
+        runningErrors.push("Beginning and Ending are required");
+      } else {
+        if (inputs.ending <= inputs.beginning) {
+          runningErrors.push("Ending must be after Beginning");
+        }
+        if (host) {
+          if (host.beginning >= 0 && inputs.beginning < host.beginning) {
+            runningErrors.push("System Component beginning is outside System bounds");
+          }
+          if (
+            host.ending !== -1 &&
+            host.ending < Model.END_OF_TIME &&
+            inputs.ending > host.ending
+          ) {
+            runningErrors.push("System Component ending is outside System bounds");
+          }
+        }
+      }
+    }
+
+    if (
       selectedEntityTypeId === ENTITY_TYPE_IDS.INDIVIDUAL &&
       inputs.installedIn
     ) {
@@ -376,16 +541,77 @@ const SetIndividual = (props: Props) => {
         );
       }
 
-      if (!Number.isFinite(inputs.beginning) || inputs.beginning < 0) {
+      const installStart = installWindowStart;
+      const installEnd = installWindowEnd;
+
+      if (!Number.isFinite(installStart) || installStart < 0) {
         runningErrors.push("Beginning must be 0 or greater");
       }
 
-      if (!Number.isFinite(inputs.ending) || inputs.ending <= inputs.beginning) {
+      if (!Number.isFinite(installEnd) || installEnd <= installStart) {
         runningErrors.push("Ending must be after Beginning");
       }
 
-      if (inputs.ending >= Model.END_OF_TIME) {
+      if (installEnd >= Model.END_OF_TIME) {
         runningErrors.push(`Ending must be less than ${Model.END_OF_TIME}`);
+      }
+
+      if (installedInEntity) {
+        const componentStart = installedInEntity.beginning;
+        const componentEnd = installedInEntity.ending;
+        if (componentStart >= 0 && installStart < componentStart) {
+          runningErrors.push(
+            `Beginning must be within ${installedInEntity.name} bounds`
+          );
+        }
+        if (
+          componentEnd !== -1 &&
+          componentEnd < Model.END_OF_TIME &&
+          installEnd > componentEnd
+        ) {
+          runningErrors.push(
+            `Ending must be within ${installedInEntity.name} bounds`
+          );
+        }
+      }
+
+      if (inputs.beginning >= 0 && installStart < inputs.beginning) {
+        runningErrors.push("Installation Beginning cannot be before Individual Beginning");
+      }
+      if (
+        inputs.ending < Model.END_OF_TIME &&
+        Number.isFinite(inputs.ending) &&
+        installEnd > inputs.ending
+      ) {
+        runningErrors.push("Installation Ending cannot be after Individual Ending");
+      }
+
+      const overlapsInstalledIndividual = Array.from(dataset.individuals.values())
+        .filter((individual) => {
+          if (individual.id === inputs.id) return false;
+          if (
+            getEntityTypeIdFromIndividual(individual) !== ENTITY_TYPE_IDS.INDIVIDUAL
+          ) {
+            return false;
+          }
+          return individual.installedIn === inputs.installedIn;
+        })
+        .some((other) => {
+          const otherStart =
+            other.installedBeginning ??
+            (Number.isFinite(other.beginning) ? other.beginning : -1);
+          const otherEnd =
+            other.installedEnding ??
+            (Number.isFinite(other.ending) ? other.ending : Model.END_OF_TIME);
+
+          if (otherStart < 0 || otherEnd <= otherStart) return false;
+          return installStart < otherEnd && otherStart < installEnd;
+        });
+
+      if (overlapsInstalledIndividual) {
+        runningErrors.push(
+          "Installation window overlaps another Individual in this System Component"
+        );
       }
     }
 
@@ -641,7 +867,9 @@ const SetIndividual = (props: Props) => {
                   <option value="">Select system...</option>
                   {systems.map((system) => (
                     <option key={system.id} value={system.id}>
-                      {system.name}
+                      {`${system.name} [${system.beginning}-${
+                        system.ending === Model.END_OF_TIME ? "∞" : system.ending
+                      }]`}
                     </option>
                   ))}
                 </Form.Select>
@@ -652,6 +880,39 @@ const SetIndividual = (props: Props) => {
                 )}
               </Form.Group>
             )}
+
+            {selectedEntityTypeId === ENTITY_TYPE_IDS.SYSTEM_COMPONENT &&
+              !!inputs.installedIn && (
+                <>
+                  <Form.Group className="mb-3" controlId="formSystemComponentBeginning">
+                    <Form.Label>Installation Beginning</Form.Label>
+                    <Form.Control
+                      type="number"
+                      name="beginning"
+                      value={inputs.beginning}
+                      onChange={handleChangeNumeric}
+                      step="1"
+                      min="0"
+                      max={Model.END_OF_TIME - 2}
+                      className="form-control"
+                    />
+                  </Form.Group>
+
+                  <Form.Group className="mb-3" controlId="formSystemComponentEnding">
+                    <Form.Label>Installation Ending</Form.Label>
+                    <Form.Control
+                      type="number"
+                      name="ending"
+                      value={inputs.ending}
+                      onChange={handleChangeNumeric}
+                      step="1"
+                      min="1"
+                      max={Model.END_OF_TIME - 1}
+                      className="form-control"
+                    />
+                  </Form.Group>
+                </>
+              )}
 
             {selectedEntityTypeId === ENTITY_TYPE_IDS.INDIVIDUAL && (
               <>
@@ -667,33 +928,42 @@ const SetIndividual = (props: Props) => {
                       const selectedValue = e.target.value || undefined;
 
                       if (!selectedValue) {
-                        setBeginsWithParticipant(false);
-                        setEndsWithParticipant(false);
                         setInputs((prev) => ({
                           ...prev,
                           installedIn: undefined,
-                          beginning: -1,
-                          ending: Model.END_OF_TIME,
+                          installedBeginning: undefined,
+                          installedEnding: undefined,
                         }));
                         setDirty(true);
                         return;
                       }
 
-                      const nextBeginning =
-                        inputs.beginning >= 0 && Number.isFinite(inputs.beginning)
-                          ? inputs.beginning
+                      const selectedComponent = dataset.individuals.get(selectedValue);
+                      const componentStart =
+                        selectedComponent && selectedComponent.beginning >= 0
+                          ? selectedComponent.beginning
                           : 0;
+                      const componentEnd =
+                        selectedComponent &&
+                        selectedComponent.ending > componentStart &&
+                        selectedComponent.ending < Model.END_OF_TIME
+                          ? selectedComponent.ending
+                          : componentStart + 1;
+
+                      const nextBeginning = Number.isFinite(inputs.installedBeginning)
+                        ? (inputs.installedBeginning as number)
+                        : componentStart;
                       const nextEnding =
-                        inputs.ending > nextBeginning &&
-                        inputs.ending < Model.END_OF_TIME
-                          ? inputs.ending
-                          : nextBeginning + 1;
+                        Number.isFinite(inputs.installedEnding) &&
+                        (inputs.installedEnding as number) > nextBeginning
+                          ? (inputs.installedEnding as number)
+                          : Math.min(componentEnd, nextBeginning + 1);
 
                       setInputs((prev) => ({
                         ...prev,
                         installedIn: selectedValue,
-                        beginning: nextBeginning,
-                        ending: nextEnding,
+                        installedBeginning: nextBeginning,
+                        installedEnding: nextEnding,
                       }));
                       setDirty(true);
                     }}
@@ -701,7 +971,7 @@ const SetIndividual = (props: Props) => {
                     <option value="">None</option>
                     {systemComponents.map((component) => (
                       <option key={component.id} value={component.id}>
-                        {component.name}
+                        {formatInstallTargetLabel(component)}
                       </option>
                     ))}
                   </Form.Select>
@@ -710,12 +980,17 @@ const SetIndividual = (props: Props) => {
                 {!!inputs.installedIn && (
                   <>
                     <Form.Group className="mb-3" controlId="formEntityBeginning">
-                      <Form.Label>Beginning</Form.Label>
+                      <Form.Label>Installation Beginning</Form.Label>
                       <Form.Control
                         type="number"
-                        name="beginning"
-                        value={inputs.beginning}
-                        onChange={handleChangeNumeric}
+                        name="installedBeginning"
+                        value={installWindowStart}
+                        onChange={(e) =>
+                          updateInputs(
+                            "installedBeginning",
+                            (e.currentTarget as HTMLInputElement).valueAsNumber
+                          )
+                        }
                         step="1"
                         min="0"
                         max={Model.END_OF_TIME - 2}
@@ -724,18 +999,29 @@ const SetIndividual = (props: Props) => {
                     </Form.Group>
 
                     <Form.Group className="mb-3" controlId="formEntityEnding">
-                      <Form.Label>Ending</Form.Label>
+                      <Form.Label>Installation Ending</Form.Label>
                       <Form.Control
                         type="number"
-                        name="ending"
-                        value={inputs.ending}
-                        onChange={handleChangeNumeric}
+                        name="installedEnding"
+                        value={installWindowEnd}
+                        onChange={(e) =>
+                          updateInputs(
+                            "installedEnding",
+                            (e.currentTarget as HTMLInputElement).valueAsNumber
+                          )
+                        }
                         step="1"
                         min="1"
                         max={Model.END_OF_TIME - 1}
                         className="form-control"
                       />
                     </Form.Group>
+
+                    {installWindowHints && (
+                      <Form.Text className="text-muted d-block mb-3">
+                        Component bounds: {installWindowHints.boundsLabel} | Occupied: {installWindowHints.occupiedLabel} | Available: {installWindowHints.availableLabel}
+                      </Form.Text>
+                    )}
                   </>
                 )}
               </>
@@ -752,40 +1038,35 @@ const SetIndividual = (props: Props) => {
               />
             </Form.Group>
 
-            {!(
-              selectedEntityTypeId === ENTITY_TYPE_IDS.INDIVIDUAL &&
-              !!inputs.installedIn
-            ) && (
-              <>
-                <Form.Group
-                  className="mb-3"
-                  controlId="formEntityBeginsWithParticipant"
-                >
-                  <Form.Check
-                    type="switch"
-                    name="beginsWithParticipant"
-                    label="Begins With Participant"
-                    disabled={!individualHasParticipants}
-                    checked={beginsWithParticipant}
-                    onChange={handleBeginsWithParticipant}
-                  />
-                </Form.Group>
+            <>
+              <Form.Group
+                className="mb-3"
+                controlId="formEntityBeginsWithParticipant"
+              >
+                <Form.Check
+                  type="switch"
+                  name="beginsWithParticipant"
+                  label="Begins With Participant"
+                  disabled={!individualHasParticipants}
+                  checked={beginsWithParticipant}
+                  onChange={handleBeginsWithParticipant}
+                />
+              </Form.Group>
 
-                <Form.Group
-                  className="mb-3"
-                  controlId="formEntityEndsWithParticipant"
-                >
-                  <Form.Check
-                    type="switch"
-                    name="endsWithParticipant"
-                    label="Ends With Participant"
-                    disabled={!individualHasParticipants}
-                    checked={endsWithParticipant}
-                    onChange={handleEndsWithParticipant}
-                  />
-                </Form.Group>
-              </>
-            )}
+              <Form.Group
+                className="mb-3"
+                controlId="formEntityEndsWithParticipant"
+              >
+                <Form.Check
+                  type="switch"
+                  name="endsWithParticipant"
+                  label="Ends With Participant"
+                  disabled={!individualHasParticipants}
+                  checked={endsWithParticipant}
+                  onChange={handleEndsWithParticipant}
+                />
+              </Form.Group>
+            </>
           </Form>
         </Modal.Body>
 

@@ -196,39 +196,41 @@ export function drawIndividuals(ctx: DrawContext) {
     };
 
     if (isInstalled) {
-      // Split into two segments: -Inf -> beginning, ending -> Inf
-      // Note: "Beginning" and "Ending" on individual are used as installation window here
-      const installStart = individual.beginning;
-      const installEnd = individual.ending;
+      const installStart =
+        individual.installedBeginning ??
+        (Number.isFinite(individual.beginning) ? individual.beginning : 0);
+      const installEnd =
+        individual.installedEnding ??
+        (Number.isFinite(individual.ending) ? individual.ending : endOfTime);
+      const overallStart = individual.beginning;
+      const overallEnd = individual.ending;
       const leadTime = INSTALL_RIBBON_RUN_PX / Math.max(timeInterval, 0.0001);
       
       const spans: Span[] = [];
-      
-      // Segment 1: Pre-installation
-      // From (Inf Past or Actual Start?) -> installStart
-      // Assuming individual exists "forever" outside installation for now, or based on other data?
-      // Since we don't have separate "Life Start" and "Install Start" fields, we assume
-      // the individual exists indefinitely outside the installation window, OR 
-      // we treat startOfTime/endOfTime as bounds.
-      
-      // Let's create a segment from startOfTime -> installStart
-      // Logical range: -Infinity to installStart
+
       const timelineGapStart = installStart - leadTime;
       const timelineGapEnd = installEnd + leadTime;
 
-      if (timelineGapStart > startOfTime) {
-        spans.push(createSingleSpan(-1, timelineGapStart));
-      } else if (installStart === -1) {
-         // Starts installed? No pre-segment.
+      const toStartValue = (t: number) => (t === -1 ? -Infinity : t);
+      const toEndValue = (t: number) => (t === -1 ? Infinity : t);
+      const hasPositiveRange = (start: number, end: number) =>
+        toEndValue(end) > toStartValue(start);
+
+      const preStart = overallStart;
+      const preEnd =
+        overallEnd === -1 ? timelineGapStart : Math.min(timelineGapStart, overallEnd);
+
+      if (hasPositiveRange(preStart, preEnd)) {
+        spans.push(createSingleSpan(preStart, preEnd));
       }
-      
-      // Segment 2: Post-installation
-      // From installEnd -> Infinity
-      if (timelineGapEnd < endOfTime || installEnd === -1) { // If installEnd is -1 (infinite), we handle effectively? No, installEnd should be finite.
-         // If installEnd is -1, it means installed forever. No post-segment.
-         if (installEnd !== -1) {
-          spans.push(createSingleSpan(timelineGapEnd, -1));
-         }
+
+      if (installEnd !== -1) {
+        const postStart =
+          overallStart === -1 ? timelineGapEnd : Math.max(timelineGapEnd, overallStart);
+        const postEnd = overallEnd;
+        if (hasPositiveRange(postStart, postEnd)) {
+          spans.push(createSingleSpan(postStart, postEnd));
+        }
       }
       
       return spans;
@@ -452,8 +454,12 @@ export function drawInstallationConnectors(ctx: DrawContext) {
     const indBox = indNode.getBBox();
     const targetBox = targetNode.getBBox();
 
-    const installStart = ind.beginning;
-    const installEnd = ind.ending;
+    const installStart =
+      ind.installedBeginning ??
+      (Number.isFinite(ind.beginning) ? ind.beginning : startOfTime);
+    const installEnd =
+      ind.installedEnding ??
+      (Number.isFinite(ind.ending) ? ind.ending : endOfTime);
     const visibleStart = Math.max(installStart, startOfTime);
     const visibleEnd = Math.min(installEnd, endOfTime);
 

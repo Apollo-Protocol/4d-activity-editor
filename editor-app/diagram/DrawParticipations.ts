@@ -1,5 +1,6 @@
 import { MouseEvent } from "react";
 import { Activity } from "@/lib/Schema";
+import { ENTITY_TYPE_IDS, getEntityTypeIdFromIndividual } from "@/lib/entityTypes";
 import { DrawContext } from "./DrawHelpers";
 
 let mouseOverElement: any | null = null;
@@ -10,8 +11,10 @@ export function drawParticipations(ctx: DrawContext) {
   const parts: any[] = [];
   activities.forEach((a) => {
     a.participations?.forEach((p) => {
+      const box = getPositionOfParticipation(ctx, svgElement, a, p.individualId);
+      if (!box) return;
       parts.push({
-        box: getPositionOfParticipation(svgElement, a.id, p.individualId),
+        box,
         activityId: a.id,
         individualId: p.individualId,
         participation: p,
@@ -103,30 +106,61 @@ function participationTooltip(part: any) {
 }
 
 function getPositionOfParticipation(
+  ctx: DrawContext,
   svgElement: any,
-  activityId: string,
+  activity: Activity,
   individualId: string
 ) {
-  const activityElement = svgElement
-    .select("#a" + activityId)
-    .node()
-    .getBBox();
+  const activityNode = svgElement.select("#a" + activity.id).node();
+  if (!activityNode) return null;
+  const activityElement = activityNode.getBBox();
 
   const x = activityElement.x;
   const width = activityElement.width;
 
-  const individualElement = svgElement
-    .select("#i" + individualId)
-    .node()
-    .getBBox();
+  const individual = ctx.individuals.find((i) => i.id === individualId);
+  if (!individual) return null;
+
+  let drawRowId = individualId;
+  const installedTarget = individual.installedIn
+    ? ctx.individuals.find((i) => i.id === individual.installedIn)
+    : undefined;
+  const isInstalledInComponent =
+    !!installedTarget &&
+    getEntityTypeIdFromIndividual(installedTarget) === ENTITY_TYPE_IDS.SYSTEM_COMPONENT;
+
+  if (isInstalledInComponent) {
+    const installStart =
+      individual.installedBeginning ??
+      (Number.isFinite(individual.beginning) ? individual.beginning : 0);
+    const installEnd =
+      individual.installedEnding ??
+      (Number.isFinite(individual.ending)
+        ? individual.ending
+        : Number.MAX_VALUE);
+
+    if (activity.beginning >= installStart && activity.ending <= installEnd) {
+      drawRowId = installedTarget.id;
+    }
+  }
+
+  const individualNode = svgElement.select("#i" + drawRowId).node();
+  if (!individualNode) return null;
+  const individualElement = individualNode.getBBox();
+
+  const rowLeft = individualElement.x;
+  const rowRight = individualElement.x + individualElement.width;
+  const clippedX = Math.max(x, rowLeft);
+  const clippedRight = Math.min(x + width, rowRight);
+  if (clippedRight <= clippedX) return null;
 
   const y = individualElement.y;
   const height = individualElement.height;
 
   return {
-    x: x,
+    x: clippedX,
     y: y,
-    width: width,
+    width: clippedRight - clippedX,
     height: height,
   };
 }

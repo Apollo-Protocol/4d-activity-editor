@@ -6,6 +6,7 @@ import {
   removeLabelIfItOverlaps,
   keepIndividualLabels,
 } from "./DrawHelpers";
+import { ENTITY_TYPE_IDS, getEntityTypeIdFromIndividual } from "@/lib/entityTypes";
 import { ConfigData } from "./config";
 import { activity } from "@apollo-protocol/hqdm-lib";
 
@@ -47,7 +48,7 @@ export function drawActivities(ctx: DrawContext) {
     })
     .attr("y", (a: Activity) => {
       return (
-        calculateTopPositionOfNewActivity(svgElement, a) -
+        calculateTopPositionOfNewActivity(svgElement, a, individuals) -
         config.layout.individual.gap * 0.3
       );
     })
@@ -55,8 +56,8 @@ export function drawActivities(ctx: DrawContext) {
       return (a.ending - a.beginning) * timeInterval;
     })
     .attr("height", (a: Activity) => {
-      const bottomY = calculateLengthOfNewActivity(svgElement, a);
-      const topY = calculateTopPositionOfNewActivity(svgElement, a);
+      const bottomY = calculateLengthOfNewActivity(svgElement, a, individuals);
+      const topY = calculateTopPositionOfNewActivity(svgElement, a, individuals);
       return bottomY
         ? bottomY - topY + config.layout.individual.gap * 0.6
         : 0;
@@ -78,12 +79,12 @@ export function drawActivities(ctx: DrawContext) {
   // small helper functions to reuse computations
   const xOf = (a: Activity) => x + timeInterval * (a.beginning - startOfTime);
   const yOf = (a: Activity) =>
-    calculateTopPositionOfNewActivity(svgElement, a) -
+    calculateTopPositionOfNewActivity(svgElement, a, individuals) -
     config.layout.individual.gap * 0.3;
   const widthOf = (a: Activity) => (a.ending - a.beginning) * timeInterval;
   const heightOf = (a: Activity) => {
-    const bottomY = calculateLengthOfNewActivity(svgElement, a);
-    const topY = calculateTopPositionOfNewActivity(svgElement, a);
+    const bottomY = calculateLengthOfNewActivity(svgElement, a, individuals);
+    const topY = calculateTopPositionOfNewActivity(svgElement, a, individuals);
     return bottomY ? bottomY - topY + config.layout.individual.gap * 0.6 : 0;
   };
 
@@ -173,10 +174,52 @@ export function clickActivities(
   });
 }
 
-function calculateLengthOfNewActivity(svgElement: any, activity: Activity) {
+function calculateLengthOfNewActivity(
+  svgElement: any,
+  activity: Activity,
+  individuals: Individual[]
+) {
+  return calculateActivityBottom(svgElement, activity, individuals);
+}
+
+function resolveParticipationRowId(
+  activity: Activity,
+  individual: Individual,
+  individuals: Individual[]
+) {
+  const installedTarget = individual.installedIn
+    ? individuals.find((i) => i.id === individual.installedIn)
+    : undefined;
+  const isInstalledInComponent =
+    !!installedTarget &&
+    getEntityTypeIdFromIndividual(installedTarget) === ENTITY_TYPE_IDS.SYSTEM_COMPONENT;
+
+  if (!isInstalledInComponent) return individual.id;
+
+  const installStart =
+    individual.installedBeginning ??
+    (Number.isFinite(individual.beginning) ? individual.beginning : 0);
+  const installEnd =
+    individual.installedEnding ??
+    (Number.isFinite(individual.ending) ? individual.ending : Number.MAX_VALUE);
+
+  const isInsideInstallWindow =
+    activity.beginning >= installStart && activity.ending <= installEnd;
+
+  return isInsideInstallWindow ? installedTarget.id : individual.id;
+}
+
+function calculateActivityBottom(
+  svgElement: any,
+  activity: Activity,
+  individuals: Individual[]
+) {
   let maxBottom = 0;
   activity?.participations?.forEach((a: Participation) => {
-    const node = svgElement.select("#i" + a.individualId).node();
+    const individual = individuals.find((i) => i.id === a.individualId);
+    if (!individual) return;
+    const rowId = resolveParticipationRowId(activity, individual, individuals);
+    const node = svgElement.select("#i" + rowId).node();
     if (node) {
       const bbox = node.getBBox();
       maxBottom = Math.max(maxBottom, bbox.y + bbox.height);
@@ -187,17 +230,28 @@ function calculateLengthOfNewActivity(svgElement: any, activity: Activity) {
 
 function calculateTopPositionOfNewActivity(
   svgElement: any,
-  activity: Activity
+  activity: Activity,
+  individuals: Individual[]
+) {
+  return calculateActivityTop(svgElement, activity, individuals);
+}
+
+function calculateActivityTop(
+  svgElement: any,
+  activity: Activity,
+  individuals: Individual[]
 ) {
   let lowestY = Number.MAX_VALUE;
   activity?.participations?.forEach((a: Participation) => {
-    const element = svgElement
-      .select("#i" + a.individualId)
-      .node()
-      .getBBox();
+    const individual = individuals.find((i) => i.id === a.individualId);
+    if (!individual) return;
+    const rowId = resolveParticipationRowId(activity, individual, individuals);
+    const node = svgElement.select("#i" + rowId).node();
+    if (!node) return;
+    const element = node.getBBox();
     lowestY = Math.min(lowestY, element.y);
   });
-  return lowestY;
+  return lowestY === Number.MAX_VALUE ? 0 : lowestY;
 }
 
 function getBoxOfExistingActivity(svgElement: any, activity: Activity) {

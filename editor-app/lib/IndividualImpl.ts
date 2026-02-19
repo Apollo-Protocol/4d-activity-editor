@@ -15,6 +15,8 @@ export class IndividualImpl implements Individual {
   beginsWithParticipant: boolean;
   endsWithParticipant: boolean;
   installedIn?: Id;
+  installedBeginning?: number;
+  installedEnding?: number;
   entityType?: EntityCategory;
 
   constructor(
@@ -27,6 +29,8 @@ export class IndividualImpl implements Individual {
     beginsWithParticipant?: boolean,
     endsWithParticipant?: boolean,
     installedIn?: Id,
+    installedBeginning?: number,
+    installedEnding?: number,
     entityType?: EntityCategory
   ) {
     this.id = id;
@@ -44,6 +48,8 @@ export class IndividualImpl implements Individual {
       ? endsWithParticipant
       : false;
     this.installedIn = installedIn;
+    this.installedBeginning = installedBeginning;
+    this.installedEnding = installedEnding;
     this.entityType = entityType;
   }
 }

@@ -18,6 +18,10 @@ import Select from "react-select";
 import { Individual, Id, Activity, Maybe, Participation } from "@/lib/Schema";
 import { InputGroup } from "react-bootstrap";
 import { Model } from "@/lib/Model";
+import {
+  ENTITY_TYPE_IDS,
+  getEntityTypeIdFromIndividual,
+} from "@/lib/entityTypes";
 
 interface Props {
   show: boolean;
@@ -31,6 +35,14 @@ interface Props {
   setActivityContext: Dispatch<Maybe<Id>>;
   autoActivityColor?: string;
 }
+
+type ParticipationOption = {
+  optionKey: string;
+  individual: Individual;
+  mode: "default" | "outside" | "installed";
+  label: string;
+  group: "System" | "System Component" | "Individual" | "Installed Object";
+};
 
 const SetActivity = (props: Props) => {
   const {
@@ -89,6 +101,20 @@ const SetActivity = (props: Props) => {
 
   function updateIndividuals(d: Model) {
     d.individuals.forEach((individual) => {
+      const installedTarget = individual.installedIn
+        ? d.individuals.get(individual.installedIn)
+        : undefined;
+      const isInstalledInComponent =
+        getEntityTypeIdFromIndividual(individual) === ENTITY_TYPE_IDS.INDIVIDUAL &&
+        !!installedTarget &&
+        getEntityTypeIdFromIndividual(installedTarget) ===
+          ENTITY_TYPE_IDS.SYSTEM_COMPONENT;
+
+      if (isInstalledInComponent) {
+        d.addIndividual(individual);
+        return;
+      }
+
       const earliestBeginning = d.earliestParticipantBeginning(individual.id);
       const latestEnding = d.lastParticipantEnding(individual.id);
       if (individual.beginning >= 0) {
@@ -204,7 +230,9 @@ const SetActivity = (props: Props) => {
 
   const handleChangeMultiselect = (e: any) => {
     const participations = new Map<string, Participation>();
-    e.forEach((i: Individual) => {
+    const selectedParticipants: ParticipationOption[] = Array.isArray(e) ? e : [];
+    selectedParticipants.forEach((entry) => {
+      const i = entry.individual;
       const old = inputs.participations.get(i.id)?.role;
       let participation: Participation = {
         individualId: i.id,
@@ -215,21 +243,173 @@ const SetActivity = (props: Props) => {
     updateInputs("participations", participations);
   };
 
-  const getSelectedIndividuals = () => {
-    if (
-      selectedActivity === undefined ||
-      selectedActivity.participations === undefined
-    ) {
-      return [];
+  const getSelectedIndividualIds = () => {
+    if (inputs.participations === undefined) {
+      return new Set<string>();
     }
-    const individualIds = Array.from(
-      selectedActivity.participations,
-      ([key, value]) => key
-    );
-    const participatingIndividuals = individuals.filter((participant) => {
-      return individualIds.includes(participant.id);
+    return new Set(Array.from(inputs.participations.keys()));
+  };
+
+  const getParticipantWindow = (individual: Individual) => {
+    const installedTarget = individual.installedIn
+      ? dataset.individuals.get(individual.installedIn)
+      : undefined;
+    const isInstalledInComponent =
+      getEntityTypeIdFromIndividual(individual) === ENTITY_TYPE_IDS.INDIVIDUAL &&
+      !!installedTarget &&
+      getEntityTypeIdFromIndividual(installedTarget) ===
+        ENTITY_TYPE_IDS.SYSTEM_COMPONENT;
+
+    const overallStart = Number.isFinite(individual.beginning)
+      ? individual.beginning
+      : -1;
+    const overallEnd = Number.isFinite(individual.ending)
+      ? individual.ending
+      : Model.END_OF_TIME;
+    const installStart =
+      individual.installedBeginning ??
+      (Number.isFinite(individual.beginning) ? individual.beginning : 0);
+    const installEnd =
+      individual.installedEnding ??
+      (Number.isFinite(individual.ending)
+        ? individual.ending
+        : Model.END_OF_TIME);
+
+    return {
+      isInstalledInComponent,
+      overallStart,
+      overallEnd,
+      installStart,
+      installEnd,
+      installedTarget,
+    };
+  };
+
+  const participantIsEligibleForMode = (
+    individual: Individual,
+    mode: "default" | "outside" | "installed"
+  ) => {
+    const window = getParticipantWindow(individual);
+
+    if (!window.isInstalledInComponent) {
+      return true;
+    }
+
+    const inInstalledWindow =
+      inputs.beginning >= window.installStart &&
+      inputs.ending <= window.installEnd;
+    const inOutsideBefore =
+      inputs.beginning >= window.overallStart &&
+      inputs.ending <= window.installStart;
+    const inOutsideAfter =
+      inputs.beginning >= window.installEnd &&
+      inputs.ending <= window.overallEnd;
+
+    if (mode === "installed") return inInstalledWindow;
+    if (mode === "outside") return inOutsideBefore || inOutsideAfter;
+    return inInstalledWindow || inOutsideBefore || inOutsideAfter;
+  };
+
+  const selectedParticipantIds = getSelectedIndividualIds();
+
+  const participantOptions = (() => {
+    const options: ParticipationOption[] = [];
+
+    individuals.forEach((individual) => {
+      const window = getParticipantWindow(individual);
+
+      if (window.isInstalledInComponent && window.installedTarget) {
+        const outsideEligible = participantIsEligibleForMode(individual, "outside");
+        const installedEligible = participantIsEligibleForMode(individual, "installed");
+        const isSelected = selectedParticipantIds.has(individual.id);
+
+        if (outsideEligible || isSelected) {
+          options.push({
+            optionKey: `${individual.id}::outside`,
+            individual,
+            mode: "outside",
+            label: individual.name,
+            group: "Individual",
+          });
+        }
+
+        if (installedEligible || isSelected) {
+          options.push({
+            optionKey: `${individual.id}::installed`,
+            individual,
+            mode: "installed",
+            label: `${individual.name} [installed in ${window.installedTarget.name} (${window.installStart}-${window.installEnd})]`,
+            group: "Installed Object",
+          });
+        }
+
+        return;
+      }
+
+      if (!participantIsEligibleForMode(individual, "default") && !selectedParticipantIds.has(individual.id)) {
+        return;
+      }
+
+      const typeId = getEntityTypeIdFromIndividual(individual);
+      const group: ParticipationOption["group"] =
+        typeId === ENTITY_TYPE_IDS.SYSTEM
+          ? "System"
+          : typeId === ENTITY_TYPE_IDS.SYSTEM_COMPONENT
+          ? "System Component"
+          : "Individual";
+
+      options.push({
+        optionKey: `${individual.id}::default`,
+        individual,
+        mode: "default",
+        label: individual.name,
+        group,
+      });
     });
-    return participatingIndividuals;
+
+    return options;
+  })();
+
+  const groupedParticipantOptions = (() => {
+    const groups = new Map<string, ParticipationOption[]>();
+
+    participantOptions.forEach((option) => {
+      const list = groups.get(option.group);
+      if (list) list.push(option);
+      else groups.set(option.group, [option]);
+    });
+
+    const orderedLabels = [
+      "System",
+      "System Component",
+      "Individual",
+      "Installed Object",
+    ];
+
+    return orderedLabels
+      .filter((label) => (groups.get(label)?.length ?? 0) > 0)
+      .map((label) => ({
+        label,
+        options: (groups.get(label) ?? []).sort((a, b) =>
+          a.label.localeCompare(b.label)
+        ),
+      }));
+  })();
+
+  const getSelectedParticipationOptions = () => {
+    const selectedIds = getSelectedIndividualIds();
+    return Array.from(selectedIds)
+      .map((id) => {
+        const matching = participantOptions.filter(
+          (option) => option.individual.id === id
+        );
+        if (matching.length === 0) return undefined;
+        const installed = matching.find((option) => option.mode === "installed");
+        const outside = matching.find((option) => option.mode === "outside");
+        const fallback = matching.find((option) => option.mode === "default");
+        return installed ?? outside ?? fallback ?? matching[0];
+      })
+      .filter((option): option is ParticipationOption => !!option);
   };
 
   const validateInputs = () => {
@@ -256,6 +436,20 @@ const SetActivity = (props: Props) => {
     ) {
       runningErrors.push("Select at least one participant");
     }
+
+    inputs.participations?.forEach((participation) => {
+      const participant = dataset.individuals.get(participation.individualId);
+      if (!participant) {
+        runningErrors.push("A selected participant no longer exists");
+        return;
+      }
+
+      if (!participantIsEligibleForMode(participant, "default")) {
+        runningErrors.push(
+          `Participant \"${participant.name}\" is outside installation window`
+        );
+      }
+    });
 
     if (runningErrors.length == 0) {
       return true;
@@ -690,14 +884,14 @@ const SetActivity = (props: Props) => {
             <Form.Group className="mb-3" controlId="formParticipants">
               <Form.Label>Participants</Form.Label>
               <Select
-                defaultValue={getSelectedIndividuals}
+                value={getSelectedParticipationOptions()}
                 isMulti
                 classNamePrefix="participants-select"
                 // @ts-ignore
-                options={individuals}
-                getOptionLabel={(option) => option.name}
+                options={groupedParticipantOptions}
+                getOptionLabel={(option) => option.label}
                 // @ts-ignore
-                getOptionValue={(option) => option.id}
+                getOptionValue={(option) => option.optionKey}
                 onChange={handleChangeMultiselect}
               />
             </Form.Group>

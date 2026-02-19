@@ -206,7 +206,18 @@ function resolveParticipationRowId(
   const isInsideInstallWindow =
     activity.beginning >= installStart && activity.ending <= installEnd;
 
-  return isInsideInstallWindow ? installedTarget.id : individual.id;
+  if (!isInsideInstallWindow) {
+    return individual.id;
+  }
+
+  const installedSystem = installedTarget.installedIn
+    ? individuals.find((i) => i.id === installedTarget.installedIn)
+    : undefined;
+  const isInstalledInSystem =
+    !!installedSystem &&
+    getEntityTypeIdFromIndividual(installedSystem) === ENTITY_TYPE_IDS.SYSTEM;
+
+  return isInstalledInSystem ? installedSystem.id : installedTarget.id;
 }
 
 function calculateActivityBottom(

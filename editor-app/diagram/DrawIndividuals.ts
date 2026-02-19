@@ -30,6 +30,34 @@ interface Span {
   indent: number;
 }
 
+function highlightInstallationForEntity(
+  svgElement: any,
+  entityId: string,
+  enabled: boolean,
+  config: any
+) {
+  const matching = (d: any, i: number, nodes: any[]) => {
+    const node = nodes[i] as Element;
+    const installedId = node.getAttribute("data-installed-id");
+    const targetId = node.getAttribute("data-target-id");
+    return installedId === entityId || targetId === entityId;
+  };
+
+  svgElement
+    .selectAll(".installHatch")
+    .filter(matching)
+    .attr("opacity", enabled ? 1.0 : 0.4)
+    .attr("fill", enabled ? "url(#installHatchHighlight)" : "url(#installHatch)")
+    .attr("stroke-width", enabled ? 2.0 : 0.5);
+
+  svgElement
+    .selectAll(".installConnectorRibbon")
+    .filter(matching)
+    .attr("fill", enabled ? config.presentation.individual.fillHover : config.presentation.individual.fill)
+    .attr("fill-opacity", enabled ? 1 : 0.9)
+    .attr("stroke-width", enabled ? 1.5 : 0.45);
+}
+
 const INDENT_STEP_PX = 18;
 const MAX_INDENT_LEVEL = 4;
 const INSTALL_RIBBON_RUN_PX = 24;
@@ -427,6 +455,24 @@ export function drawInstallationConnectors(ctx: DrawContext) {
       .attr("stroke-width", 1.5);
   }
 
+  if (defs.select("#installHatchHighlight").empty()) {
+    const pattern = defs
+      .append("pattern")
+      .attr("id", "installHatchHighlight")
+      .attr("width", 8)
+      .attr("height", 8)
+      .attr("patternUnits", "userSpaceOnUse")
+      .attr("patternTransform", "rotate(45)");
+    pattern
+      .append("line")
+      .attr("x1", 0)
+      .attr("y1", 0)
+      .attr("x2", 0)
+      .attr("y2", 8)
+      .attr("stroke", "#444")
+      .attr("stroke-width", 2.0);
+  }
+
   const timeToX = (t: number) => lhs_x + timeInterval * (t - startOfTime);
 
   // Find individuals installed into system components
@@ -497,7 +543,9 @@ export function drawInstallationConnectors(ctx: DrawContext) {
       .attr("stroke", config.presentation.individual.stroke)
       .attr("stroke-width", 0.5)
       .attr("opacity", 0.4)
-      .attr("clip-path", `url(#${clipId})`);
+      .attr("clip-path", `url(#${clipId})`)
+      .attr("data-installed-id", ind.id)
+      .attr("data-target-id", target.id);
 
     const startLiftDx = INSTALL_RIBBON_RUN_PX;
     const endDropDx = INSTALL_RIBBON_RUN_PX;
@@ -515,7 +563,9 @@ L ${x1} ${upperTop} Z`;
         .attr("fill", config.presentation.individual.fill)
         .attr("fill-opacity", 0.9)
         .attr("stroke", config.presentation.individual.stroke)
-        .attr("stroke-width", 0.45);
+        .attr("stroke-width", 0.45)
+        .attr("data-installed-id", ind.id)
+        .attr("data-target-id", target.id);
     }
 
     if (installEnd <= endOfTime) {
@@ -531,21 +581,39 @@ L ${x2 + endDropDx} ${lowerTop} Z`;
         .attr("fill", config.presentation.individual.fill)
         .attr("fill-opacity", 0.9)
         .attr("stroke", config.presentation.individual.stroke)
-        .attr("stroke-width", 0.45);
+        .attr("stroke-width", 0.45)
+        .attr("data-installed-id", ind.id)
+        .attr("data-target-id", target.id);
     }
   });
 }
 
 export function hoverIndividuals(ctx: DrawContext) {
   const { config, svgElement, tooltip } = ctx;
+
+  const resolveEntityId = (bound: any, element: Element | null): string | null => {
+    if (bound?.id) return bound.id;
+    const rawId = element?.getAttribute("id") ?? "";
+    return rawId.startsWith("i") ? rawId.slice(1) : null;
+  };
+
   svgElement
     .selectAll(".individual")
-    .on("mouseover", function (event: MouseEvent) {
+    .on("mouseover", function (event: MouseEvent, d: any) {
       mouseOverElement = event.target as HTMLElement;
       mouseOverElement.style.fill = config.presentation.individual.fillHover;
+      const entityId = resolveEntityId(d, mouseOverElement);
+      if (entityId) {
+        highlightInstallationForEntity(svgElement, entityId, true, config);
+      }
       tooltip.style("display", "block");
     })
     .on("mouseout", function (event: MouseEvent, d: any) {
+      const entityId = resolveEntityId(d, event.target as Element);
+      if (entityId) {
+        highlightInstallationForEntity(svgElement, entityId, false, config);
+      }
+
       if (mouseOverElement) {
         // use d if available, else infer from id
         const targetInd = d || ctx.individuals.find(x => "i" + x.id === (mouseOverElement as HTMLElement).getAttribute("id"));

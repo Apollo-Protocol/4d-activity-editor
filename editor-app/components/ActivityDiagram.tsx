@@ -22,6 +22,7 @@ interface Props {
   svgRef: MutableRefObject<any>;
   hideNonParticipating?: boolean;
   highlightedActivityId?: string | null;
+  onReorderIndividuals?: (orderedIds: string[]) => void;
 }
 
 const ActivityDiagram = (props: Props) => {
@@ -39,6 +40,7 @@ const ActivityDiagram = (props: Props) => {
     rightClickParticipation,
     hideNonParticipating = false,
     highlightedActivityId,
+    onReorderIndividuals,
   } = props;
 
   const [plot, setPlot] = useState({
@@ -155,6 +157,86 @@ const ActivityDiagram = (props: Props) => {
       svg.selectAll(".activityLabel").attr("opacity", 1);
     }
   }, [highlightedActivityId, plot, configData, svgRef]);
+
+  useEffect(() => {
+    if (!svgRef.current || !onReorderIndividuals || interactionMode !== "pointer") {
+      return;
+    }
+
+    const svg = d3.select(svgRef.current);
+    const rowSelection = svg.selectAll<SVGPathElement, Individual>(".individual");
+
+    if (rowSelection.empty()) return;
+
+    const dragBehavior = d3
+      .drag<SVGPathElement, Individual>()
+      .on("start", function () {
+        d3.select(this)
+          .attr("data-drag-offset", "0")
+          .attr("data-was-dragged", "0")
+          .style("cursor", "grabbing");
+      })
+      .on("drag", function (event) {
+        const currentOffset = Number(d3.select(this).attr("data-drag-offset") ?? "0");
+        const nextOffset = currentOffset + event.dy;
+        d3.select(this)
+          .attr("data-drag-offset", String(nextOffset))
+          .attr("data-was-dragged", "1")
+          .attr("transform", `translate(0, ${nextOffset})`);
+      })
+      .on("end", function (_event, draggedIndividual) {
+        const draggedNode = this as SVGPathElement;
+        const draggedSelection = d3.select(draggedNode);
+        const wasDragged = draggedSelection.attr("data-was-dragged") === "1";
+        const dragOffset = Number(draggedSelection.attr("data-drag-offset") ?? "0");
+
+        draggedSelection
+          .attr("transform", null)
+          .attr("data-drag-offset", null)
+          .attr("data-was-dragged", null)
+          .style("cursor", "ns-resize");
+
+        if (!wasDragged) return;
+
+        const rows = svg
+          .selectAll<SVGPathElement, Individual>(".individual")
+          .nodes()
+          .map((node) => {
+            const id = (node.getAttribute("id") ?? "").replace(/^i/, "");
+            const rowY = Number(node.getAttribute("data-row-y") ?? "0");
+            const bbox = node.getBBox();
+            return {
+              id,
+              centerY: rowY + bbox.height / 2,
+            };
+          })
+          .filter((row) => row.id.length > 0)
+          .sort((a, b) => a.centerY - b.centerY);
+
+        const draggedRow = rows.find((row) => row.id === draggedIndividual.id);
+        if (!draggedRow) return;
+
+        const draggedCenter = draggedRow.centerY + dragOffset;
+        const otherRows = rows.filter((row) => row.id !== draggedIndividual.id);
+        const insertionIndex = otherRows.findIndex((row) => draggedCenter < row.centerY);
+        const nextRows = [...otherRows];
+        if (insertionIndex < 0) {
+          nextRows.push(draggedRow);
+        } else {
+          nextRows.splice(insertionIndex, 0, draggedRow);
+        }
+
+        onReorderIndividuals(nextRows.map((row) => row.id));
+      });
+
+    rowSelection
+      .style("cursor", "ns-resize")
+      .call(dragBehavior as any);
+
+    return () => {
+      svg.selectAll(".individual").on(".drag", null).style("cursor", null);
+    };
+  }, [plot, svgRef, interactionMode, onReorderIndividuals]);
 
   const buildCrumbs = () => {
     const context = [];

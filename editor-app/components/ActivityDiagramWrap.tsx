@@ -126,6 +126,31 @@ export default function ActivityDiagramWrap() {
   const activitiesArray: Activity[] = [];
   dataset.activities.forEach((a: Activity) => activitiesArray.push(a));
 
+  const reorderIndividuals = (orderedIds: string[]) => {
+    updateDataset((d: Model) => {
+      const current = Array.from(d.individuals.values());
+      const byId = new Map(current.map((individual) => [individual.id, individual]));
+      const seen = new Set<string>();
+      const reordered: Individual[] = [];
+
+      orderedIds.forEach((id) => {
+        const individual = byId.get(id);
+        if (!individual) return;
+        reordered.push(individual);
+        seen.add(id);
+      });
+
+      current.forEach((individual) => {
+        if (!seen.has(individual.id)) reordered.push(individual);
+      });
+
+      d.individuals.clear();
+      reordered.forEach((individual) => {
+        d.individuals.set(individual.id, individual);
+      });
+    });
+  };
+
   // Filter activities for the current context
   let activitiesInView: Activity[] = [];
   if (activityContext) {
@@ -195,6 +220,7 @@ export default function ActivityDiagramWrap() {
               svgRef={svgRef}
               hideNonParticipating={compactMode}
               highlightedActivityId={highlightedActivityId}
+              onReorderIndividuals={reorderIndividuals}
             />
           </div>
 

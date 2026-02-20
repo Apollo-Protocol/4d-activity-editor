@@ -268,14 +268,13 @@ const ActivityDiagram = (props: Props) => {
         <div
           className="diagram-icon-toggle"
           style={{
-            position: "sticky",
-            top: "80px", /* Sticky below navbar */
-            float: "right", /* Float right so it doesn't take full width */
+            marginLeft: "auto",
             display: "flex",
             justifyContent: "flex-end",
             gap: "6px",
-            zIndex: 10,
-            marginBottom: "-32px", /* Offset its own height so it doesn't push diagram down */
+            marginBottom: "-32px",
+            marginRight: "-24px",
+            width: "fit-content",
           }}
         >
           <Button

@@ -222,6 +222,30 @@ const SetIndividual = (props: Props) => {
       installations: getInstallationPeriods(base),
     });
 
+    if (getEntityTypeIdFromIndividual(normalized) === ENTITY_TYPE_IDS.INDIVIDUAL) {
+      const hasParticipants = dataset.hasParticipants(normalized.id);
+      if (hasParticipants) {
+        const earliestBeginning = dataset.earliestParticipantBeginning(normalized.id);
+        const latestEnding = dataset.lastParticipantEnding(normalized.id);
+
+        if (
+          normalized.beginning >= 0 &&
+          !normalized.beginsWithParticipant &&
+          normalized.beginning === earliestBeginning
+        ) {
+          normalized.beginsWithParticipant = true;
+        }
+
+        if (
+          normalized.ending < Model.END_OF_TIME &&
+          !normalized.endsWithParticipant &&
+          normalized.ending === latestEnding
+        ) {
+          normalized.endsWithParticipant = true;
+        }
+      }
+    }
+
     setInputs(normalized);
     setBeginningText(asInputText(normalized.beginning, true));
     setEndingText(asInputText(normalized.ending, false));
@@ -1128,6 +1152,10 @@ const SetIndividual = (props: Props) => {
                 min="0"
                 value={beginningText}
                 onChange={handleBeginChange}
+                disabled={
+                  selectedEntityTypeId === ENTITY_TYPE_IDS.INDIVIDUAL &&
+                  inputs.beginsWithParticipant
+                }
               />
             </Form.Group>
 
@@ -1138,8 +1166,60 @@ const SetIndividual = (props: Props) => {
                 min="0"
                 value={endingText}
                 onChange={handleEndChange}
+                disabled={
+                  selectedEntityTypeId === ENTITY_TYPE_IDS.INDIVIDUAL &&
+                  inputs.endsWithParticipant
+                }
               />
             </Form.Group>
+
+            {selectedEntityTypeId === ENTITY_TYPE_IDS.INDIVIDUAL && (
+              <>
+                <Form.Group className="mb-2" controlId="formBeginWithParticipant">
+                  <Form.Check
+                    type="switch"
+                    label="Begins With Participant"
+                    checked={!!inputs.beginsWithParticipant}
+                    onChange={(event) => {
+                      const checked = event.target.checked;
+                      const nextBeginning = checked
+                        ? dataset.earliestParticipantBeginning(inputs.id)
+                        : -1;
+
+                      setBeginningText(asInputText(nextBeginning, true));
+                      setInputs((previous) => ({
+                        ...previous,
+                        beginsWithParticipant: checked,
+                        beginning: nextBeginning,
+                      }));
+                      setDirty(true);
+                    }}
+                  />
+                </Form.Group>
+
+                <Form.Group className="mb-3" controlId="formEndWithParticipant">
+                  <Form.Check
+                    type="switch"
+                    label="Ends With Participant"
+                    checked={!!inputs.endsWithParticipant}
+                    onChange={(event) => {
+                      const checked = event.target.checked;
+                      const nextEnding = checked
+                        ? dataset.lastParticipantEnding(inputs.id)
+                        : Model.END_OF_TIME;
+
+                      setEndingText(asInputText(nextEnding, false));
+                      setInputs((previous) => ({
+                        ...previous,
+                        endsWithParticipant: checked,
+                        ending: nextEnding,
+                      }));
+                      setDirty(true);
+                    }}
+                  />
+                </Form.Group>
+              </>
+            )}
 
             {isEditMode && selectedEntityTypeId === ENTITY_TYPE_IDS.INDIVIDUAL && (
               <Card className="mb-3">

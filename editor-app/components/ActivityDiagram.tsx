@@ -264,7 +264,14 @@ const ActivityDiagram = (props: Props) => {
   return (
     <>
       <Breadcrumb>{crumbs}</Breadcrumb>
-      <div style={{ position: "relative", height: "100%" }}>
+      <div
+        className="diagram-viewport"
+        style={{
+          position: "relative",
+          display: "flex",
+          flexDirection: "column",
+        }}
+      >
         <div
           className="diagram-icon-toggle"
           style={{
@@ -306,9 +313,14 @@ const ActivityDiagram = (props: Props) => {
           </Button>
         </div>
 
-        <div 
-          id="activity-diagram-scrollable-div" 
-          style={{ overflowX: "auto", overflowY: "hidden", touchAction: "pan-x pan-y", cursor: interactionMode === "zoom" ? "zoom-in" : "default" }}
+        <div
+          id="activity-diagram-scrollable-div"
+          style={{
+            overflowX: "auto",
+            overflowY: "auto",
+            touchAction: "pan-x pan-y",
+            cursor: interactionMode === "zoom" ? "zoom-in" : "default",
+          }}
         >
           <svg
             viewBox={`0 0 ${plot.width} ${plot.height}`}

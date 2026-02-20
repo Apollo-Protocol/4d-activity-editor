@@ -122,10 +122,30 @@ const SetActivity = (props: Props) => {
 
       const earliestBeginning = d.earliestParticipantBeginning(individual.id);
       const latestEnding = d.lastParticipantEnding(individual.id);
-      if (individual.beginning >= 0) {
-        individual.beginning = earliestBeginning ? earliestBeginning : -1;
+      const hasParticipants = d.hasParticipants(individual.id);
+
+      const inferredBeginSync =
+        hasParticipants &&
+        !individual.beginsWithParticipant &&
+        individual.beginning >= 0 &&
+        individual.beginning === earliestBeginning;
+      const inferredEndSync =
+        hasParticipants &&
+        !individual.endsWithParticipant &&
+        individual.ending < Model.END_OF_TIME &&
+        individual.ending === latestEnding;
+
+      if (inferredBeginSync) {
+        individual.beginsWithParticipant = true;
       }
-      if (individual.ending < Model.END_OF_TIME) {
+      if (inferredEndSync) {
+        individual.endsWithParticipant = true;
+      }
+
+      if (individual.beginsWithParticipant) {
+        individual.beginning = earliestBeginning;
+      }
+      if (individual.endsWithParticipant) {
         individual.ending = latestEnding;
       }
       d.addIndividual(individual);

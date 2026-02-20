@@ -160,8 +160,15 @@ body {
 
 /* Diagram container scrolling */
 #activity-diagram-scrollable-div {
+  max-height: calc(100vh - 240px);
   scrollbar-width: thin;
   scrollbar-color: #888 #f1f1f1;
+}
+
+@media (max-width: 991.98px) {
+  #activity-diagram-scrollable-div {
+    max-height: none;
+  }
 }
 
 #activity-diagram-scrollable-div::-webkit-scrollbar {
@@ -215,7 +222,7 @@ body {
 
 .editor-layout {
   display: grid;
-  --legend-width: 230px;
+  --legend-width: clamp(140px, 14vw, 230px);
   grid-template-columns: var(--legend-width) 1fr;
   grid-template-areas:
     "legend diagram"
@@ -228,17 +235,24 @@ body {
 .editor-legend {
   grid-area: legend;
   width: var(--legend-width);
-  min-width: var(--legend-width);
+  min-width: 0;
   max-width: var(--legend-width);
   position: static;
   z-index: 10;
-  max-height: none;
-  overflow-y: visible;
+  max-height: calc(100vh - 240px);
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: #888 #f1f1f1;
 }
 
 .editor-diagram {
   grid-area: diagram;
   min-width: 0;
+}
+
+.diagram-viewport {
+  height: auto;
+  min-height: 0;
 }
 
 .editor-toolbar {
@@ -657,35 +671,36 @@ body {
   overflow-y: visible;
 }
 
-/* Medium screens (tablets, small laptops) - make legend scrollable */
-@media (max-width: 1200px) {
+/* Medium screens (tablets, small laptops, reduced height windows) - make legend scrollable */
+@media (max-width: 1500px), (max-height: 800px) {
   .legend-body {
     padding: 0.5rem;
   }
 
   .legend-title {
-    font-size: 0.9rem;
-    margin-bottom: 0.375rem;
+    font-size: 0.85rem;
+    margin-bottom: 0.25rem;
   }
 
   .legend-item {
-    font-size: 0.8rem;
-    margin-bottom: 0.2rem;
+    font-size: 0.75rem;
+    margin-bottom: 0.15rem;
   }
 
   .legend-color-box {
-    width: 12px;
-    height: 12px;
+    width: 10px;
+    height: 10px;
     margin-right: 4px;
+    border-radius: 2px;
   }
 
   .legend-action-btn {
-    padding: 0.1rem 0.2rem;
+    padding: 0.05rem 0.15rem;
   }
 
   .legend-action-btn svg {
-    width: 14px;
-    height: 14px;
+    width: 12px;
+    height: 12px;
   }
 
   /* Make activity legend scrollable when more than ~7 items */

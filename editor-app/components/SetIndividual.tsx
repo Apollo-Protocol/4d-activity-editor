@@ -60,6 +60,7 @@ const SetIndividual = (props: Props) => {
     selectedIndividual,
     setSelectedIndividual,
     dataset,
+    updateDataset,
   } = props;
 
   const defaultIndividual: Individual = {
@@ -81,6 +82,15 @@ const SetIndividual = (props: Props) => {
   const [inputs, setInputs] = useState<Individual>(defaultIndividual);
   const [dirty, setDirty] = useState(false);
   const [errors, setErrors] = useState<string[]>([]);
+  
+  // Custom type selector state
+  const [typeOpen, setTypeOpen] = useState(false);
+  const [typeSearch, setTypeSearch] = useState("");
+  const [editingTypeId, setEditingTypeId] = useState<string | null>(null);
+  const [editingTypeValue, setEditingTypeValue] = useState("");
+  const typeDropdownRef = React.useRef<HTMLDivElement | null>(null);
+  const [highlightedIndex, setHighlightedIndex] = useState<number>(-1);
+  const itemRefs = React.useRef<Array<HTMLDivElement | null>>([]);
 
   const [beginningText, setBeginningText] = useState(EMPTY_BEGINNING);
   const [endingText, setEndingText] = useState(EMPTY_ENDING);
@@ -137,8 +147,8 @@ const SetIndividual = (props: Props) => {
   }, [selectedParentSystem]);
 
   const asInputText = (value: number, isBeginning: boolean) => {
-    if (isBeginning && value === -1) return "";
-    if (!isBeginning && value >= Model.END_OF_TIME) return "";
+    if (isBeginning && value <= 0) return "0";
+    if (!isBeginning && (value <= 0 || value >= Model.END_OF_TIME)) return "";
     return String(value);
   };
 
@@ -149,6 +159,12 @@ const SetIndividual = (props: Props) => {
     const numeric = Number(text);
     if (!Number.isFinite(numeric)) {
       return isBeginning ? -1 : Model.END_OF_TIME;
+    }
+    if (isBeginning && numeric <= 0) {
+      return -1;
+    }
+    if (!isBeginning && numeric <= 0) {
+      return Model.END_OF_TIME;
     }
     return Math.trunc(numeric);
   };
@@ -172,6 +188,18 @@ const SetIndividual = (props: Props) => {
     setShowBoundsWarningModal(false);
     setPendingSaveIndividual(null);
     setPendingDeletionCount(0);
+    
+    setTypeOpen(false);
+    setTypeSearch("");
+    setEditingTypeId(null);
+    setEditingTypeValue("");
+  };
+
+  const handleModalHide = () => {
+    if (editingTypeId) {
+      return;
+    }
+    handleClose();
   };
 
   const commitIndividualSave = (next: Individual) => {
@@ -199,12 +227,37 @@ const SetIndividual = (props: Props) => {
     setEndingText(asInputText(normalized.ending, false));
     setDirty(false);
     setErrors([]);
+    setTypeOpen(false);
   };
 
   useEffect(() => {
     if (!show) return;
     handleShow();
   }, [show]);
+
+  // Handle click outside type dropdown
+  useEffect(() => {
+    function handleClickOutside(ev: MouseEvent) {
+      if (
+        typeDropdownRef.current &&
+        !typeDropdownRef.current.contains(ev.target as Node)
+      ) {
+        setTypeOpen(false);
+        setEditingTypeId(null);
+        setEditingTypeValue("");
+      }
+    }
+    if (typeOpen) document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [typeOpen]);
+
+  // Ensure a highlighted item is visible when changed
+  useEffect(() => {
+    if (highlightedIndex >= 0 && itemRefs.current[highlightedIndex]) {
+      const el = itemRefs.current[highlightedIndex];
+      el?.scrollIntoView({ block: "nearest" });
+    }
+  }, [highlightedIndex]);
 
   const handleChangeText = (e: React.ChangeEvent<HTMLInputElement>) => {
     updateInputs(e.target.name as keyof Individual, e.target.value);
@@ -221,6 +274,103 @@ const SetIndividual = (props: Props) => {
     setEndingText(nextText);
     updateInputs("ending", parseBoundary(nextText, false));
   };
+
+  // ----- New helper functions for custom TYPE selector -----
+  const filteredTypes = dataset.individualTypes.filter((t) =>
+    t.name.toLowerCase().includes(typeSearch.toLowerCase())
+  );
+
+  const showCreateTypeOption =
+    typeSearch.trim().length > 0 &&
+    !dataset.individualTypes.some(
+      (t) => t.name.toLowerCase() === typeSearch.trim().toLowerCase()
+    );
+
+  const handleSelectType = (typeId: string) => {
+    const t = dataset.individualTypes.find((x) => x.id === typeId);
+    if (t) updateInputs("type", t);
+    setTypeOpen(false);
+    setTypeSearch("");
+    setEditingTypeId(null);
+    setEditingTypeValue("");
+  };
+
+  const moveHighlight = (delta: number) => {
+    if (filteredTypes.length === 0) return;
+    setHighlightedIndex((prev) => {
+      let next = prev + delta;
+      if (next < 0) next = filteredTypes.length - 1;
+      if (next >= filteredTypes.length) next = 0;
+      return next;
+    });
+  };
+
+  const selectHighlighted = () => {
+    if (highlightedIndex >= 0 && highlightedIndex < filteredTypes.length) {
+      handleSelectType(filteredTypes[highlightedIndex].id);
+    }
+  };
+
+  const handleCreateTypeFromSearch = () => {
+    const name = typeSearch.trim();
+    if (!name) return;
+    const newId = uuidv4();
+
+    updateDataset((d) => {
+      d.addIndividualType(newId, name);
+      return d;
+    });
+
+    // Immediately select the newly created type for this form
+    updateInputs("type", { id: newId, name });
+    setTypeOpen(false);
+    setTypeSearch("");
+  };
+
+  const startEditType = (typeId: string, currentName: string, e: any) => {
+    e.stopPropagation();
+    setEditingTypeId(typeId);
+    setEditingTypeValue(currentName);
+  };
+
+  const saveEditType = () => {
+    if (!editingTypeId) return;
+    const newName = editingTypeValue.trim();
+    if (!newName) return;
+
+    updateDataset((d) => {
+      const existing = d.individualTypes.find(t => t.id === editingTypeId);
+      if (existing) existing.name = newName;
+
+      // Update individuals that use this type to reference the canonical Type object
+      d.individuals.forEach((ind) => {
+        if (ind.type && ind.type.id === editingTypeId) {
+          const canonical = d.individualTypes.find((x) => x.id === editingTypeId);
+          if (canonical) ind.type = canonical;
+        }
+      });
+      
+      if (d.defaultIndividualType && d.defaultIndividualType.id === editingTypeId) {
+         const canonical = d.individualTypes.find((x) => x.id === editingTypeId);
+         if (canonical) d.defaultIndividualType = canonical;
+      }
+      return d;
+    });
+
+    // Also update current inputs if it was the selected type
+    if (inputs.type && inputs.type.id === editingTypeId) {
+       updateInputs("type", { id: editingTypeId, name: newName });
+    }
+
+    setEditingTypeId(null);
+    setEditingTypeValue("");
+  };
+
+  const cancelEditType = () => {
+    setEditingTypeId(null);
+    setEditingTypeValue("");
+  };
+  // ----- end helpers -----
 
   const handleEntityType = (typeId: string) => {
     if (isEditMode) return;
@@ -408,7 +558,16 @@ const SetIndividual = (props: Props) => {
   };
 
   const removeInstallationRow = (rowId: string) => {
-    setInstallationRows((previous) => previous.filter((row) => row.id !== rowId));
+    setInstallationRows((previous) => {
+      const nextRows = previous.filter((row) => row.id !== rowId);
+      if (nextRows.length === 0) {
+        setInstallationErrors([]);
+      } else {
+        const { rowErrors } = normalizeInstallationRows(nextRows);
+        setInstallationErrors(rowErrors);
+      }
+      return nextRows;
+    });
   };
 
   const updateInstallationRow = (
@@ -456,10 +615,12 @@ const SetIndividual = (props: Props) => {
       }
 
       const beginning = Math.trunc(Number(row.beginningText));
-      const ending =
+
+      let ending =
         row.endingText.trim() === ""
           ? Model.END_OF_TIME
           : Math.trunc(Number(row.endingText));
+      if (ending <= 0) ending = Model.END_OF_TIME;
 
       if (!Number.isFinite(beginning) || beginning < 0) {
         rowErrors.push(`${rowPrefix}: Beginning must be 0 or greater`);
@@ -471,24 +632,27 @@ const SetIndividual = (props: Props) => {
         return;
       }
 
-      const componentStart = normalizeStart(component.beginning);
-      const componentEnd = normalizeEnd(component.ending);
+      const logicalComponentStart = component.beginning === -1 ? -Infinity : component.beginning;
+      const logicalComponentEnd = component.ending >= Model.END_OF_TIME ? Infinity : component.ending;
+      const logicalBeginning = beginning;
+      const logicalEnding = ending >= Model.END_OF_TIME ? Infinity : ending;
 
-      if (beginning < componentStart) {
+      if (logicalBeginning < logicalComponentStart) {
         rowErrors.push(
           `${rowPrefix}: Beginning must be within ${component.name} bounds`
         );
       }
-      if (ending > componentEnd) {
+      if (logicalEnding > logicalComponentEnd) {
         rowErrors.push(`${rowPrefix}: Ending must be within ${component.name} bounds`);
       }
 
-      const ownStart = normalizeStart(inputs.beginning);
-      const ownEnd = normalizeEnd(inputs.ending);
-      if (beginning < ownStart) {
+      const logicalOwnStart = inputs.beginning === -1 ? -Infinity : inputs.beginning;
+      const logicalOwnEnd = inputs.ending >= Model.END_OF_TIME ? Infinity : inputs.ending;
+      
+      if (logicalBeginning < logicalOwnStart) {
         rowErrors.push(`${rowPrefix}: Beginning must be within entity bounds`);
       }
-      if (ending > ownEnd) {
+      if (logicalEnding > logicalOwnEnd) {
         rowErrors.push(`${rowPrefix}: Ending must be within entity bounds`);
       }
 
@@ -548,6 +712,22 @@ const SetIndividual = (props: Props) => {
   }, [installationRows, showInstallationsModal]);
 
   const saveInstallations = () => {
+    if (installationRows.length === 0) {
+      const synced = syncLegacyInstallationFields({
+        ...inputs,
+        installedIn: undefined,
+        installedBeginning: undefined,
+        installedEnding: undefined,
+        installations: [],
+      });
+
+      setInputs(synced);
+      setDirty(true);
+      setShowInstallationsModal(false);
+      setInstallationErrors([]);
+      return;
+    }
+
     const { normalized, rowErrors } = normalizeInstallationRows(installationRows);
     if (rowErrors.length > 0) {
       setInstallationErrors(rowErrors);
@@ -580,14 +760,24 @@ const SetIndividual = (props: Props) => {
     const component = dataset.individuals.get(row.systemComponentId);
     if (!component) return null;
 
+    const rowSystemId = componentSystemIdById.get(row.systemComponentId);
+
     const start = normalizeStart(component.beginning);
     const end = normalizeEnd(component.ending);
 
     const occupied = installationRows
       .filter((entry) => entry.id !== row.id)
       .map((entry) => {
-        if (!entry.systemComponentId || entry.systemComponentId !== row.systemComponentId)
+        if (!entry.systemComponentId) return undefined;
+        
+        const entrySystemId = componentSystemIdById.get(entry.systemComponentId);
+        
+        const isSameSlot = entry.systemComponentId === row.systemComponentId;
+        const isSameSystem = rowSystemId && entrySystemId && rowSystemId === entrySystemId;
+        
+        if (!isSameSlot && !isSameSystem) {
           return undefined;
+        }
 
         const from = Math.trunc(Number(entry.beginningText));
         const until =
@@ -677,7 +867,10 @@ const SetIndividual = (props: Props) => {
         Add Entity
       </Button>
 
-      <Modal show={show} onHide={handleClose} className="tier-1" backdropClassName="tier-1-backdrop">
+      <Modal
+        show={show && !showInstallationsModal && !showBoundsWarningModal}
+        onHide={handleModalHide}
+      >
         <Modal.Header closeButton>
           <Modal.Title>{isEditMode ? "Edit Entity" : "Add Entity"}</Modal.Title>
         </Modal.Header>
@@ -717,24 +910,169 @@ const SetIndividual = (props: Props) => {
 
             <Form.Group className="mb-3" controlId="formEntityType">
               <Form.Label>Type</Form.Label>
-              <Form.Select
-                value={inputs.type?.id ?? ""}
-                onChange={(event) => {
-                  const selected = dataset.individualTypes.find(
-                    (type) => type.id === event.target.value
-                  );
-                  if (selected) {
-                    updateInputs("type", selected);
-                  }
-                }}
+              <div
+                ref={typeDropdownRef}
+                className="position-relative"
+                style={{ zIndex: 1050 }}
               >
-                <option value="">Select type...</option>
-                {dataset.individualTypes.map((type) => (
-                  <option key={type.id} value={type.id}>
-                    {type.name}
-                  </option>
-                ))}
-              </Form.Select>
+                <button
+                  type="button"
+                  className="w-100 btn btn-outline-secondary d-flex justify-content-between align-items-center"
+                  onClick={() => setTypeOpen((s) => !s)}
+                >
+                  <span className="text-truncate">
+                    {inputs?.type?.name || "Select type..."}
+                  </span>
+                  <span style={{ marginLeft: 8 }}>▾</span>
+                </button>
+
+                {typeOpen && (
+                  <div
+                    className="card mt-1"
+                    style={{ maxHeight: 300, overflow: "hidden" }}
+                  >
+                    <div className="card-body p-2 border-bottom">
+                      <input
+                        className="form-control form-control-sm"
+                        placeholder="Search or create type..."
+                        value={typeSearch}
+                        onChange={(e) => setTypeSearch(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter" && showCreateTypeOption) {
+                            e.preventDefault();
+                            handleCreateTypeFromSearch();
+                            return;
+                          }
+                          if (e.key === "ArrowDown") {
+                            e.preventDefault();
+                            moveHighlight(1);
+                            return;
+                          }
+                          if (e.key === "ArrowUp") {
+                            e.preventDefault();
+                            moveHighlight(-1);
+                            return;
+                          }
+                          if (e.key === "Escape") {
+                            setTypeOpen(false);
+                            return;
+                          }
+                          if (e.key === "Enter" && filteredTypes.length > 0 && !showCreateTypeOption) {
+                            e.preventDefault();
+                            selectHighlighted();
+                            return;
+                          }
+                        }}
+                        autoFocus
+                      />
+                    </div>
+
+                    <div style={{ maxHeight: 180, overflow: "auto" }}>
+                      {filteredTypes.map((t, idx) => (
+                        <div
+                          key={t.id}
+                          ref={(el) => {
+                            if (itemRefs.current) itemRefs.current[idx] = el;
+                          }}
+                          tabIndex={-1}
+                          className={`d-flex align-items-center justify-content-between px-3 py-2 ${
+                            highlightedIndex === idx
+                              ? "bg-primary text-white"
+                              : ""
+                          }`}
+                          style={{ cursor: "pointer" }}
+                          onClick={() => handleSelectType(t.id)}
+                          onMouseEnter={() => setHighlightedIndex(idx)}
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter") selectHighlighted();
+                            if (e.key === "Escape") setTypeOpen(false);
+                          }}
+                        >
+                          {editingTypeId === t.id ? (
+                            <div className="d-flex align-items-center w-100">
+                              <input
+                                className="form-control form-control-sm me-2"
+                                value={editingTypeValue}
+                                onChange={(e) =>
+                                  setEditingTypeValue(e.target.value)
+                                }
+                                onMouseDown={(e) => e.stopPropagation()}
+                                onClick={(e) => e.stopPropagation()}
+                                onKeyDown={(e) => {
+                                  if (e.key === "Enter") saveEditType();
+                                  if (e.key === "Escape") cancelEditType();
+                                  e.stopPropagation(); // prevent parent from handling
+                                }}
+                                autoFocus
+                              />
+                              <div className="d-flex align-items-center">
+                                <button
+                                  type="button"
+                                  className="btn btn-sm btn-success me-1"
+                                  onClick={(ev) => {
+                                    ev.stopPropagation();
+                                    saveEditType();
+                                  }}
+                                >
+                                  Save
+                                </button>
+                                <button
+                                  type="button"
+                                  className="btn btn-sm btn-secondary"
+                                  onClick={(ev) => {
+                                    ev.stopPropagation();
+                                    cancelEditType();
+                                  }}
+                                >
+                                  Cancel
+                                </button>
+                              </div>
+                            </div>
+                          ) : (
+                            <>
+                              <div className="flex-grow-1">{t.name}</div>
+                              <div className="d-flex align-items-center">
+                                {inputs?.type?.id === t.id && (
+                                  <span className="me-2">✓</span>
+                                )}
+                                <button
+                                  type="button"
+                                  className={`btn btn-sm btn-link p-0 ${
+                                    highlightedIndex === idx
+                                      ? "text-white"
+                                      : ""
+                                  }`}
+                                  onClick={(e) =>
+                                    startEditType(t.id, t.name, e)
+                                  }
+                                >
+                                  edit
+                                </button>
+                              </div>
+                            </>
+                          )}
+                        </div>
+                      ))}
+
+                      {showCreateTypeOption && (
+                        <div
+                          className="px-3 py-2 text-primary fw-medium border-top"
+                          style={{ cursor: "pointer" }}
+                          onClick={handleCreateTypeFromSearch}
+                        >
+                          Create &quot;{typeSearch}&quot;
+                        </div>
+                      )}
+
+                      {filteredTypes.length === 0 && !showCreateTypeOption && (
+                        <div className="p-3 text-muted small">
+                          No results found
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
+              </div>
             </Form.Group>
 
             {selectedEntityTypeId === ENTITY_TYPE_IDS.SYSTEM_COMPONENT && (
@@ -787,6 +1125,7 @@ const SetIndividual = (props: Props) => {
               <Form.Label>Beginning</Form.Label>
               <Form.Control
                 type="number"
+                min="0"
                 value={beginningText}
                 onChange={handleBeginChange}
               />
@@ -796,6 +1135,7 @@ const SetIndividual = (props: Props) => {
               <Form.Label>Ending</Form.Label>
               <Form.Control
                 type="number"
+                min="0"
                 value={endingText}
                 onChange={handleEndChange}
               />
@@ -816,7 +1156,7 @@ const SetIndividual = (props: Props) => {
                   </div>
                   <Button variant="outline-primary" onClick={openInstallationsModal}>
                     {getInstallationPeriods(inputs).length > 0
-                      ? "Add/Edit Installation(s)"
+                      ? `Add/Edit Installation${getInstallationPeriods(inputs).length > 1 ? "s" : ""}`
                       : "Add Installation"}
                   </Button>
                 </Card.Body>
@@ -870,11 +1210,11 @@ const SetIndividual = (props: Props) => {
         show={showInstallationsModal}
         onHide={() => setShowInstallationsModal(false)}
         size="xl"
-        className="tier-2"
-        backdropClassName="tier-2-backdrop"
       >
         <Modal.Header closeButton>
-          <Modal.Title>Add Installation</Modal.Title>
+          <Modal.Title>
+            Add Installation for {inputs.name || "Entity"} ({inputs.beginning === -1 ? "0" : inputs.beginning} - {inputs.ending >= Model.END_OF_TIME ? "∞" : inputs.ending})
+          </Modal.Title>
         </Modal.Header>
         <Modal.Body>
           <Table bordered responsive>
@@ -931,6 +1271,7 @@ const SetIndividual = (props: Props) => {
                     <td>
                       <Form.Control
                         type="number"
+                        min="0"
                         value={row.beginningText}
                         onChange={(event) =>
                           updateInstallationRow(row.id, "beginningText", event.target.value)
@@ -940,6 +1281,7 @@ const SetIndividual = (props: Props) => {
                     <td>
                       <Form.Control
                         type="number"
+                        min="0"
                         placeholder="∞"
                         value={row.endingText}
                         onChange={(event) =>
@@ -995,14 +1337,14 @@ const SetIndividual = (props: Props) => {
         show={showBoundsWarningModal}
         onHide={() => setShowBoundsWarningModal(false)}
         centered
-        className="tier-3"
-        backdropClassName="tier-3-backdrop"
       >
         <Modal.Header closeButton>
-          <Modal.Title>Confirm Installation Changes</Modal.Title>
+          <Modal.Title>
+            Confirm Installation Changes for {inputs.name || "Entity"} ({inputs.beginning === -1 ? "0" : inputs.beginning} - {inputs.ending >= Model.END_OF_TIME ? "∞" : inputs.ending})
+          </Modal.Title>
         </Modal.Header>
         <Modal.Body>
-          {pendingDeletionCount} installation period(s) are outside the updated
+          {pendingDeletionCount} installation period{pendingDeletionCount === 1 ? "" : "s"} {pendingDeletionCount === 1 ? "is" : "are"} outside the updated
           entity bounds and will be deleted if you continue.
         </Modal.Body>
         <Modal.Footer>

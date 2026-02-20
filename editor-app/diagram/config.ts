@@ -20,6 +20,7 @@ export interface ConfigData {
       componentHeightFactor: number;
       minHostHeightFactor: number;
       hostHeightGrowthPerComponent: number;
+      hostComponentPadding: number;
     };
   };
   presentation: {
@@ -95,6 +96,7 @@ export const config: ConfigData = {
       componentHeightFactor: 1,
       minHostHeightFactor: 3,
       hostHeightGrowthPerComponent: 1,
+      hostComponentPadding: 8,
     },
   },
   presentation: {

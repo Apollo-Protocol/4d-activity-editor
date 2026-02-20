@@ -25,12 +25,14 @@ interface Props<T extends BaseItem> {
   items: T[];
   onChange(items: T[]): void;
   renderItem(item: T): ReactNode;
+  canReorder?(activeItem: T, overItem: T): boolean;
 }
 
 export function SortableList<T extends BaseItem>({
   items,
   onChange,
   renderItem,
+  canReorder,
 }: Props<T>) {
   const [active, setActive] = useState<Active | null>(null);
   const activeItem = useMemo(
@@ -54,6 +56,16 @@ export function SortableList<T extends BaseItem>({
         if (over && active.id !== over?.id) {
           const activeIndex = items.findIndex(({ id }) => id === active.id);
           const overIndex = items.findIndex(({ id }) => id === over.id);
+
+          if (activeIndex < 0 || overIndex < 0) {
+            setActive(null);
+            return;
+          }
+
+          if (canReorder && !canReorder(items[activeIndex], items[overIndex])) {
+            setActive(null);
+            return;
+          }
 
           onChange(arrayMove(items, activeIndex, overIndex));
         }

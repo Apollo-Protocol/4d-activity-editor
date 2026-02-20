@@ -31,6 +31,7 @@ export const SYSTEM_HORIZONTAL_INSET = 24; // Increased to keep components insid
 export const SYSTEM_COMPONENT_GAP = 4;
 export const SYSTEM_COMPONENT_HEIGHT_FACTOR = 1;
 export const SYSTEM_MIN_HOST_HEIGHT_FACTOR = 3;
+export const SYSTEM_HOST_COMPONENT_PADDING = 8;
 
 export function getSystemLayout(config: ConfigData) {
   const system = config.layout.system;
@@ -43,6 +44,8 @@ export function getSystemLayout(config: ConfigData) {
     minHostHeightFactor:
       system?.minHostHeightFactor ?? SYSTEM_MIN_HOST_HEIGHT_FACTOR,
     hostHeightGrowthPerComponent: system?.hostHeightGrowthPerComponent ?? 1,
+    hostComponentPadding:
+      system?.hostComponentPadding ?? SYSTEM_HOST_COMPONENT_PADDING,
   };
 }
 
@@ -105,7 +108,9 @@ export function calculateViewportHeight(
                   Math.max(0, childComponents.length - 1) *
                     systemLayout.hostHeightGrowthPerComponent)
             ),
-            systemLayout.containerInset * 2 +
+            baseHeight +
+              systemLayout.containerInset * 2 +
+              systemLayout.hostComponentPadding * 2 +
               childComponents.length * componentHeight +
               (childComponents.length - 1) * systemLayout.componentGap
           )

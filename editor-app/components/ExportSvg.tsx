@@ -1,6 +1,5 @@
-import React, { useState, useEffect } from "react";
+import React from "react";
 import Button from "react-bootstrap/Button";
-import { saveJSONLD } from "lib/ActivityLib";
 import { Activity } from "@/lib/Schema";
 
 const ExportSvg = (props: any) => {
@@ -60,16 +59,97 @@ const ExportSvg = (props: any) => {
       }
     });
 
+    const viewBoxRaw = svgCopy.getAttribute("viewBox") || "0 0 1200 600";
+    const viewBoxValues = viewBoxRaw
+      .split(/\s+/)
+      .map((value) => Number(value))
+      .filter((value) => Number.isFinite(value));
+
+    const viewBoxX = viewBoxValues[0] ?? 0;
+    const viewBoxY = viewBoxValues[1] ?? 0;
+    const viewBoxWidth = viewBoxValues[2] ?? 1200;
+    const viewBoxHeight = viewBoxValues[3] ?? 600;
+
+    const legendItems = [
+      { glyph: "▣", label: "System" },
+      { glyph: "◇", label: "System Component" },
+      { glyph: "○", label: "Individual" },
+    ];
+
+    const legendWidth = 220;
+    const legendHeaderHeight = 20;
+    const legendRowHeight = 18;
+    const legendPadding = 10;
+    const legendHeight =
+      legendPadding * 2 +
+      legendHeaderHeight +
+      legendItems.length * legendRowHeight;
+    const extraBottomSpace = legendHeight + 16;
+
+    svgCopy.setAttribute(
+      "viewBox",
+      `${viewBoxX} ${viewBoxY} ${viewBoxWidth} ${viewBoxHeight + extraBottomSpace}`
+    );
+
+    const legendGroup = document.createElementNS(
+      "http://www.w3.org/2000/svg",
+      "g"
+    );
+    const legendX = viewBoxX + Math.max(12, viewBoxWidth - legendWidth - 12);
+    const legendY = viewBoxY + viewBoxHeight + 8;
+    legendGroup.setAttribute("transform", `translate(${legendX}, ${legendY})`);
+
+    const background = document.createElementNS(
+      "http://www.w3.org/2000/svg",
+      "rect"
+    );
+    background.setAttribute("x", "0");
+    background.setAttribute("y", "0");
+    background.setAttribute("width", `${legendWidth}`);
+    background.setAttribute("height", `${legendHeight}`);
+    background.setAttribute("fill", "white");
+    background.setAttribute("fill-opacity", "0.92");
+    background.setAttribute("stroke", "#666");
+    background.setAttribute("stroke-width", "1");
+    legendGroup.appendChild(background);
+
+    const title = document.createElementNS("http://www.w3.org/2000/svg", "text");
+    title.setAttribute("x", `${legendPadding}`);
+    title.setAttribute("y", `${legendPadding + 13}`);
+    title.setAttribute("font-family", "Roboto, Arial, sans-serif");
+    title.setAttribute("font-size", "13");
+    title.setAttribute("font-weight", "700");
+    title.setAttribute("fill", "#222");
+    title.textContent = "Entity Types";
+    legendGroup.appendChild(title);
+
+    legendItems.forEach((item, index) => {
+      const row = document.createElementNS("http://www.w3.org/2000/svg", "text");
+      const y =
+        legendPadding + legendHeaderHeight + (index + 1) * legendRowHeight - 2;
+      row.setAttribute("x", `${legendPadding}`);
+      row.setAttribute("y", `${y}`);
+      row.setAttribute("font-family", "Roboto, Arial, sans-serif");
+      row.setAttribute("font-size", "12");
+      row.setAttribute("fill", "#222");
+      row.textContent = `${item.glyph} ${item.label}`;
+      legendGroup.appendChild(row);
+    });
+
+    svgCopy.appendChild(legendGroup);
+
     return svgCopy;
   }
 
   function downloadsvg(event: any) {
     let pom = document.createElement("a");
     const svgWithLabels = addExportLabels(svgRef.current);
-    pom.setAttribute(
-      "href",
-      "data:image/svg+xml;base64," + btoa(serializeNode(svgWithLabels))
-    );
+    const svgXml = serializeNode(svgWithLabels);
+    const svgBlob = new Blob([svgXml], {
+      type: "image/svg+xml;charset=utf-8",
+    });
+    const url = URL.createObjectURL(svgBlob);
+    pom.setAttribute("href", url);
     pom.setAttribute("download", "activity_diagram.svg");
 
     if (document.createEvent) {
@@ -79,6 +159,10 @@ const ExportSvg = (props: any) => {
     } else {
       pom.click();
     }
+
+    window.setTimeout(() => {
+      URL.revokeObjectURL(url);
+    }, 0);
   }
 
   return (

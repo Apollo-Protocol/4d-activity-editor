@@ -293,7 +293,9 @@ export function drawIndividuals(ctx: DrawContext) {
                   Math.max(0, childComponents.length - 1) *
                     systemLayout.hostHeightGrowthPerComponent)
             ),
-            systemLayout.containerInset * 2 +
+            baseHeight +
+              systemLayout.containerInset * 2 +
+              systemLayout.hostComponentPadding * 2 +
               childComponents.length * componentHeight +
               (childComponents.length - 1) * systemLayout.componentGap
           )
@@ -357,9 +359,16 @@ export function drawIndividuals(ctx: DrawContext) {
     });
   }
 
-  const drawnIndividuals = individuals.filter((individual) =>
-    layout.has(individual.id)
-  );
+  const drawnIndividuals = individuals
+    .filter((individual) => layout.has(individual.id))
+    .sort((a, b) => {
+      // Sort by Y position so parent systems (lower Y) are drawn before
+      // their contained components (higher Y).  This ensures the system's
+      // white background doesn't cover its children in SVG z-order.
+      const aY = layout.get(a.id)?.[0]?.y ?? 0;
+      const bY = layout.get(b.id)?.[0]?.y ?? 0;
+      return aY - bY;
+    });
 
   svgElement
     .selectAll(".individual")

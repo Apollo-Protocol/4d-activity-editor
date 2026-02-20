@@ -132,7 +132,76 @@ export class Model {
       );
     } else {
       this.individuals.set(individual.id, individual);
+      this.normalizeIndividualOrder();
     }
+  }
+
+  /**
+   * Re-orders the individuals map so that every System Component
+   * appears immediately after its parent System.  This prevents
+   * rendering issues where a component drawn before its system
+   * gets hidden behind the system's white background.
+   */
+  private normalizeIndividualOrder(): void {
+    const items = Array.from(this.individuals.values());
+
+    const systems = new Set(
+      items
+        .filter(
+          (item) =>
+            getEntityTypeIdFromIndividual(item) === ENTITY_TYPE_IDS.SYSTEM
+        )
+        .map((item) => item.id)
+    );
+
+    const componentsBySystem = new Map<string, Individual[]>();
+    items.forEach((item) => {
+      if (
+        getEntityTypeIdFromIndividual(item) !==
+        ENTITY_TYPE_IDS.SYSTEM_COMPONENT
+      )
+        return;
+      if (!item.installedIn || !systems.has(item.installedIn)) return;
+      const list = componentsBySystem.get(item.installedIn);
+      if (list) list.push(item);
+      else componentsBySystem.set(item.installedIn, [item]);
+    });
+
+    // Nothing to reorder if there are no system-component relationships
+    if (componentsBySystem.size === 0) return;
+
+    const normalized: Individual[] = [];
+    const emitted = new Set<string>();
+
+    items.forEach((item) => {
+      if (emitted.has(item.id)) return;
+
+      const type = getEntityTypeIdFromIndividual(item);
+      if (
+        type === ENTITY_TYPE_IDS.SYSTEM_COMPONENT &&
+        item.installedIn &&
+        systems.has(item.installedIn)
+      ) {
+        return; // will be emitted after parent system
+      }
+
+      normalized.push(item);
+      emitted.add(item.id);
+
+      if (type === ENTITY_TYPE_IDS.SYSTEM) {
+        (componentsBySystem.get(item.id) ?? []).forEach((child) => {
+          if (!emitted.has(child.id)) {
+            normalized.push(child);
+            emitted.add(child.id);
+          }
+        });
+      }
+    });
+
+    this.individuals.clear();
+    normalized.forEach((item) => {
+      this.individuals.set(item.id, item);
+    });
   }
 
   /**

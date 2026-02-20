@@ -11,6 +11,7 @@ import SetParticipation from "./SetParticipation";
 import Undo from "./Undo";
 import { Model } from "@/lib/Model";
 import { Activity, Id, Individual, Maybe, Participation } from "@/lib/Schema";
+import { ENTITY_TYPE_IDS, getEntityTypeIdFromIndividual } from "@/lib/entityTypes";
 import ExportJson from "./ExportJson";
 import ExportSvg from "./ExportSvg";
 import HideIndividuals from "./HideIndividuals";
@@ -144,8 +145,48 @@ export default function ActivityDiagramWrap() {
         if (!seen.has(individual.id)) reordered.push(individual);
       });
 
+      // Normalize: ensure system components stay grouped under their parent system
+      const systems = new Set(
+        reordered
+          .filter((item) => getEntityTypeIdFromIndividual(item) === ENTITY_TYPE_IDS.SYSTEM)
+          .map((item) => item.id)
+      );
+
+      const componentsBySystem = new Map<string, Individual[]>();
+      reordered.forEach((item) => {
+        if (getEntityTypeIdFromIndividual(item) !== ENTITY_TYPE_IDS.SYSTEM_COMPONENT) return;
+        if (!item.installedIn || !systems.has(item.installedIn)) return;
+        const list = componentsBySystem.get(item.installedIn);
+        if (list) list.push(item);
+        else componentsBySystem.set(item.installedIn, [item]);
+      });
+
+      const normalized: Individual[] = [];
+      const emitted = new Set<string>();
+      reordered.forEach((item) => {
+        if (emitted.has(item.id)) return;
+        const type = getEntityTypeIdFromIndividual(item);
+        if (
+          type === ENTITY_TYPE_IDS.SYSTEM_COMPONENT &&
+          item.installedIn &&
+          systems.has(item.installedIn)
+        ) {
+          return; // will be emitted after parent system
+        }
+        normalized.push(item);
+        emitted.add(item.id);
+        if (type === ENTITY_TYPE_IDS.SYSTEM) {
+          (componentsBySystem.get(item.id) ?? []).forEach((child) => {
+            if (!emitted.has(child.id)) {
+              normalized.push(child);
+              emitted.add(child.id);
+            }
+          });
+        }
+      });
+
       d.individuals.clear();
-      reordered.forEach((individual) => {
+      normalized.forEach((individual) => {
         d.individuals.set(individual.id, individual);
       });
     });

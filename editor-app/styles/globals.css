@@ -184,31 +184,6 @@ body {
   background: #555;
 }
 
-/* Modals: Ensure top-most modal is highlighted and others dimmed */
-.modal-backdrop.show {
-  opacity: 0.5; /* Ensure sufficient dimming */
-  z-index: 1050; /* Base backdrop z-index */
-}
-
-/* Specific z-indices for tiered modals */
-.modal.tier-1 { z-index: 1055; }
-.modal-backdrop.tier-1 { z-index: 1050; }
-
-.modal.tier-2 { z-index: 1065; }
-.modal-backdrop.tier-2 { z-index: 1060; }
-
-.modal.tier-3 { 
-  z-index: 1075; 
-}
-
-/* Shift the 3rd tier modal dialog to the right/down for cascading effect */
-.modal.tier-3 .modal-dialog {
-  transform: translate(70px, 140px); /* Adjust pixels as needed */
-  transition: transform 0.3s ease-out;
-}
-
-.modal-backdrop.tier-3 { z-index: 1070; }
-
 .modal-content {
   box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.5); /* Strong shadow for highlighted effect */
 }
@@ -248,7 +223,7 @@ body {
     "toolbar toolbar";
   column-gap: 1rem;
   row-gap: 0.75rem;
-  align-items: start;
+  align-items: stretch; /* Changed from start to stretch so legend can be sticky */
 }
 
 .editor-legend {
@@ -678,9 +653,6 @@ body {
 
 /* Medium screens (tablets, small laptops) - make legend scrollable */
 @media (max-width: 1200px) {
-  .legend-card {
-  }
-
   .legend-body {
     padding: 0.5rem;
   }

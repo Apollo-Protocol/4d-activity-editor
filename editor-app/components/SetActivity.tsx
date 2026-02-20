@@ -967,9 +967,9 @@ const SetActivity = (props: Props) => {
                   }
                   variant="danger"
                   onClick={openChangeParent}
-                  title="Swap parent (assign as sub-task of another activity)"
+                  title="Change parent (assign as sub-task of another activity)"
                 >
-                  Swap Parent
+                  Change Parent
                 </Button>
               </div>
               <div className="activity-modal-group activity-modal-primary">

@@ -264,17 +264,18 @@ const ActivityDiagram = (props: Props) => {
   return (
     <>
       <Breadcrumb>{crumbs}</Breadcrumb>
-      <div style={{ position: "relative" }}>
+      <div style={{ position: "relative", height: "100%" }}>
         <div
           className="diagram-icon-toggle"
           style={{
-            position: "absolute",
-            top: 0,
-            right: 0,
+            position: "sticky",
+            top: "80px", /* Sticky below navbar */
+            float: "right", /* Float right so it doesn't take full width */
             display: "flex",
             justifyContent: "flex-end",
             gap: "6px",
-            zIndex: 2,
+            zIndex: 10,
+            marginBottom: "-32px", /* Offset its own height so it doesn't push diagram down */
           }}
         >
           <Button

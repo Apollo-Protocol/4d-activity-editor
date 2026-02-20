@@ -101,7 +101,9 @@ const SetActivity = (props: Props) => {
   };
 
   function updateIndividuals(d: Model) {
-    d.individuals.forEach((individual) => {
+    const individualsSnapshot = Array.from(d.individuals.values());
+
+    individualsSnapshot.forEach((individual) => {
       const periods = getInstallationPeriods(individual);
       const installedTarget =
         periods.length > 0
@@ -116,7 +118,7 @@ const SetActivity = (props: Props) => {
           ENTITY_TYPE_IDS.SYSTEM_COMPONENT;
 
       if (isInstalledInComponent) {
-        d.addIndividual(individual);
+        d.individuals.set(individual.id, individual);
         return;
       }
 
@@ -148,7 +150,7 @@ const SetActivity = (props: Props) => {
       if (individual.endsWithParticipant) {
         individual.ending = latestEnding;
       }
-      d.addIndividual(individual);
+      d.individuals.set(individual.id, individual);
     });
   }
 

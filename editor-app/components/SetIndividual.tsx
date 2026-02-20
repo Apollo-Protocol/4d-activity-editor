@@ -48,6 +48,16 @@ type NormalizedInstallationRow = {
   systemId?: string;
 };
 
+type SystemMoveConflict = {
+  individualId: string;
+  individualName: string;
+  installationId: string;
+  beginning: number;
+  ending: number;
+  conflictingComponentName: string;
+  targetSystemName: string;
+};
+
 const EMPTY_BEGINNING = "";
 const EMPTY_ENDING = "";
 
@@ -102,6 +112,13 @@ const SetIndividual = (props: Props) => {
   const [pendingSaveIndividual, setPendingSaveIndividual] =
     useState<Individual | null>(null);
   const [pendingDeletionCount, setPendingDeletionCount] = useState(0);
+  const [showSystemMoveConflictModal, setShowSystemMoveConflictModal] =
+    useState(false);
+  const [pendingSystemMoveConflicts, setPendingSystemMoveConflicts] = useState<
+    SystemMoveConflict[]
+  >([]);
+  const [pendingSystemComponentSave, setPendingSystemComponentSave] =
+    useState<Individual | null>(null);
 
   const isEditMode = !!selectedIndividual;
   const selectedEntityTypeId = getEntityTypeIdFromIndividual(inputs);
@@ -188,6 +205,9 @@ const SetIndividual = (props: Props) => {
     setShowBoundsWarningModal(false);
     setPendingSaveIndividual(null);
     setPendingDeletionCount(0);
+    setShowSystemMoveConflictModal(false);
+    setPendingSystemMoveConflicts([]);
+    setPendingSystemComponentSave(null);
     
     setTypeOpen(false);
     setTypeSearch("");
@@ -490,6 +510,19 @@ const SetIndividual = (props: Props) => {
 
     let next = { ...inputs };
 
+    if (
+      selectedEntityTypeId === ENTITY_TYPE_IDS.SYSTEM_COMPONENT &&
+      selectedIndividual?.installedIn !== next.installedIn
+    ) {
+      const moveConflicts = findSystemMoveConflicts(next);
+      if (moveConflicts.length > 0) {
+        setPendingSystemMoveConflicts(moveConflicts);
+        setPendingSystemComponentSave(next);
+        setShowSystemMoveConflictModal(true);
+        return;
+      }
+    }
+
     if (selectedEntityTypeId === ENTITY_TYPE_IDS.INDIVIDUAL) {
       let periods = getInstallationPeriods(next);
       const ownStart = normalizeStart(next.beginning);
@@ -539,6 +572,41 @@ const SetIndividual = (props: Props) => {
       return;
     }
     commitIndividualSave(pendingSaveIndividual);
+  };
+
+  const confirmSystemMoveConflictResolution = () => {
+    if (!pendingSystemComponentSave) {
+      setShowSystemMoveConflictModal(false);
+      return;
+    }
+
+    const removalsByIndividual = new Map<string, Set<string>>();
+    pendingSystemMoveConflicts.forEach((conflict) => {
+      const ids = removalsByIndividual.get(conflict.individualId);
+      if (ids) ids.add(conflict.installationId);
+      else removalsByIndividual.set(conflict.individualId, new Set([conflict.installationId]));
+    });
+
+    updateDataset((d) => {
+      removalsByIndividual.forEach((installationIds, individualId) => {
+        const individual = d.individuals.get(individualId);
+        if (!individual) return;
+
+        const remaining = getInstallationPeriods(individual).filter(
+          (period) => !installationIds.has(period.id)
+        );
+
+        const synced = syncLegacyInstallationFields({
+          ...individual,
+          installations: remaining,
+        });
+        d.addIndividual(synced);
+      });
+
+      d.addIndividual(pendingSystemComponentSave);
+    });
+
+    handleClose();
   };
 
   const handleDelete = () => {
@@ -729,6 +797,77 @@ const SetIndividual = (props: Props) => {
     return { normalized, rowErrors };
   };
 
+  const findSystemMoveConflicts = (component: Individual) => {
+    if (
+      getEntityTypeIdFromIndividual(component) !== ENTITY_TYPE_IDS.SYSTEM_COMPONENT ||
+      !component.installedIn
+    ) {
+      return [] as SystemMoveConflict[];
+    }
+
+    const targetSystem = dataset.individuals.get(component.installedIn);
+    if (
+      !targetSystem ||
+      getEntityTypeIdFromIndividual(targetSystem) !== ENTITY_TYPE_IDS.SYSTEM
+    ) {
+      return [] as SystemMoveConflict[];
+    }
+
+    const conflicts: SystemMoveConflict[] = [];
+
+    Array.from(dataset.individuals.values())
+      .filter(
+        (individual) =>
+          getEntityTypeIdFromIndividual(individual) === ENTITY_TYPE_IDS.INDIVIDUAL
+      )
+      .forEach((individual) => {
+        const periods = getInstallationPeriods(individual);
+        const movedPeriods = periods.filter(
+          (period) => period.systemComponentId === component.id
+        );
+        if (movedPeriods.length === 0) return;
+
+        const otherPeriods = periods.filter(
+          (period) => period.systemComponentId !== component.id
+        );
+
+        movedPeriods.forEach((movedPeriod) => {
+          const conflictPeriod = otherPeriods.find((candidate) => {
+            const candidateSystemId = componentSystemIdById.get(
+              candidate.systemComponentId
+            );
+            if (!candidateSystemId || candidateSystemId !== component.installedIn) {
+              return false;
+            }
+
+            return (
+              movedPeriod.beginning < candidate.ending &&
+              candidate.beginning < movedPeriod.ending
+            );
+          });
+
+          if (!conflictPeriod) return;
+
+          const conflictingComponent = dataset.individuals.get(
+            conflictPeriod.systemComponentId
+          );
+
+          conflicts.push({
+            individualId: individual.id,
+            individualName: individual.name || "Unnamed entity",
+            installationId: movedPeriod.id,
+            beginning: movedPeriod.beginning,
+            ending: movedPeriod.ending,
+            conflictingComponentName:
+              conflictingComponent?.name || "another system component",
+            targetSystemName: targetSystem.name || "target system",
+          });
+        });
+      });
+
+    return conflicts;
+  };
+
   useEffect(() => {
     if (!showInstallationsModal) return;
     const { rowErrors } = normalizeInstallationRows(installationRows);
@@ -892,7 +1031,12 @@ const SetIndividual = (props: Props) => {
       </Button>
 
       <Modal
-        show={show && !showInstallationsModal && !showBoundsWarningModal}
+        show={
+          show &&
+          !showInstallationsModal &&
+          !showBoundsWarningModal &&
+          !showSystemMoveConflictModal
+        }
         onHide={handleModalHide}
       >
         <Modal.Header closeButton>
@@ -1410,6 +1554,50 @@ const SetIndividual = (props: Props) => {
               </Button>
             </div>
           </div>
+        </Modal.Footer>
+      </Modal>
+
+      <Modal
+        show={showSystemMoveConflictModal}
+        onHide={() => setShowSystemMoveConflictModal(false)}
+        centered
+      >
+        <Modal.Header closeButton>
+          <Modal.Title>Conflicting Installation Slots</Modal.Title>
+        </Modal.Header>
+        <Modal.Body>
+          This move is not possible without removing conflicting installations.
+          <br />
+          <br />
+          {pendingSystemMoveConflicts.length} installation period
+          {pendingSystemMoveConflicts.length === 1 ? "" : "s"} will be lost
+          because they would share the same time slot across different system
+          components in the same system.
+          <br />
+          <br />
+          {pendingSystemMoveConflicts.slice(0, 3).map((conflict) => (
+            <div key={`${conflict.individualId}-${conflict.installationId}`}>
+              • {conflict.individualName}: {conflict.beginning}-
+              {conflict.ending >= Model.END_OF_TIME ? "∞" : conflict.ending} in {" "}
+              {conflict.targetSystemName} (conflicts with {conflict.conflictingComponentName})
+            </div>
+          ))}
+          {pendingSystemMoveConflicts.length > 3 && (
+            <div className="mt-1 text-muted">
+              …and {pendingSystemMoveConflicts.length - 3} more.
+            </div>
+          )}
+        </Modal.Body>
+        <Modal.Footer>
+          <Button
+            variant="secondary"
+            onClick={() => setShowSystemMoveConflictModal(false)}
+          >
+            Keep Editing
+          </Button>
+          <Button variant="danger" onClick={confirmSystemMoveConflictResolution}>
+            Remove Conflicts & Save
+          </Button>
         </Modal.Footer>
       </Modal>
 

@@ -165,6 +165,15 @@ body {
   scrollbar-color: #888 #f1f1f1;
 }
 
+/* SVG drag drop-target highlight */
+.individual.drop-target-valid {
+  fill: #dff5e3 !important;
+}
+
+.individual.drop-target-invalid {
+  fill: #fde2e2 !important;
+}
+
 @media (max-width: 991.98px) {
   #activity-diagram-scrollable-div {
     max-height: none;

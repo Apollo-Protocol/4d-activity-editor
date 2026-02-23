@@ -5,6 +5,7 @@ import { drawActivityDiagram } from "@/diagram/DrawActivityDiagram";
 import { ConfigData } from "@/diagram/config";
 import { Model } from "@/lib/Model";
 import { Activity, Id, Individual, Maybe, Participation } from "@/lib/Schema";
+import { ENTITY_TYPE_IDS, getEntityTypeIdFromIndividual } from "@/lib/entityTypes";
 import * as d3 from "d3";
 
 interface Props {
@@ -168,6 +169,112 @@ const ActivityDiagram = (props: Props) => {
 
     if (rowSelection.empty()) return;
 
+    const canReorderIndividuals = (
+      activeItem: Individual | undefined,
+      overItem: Individual | undefined
+    ) => {
+      if (!activeItem || !overItem) return false;
+
+      const activeType = getEntityTypeIdFromIndividual(activeItem);
+      if (activeType !== ENTITY_TYPE_IDS.SYSTEM_COMPONENT) {
+        return true;
+      }
+
+      const overType = getEntityTypeIdFromIndividual(overItem);
+      if (overType === ENTITY_TYPE_IDS.SYSTEM) {
+        return !!activeItem.installedIn && activeItem.installedIn === overItem.id;
+      }
+
+      if (overType !== ENTITY_TYPE_IDS.SYSTEM_COMPONENT) {
+        return false;
+      }
+
+      return (
+        !!activeItem.installedIn && activeItem.installedIn === overItem.installedIn
+      );
+    };
+
+    const getRows = () => {
+      return svg
+        .selectAll<SVGPathElement, Individual>(".individual")
+        .nodes()
+        .map((node) => {
+          const id = (node.getAttribute("id") ?? "").replace(/^i/, "");
+          const rowY = Number(node.getAttribute("data-row-y") ?? "0");
+          const bbox = node.getBBox();
+          return { id, centerY: rowY + bbox.height / 2, node };
+        })
+        .filter((row) => row.id.length > 0);
+    };
+
+    const getClosestTargetRow = (
+      rows: Array<{ id: string; centerY: number; node: SVGPathElement }>,
+      draggedId: string,
+      draggedCenter: number
+    ) => {
+      let closestRow: { id: string; centerY: number; node: SVGPathElement } | null =
+        null;
+      let closestDist = Infinity;
+
+      for (const row of rows) {
+        if (row.id === draggedId) continue;
+        const dist = Math.abs(draggedCenter - row.centerY);
+        if (dist < closestDist) {
+          closestDist = dist;
+          closestRow = row;
+        }
+      }
+
+      return closestRow;
+    };
+
+    const updateLinkedLabel = (entityId: string, offset: number) => {
+      svg.select(`#il${entityId}`).attr("transform", `translate(0, ${offset})`);
+    };
+
+    const updateLinkedRibbons = (entityId: string, offset: number) => {
+      svg
+        .selectAll<SVGPathElement, unknown>(".installConnectorRibbon")
+        .filter(function () {
+          const node = this as SVGElement;
+          const installedId = node.getAttribute("data-installed-id");
+          const targetId = node.getAttribute("data-target-id");
+          return installedId === entityId || targetId === entityId;
+        })
+        .attr("d", function () {
+          const node = this as SVGElement;
+          const installedId = node.getAttribute("data-installed-id");
+          const targetId = node.getAttribute("data-target-id");
+          const kind = node.getAttribute("data-ribbon-kind");
+
+          const mainX = Number(node.getAttribute("data-main-x") ?? "0");
+          const sideX = Number(node.getAttribute("data-side-x") ?? "0");
+          const lowerTopBase = Number(node.getAttribute("data-lower-top") ?? "0");
+          const lowerBottomBase = Number(node.getAttribute("data-lower-bottom") ?? "0");
+          const upperTopBase = Number(node.getAttribute("data-upper-top") ?? "0");
+          const upperBottomBase = Number(node.getAttribute("data-upper-bottom") ?? "0");
+
+          const lowerShift = installedId === entityId ? offset : 0;
+          const upperShift = targetId === entityId ? offset : 0;
+          const lowerTop = lowerTopBase + lowerShift;
+          const lowerBottom = lowerBottomBase + lowerShift;
+          const upperTop = upperTopBase + upperShift;
+          const upperBottom = upperBottomBase + upperShift;
+
+          if (kind === "start") {
+            return `M ${sideX} ${lowerTop}
+L ${sideX} ${lowerBottom}
+L ${mainX} ${upperBottom}
+L ${mainX} ${upperTop} Z`;
+          }
+
+          return `M ${mainX} ${upperTop}
+L ${mainX} ${upperBottom}
+L ${sideX} ${lowerBottom}
+L ${sideX} ${lowerTop} Z`;
+        });
+    };
+
     const dragBehavior = d3
       .drag<SVGPathElement, Individual>()
       .on("start", function () {
@@ -176,15 +283,56 @@ const ActivityDiagram = (props: Props) => {
           .attr("data-was-dragged", "0")
           .style("cursor", "grabbing");
       })
-      .on("drag", function (event) {
+      .on("drag", function (event, draggedIndividual) {
         const currentOffset = Number(d3.select(this).attr("data-drag-offset") ?? "0");
         const nextOffset = currentOffset + event.dy;
         d3.select(this)
           .attr("data-drag-offset", String(nextOffset))
           .attr("data-was-dragged", "1")
           .attr("transform", `translate(0, ${nextOffset})`);
+
+        updateLinkedLabel(draggedIndividual.id, nextOffset);
+        updateLinkedRibbons(draggedIndividual.id, nextOffset);
+
+        // Find the target row and highlight it
+        const rows = getRows();
+
+        const draggedRow = rows.find((row) => row.id === draggedIndividual.id);
+        if (!draggedRow) return;
+
+        const draggedCenter = draggedRow.centerY + nextOffset;
+
+        // Clear previous drop target highlights
+        svg
+          .selectAll(".individual")
+          .classed("drop-target-valid", false)
+          .classed("drop-target-invalid", false);
+
+        const closestRow = getClosestTargetRow(
+          rows,
+          draggedIndividual.id,
+          draggedCenter
+        );
+
+        if (closestRow) {
+          const overIndividual = dataset.individuals.get(closestRow.id);
+          const isValidTarget = canReorderIndividuals(
+            draggedIndividual,
+            overIndividual
+          );
+
+          d3.select(closestRow.node)
+            .classed("drop-target-valid", isValidTarget)
+            .classed("drop-target-invalid", !isValidTarget);
+        }
       })
       .on("end", function (_event, draggedIndividual) {
+        // Clean up drop target visuals
+        svg
+          .selectAll(".individual")
+          .classed("drop-target-valid", false)
+          .classed("drop-target-invalid", false);
+
         const draggedNode = this as SVGPathElement;
         const draggedSelection = d3.select(draggedNode);
         const wasDragged = draggedSelection.attr("data-was-dragged") === "1";
@@ -196,27 +344,29 @@ const ActivityDiagram = (props: Props) => {
           .attr("data-was-dragged", null)
           .style("cursor", "ns-resize");
 
+        svg.select(`#il${draggedIndividual.id}`).attr("transform", null);
+        updateLinkedRibbons(draggedIndividual.id, 0);
+
         if (!wasDragged) return;
 
-        const rows = svg
-          .selectAll<SVGPathElement, Individual>(".individual")
-          .nodes()
-          .map((node) => {
-            const id = (node.getAttribute("id") ?? "").replace(/^i/, "");
-            const rowY = Number(node.getAttribute("data-row-y") ?? "0");
-            const bbox = node.getBBox();
-            return {
-              id,
-              centerY: rowY + bbox.height / 2,
-            };
-          })
-          .filter((row) => row.id.length > 0)
-          .sort((a, b) => a.centerY - b.centerY);
+        const rows = getRows().sort((a, b) => a.centerY - b.centerY);
 
         const draggedRow = rows.find((row) => row.id === draggedIndividual.id);
         if (!draggedRow) return;
 
         const draggedCenter = draggedRow.centerY + dragOffset;
+        const closestRow = getClosestTargetRow(
+          rows,
+          draggedIndividual.id,
+          draggedCenter
+        );
+        const overIndividual = closestRow
+          ? dataset.individuals.get(closestRow.id)
+          : undefined;
+        if (!canReorderIndividuals(draggedIndividual, overIndividual)) {
+          return;
+        }
+
         const otherRows = rows.filter((row) => row.id !== draggedIndividual.id);
         const insertionIndex = otherRows.findIndex((row) => draggedCenter < row.centerY);
         const nextRows = [...otherRows];
@@ -234,9 +384,15 @@ const ActivityDiagram = (props: Props) => {
       .call(dragBehavior as any);
 
     return () => {
-      svg.selectAll(".individual").on(".drag", null).style("cursor", null);
+      svg
+        .selectAll(".individual")
+        .on(".drag", null)
+        .style("cursor", null)
+        .classed("drop-target-valid", false)
+        .classed("drop-target-invalid", false);
+      svg.selectAll(".individualLabel").attr("transform", null);
     };
-  }, [plot, svgRef, interactionMode, onReorderIndividuals]);
+  }, [plot, svgRef, interactionMode, onReorderIndividuals, dataset]);
 
   const buildCrumbs = () => {
     const context = [];

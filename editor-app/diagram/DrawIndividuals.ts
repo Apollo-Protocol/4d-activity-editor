@@ -43,16 +43,16 @@ function highlightInstallationForEntity(
   svgElement
     .selectAll(".installHatch")
     .filter(matching)
-    .attr("opacity", enabled ? 1.0 : 0.4)
-    .attr("fill", enabled ? "url(#installHatchHighlight)" : "url(#installHatch)")
-    .attr("stroke-width", enabled ? 2.0 : 0.5);
+    .attr("opacity", enabled ? 1.0 : 1.0)
+    .attr("fill", "url(#installHatchHighlight)")
+    .attr("stroke-width", enabled ? 2.5 : 2.0);
 
   svgElement
     .selectAll(".installConnectorRibbon")
     .filter(matching)
-    .attr("fill", enabled ? config.presentation.individual.fillHover : config.presentation.individual.fill)
-    .attr("fill-opacity", enabled ? 1 : 0.9)
-    .attr("stroke-width", enabled ? 1.5 : 0.45);
+    .attr("fill", config.presentation.individual.fillHover)
+    .attr("fill-opacity", 1)
+    .attr("stroke-width", enabled ? 2.0 : 1.5);
 }
 
 const INDENT_STEP_PX = 18;
@@ -548,10 +548,10 @@ export function drawInstallationConnectors(ctx: DrawContext) {
         .attr("y", targetBox.y)
         .attr("width", Math.max(1, x2 - x1))
         .attr("height", targetBox.height)
-        .attr("fill", "url(#installHatch)")
+        .attr("fill", "url(#installHatchHighlight)")
         .attr("stroke", config.presentation.individual.stroke)
-        .attr("stroke-width", 0.5)
-        .attr("opacity", 0.4)
+        .attr("stroke-width", 2.0)
+        .attr("opacity", 1.0)
         .attr("clip-path", `url(#${clipId})`)
         .attr("data-installed-id", ind.id)
         .attr("data-target-id", target.id);
@@ -575,10 +575,17 @@ L ${x1} ${upperTop} Z`;
           .append("path")
           .attr("class", "installConnectorRibbon")
           .attr("d", pathData)
-          .attr("fill", config.presentation.individual.fill)
-          .attr("fill-opacity", 0.9)
+          .attr("fill", config.presentation.individual.fillHover)
+          .attr("fill-opacity", 1)
           .attr("stroke", config.presentation.individual.stroke)
-          .attr("stroke-width", 0.45)
+          .attr("stroke-width", 1.5)
+          .attr("data-ribbon-kind", "start")
+          .attr("data-main-x", x1)
+          .attr("data-side-x", x1 - startLiftDx)
+          .attr("data-lower-top", lowerTop)
+          .attr("data-lower-bottom", lowerBottom)
+          .attr("data-upper-top", upperTop)
+          .attr("data-upper-bottom", upperBottom)
           .attr("data-installed-id", ind.id)
           .attr("data-target-id", target.id);
       }
@@ -593,10 +600,17 @@ L ${x2 + endDropDx} ${lowerTop} Z`;
           .append("path")
           .attr("class", "installConnectorRibbon")
           .attr("d", pathData)
-          .attr("fill", config.presentation.individual.fill)
-          .attr("fill-opacity", 0.9)
+          .attr("fill", config.presentation.individual.fillHover)
+          .attr("fill-opacity", 1)
           .attr("stroke", config.presentation.individual.stroke)
-          .attr("stroke-width", 0.45)
+          .attr("stroke-width", 1.5)
+          .attr("data-ribbon-kind", "end")
+          .attr("data-main-x", x2)
+          .attr("data-side-x", x2 + endDropDx)
+          .attr("data-lower-top", lowerTop)
+          .attr("data-lower-bottom", lowerBottom)
+          .attr("data-upper-top", upperTop)
+          .attr("data-upper-bottom", upperBottom)
           .attr("data-installed-id", ind.id)
           .attr("data-target-id", target.id);
       }

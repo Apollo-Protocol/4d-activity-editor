@@ -7,7 +7,7 @@ import {
   useSensor,
   useSensors,
 } from "@dnd-kit/core";
-import type { Active, UniqueIdentifier } from "@dnd-kit/core";
+import type { Active, Over, UniqueIdentifier } from "@dnd-kit/core";
 import {
   SortableContext,
   arrayMove,
@@ -35,6 +35,7 @@ export function SortableList<T extends BaseItem>({
   canReorder,
 }: Props<T>) {
   const [active, setActive] = useState<Active | null>(null);
+  const [overId, setOverId] = useState<UniqueIdentifier | null>(null);
   const activeItem = useMemo(
     () => items.find((item) => item.id === active?.id),
     [active, items]
@@ -51,6 +52,9 @@ export function SortableList<T extends BaseItem>({
       sensors={sensors}
       onDragStart={({ active }) => {
         setActive(active);
+      }}
+      onDragOver={({ over }) => {
+        setOverId(over?.id ?? null);
       }}
       onDragEnd={({ active, over }) => {
         if (over && active.id !== over?.id) {
@@ -70,15 +74,21 @@ export function SortableList<T extends BaseItem>({
           onChange(arrayMove(items, activeIndex, overIndex));
         }
         setActive(null);
+        setOverId(null);
       }}
       onDragCancel={() => {
         setActive(null);
+        setOverId(null);
       }}
     >
       <SortableContext items={items}>
         <ul className="SortableList" role="application">
           {items.map((item) => (
-            <React.Fragment key={item.id}>{renderItem(item)}</React.Fragment>
+            <React.Fragment key={item.id}>
+              <div className={active && overId === item.id && active.id !== item.id ? "SortableDropTarget" : ""}>
+                {renderItem(item)}
+              </div>
+            </React.Fragment>
           ))}
         </ul>
       </SortableContext>

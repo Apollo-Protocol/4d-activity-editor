@@ -62,6 +62,7 @@ function CollapsibleExample() {
         <Navbar.Toggle aria-controls="responsive-navbar-nav" />
         <Navbar.Collapse id="responsive-navbar-nav">
           <Nav className="ms-auto gap-2">
+            <NavItem href="/">Home</NavItem>
             <NavItem href="editor">Editor</NavItem>
             <NavItem href="manual">Guide</NavItem>
             <NavDropdown

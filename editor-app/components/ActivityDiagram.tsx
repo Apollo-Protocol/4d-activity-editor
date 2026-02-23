@@ -275,9 +275,44 @@ L ${sideX} ${lowerTop} Z`;
         });
     };
 
+    // Snapshot of row layout captured at drag start for live-preview shifts
+    interface RowSnapshot {
+      id: string;
+      y: number;
+      height: number;
+      node: SVGPathElement;
+    }
+    let dragSnapshot: RowSnapshot[] = [];
+
+    const shiftRowAndLabel = (rowId: string, dy: number) => {
+      const t = dy === 0 ? null : `translate(0, ${dy})`;
+      svg.select(`#i${rowId}`).transition().duration(120).attr("transform", t);
+      svg.select(`#il${rowId}`).transition().duration(120).attr("transform", t);
+    };
+
+    const clearAllPreviewShifts = () => {
+      dragSnapshot.forEach((snap) => {
+        svg.select(`#i${snap.id}`).interrupt().attr("transform", null);
+        svg.select(`#il${snap.id}`).interrupt().attr("transform", null);
+      });
+    };
+
     const dragBehavior = d3
       .drag<SVGPathElement, Individual>()
-      .on("start", function () {
+      .on("start", function (event, draggedIndividual) {
+        // Take a snapshot of the current row positions before anything moves
+        dragSnapshot = svg
+          .selectAll<SVGPathElement, Individual>(".individual")
+          .nodes()
+          .map((node) => {
+            const id = (node.getAttribute("id") ?? "").replace(/^i/, "");
+            const y = Number(node.getAttribute("data-row-y") ?? "0");
+            const bbox = node.getBBox();
+            return { id, y, height: bbox.height, node };
+          })
+          .filter((r) => r.id.length > 0)
+          .sort((a, b) => a.y - b.y);
+
         d3.select(this)
           .attr("data-drag-offset", "0")
           .attr("data-was-dragged", "0")
@@ -294,13 +329,39 @@ L ${sideX} ${lowerTop} Z`;
         updateLinkedLabel(draggedIndividual.id, nextOffset);
         updateLinkedRibbons(draggedIndividual.id, nextOffset);
 
-        // Find the target row and highlight it
-        const rows = getRows();
+        // --- Live reorder preview ---
+        const draggedSnap = dragSnapshot.find((r) => r.id === draggedIndividual.id);
+        if (!draggedSnap) return;
 
-        const draggedRow = rows.find((row) => row.id === draggedIndividual.id);
-        if (!draggedRow) return;
+        const draggedCenter = draggedSnap.y + draggedSnap.height / 2 + nextOffset;
+        const others = dragSnapshot.filter((r) => r.id !== draggedIndividual.id);
 
-        const draggedCenter = draggedRow.centerY + nextOffset;
+        // Determine where the dragged row would be inserted
+        let insertIdx = others.length; // default: at the end
+        for (let i = 0; i < others.length; i++) {
+          const otherCenter = others[i].y + others[i].height / 2;
+          if (draggedCenter < otherCenter) {
+            insertIdx = i;
+            break;
+          }
+        }
+
+        // Check validity of the closest target
+        const closestRow = getClosestTargetRow(
+          dragSnapshot.map((s) => ({
+            id: s.id,
+            centerY: s.y + s.height / 2,
+            node: s.node,
+          })),
+          draggedIndividual.id,
+          draggedCenter
+        );
+
+        let isValidTarget = true;
+        if (closestRow) {
+          const overIndividual = dataset.individuals.get(closestRow.id);
+          isValidTarget = canReorderIndividuals(draggedIndividual, overIndividual);
+        }
 
         // Clear previous drop target highlights
         svg
@@ -308,25 +369,44 @@ L ${sideX} ${lowerTop} Z`;
           .classed("drop-target-valid", false)
           .classed("drop-target-invalid", false);
 
-        const closestRow = getClosestTargetRow(
-          rows,
-          draggedIndividual.id,
-          draggedCenter
-        );
-
         if (closestRow) {
-          const overIndividual = dataset.individuals.get(closestRow.id);
-          const isValidTarget = canReorderIndividuals(
-            draggedIndividual,
-            overIndividual
-          );
-
           d3.select(closestRow.node)
             .classed("drop-target-valid", isValidTarget)
             .classed("drop-target-invalid", !isValidTarget);
         }
+
+        // If invalid, don't preview-shift rows
+        if (!isValidTarget) {
+          others.forEach((snap) => shiftRowAndLabel(snap.id, 0));
+          return;
+        }
+
+        // Calculate how far each other row needs to shift to make room
+        const draggedHeight = draggedSnap.height + configData.layout.individual.gap;
+
+        // Original index of the dragged row in the snapshot
+        const origIdx = dragSnapshot.indexOf(draggedSnap);
+
+        others.forEach((snap, i) => {
+          // This row's original index (skipping the dragged row)
+          const origOtherIdx = dragSnapshot.indexOf(snap);
+          let dy = 0;
+
+          if (origOtherIdx < origIdx && i >= insertIdx) {
+            // Row was above the dragged row but needs to move down (dragged moved up)
+            dy = draggedHeight;
+          } else if (origOtherIdx > origIdx && i < insertIdx) {
+            // Row was below the dragged row but needs to move up (dragged moved down)
+            dy = -draggedHeight;
+          }
+
+          shiftRowAndLabel(snap.id, dy);
+        });
       })
       .on("end", function (_event, draggedIndividual) {
+        // Clean up all preview transforms
+        clearAllPreviewShifts();
+
         // Clean up drop target visuals
         svg
           .selectAll(".individual")
@@ -346,6 +426,8 @@ L ${sideX} ${lowerTop} Z`;
 
         svg.select(`#il${draggedIndividual.id}`).attr("transform", null);
         updateLinkedRibbons(draggedIndividual.id, 0);
+
+        dragSnapshot = [];
 
         if (!wasDragged) return;
 
@@ -387,10 +469,13 @@ L ${sideX} ${lowerTop} Z`;
       svg
         .selectAll(".individual")
         .on(".drag", null)
+        .interrupt()
         .style("cursor", null)
+        .attr("transform", null)
         .classed("drop-target-valid", false)
         .classed("drop-target-invalid", false);
-      svg.selectAll(".individualLabel").attr("transform", null);
+      svg.selectAll(".individualLabel").interrupt().attr("transform", null);
+      dragSnapshot = [];
     };
   }, [plot, svgRef, interactionMode, onReorderIndividuals, dataset]);
 

@@ -12,6 +12,12 @@ import Undo from "./Undo";
 import { Model } from "@/lib/Model";
 import { Activity, Id, Individual, Maybe, Participation } from "@/lib/Schema";
 import { ENTITY_TYPE_IDS, getEntityTypeIdFromIndividual } from "@/lib/entityTypes";
+import {
+  getInstallationPeriods,
+  normalizeEnd,
+  normalizeStart,
+  syncLegacyInstallationFields,
+} from "@/utils/installations";
 import ExportJson from "./ExportJson";
 import ExportSvg from "./ExportSvg";
 import HideIndividuals from "./HideIndividuals";
@@ -85,8 +91,74 @@ export default function ActivityDiagramWrap() {
   const deleteIndividual = (id: string) => {
     updateDataset((d: Model) => d.removeIndividual(id));
   };
+
+  const sanitizeAllInstallations = (d: Model) => {
+    const allIndividuals = Array.from(d.individuals.values());
+
+    allIndividuals.forEach((individual) => {
+      if (getEntityTypeIdFromIndividual(individual) !== ENTITY_TYPE_IDS.INDIVIDUAL) {
+        return;
+      }
+
+      const ownStart = normalizeStart(individual.beginning);
+      const ownEnd = normalizeEnd(individual.ending);
+
+      const sanitizedInstallations = getInstallationPeriods(individual)
+        .map((period) => {
+          const component = d.individuals.get(period.systemComponentId);
+          if (
+            !component ||
+            getEntityTypeIdFromIndividual(component) !== ENTITY_TYPE_IDS.SYSTEM_COMPONENT
+          ) {
+            return null;
+          }
+
+          let validStart = normalizeStart(component.beginning);
+          let validEnd = normalizeEnd(component.ending);
+
+          // If component is hosted by a system, installation is only valid while
+          // the host system exists.
+          if (component.installedIn) {
+            const host = d.individuals.get(component.installedIn);
+            if (
+              host &&
+              getEntityTypeIdFromIndividual(host) === ENTITY_TYPE_IDS.SYSTEM
+            ) {
+              validStart = Math.max(validStart, normalizeStart(host.beginning));
+              validEnd = Math.min(validEnd, normalizeEnd(host.ending));
+            }
+          }
+
+          const beginning = Math.max(period.beginning, validStart, ownStart);
+          const ending = Math.min(period.ending, validEnd, ownEnd);
+
+          if (ending <= beginning) {
+            return null;
+          }
+
+          return {
+            ...period,
+            beginning,
+            ending,
+          };
+        })
+        .filter((period): period is NonNullable<typeof period> => !!period)
+        .sort((a, b) => a.beginning - b.beginning);
+
+      const synced = syncLegacyInstallationFields({
+        ...individual,
+        installations: sanitizedInstallations,
+      });
+
+      d.addIndividual(synced);
+    });
+  };
+
   const setIndividual = (individual: Individual) => {
-    updateDataset((d: Model) => d.addIndividual(individual));
+    updateDataset((d: Model) => {
+      d.addIndividual(individual);
+      sanitizeAllInstallations(d);
+    });
   };
   const deleteActivity = (id: string) => {
     updateDataset((d: Model) => d.removeActivity(id));

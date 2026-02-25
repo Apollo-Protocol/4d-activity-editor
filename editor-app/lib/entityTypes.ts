@@ -45,6 +45,9 @@ export const getEntityTypeId = (
   if (entityType === ENTITY_CATEGORY.SYSTEM_COMPONENT) {
     return ENTITY_TYPE_IDS.SYSTEM_COMPONENT;
   }
+  if (entityType === ENTITY_CATEGORY.INDIVIDUAL) {
+    return ENTITY_TYPE_IDS.INDIVIDUAL;
+  }
 
   const id = kind?.id;
   if (id === ENTITY_TYPE_IDS.SYSTEM) return ENTITY_TYPE_IDS.SYSTEM;

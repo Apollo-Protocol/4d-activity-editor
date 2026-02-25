@@ -167,7 +167,7 @@ body {
 
 /* SVG drag drop-target highlight */
 .individual.drop-target-valid {
-  fill: #dff5e3 !important;
+  fill: #0d6efd !important;
 }
 
 .individual.drop-target-invalid {

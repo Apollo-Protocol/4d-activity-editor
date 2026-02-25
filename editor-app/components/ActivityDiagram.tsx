@@ -169,6 +169,25 @@ const ActivityDiagram = (props: Props) => {
 
     if (rowSelection.empty()) return;
 
+    // ── Helpers for system grouping ──
+    const isNestedComponent = (ind: Individual | undefined): boolean => {
+      if (!ind) return false;
+      if (getEntityTypeIdFromIndividual(ind) !== ENTITY_TYPE_IDS.SYSTEM_COMPONENT) return false;
+      if (!ind.installedIn) return false;
+      const host = dataset.individuals.get(ind.installedIn);
+      return !!host && getEntityTypeIdFromIndividual(host) === ENTITY_TYPE_IDS.SYSTEM;
+    };
+
+    const getComponentIdsForSystem = (systemId: string): string[] => {
+      return Array.from(dataset.individuals.values())
+        .filter(
+          (ind) =>
+            ind.installedIn === systemId &&
+            getEntityTypeIdFromIndividual(ind) === ENTITY_TYPE_IDS.SYSTEM_COMPONENT
+        )
+        .map((ind) => ind.id);
+    };
+
     const canReorderIndividuals = (
       activeItem: Individual | undefined,
       overItem: Individual | undefined
@@ -192,19 +211,6 @@ const ActivityDiagram = (props: Props) => {
       return (
         !!activeItem.installedIn && activeItem.installedIn === overItem.installedIn
       );
-    };
-
-    const getRows = () => {
-      return svg
-        .selectAll<SVGPathElement, Individual>(".individual")
-        .nodes()
-        .map((node) => {
-          const id = (node.getAttribute("id") ?? "").replace(/^i/, "");
-          const rowY = Number(node.getAttribute("data-row-y") ?? "0");
-          const bbox = node.getBBox();
-          return { id, centerY: rowY + bbox.height / 2, node };
-        })
-        .filter((row) => row.id.length > 0);
     };
 
     const getClosestTargetRow = (
@@ -275,19 +281,37 @@ L ${sideX} ${lowerTop} Z`;
         });
     };
 
-    // Snapshot of row layout captured at drag start for live-preview shifts
+    // ── Snapshot types ──
+    // Top-level snapshot: systems are treated as groups (system + its components).
+    // Nested system components are NOT separate entries in topLevelSnapshot;
+    // they are tracked via componentIds on their parent system entry.
     interface RowSnapshot {
       id: string;
       y: number;
-      height: number;
+      height: number;          // full group height (for systems this includes components)
       node: SVGPathElement;
+      componentIds: string[];  // child component IDs (non-empty only for systems)
+      parentSystemId?: string; // set only for nested system components
     }
-    let dragSnapshot: RowSnapshot[] = [];
+    let dragSnapshot: RowSnapshot[] = [];          // ALL rows (including nested components)
+    let topLevelSnapshot: RowSnapshot[] = [];      // only top-level rows (systems as groups)
 
-    const shiftRowAndLabel = (rowId: string, dy: number) => {
+    // ── Shift helpers ──
+    const shiftElement = (id: string, dy: number, animate: boolean) => {
       const t = dy === 0 ? null : `translate(0, ${dy})`;
-      svg.select(`#i${rowId}`).transition().duration(120).attr("transform", t);
-      svg.select(`#il${rowId}`).transition().duration(120).attr("transform", t);
+      if (animate) {
+        svg.select(`#i${id}`).transition().duration(50).attr("transform", t);
+        svg.select(`#il${id}`).transition().duration(50).attr("transform", t);
+      } else {
+        svg.select(`#i${id}`).attr("transform", t);
+        svg.select(`#il${id}`).attr("transform", t);
+      }
+    };
+
+    /** Shift a top-level row and, if it's a system, all its components */
+    const shiftGroup = (snap: RowSnapshot, dy: number, animate = true) => {
+      shiftElement(snap.id, dy, animate);
+      snap.componentIds.forEach((cid) => shiftElement(cid, dy, animate));
     };
 
     const clearAllPreviewShifts = () => {
@@ -297,10 +321,15 @@ L ${sideX} ${lowerTop} Z`;
       });
     };
 
+    // ── Drag behavior ──
     const dragBehavior = d3
       .drag<SVGPathElement, Individual>()
       .on("start", function (event, draggedIndividual) {
-        // Take a snapshot of the current row positions before anything moves
+        const draggedType = getEntityTypeIdFromIndividual(draggedIndividual);
+        const isSystem = draggedType === ENTITY_TYPE_IDS.SYSTEM;
+        const isDraggedComponent = isNestedComponent(draggedIndividual);
+
+        // Build full snapshot of every .individual element
         dragSnapshot = svg
           .selectAll<SVGPathElement, Individual>(".individual")
           .nodes()
@@ -308,10 +337,28 @@ L ${sideX} ${lowerTop} Z`;
             const id = (node.getAttribute("id") ?? "").replace(/^i/, "");
             const y = Number(node.getAttribute("data-row-y") ?? "0");
             const bbox = node.getBBox();
-            return { id, y, height: bbox.height, node };
+            const ind = dataset.individuals.get(id);
+            const cIds = ind && getEntityTypeIdFromIndividual(ind) === ENTITY_TYPE_IDS.SYSTEM
+              ? getComponentIdsForSystem(id) : [];
+            const parentSysId = ind && isNestedComponent(ind) ? ind.installedIn : undefined;
+            return { id, y, height: bbox.height, node, componentIds: cIds, parentSystemId: parentSysId };
           })
           .filter((r) => r.id.length > 0)
           .sort((a, b) => a.y - b.y);
+
+        // Build top-level snapshot (exclude nested system components)
+        topLevelSnapshot = dragSnapshot.filter((r) => !r.parentSystemId);
+
+        // Raise dragged element (and components) above everything for z-order
+        d3.select(this).raise();
+        svg.select(`#il${draggedIndividual.id}`).raise();
+        if (isSystem) {
+          const compIds = getComponentIdsForSystem(draggedIndividual.id);
+          compIds.forEach((cid) => {
+            svg.select(`#i${cid}`).raise();
+            svg.select(`#il${cid}`).raise();
+          });
+        }
 
         d3.select(this)
           .attr("data-drag-offset", "0")
@@ -321,6 +368,10 @@ L ${sideX} ${lowerTop} Z`;
       .on("drag", function (event, draggedIndividual) {
         const currentOffset = Number(d3.select(this).attr("data-drag-offset") ?? "0");
         const nextOffset = currentOffset + event.dy;
+        const draggedType = getEntityTypeIdFromIndividual(draggedIndividual);
+        const isSystem = draggedType === ENTITY_TYPE_IDS.SYSTEM;
+        const isDraggedComponent = isNestedComponent(draggedIndividual);
+
         d3.select(this)
           .attr("data-drag-offset", String(nextOffset))
           .attr("data-was-dragged", "1")
@@ -329,79 +380,117 @@ L ${sideX} ${lowerTop} Z`;
         updateLinkedLabel(draggedIndividual.id, nextOffset);
         updateLinkedRibbons(draggedIndividual.id, nextOffset);
 
-        // --- Live reorder preview ---
-        const draggedSnap = dragSnapshot.find((r) => r.id === draggedIndividual.id);
-        if (!draggedSnap) return;
-
-        const draggedCenter = draggedSnap.y + draggedSnap.height / 2 + nextOffset;
-        const others = dragSnapshot.filter((r) => r.id !== draggedIndividual.id);
-
-        // Determine where the dragged row would be inserted
-        let insertIdx = others.length; // default: at the end
-        for (let i = 0; i < others.length; i++) {
-          const otherCenter = others[i].y + others[i].height / 2;
-          if (draggedCenter < otherCenter) {
-            insertIdx = i;
-            break;
-          }
+        // If dragging a system, also move its components
+        if (isSystem) {
+          const compIds = getComponentIdsForSystem(draggedIndividual.id);
+          compIds.forEach((cid) => {
+            svg.select(`#i${cid}`).attr("transform", `translate(0, ${nextOffset})`);
+            updateLinkedLabel(cid, nextOffset);
+            updateLinkedRibbons(cid, nextOffset);
+          });
         }
 
-        // Check validity of the closest target
-        const closestRow = getClosestTargetRow(
-          dragSnapshot.map((s) => ({
-            id: s.id,
-            centerY: s.y + s.height / 2,
-            node: s.node,
-          })),
-          draggedIndividual.id,
-          draggedCenter
-        );
+        // ── Choose working set based on what's being dragged ──
+        if (isDraggedComponent) {
+          // --- SYSTEM COMPONENT DRAG (within its parent system) ---
+          const parentId = draggedIndividual.installedIn!;
+          // Only consider sibling components for reorder
+          const siblingSnaps = dragSnapshot
+            .filter((r) => r.parentSystemId === parentId)
+            .sort((a, b) => a.y - b.y);
 
-        let isValidTarget = true;
-        if (closestRow) {
-          const overIndividual = dataset.individuals.get(closestRow.id);
-          isValidTarget = canReorderIndividuals(draggedIndividual, overIndividual);
-        }
+          const draggedSnap = siblingSnaps.find((r) => r.id === draggedIndividual.id);
+          if (!draggedSnap) return;
 
-        // Clear previous drop target highlights
-        svg
-          .selectAll(".individual")
-          .classed("drop-target-valid", false)
-          .classed("drop-target-invalid", false);
+          const draggedCenter = draggedSnap.y + draggedSnap.height / 2 + nextOffset;
+          const siblings = siblingSnaps.filter((r) => r.id !== draggedIndividual.id);
 
-        if (closestRow) {
-          d3.select(closestRow.node)
-            .classed("drop-target-valid", isValidTarget)
-            .classed("drop-target-invalid", !isValidTarget);
-        }
-
-        // If invalid, don't preview-shift rows
-        if (!isValidTarget) {
-          others.forEach((snap) => shiftRowAndLabel(snap.id, 0));
-          return;
-        }
-
-        // Calculate how far each other row needs to shift to make room
-        const draggedHeight = draggedSnap.height + configData.layout.individual.gap;
-
-        // Original index of the dragged row in the snapshot
-        const origIdx = dragSnapshot.indexOf(draggedSnap);
-
-        others.forEach((snap, i) => {
-          // This row's original index (skipping the dragged row)
-          const origOtherIdx = dragSnapshot.indexOf(snap);
-          let dy = 0;
-
-          if (origOtherIdx < origIdx && i >= insertIdx) {
-            // Row was above the dragged row but needs to move down (dragged moved up)
-            dy = draggedHeight;
-          } else if (origOtherIdx > origIdx && i < insertIdx) {
-            // Row was below the dragged row but needs to move up (dragged moved down)
-            dy = -draggedHeight;
+          let insertIdx = siblings.length;
+          for (let i = 0; i < siblings.length; i++) {
+            if (draggedCenter < siblings[i].y + siblings[i].height / 2) {
+              insertIdx = i;
+              break;
+            }
           }
 
-          shiftRowAndLabel(snap.id, dy);
-        });
+          svg
+            .selectAll(".individual")
+            .classed("drop-target-valid", false)
+            .classed("drop-target-invalid", false);
+
+          const origIdx = siblingSnaps.indexOf(draggedSnap);
+
+          const draggedHeight = draggedSnap.height + (configData.layout.system?.componentGap ?? 4);
+
+          siblings.forEach((snap, i) => {
+            const origOtherIdx = siblingSnaps.indexOf(snap);
+            let dy = 0;
+            if (origOtherIdx < origIdx && i >= insertIdx) {
+              dy = draggedHeight;
+            } else if (origOtherIdx > origIdx && i < insertIdx) {
+              dy = -draggedHeight;
+            }
+            shiftElement(snap.id, dy, true);
+          });
+        } else {
+          // --- TOP-LEVEL DRAG (system or regular individual) ---
+          const draggedSnap = topLevelSnapshot.find((r) => r.id === draggedIndividual.id);
+          if (!draggedSnap) return;
+
+          const draggedTop = draggedSnap.y + nextOffset;
+          const draggedBottom = draggedTop + draggedSnap.height;
+          const movingDown = nextOffset >= 0;
+          const targetProbeY = movingDown ? draggedBottom : draggedTop;
+          const others = topLevelSnapshot.filter((r) => r.id !== draggedIndividual.id);
+
+          const insertIdxCandidate = others.findIndex(
+            (row) => targetProbeY < row.y + row.height / 2
+          );
+          const insertIdx = insertIdxCandidate < 0 ? others.length : insertIdxCandidate;
+
+          // Check validity
+          const closestRow = getClosestTargetRow(
+            topLevelSnapshot.map((s) => ({
+              id: s.id,
+              centerY: s.y + s.height / 2,
+              node: s.node,
+            })),
+            draggedIndividual.id,
+            targetProbeY
+          );
+
+          let isValidTarget = true;
+          if (closestRow) {
+            const overIndividual = dataset.individuals.get(closestRow.id);
+            isValidTarget = canReorderIndividuals(draggedIndividual, overIndividual);
+          }
+
+          svg
+            .selectAll(".individual")
+            .classed("drop-target-valid", false)
+            .classed("drop-target-invalid", false);
+
+          const origIdx = topLevelSnapshot.indexOf(draggedSnap);
+
+          if (!isValidTarget) {
+            others.forEach((snap) => shiftGroup(snap, 0));
+            return;
+          }
+
+          // draggedHeight includes the full group height + gap
+          const draggedHeight = draggedSnap.height + configData.layout.individual.gap;
+
+          others.forEach((snap, i) => {
+            const origOtherIdx = topLevelSnapshot.indexOf(snap);
+            let dy = 0;
+            if (origOtherIdx < origIdx && i >= insertIdx) {
+              dy = draggedHeight;
+            } else if (origOtherIdx > origIdx && i < insertIdx) {
+              dy = -draggedHeight;
+            }
+            shiftGroup(snap, dy);
+          });
+        }
       })
       .on("end", function (_event, draggedIndividual) {
         // Clean up all preview transforms
@@ -418,6 +507,11 @@ L ${sideX} ${lowerTop} Z`;
         const wasDragged = draggedSelection.attr("data-was-dragged") === "1";
         const dragOffset = Number(draggedSelection.attr("data-drag-offset") ?? "0");
 
+        const draggedType = getEntityTypeIdFromIndividual(draggedIndividual);
+        const isSystem = draggedType === ENTITY_TYPE_IDS.SYSTEM;
+        const isDraggedComponent = isNestedComponent(draggedIndividual);
+
+        // Reset transforms on dragged element (and its components if system)
         draggedSelection
           .attr("transform", null)
           .attr("data-drag-offset", null)
@@ -427,38 +521,109 @@ L ${sideX} ${lowerTop} Z`;
         svg.select(`#il${draggedIndividual.id}`).attr("transform", null);
         updateLinkedRibbons(draggedIndividual.id, 0);
 
+        if (isSystem) {
+          const compIds = getComponentIdsForSystem(draggedIndividual.id);
+          compIds.forEach((cid) => {
+            svg.select(`#i${cid}`).attr("transform", null);
+            svg.select(`#il${cid}`).attr("transform", null);
+            updateLinkedRibbons(cid, 0);
+          });
+        }
+
+        const savedTopLevel = [...topLevelSnapshot];
+        const savedFull = [...dragSnapshot];
         dragSnapshot = [];
+        topLevelSnapshot = [];
 
         if (!wasDragged) return;
 
-        const rows = getRows().sort((a, b) => a.centerY - b.centerY);
+        if (isDraggedComponent) {
+          // ── Component reorder within its system ──
+          const parentId = draggedIndividual.installedIn!;
+          const siblingSnaps = savedFull
+            .filter((r) => r.parentSystemId === parentId)
+            .sort((a, b) => a.y - b.y);
 
-        const draggedRow = rows.find((row) => row.id === draggedIndividual.id);
-        if (!draggedRow) return;
+          const draggedSnap = siblingSnaps.find((r) => r.id === draggedIndividual.id);
+          if (!draggedSnap) return;
 
-        const draggedCenter = draggedRow.centerY + dragOffset;
-        const closestRow = getClosestTargetRow(
-          rows,
-          draggedIndividual.id,
-          draggedCenter
-        );
-        const overIndividual = closestRow
-          ? dataset.individuals.get(closestRow.id)
-          : undefined;
-        if (!canReorderIndividuals(draggedIndividual, overIndividual)) {
-          return;
-        }
+          const draggedCenter = draggedSnap.y + draggedSnap.height / 2 + dragOffset;
+          const otherSiblings = siblingSnaps.filter((r) => r.id !== draggedIndividual.id);
+          const insertionIndex = otherSiblings.findIndex(
+            (r) => draggedCenter < r.y + r.height / 2
+          );
+          const nextSiblings = [...otherSiblings];
+          if (insertionIndex < 0) {
+            nextSiblings.push(draggedSnap);
+          } else {
+            nextSiblings.splice(insertionIndex, 0, draggedSnap);
+          }
 
-        const otherRows = rows.filter((row) => row.id !== draggedIndividual.id);
-        const insertionIndex = otherRows.findIndex((row) => draggedCenter < row.centerY);
-        const nextRows = [...otherRows];
-        if (insertionIndex < 0) {
-          nextRows.push(draggedRow);
+          // Build full ID list: go through savedFull in order, replacing
+          // sibling component order with the new order
+          const newComponentOrder = nextSiblings.map((s) => s.id);
+          const topRows = savedTopLevel.map((s) => s.id);
+          // For the parent system, swap in the new component order
+          const fullIds: string[] = [];
+          topRows.forEach((id) => {
+            fullIds.push(id);
+            if (id === parentId) {
+              newComponentOrder.forEach((cid) => fullIds.push(cid));
+            } else {
+              const snap = savedTopLevel.find((s) => s.id === id);
+              if (snap) snap.componentIds.forEach((cid) => fullIds.push(cid));
+            }
+          });
+
+          onReorderIndividuals(fullIds);
         } else {
-          nextRows.splice(insertionIndex, 0, draggedRow);
-        }
+          // ── Top-level reorder ──
+          const topRows = [...savedTopLevel].sort((a, b) => a.y - b.y);
+          const draggedRow = topRows.find((row) => row.id === draggedIndividual.id);
+          if (!draggedRow) return;
 
-        onReorderIndividuals(nextRows.map((row) => row.id));
+          const draggedTop = draggedRow.y + dragOffset;
+          const draggedBottom = draggedTop + draggedRow.height;
+          const movingDown = dragOffset >= 0;
+          const targetProbeY = movingDown ? draggedBottom : draggedTop;
+
+          const closestRow = getClosestTargetRow(
+            topRows.map((row) => ({
+              id: row.id,
+              centerY: row.y + row.height / 2,
+              node: row.node,
+            })),
+            draggedIndividual.id,
+            targetProbeY
+          );
+          const overIndividual = closestRow
+            ? dataset.individuals.get(closestRow.id)
+            : undefined;
+          if (!canReorderIndividuals(draggedIndividual, overIndividual)) {
+            return;
+          }
+
+          const otherRows = topRows.filter((row) => row.id !== draggedIndividual.id);
+          const insertionIndex = otherRows.findIndex(
+            (row) => targetProbeY < row.y + row.height / 2
+          );
+          const nextRows = [...otherRows];
+          if (insertionIndex < 0) {
+            nextRows.push(draggedRow);
+          } else {
+            nextRows.splice(insertionIndex, 0, draggedRow);
+          }
+
+          // Emit full list including components after their parent systems
+          const fullIds: string[] = [];
+          nextRows.forEach((row) => {
+            fullIds.push(row.id);
+            const snap = savedTopLevel.find((s) => s.id === row.id);
+            if (snap) snap.componentIds.forEach((cid) => fullIds.push(cid));
+          });
+
+          onReorderIndividuals(fullIds);
+        }
       });
 
     rowSelection
@@ -476,6 +641,7 @@ L ${sideX} ${lowerTop} Z`;
         .classed("drop-target-invalid", false);
       svg.selectAll(".individualLabel").interrupt().attr("transform", null);
       dragSnapshot = [];
+      topLevelSnapshot = [];
     };
   }, [plot, svgRef, interactionMode, onReorderIndividuals, dataset]);
 

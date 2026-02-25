@@ -45,17 +45,6 @@ type NormalizedInstallationRow = {
   systemComponentId: string;
   beginning: number;
   ending: number;
-  systemId?: string;
-};
-
-type SystemMoveConflict = {
-  individualId: string;
-  individualName: string;
-  installationId: string;
-  beginning: number;
-  ending: number;
-  conflictingComponentName: string;
-  targetSystemName: string;
 };
 
 const EMPTY_BEGINNING = "";
@@ -76,7 +65,9 @@ const SetIndividual = (props: Props) => {
   const defaultIndividual: Individual = {
     id: "",
     name: "",
-    type: dataset.defaultIndividualType,
+    type:
+      dataset.individualTypes.find((kind) => kind.name === "Resource") ??
+      dataset.defaultIndividualType,
     description: "",
     beginning: -1,
     ending: Model.END_OF_TIME,
@@ -111,14 +102,8 @@ const SetIndividual = (props: Props) => {
   const [showBoundsWarningModal, setShowBoundsWarningModal] = useState(false);
   const [pendingSaveIndividual, setPendingSaveIndividual] =
     useState<Individual | null>(null);
-  const [pendingDeletionCount, setPendingDeletionCount] = useState(0);
-  const [showSystemMoveConflictModal, setShowSystemMoveConflictModal] =
-    useState(false);
-  const [pendingSystemMoveConflicts, setPendingSystemMoveConflicts] = useState<
-    SystemMoveConflict[]
-  >([]);
-  const [pendingSystemComponentSave, setPendingSystemComponentSave] =
-    useState<Individual | null>(null);
+  const [pendingTrimCount, setPendingTrimCount] = useState(0);
+  const [pendingDroppedCount, setPendingDroppedCount] = useState(0);
 
   const isEditMode = !!selectedIndividual;
   const selectedEntityTypeId = getEntityTypeIdFromIndividual(inputs);
@@ -204,10 +189,8 @@ const SetIndividual = (props: Props) => {
     setShowInstallationsModal(false);
     setShowBoundsWarningModal(false);
     setPendingSaveIndividual(null);
-    setPendingDeletionCount(0);
-    setShowSystemMoveConflictModal(false);
-    setPendingSystemMoveConflicts([]);
-    setPendingSystemComponentSave(null);
+    setPendingTrimCount(0);
+    setPendingDroppedCount(0);
     
     setTypeOpen(false);
     setTypeSearch("");
@@ -472,18 +455,12 @@ const SetIndividual = (props: Props) => {
           runningErrors.push("System Component can only be installed into a System");
         } else {
           const parentStart = normalizeStart(parentSystem.beginning);
-          const parentEnd = normalizeEnd(parentSystem.ending);
           const ownStart = normalizeStart(inputs.beginning);
           const ownEnd = normalizeEnd(inputs.ending);
 
           if (ownStart < parentStart) {
             runningErrors.push(
               `System Component beginning must be within ${parentSystem.name}`
-            );
-          }
-          if (ownEnd > parentEnd) {
-            runningErrors.push(
-              `System Component ending must be within ${parentSystem.name}`
             );
           }
         }
@@ -510,31 +487,36 @@ const SetIndividual = (props: Props) => {
 
     let next = { ...inputs };
 
-    if (
-      selectedEntityTypeId === ENTITY_TYPE_IDS.SYSTEM_COMPONENT &&
-      selectedIndividual?.installedIn !== next.installedIn
-    ) {
-      const moveConflicts = findSystemMoveConflicts(next);
-      if (moveConflicts.length > 0) {
-        setPendingSystemMoveConflicts(moveConflicts);
-        setPendingSystemComponentSave(next);
-        setShowSystemMoveConflictModal(true);
-        return;
-      }
-    }
-
     if (selectedEntityTypeId === ENTITY_TYPE_IDS.INDIVIDUAL) {
       let periods = getInstallationPeriods(next);
       const ownStart = normalizeStart(next.beginning);
       const ownEnd = normalizeEnd(next.ending);
-      const outsideBounds = periods.filter(
-        (period) => period.beginning < ownStart || period.ending > ownEnd
-      );
+      let trimmedCount = 0;
+      let droppedCount = 0;
 
-      if (outsideBounds.length > 0) {
-        periods = periods.filter(
-          (period) => !outsideBounds.some((out) => out.id === period.id)
-        );
+      periods = periods
+        .map((period) => {
+          const beginning = Math.max(period.beginning, ownStart);
+          const ending = Math.min(period.ending, ownEnd);
+
+          if (ending <= beginning) {
+            droppedCount += 1;
+            return null;
+          }
+
+          if (beginning !== period.beginning || ending !== period.ending) {
+            trimmedCount += 1;
+          }
+
+          return {
+            ...period,
+            beginning,
+            ending,
+          };
+        })
+        .filter((period): period is InstallationPeriod => !!period);
+
+      if (trimmedCount > 0 || droppedCount > 0) {
 
         const pending = syncLegacyInstallationFields({
           ...next,
@@ -542,7 +524,8 @@ const SetIndividual = (props: Props) => {
         });
 
         setPendingSaveIndividual(pending);
-        setPendingDeletionCount(outsideBounds.length);
+        setPendingTrimCount(trimmedCount);
+        setPendingDroppedCount(droppedCount);
         setShowBoundsWarningModal(true);
         return;
       }
@@ -566,47 +549,12 @@ const SetIndividual = (props: Props) => {
     commitIndividualSave(next);
   };
 
-  const confirmBoundsDeletion = () => {
+  const confirmBoundsAdjustment = () => {
     if (!pendingSaveIndividual) {
       setShowBoundsWarningModal(false);
       return;
     }
     commitIndividualSave(pendingSaveIndividual);
-  };
-
-  const confirmSystemMoveConflictResolution = () => {
-    if (!pendingSystemComponentSave) {
-      setShowSystemMoveConflictModal(false);
-      return;
-    }
-
-    const removalsByIndividual = new Map<string, Set<string>>();
-    pendingSystemMoveConflicts.forEach((conflict) => {
-      const ids = removalsByIndividual.get(conflict.individualId);
-      if (ids) ids.add(conflict.installationId);
-      else removalsByIndividual.set(conflict.individualId, new Set([conflict.installationId]));
-    });
-
-    updateDataset((d) => {
-      removalsByIndividual.forEach((installationIds, individualId) => {
-        const individual = d.individuals.get(individualId);
-        if (!individual) return;
-
-        const remaining = getInstallationPeriods(individual).filter(
-          (period) => !installationIds.has(period.id)
-        );
-
-        const synced = syncLegacyInstallationFields({
-          ...individual,
-          installations: remaining,
-        });
-        d.addIndividual(synced);
-      });
-
-      d.addIndividual(pendingSystemComponentSave);
-    });
-
-    handleClose();
   };
 
   const handleDelete = () => {
@@ -672,14 +620,6 @@ const SetIndividual = (props: Props) => {
     );
   };
 
-  const componentSystemIdById = useMemo(() => {
-    const map = new Map<string, string | undefined>();
-    systemComponents.forEach((component) => {
-      map.set(component.id, component.installedIn);
-    });
-    return map;
-  }, [systemComponents]);
-
   const normalizeInstallationRows = (rows: InstallationRow[]) => {
     const rowErrors: string[] = [];
     const normalized: NormalizedInstallationRow[] = [];
@@ -724,8 +664,10 @@ const SetIndividual = (props: Props) => {
         return;
       }
 
-      const logicalComponentStart = component.beginning === -1 ? -Infinity : component.beginning;
-      const logicalComponentEnd = component.ending >= Model.END_OF_TIME ? Infinity : component.ending;
+      const logicalComponentStart =
+        component.beginning === -1 ? -Infinity : component.beginning;
+      const logicalComponentEnd =
+        component.ending >= Model.END_OF_TIME ? Infinity : component.ending;
       const logicalBeginning = beginning;
       const logicalEnding = ending >= Model.END_OF_TIME ? Infinity : ending;
 
@@ -753,7 +695,6 @@ const SetIndividual = (props: Props) => {
         systemComponentId: row.systemComponentId,
         beginning,
         ending,
-        systemId: componentSystemIdById.get(row.systemComponentId),
       });
     });
 
@@ -761,13 +702,13 @@ const SetIndividual = (props: Props) => {
       for (let second = first + 1; second < normalized.length; second += 1) {
         const a = normalized[first];
         const b = normalized[second];
-        if (!a.systemId || !b.systemId || a.systemId !== b.systemId) continue;
+        if (a.systemComponentId !== b.systemComponentId) continue;
 
         const overlap = a.beginning < b.ending && b.beginning < a.ending;
         if (!overlap) continue;
 
         rowErrors.push(
-          `Rows ${first + 1} and ${second + 1} overlap within the same system`
+          `Rows ${first + 1} and ${second + 1} overlap within the same system component`
         );
       }
     }
@@ -795,77 +736,6 @@ const SetIndividual = (props: Props) => {
     });
 
     return { normalized, rowErrors };
-  };
-
-  const findSystemMoveConflicts = (component: Individual) => {
-    if (
-      getEntityTypeIdFromIndividual(component) !== ENTITY_TYPE_IDS.SYSTEM_COMPONENT ||
-      !component.installedIn
-    ) {
-      return [] as SystemMoveConflict[];
-    }
-
-    const targetSystem = dataset.individuals.get(component.installedIn);
-    if (
-      !targetSystem ||
-      getEntityTypeIdFromIndividual(targetSystem) !== ENTITY_TYPE_IDS.SYSTEM
-    ) {
-      return [] as SystemMoveConflict[];
-    }
-
-    const conflicts: SystemMoveConflict[] = [];
-
-    Array.from(dataset.individuals.values())
-      .filter(
-        (individual) =>
-          getEntityTypeIdFromIndividual(individual) === ENTITY_TYPE_IDS.INDIVIDUAL
-      )
-      .forEach((individual) => {
-        const periods = getInstallationPeriods(individual);
-        const movedPeriods = periods.filter(
-          (period) => period.systemComponentId === component.id
-        );
-        if (movedPeriods.length === 0) return;
-
-        const otherPeriods = periods.filter(
-          (period) => period.systemComponentId !== component.id
-        );
-
-        movedPeriods.forEach((movedPeriod) => {
-          const conflictPeriod = otherPeriods.find((candidate) => {
-            const candidateSystemId = componentSystemIdById.get(
-              candidate.systemComponentId
-            );
-            if (!candidateSystemId || candidateSystemId !== component.installedIn) {
-              return false;
-            }
-
-            return (
-              movedPeriod.beginning < candidate.ending &&
-              candidate.beginning < movedPeriod.ending
-            );
-          });
-
-          if (!conflictPeriod) return;
-
-          const conflictingComponent = dataset.individuals.get(
-            conflictPeriod.systemComponentId
-          );
-
-          conflicts.push({
-            individualId: individual.id,
-            individualName: individual.name || "Unnamed entity",
-            installationId: movedPeriod.id,
-            beginning: movedPeriod.beginning,
-            ending: movedPeriod.ending,
-            conflictingComponentName:
-              conflictingComponent?.name || "another system component",
-            targetSystemName: targetSystem.name || "target system",
-          });
-        });
-      });
-
-    return conflicts;
   };
 
   useEffect(() => {
@@ -923,8 +793,6 @@ const SetIndividual = (props: Props) => {
     const component = dataset.individuals.get(row.systemComponentId);
     if (!component) return null;
 
-    const rowSystemId = componentSystemIdById.get(row.systemComponentId);
-
     const start = normalizeStart(component.beginning);
     const end = normalizeEnd(component.ending);
 
@@ -932,13 +800,10 @@ const SetIndividual = (props: Props) => {
       .filter((entry) => entry.id !== row.id)
       .map((entry) => {
         if (!entry.systemComponentId) return undefined;
-        
-        const entrySystemId = componentSystemIdById.get(entry.systemComponentId);
-        
+
         const isSameSlot = entry.systemComponentId === row.systemComponentId;
-        const isSameSystem = rowSystemId && entrySystemId && rowSystemId === entrySystemId;
-        
-        if (!isSameSlot && !isSameSystem) {
+
+        if (!isSameSlot) {
           return undefined;
         }
 
@@ -1034,8 +899,7 @@ const SetIndividual = (props: Props) => {
         show={
           show &&
           !showInstallationsModal &&
-          !showBoundsWarningModal &&
-          !showSystemMoveConflictModal
+          !showBoundsWarningModal
         }
         onHide={handleModalHide}
       >
@@ -1558,50 +1422,6 @@ const SetIndividual = (props: Props) => {
       </Modal>
 
       <Modal
-        show={showSystemMoveConflictModal}
-        onHide={() => setShowSystemMoveConflictModal(false)}
-        centered
-      >
-        <Modal.Header closeButton>
-          <Modal.Title>Conflicting Installation Slots</Modal.Title>
-        </Modal.Header>
-        <Modal.Body>
-          This move is not possible without removing conflicting installations.
-          <br />
-          <br />
-          {pendingSystemMoveConflicts.length} installation period
-          {pendingSystemMoveConflicts.length === 1 ? "" : "s"} will be lost
-          because they would share the same time slot across different system
-          components in the same system.
-          <br />
-          <br />
-          {pendingSystemMoveConflicts.slice(0, 3).map((conflict) => (
-            <div key={`${conflict.individualId}-${conflict.installationId}`}>
-              • {conflict.individualName}: {conflict.beginning}-
-              {conflict.ending >= Model.END_OF_TIME ? "∞" : conflict.ending} in {" "}
-              {conflict.targetSystemName} (conflicts with {conflict.conflictingComponentName})
-            </div>
-          ))}
-          {pendingSystemMoveConflicts.length > 3 && (
-            <div className="mt-1 text-muted">
-              …and {pendingSystemMoveConflicts.length - 3} more.
-            </div>
-          )}
-        </Modal.Body>
-        <Modal.Footer>
-          <Button
-            variant="secondary"
-            onClick={() => setShowSystemMoveConflictModal(false)}
-          >
-            Keep Editing
-          </Button>
-          <Button variant="danger" onClick={confirmSystemMoveConflictResolution}>
-            Remove Conflicts & Save
-          </Button>
-        </Modal.Footer>
-      </Modal>
-
-      <Modal
         show={showBoundsWarningModal}
         onHide={() => setShowBoundsWarningModal(false)}
         centered
@@ -1612,8 +1432,16 @@ const SetIndividual = (props: Props) => {
           </Modal.Title>
         </Modal.Header>
         <Modal.Body>
-          {pendingDeletionCount} installation period{pendingDeletionCount === 1 ? "" : "s"} {pendingDeletionCount === 1 ? "is" : "are"} outside the updated
-          entity bounds and will be deleted if you continue.
+          {pendingTrimCount > 0 && (
+            <div>
+              {pendingTrimCount} installation period{pendingTrimCount === 1 ? "" : "s"} {pendingTrimCount === 1 ? "will" : "will"} be trimmed to the updated entity bounds.
+            </div>
+          )}
+          {pendingDroppedCount > 0 && (
+            <div className={pendingTrimCount > 0 ? "mt-2" : ""}>
+              {pendingDroppedCount} installation period{pendingDroppedCount === 1 ? "" : "s"} {pendingDroppedCount === 1 ? "has" : "have"} no overlap with the updated bounds and {pendingDroppedCount === 1 ? "will" : "will"} be removed.
+            </div>
+          )}
         </Modal.Body>
         <Modal.Footer>
           <Button
@@ -1622,8 +1450,8 @@ const SetIndividual = (props: Props) => {
           >
             Keep Editing
           </Button>
-          <Button variant="danger" onClick={confirmBoundsDeletion}>
-            Delete Out-of-Bounds & Save
+          <Button variant="primary" onClick={confirmBoundsAdjustment}>
+            Apply Bounds & Save
           </Button>
         </Modal.Footer>
       </Modal>

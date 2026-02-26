@@ -400,10 +400,21 @@ export function drawIndividuals(ctx: DrawContext) {
       if (hostSpans && hostSpans.length > 0) {
         const hostSpan = hostSpans[0]; // Host is not split
         const strokePad = (Number(config.presentation.individual.strokeWidth) || 1) / 2;
+        const hostStart = individual.beginning === -1 ? -Infinity : individual.beginning;
+        const hostEnd = individual.ending === -1 ? Infinity : individual.ending;
+        const componentStart = component.beginning === -1 ? -Infinity : component.beginning;
+        const componentEnd = component.ending === -1 ? Infinity : component.ending;
+        const reachesHostStart = componentStart <= hostStart;
+        const reachesHostEnd = componentEnd >= hostEnd;
         const hasOpenStart =
-          component.beginning === -1 || component.beginning <= startOfTime;
+          component.beginning === -1 || component.beginning <= startOfTime || reachesHostStart;
         const hasOpenEnd =
-          component.ending === -1 || component.ending >= endOfTime;
+          component.ending === -1 || component.ending >= endOfTime || reachesHostEnd;
+
+        // Ensure path ends reflect openness after host-bound clamping.
+        span.start = !hasOpenStart;
+        span.stop = !hasOpenEnd;
+
         const minX =
           hostSpan.x + (hasOpenStart ? 0 : systemLayout.horizontalInset) + strokePad;
         const maxRight =

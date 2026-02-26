@@ -238,6 +238,45 @@ const ActivityDiagram = (props: Props) => {
       svg.select(`#il${entityId}`).attr("transform", `translate(0, ${offset})`);
     };
 
+    const updateLinkedHatches = (entityId: string, offset: number) => {
+      const t = offset === 0 ? null : `translate(0, ${offset})`;
+      // Hatches are drawn ON the target component, so only move them
+      // when the target component moves (not when the installed individual moves).
+      // The hatches use clip-path with userSpaceOnUse, which doesn't follow
+      // the element's transform, so we temporarily remove clip-path during drag
+      // and restore it when the transform is cleared.
+      svg
+        .selectAll<SVGRectElement, unknown>(".installHatch")
+        .filter(function () {
+          return (this as SVGElement).getAttribute("data-target-id") === entityId;
+        })
+        .each(function () {
+          const el = this as SVGElement;
+          if (offset !== 0) {
+            const cp = el.getAttribute("clip-path");
+            if (cp) el.setAttribute("data-saved-clip", cp);
+            el.removeAttribute("clip-path");
+          } else {
+            const saved = el.getAttribute("data-saved-clip");
+            if (saved) {
+              el.setAttribute("clip-path", saved);
+              el.removeAttribute("data-saved-clip");
+            }
+          }
+        })
+        .attr("transform", t);
+    };
+
+    /** Read the current Y translate offset from an element's transform attribute */
+    const getElementOffset = (id: string): number => {
+      const el = svg.select(`#i${id}`).node() as SVGElement | null;
+      if (!el) return 0;
+      const t = el.getAttribute("transform");
+      if (!t) return 0;
+      const m = t.match(/translate\(\s*[\d.eE+-]+\s*,\s*([\d.eE+-]+)\s*\)/);
+      return m ? Number(m[1]) : 0;
+    };
+
     const updateLinkedRibbons = (entityId: string, offset: number) => {
       svg
         .selectAll<SVGPathElement, unknown>(".installConnectorRibbon")
@@ -260,8 +299,10 @@ const ActivityDiagram = (props: Props) => {
           const upperTopBase = Number(node.getAttribute("data-upper-top") ?? "0");
           const upperBottomBase = Number(node.getAttribute("data-upper-bottom") ?? "0");
 
-          const lowerShift = installedId === entityId ? offset : 0;
-          const upperShift = targetId === entityId ? offset : 0;
+          // For the endpoint being explicitly moved, use the passed offset.
+          // For the OTHER endpoint, read its current transform from the DOM.
+          const lowerShift = installedId === entityId ? offset : getElementOffset(installedId!);
+          const upperShift = targetId === entityId ? offset : getElementOffset(targetId!);
           const lowerTop = lowerTopBase + lowerShift;
           const lowerBottom = lowerBottomBase + lowerShift;
           const upperTop = upperTopBase + upperShift;
@@ -302,10 +343,26 @@ L ${sideX} ${lowerTop} Z`;
       if (animate) {
         svg.select(`#i${id}`).transition().duration(50).attr("transform", t);
         svg.select(`#il${id}`).transition().duration(50).attr("transform", t);
+        svg
+          .selectAll<SVGPathElement, unknown>(".installDash")
+          .filter(function () {
+            return (this as SVGElement).getAttribute("data-individual-id") === id;
+          })
+          .transition()
+          .duration(50)
+          .attr("transform", t);
       } else {
         svg.select(`#i${id}`).attr("transform", t);
         svg.select(`#il${id}`).attr("transform", t);
+        svg
+          .selectAll<SVGPathElement, unknown>(".installDash")
+          .filter(function () {
+            return (this as SVGElement).getAttribute("data-individual-id") === id;
+          })
+          .attr("transform", t);
       }
+      updateLinkedHatches(id, dy);
+      updateLinkedRibbons(id, dy);
     };
 
     /** Shift a top-level row and, if it's a system, all its components */
@@ -315,9 +372,23 @@ L ${sideX} ${lowerTop} Z`;
     };
 
     const clearAllPreviewShifts = () => {
+      // First pass: reset all element transforms
       dragSnapshot.forEach((snap) => {
         svg.select(`#i${snap.id}`).interrupt().attr("transform", null);
         svg.select(`#il${snap.id}`).interrupt().attr("transform", null);
+        svg
+          .selectAll<SVGPathElement, unknown>(".installDash")
+          .filter(function () {
+            return (this as SVGElement).getAttribute("data-individual-id") === snap.id;
+          })
+          .interrupt()
+          .attr("transform", null);
+        updateLinkedHatches(snap.id, 0);
+      });
+      // Second pass: reset all ribbon paths (after all transforms are cleared,
+      // so getElementOffset returns 0 for all endpoints)
+      dragSnapshot.forEach((snap) => {
+        updateLinkedRibbons(snap.id, 0);
       });
     };
 
@@ -349,15 +420,37 @@ L ${sideX} ${lowerTop} Z`;
         // Build top-level snapshot (exclude nested system components)
         topLevelSnapshot = dragSnapshot.filter((r) => !r.parentSystemId);
 
+        // Helper: raise a single entity's bar, label, dashes, hatches, and ribbons
+        const raiseEntityVisuals = (id: string) => {
+          svg.select(`#i${id}`).raise();
+          svg.select(`#il${id}`).raise();
+          svg
+            .selectAll<SVGPathElement, unknown>(".installDash")
+            .filter(function () {
+              return (this as SVGElement).getAttribute("data-individual-id") === id;
+            })
+            .raise();
+          svg
+            .selectAll<SVGRectElement, unknown>(".installHatch")
+            .filter(function () {
+              return (this as SVGElement).getAttribute("data-target-id") === id;
+            })
+            .raise();
+          svg
+            .selectAll<SVGPathElement, unknown>(".installConnectorRibbon")
+            .filter(function () {
+              const node = this as SVGElement;
+              return node.getAttribute("data-installed-id") === id
+                || node.getAttribute("data-target-id") === id;
+            })
+            .raise();
+        };
+
         // Raise dragged element (and components) above everything for z-order
-        d3.select(this).raise();
-        svg.select(`#il${draggedIndividual.id}`).raise();
+        raiseEntityVisuals(draggedIndividual.id);
         if (isSystem) {
           const compIds = getComponentIdsForSystem(draggedIndividual.id);
-          compIds.forEach((cid) => {
-            svg.select(`#i${cid}`).raise();
-            svg.select(`#il${cid}`).raise();
-          });
+          compIds.forEach((cid) => raiseEntityVisuals(cid));
         }
 
         d3.select(this)
@@ -378,6 +471,13 @@ L ${sideX} ${lowerTop} Z`;
           .attr("transform", `translate(0, ${nextOffset})`);
 
         updateLinkedLabel(draggedIndividual.id, nextOffset);
+        svg
+          .selectAll<SVGPathElement, unknown>(".installDash")
+          .filter(function () {
+            return (this as SVGElement).getAttribute("data-individual-id") === draggedIndividual.id;
+          })
+          .attr("transform", `translate(0, ${nextOffset})`);
+        updateLinkedHatches(draggedIndividual.id, nextOffset);
         updateLinkedRibbons(draggedIndividual.id, nextOffset);
 
         // If dragging a system, also move its components
@@ -386,6 +486,7 @@ L ${sideX} ${lowerTop} Z`;
           compIds.forEach((cid) => {
             svg.select(`#i${cid}`).attr("transform", `translate(0, ${nextOffset})`);
             updateLinkedLabel(cid, nextOffset);
+            updateLinkedHatches(cid, nextOffset);
             updateLinkedRibbons(cid, nextOffset);
           });
         }
@@ -519,6 +620,13 @@ L ${sideX} ${lowerTop} Z`;
           .style("cursor", "ns-resize");
 
         svg.select(`#il${draggedIndividual.id}`).attr("transform", null);
+        svg
+          .selectAll<SVGPathElement, unknown>(".installDash")
+          .filter(function () {
+            return (this as SVGElement).getAttribute("data-individual-id") === draggedIndividual.id;
+          })
+          .attr("transform", null);
+        updateLinkedHatches(draggedIndividual.id, 0);
         updateLinkedRibbons(draggedIndividual.id, 0);
 
         if (isSystem) {
@@ -526,6 +634,7 @@ L ${sideX} ${lowerTop} Z`;
           compIds.forEach((cid) => {
             svg.select(`#i${cid}`).attr("transform", null);
             svg.select(`#il${cid}`).attr("transform", null);
+            updateLinkedHatches(cid, 0);
             updateLinkedRibbons(cid, 0);
           });
         }
@@ -640,6 +749,16 @@ L ${sideX} ${lowerTop} Z`;
         .classed("drop-target-valid", false)
         .classed("drop-target-invalid", false);
       svg.selectAll(".individualLabel").interrupt().attr("transform", null);
+      svg.selectAll(".installDash").interrupt().attr("transform", null);
+      svg.selectAll(".installHatch").interrupt().attr("transform", null)
+        .each(function () {
+          const el = this as SVGElement;
+          const saved = el.getAttribute("data-saved-clip");
+          if (saved) {
+            el.setAttribute("clip-path", saved);
+            el.removeAttribute("data-saved-clip");
+          }
+        });
       dragSnapshot = [];
       topLevelSnapshot = [];
     };

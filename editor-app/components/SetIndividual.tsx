@@ -47,6 +47,18 @@ type NormalizedInstallationRow = {
   ending: number;
 };
 
+type PendingBoundsChange = {
+  periodId: string;
+  systemComponentId: string;
+  systemComponentName: string;
+  parentSystemName?: string;
+  fromBeginning: number;
+  fromEnding: number;
+  toBeginning?: number;
+  toEnding?: number;
+  action: "trim" | "drop";
+};
+
 const EMPTY_BEGINNING = "";
 const EMPTY_ENDING = "";
 
@@ -104,6 +116,7 @@ const SetIndividual = (props: Props) => {
     useState<Individual | null>(null);
   const [pendingTrimCount, setPendingTrimCount] = useState(0);
   const [pendingDroppedCount, setPendingDroppedCount] = useState(0);
+  const [pendingBoundsChanges, setPendingBoundsChanges] = useState<PendingBoundsChange[]>([]);
 
   const isEditMode = !!selectedIndividual;
   const selectedEntityTypeId = getEntityTypeIdFromIndividual(inputs);
@@ -154,6 +167,12 @@ const SetIndividual = (props: Props) => {
     return String(value);
   };
 
+  const formatBound = (value: number, isBeginning: boolean) => {
+    if (isBeginning && value <= 0) return "0";
+    if (!isBeginning && value >= Model.END_OF_TIME) return "∞";
+    return String(value);
+  };
+
   const parseBoundary = (text: string, isBeginning: boolean) => {
     if (text.trim() === "") {
       return isBeginning ? -1 : Model.END_OF_TIME;
@@ -191,6 +210,7 @@ const SetIndividual = (props: Props) => {
     setPendingSaveIndividual(null);
     setPendingTrimCount(0);
     setPendingDroppedCount(0);
+    setPendingBoundsChanges([]);
     
     setTypeOpen(false);
     setTypeSearch("");
@@ -493,19 +513,46 @@ const SetIndividual = (props: Props) => {
       const ownEnd = normalizeEnd(next.ending);
       let trimmedCount = 0;
       let droppedCount = 0;
+      const boundsChanges: PendingBoundsChange[] = [];
 
       periods = periods
         .map((period) => {
+          const component = dataset.individuals.get(period.systemComponentId);
+          const parentSystem = component?.installedIn
+            ? dataset.individuals.get(component.installedIn)
+            : undefined;
+          const systemComponentName = component?.name ?? period.systemComponentId;
+
           const beginning = Math.max(period.beginning, ownStart);
           const ending = Math.min(period.ending, ownEnd);
 
           if (ending <= beginning) {
             droppedCount += 1;
+            boundsChanges.push({
+              periodId: period.id,
+              systemComponentId: period.systemComponentId,
+              systemComponentName,
+              parentSystemName: parentSystem?.name,
+              fromBeginning: period.beginning,
+              fromEnding: period.ending,
+              action: "drop",
+            });
             return null;
           }
 
           if (beginning !== period.beginning || ending !== period.ending) {
             trimmedCount += 1;
+            boundsChanges.push({
+              periodId: period.id,
+              systemComponentId: period.systemComponentId,
+              systemComponentName,
+              parentSystemName: parentSystem?.name,
+              fromBeginning: period.beginning,
+              fromEnding: period.ending,
+              toBeginning: beginning,
+              toEnding: ending,
+              action: "trim",
+            });
           }
 
           return {
@@ -520,18 +567,27 @@ const SetIndividual = (props: Props) => {
 
         const pending = syncLegacyInstallationFields({
           ...next,
+          // Clear legacy fields so getInstallationPeriods inside sync
+          // doesn't fall back to them and resurrect dropped periods.
+          installedIn: undefined,
+          installedBeginning: undefined,
+          installedEnding: undefined,
           installations: periods,
         });
 
         setPendingSaveIndividual(pending);
         setPendingTrimCount(trimmedCount);
         setPendingDroppedCount(droppedCount);
+        setPendingBoundsChanges(boundsChanges);
         setShowBoundsWarningModal(true);
         return;
       }
 
       next = syncLegacyInstallationFields({
         ...next,
+        installedIn: undefined,
+        installedBeginning: undefined,
+        installedEnding: undefined,
         installations: periods,
       });
     } else {
@@ -778,6 +834,11 @@ const SetIndividual = (props: Props) => {
 
     const synced = syncLegacyInstallationFields({
       ...inputs,
+      // Clear legacy fields so getInstallationPeriods inside sync
+      // uses only the explicit installations array, not stale legacy values.
+      installedIn: undefined,
+      installedBeginning: undefined,
+      installedEnding: undefined,
       installations: nextInstallations,
     });
 
@@ -1114,21 +1175,9 @@ const SetIndividual = (props: Props) => {
                   value={inputs.installedIn ?? ""}
                   onChange={(event) => {
                     const systemId = event.target.value || undefined;
-                    const selectedSystem = systemId
-                      ? dataset.individuals.get(systemId)
-                      : undefined;
-                    if (!selectedSystem) {
-                      updateInputs("installedIn", undefined);
-                      return;
-                    }
-
-                    setBeginningText("");
-                    setEndingText("");
                     setInputs((previous) => ({
                       ...previous,
                       installedIn: systemId,
-                      beginning: -1,
-                      ending: Model.END_OF_TIME,
                     }));
                     setDirty(true);
                   }}
@@ -1440,6 +1489,24 @@ const SetIndividual = (props: Props) => {
           {pendingDroppedCount > 0 && (
             <div className={pendingTrimCount > 0 ? "mt-2" : ""}>
               {pendingDroppedCount} installation period{pendingDroppedCount === 1 ? "" : "s"} {pendingDroppedCount === 1 ? "has" : "have"} no overlap with the updated bounds and {pendingDroppedCount === 1 ? "will" : "will"} be removed.
+            </div>
+          )}
+          {pendingBoundsChanges.length > 0 && (
+            <div className="mt-3">
+              <div className="fw-semibold mb-2">Affected periods</div>
+              <div style={{ maxHeight: "220px", overflowY: "auto" }}>
+                {pendingBoundsChanges.map((change) => (
+                  <div key={change.periodId} className="mb-1 small">
+                    <span className="fw-semibold">{change.systemComponentName}</span>
+                    {change.parentSystemName ? ` (in ${change.parentSystemName})` : ""}
+                    {": "}
+                    {formatBound(change.fromBeginning, true)}-{formatBound(change.fromEnding, false)}
+                    {change.action === "trim"
+                      ? ` → ${formatBound(change.toBeginning ?? change.fromBeginning, true)}-${formatBound(change.toEnding ?? change.fromEnding, false)} (trimmed)`
+                      : " → removed (no overlap)"}
+                  </div>
+                ))}
+              </div>
             </div>
           )}
         </Modal.Body>

@@ -224,66 +224,54 @@ export function drawIndividuals(ctx: DrawContext) {
         return [createSingleSpan(individual.beginning, individual.ending)];
       }
 
-      const overallStart = individual.beginning;
-      const overallEnd = individual.ending;
       const leadTime = INSTALL_RIBBON_RUN_PX / Math.max(timeInterval, 0.0001);
+      const expandStart = (t: number) => (t < startOfTime ? t : t - leadTime);
+      const expandEnd = (t: number) => (t > endOfTime ? t : t + leadTime);
 
       // Work in effective space: -1 → ±Infinity
-      const effStart = overallStart === -1 ? -Infinity : overallStart;
-      const effEnd = overallEnd === -1 ? Infinity : overallEnd;
+      const effStart = individual.beginning === -1 ? -Infinity : individual.beginning;
+      const effEnd = individual.ending === -1 ? Infinity : individual.ending;
 
-      // Build blocked regions: each installation blocks
-      // [beginning − leadTime, ending + leadTime], clamped to individual's lifetime.
-      // The leadTime gap is where the ramp trapezoid will be drawn.
-      const rawBlocked = installations.map((p) => ({
-        start: Math.max(effStart, p.beginning - leadTime),
-        end:   Math.min(effEnd,   p.ending   + leadTime),
-      })).sort((a, b) => a.start - b.start);
-
-      // Merge overlapping / touching blocked regions
-      const merged: { start: number; end: number }[] = [];
-      for (const r of rawBlocked) {
-        if (merged.length > 0 && r.start <= merged[merged.length - 1].end) {
-          merged[merged.length - 1].end = Math.max(merged[merged.length - 1].end, r.end);
-        } else {
-          merged.push({ start: r.start, end: r.end });
-        }
-      }
-
-      // Create bar segments from gaps between blocked regions
+      const toRaw = (v: number) => !Number.isFinite(v) ? -1 : v;
       const spans: Span[] = [];
-      const pushGapSpan = (segStart: number, segEnd: number) => {
-        // Skip fully out-of-viewport segments to avoid negative-width artifacts.
-        if (segEnd <= startOfTime || segStart >= endOfTime) {
-          return;
+
+      // Solid bars in gaps between consecutive installation periods.
+      // Merge overlapping expanded ranges first so gaps are computed correctly.
+      const sorted = [...installations].sort((a, b) => a.beginning - b.beginning);
+      const merged: { beginning: number; ending: number }[] = [];
+      for (const p of sorted) {
+        const rangeBegin = expandStart(p.beginning);
+        const rangeEnd = expandEnd(p.ending);
+        const last = merged[merged.length - 1];
+        if (!last || rangeBegin > last.ending) {
+          merged.push({ beginning: rangeBegin, ending: rangeEnd });
+        } else {
+          last.ending = Math.max(last.ending, rangeEnd);
         }
-
-        const rawStart = !Number.isFinite(segStart)
-          ? -1
-          : segStart < startOfTime
-            ? -1
-            : segStart;
-        const rawEnd = !Number.isFinite(segEnd)
-          ? -1
-          : segEnd > endOfTime
-            ? -1
-            : segEnd;
-
-        spans.push(createSingleSpan(rawStart, rawEnd));
-      };
-
-      let cursor = effStart;
-      for (const slot of merged) {
-        if (slot.start > cursor) {
-          pushGapSpan(cursor, slot.start);
-        }
-        cursor = Math.max(cursor, slot.end);
-      }
-      if (Number.isFinite(cursor) && cursor < effEnd) {
-        pushGapSpan(cursor, effEnd);
       }
 
-      return spans;
+      const blockStart = Math.max(effStart, merged[0].beginning);
+      const blockEnd = Math.min(effEnd, merged[merged.length - 1].ending);
+
+      // Solid bar before the first dashed range
+      if (blockStart > effStart) {
+        spans.push(createSingleSpan(toRaw(effStart), blockStart));
+      }
+
+      for (let i = 0; i < merged.length - 1; i++) {
+        const gapStart = merged[i].ending;
+        const gapEnd = merged[i + 1].beginning;
+        if (gapEnd > gapStart) {
+          spans.push(createSingleSpan(toRaw(gapStart), toRaw(gapEnd)));
+        }
+      }
+
+      // Solid bar after the last ribbon
+      if (blockEnd < effEnd) {
+        spans.push(createSingleSpan(blockEnd, toRaw(effEnd)));
+      }
+
+      return spans.filter(s => s.w > 0);
     }
 
     // Normal case (1 span)
@@ -291,6 +279,7 @@ export function drawIndividuals(ctx: DrawContext) {
   };
 
   const layout = new Map<string, Span[]>();
+  const rowYMap = new Map<string, number>();
   // Installation periods stored as row-shaped dashed spans for gap outlines
   const installedRegions = new Map<
     string,
@@ -331,62 +320,63 @@ export function drawIndividuals(ctx: DrawContext) {
 
     const rowY = next_y;
     next_y = rowY + rowHeight + config.layout.individual.gap;
+    rowYMap.set(individual.id, rowY);
 
     const indent = getInstallDepth(individual, individualsById) * INDENT_STEP_PX;
     const isInstalled = isInstalledIndividual(individual);
 
     layout.set(individual.id, getSpans(individual, rowY, rowHeight, indent, isInstalled));
 
-    // Compute dashed outlines for the EXACT blocked regions (matching the
-    // gaps in the solid bar produced by getSpans).  This uses the same
-    // merged blocked-region logic so the dashes connect seamlessly to the
-    // solid bar edges and ribbon boundaries.
+    // Draw a dashed outline from first ribbon edge to last ribbon edge.
     if (isInstalled) {
       const timeToXLocal = (t: number) =>
         lhs_x + timeInterval * (t - startOfTime) + indent;
       const periods = getInstallationPeriods(individual);
       if (periods.length > 0) {
         const leadTime = INSTALL_RIBBON_RUN_PX / Math.max(timeInterval, 0.0001);
+        const expandStart = (t: number) => (t < startOfTime ? t : t - leadTime);
+        const expandEnd = (t: number) => (t > endOfTime ? t : t + leadTime);
+        const chevOff = Math.min(rowHeight / 3, baseHeight / 3);
 
-        const rawBlocked = periods.map((p) => ({
-          start: p.beginning - leadTime,
-          end:   p.ending + leadTime,
-        })).sort((a, b) => a.start - b.start);
-
-        const merged: { start: number; end: number }[] = [];
-        for (const r of rawBlocked) {
-          if (merged.length > 0 && r.start <= merged[merged.length - 1].end) {
-            merged[merged.length - 1].end = Math.max(merged[merged.length - 1].end, r.end);
+        // Merge overlapping expanded (±leadTime) period ranges so stacked
+        // dashed rectangles don't double-render when periods overlap.
+        const sortedPeriods = [...periods].sort((a, b) => a.beginning - b.beginning);
+        const mergedRanges: { dashStart: number; dashEnd: number }[] = [];
+        for (const p of sortedPeriods) {
+          const ds = expandStart(p.beginning);
+          const de = expandEnd(p.ending);
+          const last = mergedRanges[mergedRanges.length - 1];
+          if (!last || ds > last.dashEnd) {
+            mergedRanges.push({ dashStart: ds, dashEnd: de });
           } else {
-            merged.push({ start: r.start, end: r.end });
+            last.dashEnd = Math.max(last.dashEnd, de);
           }
         }
 
-        const rectangles = merged.map((m) => {
-          const chevOff = Math.min(rowHeight / 3, baseHeight / 3);
-          const extendsLeft = m.start < startOfTime;
-          const extendsRight = m.end > endOfTime;
-          const clampedStart = Number.isFinite(m.start)
-            ? Math.max(m.start, startOfTime) : startOfTime;
-          const clampedEnd = Number.isFinite(m.end)
-            ? Math.min(m.end, endOfTime) : endOfTime;
+        const rects: { x: number; y: number; w: number; h: number; start: boolean; stop: boolean }[] = [];
+        for (const { dashStart, dashEnd } of mergedRanges) {
+          const sourcePeriods = sortedPeriods.filter(
+            (p) => expandStart(p.beginning) <= dashEnd && expandEnd(p.ending) >= dashStart
+          );
+          const hasTrueOffscreenStart = sourcePeriods.some((p) => p.beginning < startOfTime);
+          const hasTrueOffscreenEnd = sourcePeriods.some((p) => p.ending > endOfTime);
+          const extendsLeft = hasTrueOffscreenStart;
+          const extendsRight = hasTrueOffscreenEnd;
+          const clampedStart = extendsLeft ? startOfTime : dashStart;
+          const clampedEnd = extendsRight ? endOfTime : dashEnd;
           const rx1 = extendsLeft
             ? config.layout.individual.xMargin - chevOff + indent
             : timeToXLocal(clampedStart);
           const rx2 = extendsRight
             ? timeToXLocal(endOfTime) + config.layout.individual.temporalMargin
             : timeToXLocal(clampedEnd);
-          return {
-            x: rx1,
-            y: rowY,
-            w: Math.max(0, rx2 - rx1),
-            h: rowHeight,
-            start: !extendsLeft,
-            stop: !extendsRight,
-          };
-        }).filter((r) => r.w > 0);
+          const w = Math.max(0, rx2 - rx1);
+          if (w > 0) {
+            rects.push({ x: rx1, y: rowY, w, h: rowHeight, start: !extendsLeft, stop: !extendsRight });
+          }
+        }
 
-        if (rectangles.length > 0) installedRegions.set(individual.id, rectangles);
+        if (rects.length > 0) installedRegions.set(individual.id, rects);
       }
     }
 
@@ -401,6 +391,7 @@ export function drawIndividuals(ctx: DrawContext) {
       const childY =
         componentsStartY +
         index * (componentHeight + systemLayout.componentGap);
+      rowYMap.set(component.id, childY);
       let spans = getSpans(component, childY, componentHeight);
       let span = spans[0]; // Components are not split
 
@@ -446,8 +437,8 @@ export function drawIndividuals(ctx: DrawContext) {
       // Sort by Y position so parent systems (lower Y) are drawn before
       // their contained components (higher Y).  This ensures the system's
       // white background doesn't cover its children in SVG z-order.
-      const aY = layout.get(a.id)?.[0]?.y ?? 0;
-      const bY = layout.get(b.id)?.[0]?.y ?? 0;
+      const aY = rowYMap.get(a.id) ?? 0;
+      const bY = rowYMap.get(b.id) ?? 0;
       return aY - bY;
     });
 
@@ -480,8 +471,7 @@ export function drawIndividuals(ctx: DrawContext) {
         : config.presentation.individual.fill
     )
     .attr("data-row-y", (d: Individual) => {
-         const spans = layout.get(d.id);
-         return spans && spans.length > 0 ? spans[0].y : 0;
+         return rowYMap.get(d.id) ?? 0;
     });
 
   // Draw dashed row-shaped outlines in installation gaps so geometry matches
@@ -604,6 +594,9 @@ export function drawInstallationConnectors(ctx: DrawContext) {
     if (!indNode) return;
 
     const indBox = indNode.getBBox();
+    const rowYAttr = Number(indNode.getAttribute("data-row-y") ?? "NaN");
+    const lowerTopBase = Number.isFinite(rowYAttr) ? rowYAttr : indBox.y;
+    const lowerHeight = indBox.height > 0 ? indBox.height : config.layout.individual.height;
     const periods = getInstallationPeriods(ind);
     periods.forEach((period, index) => {
       const target = individualsById.get(period.systemComponentId);
@@ -628,8 +621,8 @@ export function drawInstallationConnectors(ctx: DrawContext) {
       const x1 = timeToX(visibleStart);
       const x2 = timeToX(visibleEnd);
 
-      const lowerTop = indBox.y;
-      const lowerBottom = indBox.y + indBox.height;
+      const lowerTop = lowerTopBase;
+      const lowerBottom = lowerTopBase + lowerHeight;
       const upperTop = targetBox.y;
       const upperBottom = targetBox.y + targetBox.height;
 

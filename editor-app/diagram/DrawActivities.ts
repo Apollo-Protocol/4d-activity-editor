@@ -1,5 +1,6 @@
 import { MouseEvent } from "react";
 import { Activity, Individual, Participation } from "@/lib/Schema";
+import { Model } from "@/lib/Model";
 import {
   DrawContext,
   Label,
@@ -9,15 +10,51 @@ import {
 import { ENTITY_TYPE_IDS, getEntityTypeIdFromIndividual } from "@/lib/entityTypes";
 import { ConfigData } from "./config";
 import { activity } from "@apollo-protocol/hqdm-lib";
-import { getActiveInstallationForActivity } from "@/utils/installations";
+import {
+  getActiveInstallationForActivity,
+  getInstallationPeriods,
+} from "@/utils/installations";
 
 let mouseOverElement: any | null = null;
 
 export function drawActivities(ctx: DrawContext) {
   const { config, svgElement, activities, individuals, dataset } = ctx;
 
-  let startOfTime = Math.min(...activities.map((a) => a.beginning));
-  let endOfTime = Math.max(...activities.map((a) => a.ending));
+  if (activities.length === 0) {
+    return svgElement;
+  }
+
+  const activityTimes = activities
+    .flatMap((a) => [a.beginning, a.ending])
+    .filter((t) => Number.isFinite(t) && t !== -1 && t < Model.END_OF_TIME);
+  const individualTimes = individuals
+    .flatMap((i) => [i.beginning, i.ending])
+    .filter((t) => Number.isFinite(t) && t !== -1 && t < Model.END_OF_TIME);
+
+  const installationTimes = individuals
+    .flatMap((individual) =>
+      getInstallationPeriods(individual).flatMap((period) => [
+        period.beginning,
+        period.ending,
+      ])
+    )
+    .filter((t) => Number.isFinite(t) && t >= 0 && t < Model.END_OF_TIME);
+
+  const allTimes = [...activityTimes, ...individualTimes, ...installationTimes];
+  let startOfTime = 0;
+  let endOfTime = 1;
+  if (allTimes.length > 0) {
+    startOfTime = Math.min(0, ...allTimes);
+    endOfTime = Math.max(...allTimes);
+    const duration = endOfTime - startOfTime;
+    if (duration > 0) {
+      endOfTime += duration * 0.02; // 2% buffer for ribbons and chevrons
+    }
+  }
+  if (endOfTime <= startOfTime) {
+    endOfTime = startOfTime + 1;
+  }
+
   let duration = endOfTime - startOfTime;
   let totalLeftMargin =
     config.viewPort.x * config.viewPort.zoom -

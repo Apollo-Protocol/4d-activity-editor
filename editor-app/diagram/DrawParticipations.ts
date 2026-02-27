@@ -18,6 +18,7 @@ export function drawParticipations(ctx: DrawContext) {
         box,
         activityId: a.id,
         individualId: p.individualId,
+        rowId: box.rowId,
         participation: p,
       });
     });
@@ -29,6 +30,9 @@ export function drawParticipations(ctx: DrawContext) {
     .join("rect")
     .attr("class", "participation")
     .attr("id", (p: any) => "p" + p.activityId + p.individualId)
+    .attr("data-individual-id", (p: any) => p.individualId)
+    .attr("data-row-id", (p: any) => p.rowId)
+    .attr("data-activity-id", (p: any) => p.activityId)
     .attr("x", (d: any) => d.box.x)
     .attr("y", (d: any) => d.box.y)
     .attr("width", (d: any) => d.box.width)
@@ -155,5 +159,6 @@ function getPositionOfParticipation(
     y: y,
     width: clippedRight - clippedX,
     height: height,
+    rowId: drawRowId,
   };
 }

@@ -322,6 +322,60 @@ L ${sideX} ${lowerTop} Z`;
         });
     };
 
+    const updateLinkedParticipations = (entityId: string, offset: number) => {
+      const t = offset === 0 ? null : `translate(0, ${offset})`;
+      svg
+        .selectAll<SVGRectElement, unknown>(".participation")
+        .filter(function () {
+          return (this as SVGElement).getAttribute("data-row-id") === entityId;
+        })
+        .attr("transform", t);
+    };
+
+    const updateLinkedActivities = () => {
+      svg.selectAll<SVGRectElement, unknown>(".activity").each(function () {
+        const activityNode = this as SVGRectElement;
+        const activityId = activityNode.id.substring(1); // remove 'a'
+        
+        let minTop = Infinity;
+        let maxBottom = -Infinity;
+        
+        svg.selectAll<SVGRectElement, unknown>(".participation")
+          .filter(function () {
+            return (this as SVGElement).getAttribute("data-activity-id") === activityId;
+          })
+          .each(function () {
+            const partNode = this as SVGRectElement;
+            const y = Number(partNode.getAttribute("y"));
+            const height = Number(partNode.getAttribute("height"));
+            
+            // Get the transform offset of this participation
+            const t = partNode.getAttribute("transform");
+            let offset = 0;
+            if (t) {
+              const m = t.match(/translate\(\s*[\d.eE+-]+\s*,\s*([\d.eE+-]+)\s*\)/);
+              if (m) offset = Number(m[1]);
+            }
+            
+            const actualTop = y + offset;
+            const actualBottom = y + height + offset;
+            
+            if (actualTop < minTop) minTop = actualTop;
+            if (actualBottom > maxBottom) maxBottom = actualBottom;
+          });
+          
+        if (minTop !== Infinity && maxBottom !== -Infinity) {
+          const gap = configData.layout.individual.gap;
+          const newY = minTop - gap * 0.3;
+          const newHeight = maxBottom - minTop + gap * 0.6;
+          
+          d3.select(activityNode)
+            .attr("y", newY)
+            .attr("height", newHeight);
+        }
+      });
+    };
+
     // ── Snapshot types ──
     // Top-level snapshot: systems are treated as groups (system + its components).
     // Nested system components are NOT separate entries in topLevelSnapshot;
@@ -351,6 +405,14 @@ L ${sideX} ${lowerTop} Z`;
           .transition()
           .duration(50)
           .attr("transform", t);
+        svg
+          .selectAll<SVGRectElement, unknown>(".participation")
+          .filter(function () {
+            return (this as SVGElement).getAttribute("data-row-id") === id;
+          })
+          .transition()
+          .duration(50)
+          .attr("transform", t);
       } else {
         svg.select(`#i${id}`).attr("transform", t);
         svg.select(`#il${id}`).attr("transform", t);
@@ -360,9 +422,20 @@ L ${sideX} ${lowerTop} Z`;
             return (this as SVGElement).getAttribute("data-individual-id") === id;
           })
           .attr("transform", t);
+        svg
+          .selectAll<SVGRectElement, unknown>(".participation")
+          .filter(function () {
+            return (this as SVGElement).getAttribute("data-row-id") === id;
+          })
+          .attr("transform", t);
       }
       updateLinkedHatches(id, dy);
       updateLinkedRibbons(id, dy);
+      
+      // We need to update activities after the transition starts, but for simplicity
+      // we can just update them immediately. The transition might make it look slightly out of sync,
+      // but it's better than not updating.
+      updateLinkedActivities();
     };
 
     /** Shift a top-level row and, if it's a system, all its components */
@@ -383,6 +456,13 @@ L ${sideX} ${lowerTop} Z`;
           })
           .interrupt()
           .attr("transform", null);
+        svg
+          .selectAll<SVGRectElement, unknown>(".participation")
+          .filter(function () {
+            return (this as SVGElement).getAttribute("data-row-id") === snap.id;
+          })
+          .interrupt()
+          .attr("transform", null);
         updateLinkedHatches(snap.id, 0);
       });
       // Second pass: reset all ribbon paths (after all transforms are cleared,
@@ -390,6 +470,8 @@ L ${sideX} ${lowerTop} Z`;
       dragSnapshot.forEach((snap) => {
         updateLinkedRibbons(snap.id, 0);
       });
+      // Third pass: reset all activities
+      updateLinkedActivities();
     };
 
     // ── Drag behavior ──
@@ -444,6 +526,9 @@ L ${sideX} ${lowerTop} Z`;
                 || node.getAttribute("data-target-id") === id;
             })
             .raise();
+          // Raise activities and participations so they stay on top
+          svg.selectAll(".activity").raise();
+          svg.selectAll(".participation").raise();
         };
 
         // Raise dragged element (and components) above everything for z-order
@@ -479,6 +564,7 @@ L ${sideX} ${lowerTop} Z`;
           .attr("transform", `translate(0, ${nextOffset})`);
         updateLinkedHatches(draggedIndividual.id, nextOffset);
         updateLinkedRibbons(draggedIndividual.id, nextOffset);
+        updateLinkedParticipations(draggedIndividual.id, nextOffset);
 
         // If dragging a system, also move its components
         if (isSystem) {
@@ -486,10 +572,19 @@ L ${sideX} ${lowerTop} Z`;
           compIds.forEach((cid) => {
             svg.select(`#i${cid}`).attr("transform", `translate(0, ${nextOffset})`);
             updateLinkedLabel(cid, nextOffset);
+            svg
+              .selectAll<SVGPathElement, unknown>(".installDash")
+              .filter(function () {
+                return (this as SVGElement).getAttribute("data-individual-id") === cid;
+              })
+              .attr("transform", `translate(0, ${nextOffset})`);
             updateLinkedHatches(cid, nextOffset);
             updateLinkedRibbons(cid, nextOffset);
+            updateLinkedParticipations(cid, nextOffset);
           });
         }
+        
+        updateLinkedActivities();
 
         // ── Choose working set based on what's being dragged ──
         if (isDraggedComponent) {

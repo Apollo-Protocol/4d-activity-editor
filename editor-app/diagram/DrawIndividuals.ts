@@ -1,5 +1,6 @@
 import { MouseEvent } from "react";
 import { Activity, Individual } from "@/lib/Schema";
+import { Model } from "@/lib/Model";
 import {
   ENTITY_TYPE_IDS,
   getEntityTypeGlyph,
@@ -96,14 +97,44 @@ const getInstallDepth = (
 export function drawIndividuals(ctx: DrawContext) {
   const { config, svgElement, individuals, activities } = ctx;
   const systemLayout = getSystemLayout(config);
+  const isOpenEnd = (value: number) => value === -1 || value >= Model.END_OF_TIME;
 
   const individualsById = new Map(
     individuals.map((individual) => [individual.id, individual])
   );
 
-  let startOfTime = Math.min(...activities.map((a) => a.beginning));
-  let endOfTime = Math.max(...activities.map((a) => a.ending));
-  let duration = Math.max(1, endOfTime - startOfTime);
+  const activityTimes = activities
+    .flatMap((a) => [a.beginning, a.ending])
+    .filter((t) => Number.isFinite(t) && t !== -1 && t < Model.END_OF_TIME);
+  const individualTimes = individuals
+    .flatMap((i) => [i.beginning, i.ending])
+    .filter((t) => Number.isFinite(t) && t !== -1 && t < Model.END_OF_TIME);
+
+  const installationTimes = individuals
+    .flatMap((individual) =>
+      getInstallationPeriods(individual).flatMap((period) => [
+        period.beginning,
+        period.ending,
+      ])
+    )
+    .filter((t) => Number.isFinite(t) && t >= 0 && t < Model.END_OF_TIME);
+
+  const allTimes = [...activityTimes, ...individualTimes, ...installationTimes];
+  let startOfTime = 0;
+  let endOfTime = 1;
+  if (allTimes.length > 0) {
+    startOfTime = Math.min(0, ...allTimes);
+    endOfTime = Math.max(...allTimes);
+    const duration = endOfTime - startOfTime;
+    if (duration > 0) {
+      endOfTime += duration * 0.02; // 2% buffer for ribbons and chevrons
+    }
+  }
+  if (endOfTime <= startOfTime) {
+    endOfTime = startOfTime + 1;
+  }
+
+  let duration = endOfTime - startOfTime;
   let totalLeftMargin =
     config.viewPort.x * config.viewPort.zoom -
     config.layout.individual.xMargin * 2;
@@ -169,7 +200,7 @@ export function drawIndividuals(ctx: DrawContext) {
       // For Individual: usually defined start/end
       
       const infPast = tStart === -1; 
-      const infFuture = tEnd === -1; // Unless specific meaning?
+      const infFuture = isOpenEnd(tEnd); // blank end / END_OF_TIME is open-ended
 
       // Determine visible range
       // If infPast, we start from left edge (start=false)
@@ -230,7 +261,7 @@ export function drawIndividuals(ctx: DrawContext) {
 
       // Work in effective space: -1 → ±Infinity
       const effStart = individual.beginning === -1 ? -Infinity : individual.beginning;
-      const effEnd = individual.ending === -1 ? Infinity : individual.ending;
+      const effEnd = isOpenEnd(individual.ending) ? Infinity : individual.ending;
 
       const toRaw = (v: number) => !Number.isFinite(v) ? -1 : v;
       const spans: Span[] = [];
@@ -401,27 +432,24 @@ export function drawIndividuals(ctx: DrawContext) {
         const hostSpan = hostSpans[0]; // Host is not split
         const strokePad = (Number(config.presentation.individual.strokeWidth) || 1) / 2;
         const hostStart = individual.beginning === -1 ? -Infinity : individual.beginning;
-        const hostEnd = individual.ending === -1 ? Infinity : individual.ending;
+        const hostEnd = isOpenEnd(individual.ending) ? Infinity : individual.ending;
         const componentStart = component.beginning === -1 ? -Infinity : component.beginning;
-        const componentEnd = component.ending === -1 ? Infinity : component.ending;
-        const reachesHostStart = componentStart <= hostStart;
-        const reachesHostEnd = componentEnd >= hostEnd;
+        const componentEnd = isOpenEnd(component.ending) ? Infinity : component.ending;
+        const reachesHostStart = componentStart < hostStart;
+        const alignsHostStart = componentStart <= hostStart;
+        const reachesHostEnd = componentEnd > hostEnd;
+        const alignsHostEnd = componentEnd >= hostEnd;
         const hasOpenStart =
-          component.beginning === -1 || component.beginning <= startOfTime || reachesHostStart;
+          component.beginning === -1 || component.beginning < startOfTime || reachesHostStart;
         const hasOpenEnd =
-          component.ending === -1 || component.ending >= endOfTime || reachesHostEnd;
+          isOpenEnd(component.ending) || component.ending > endOfTime || reachesHostEnd;
 
         // Ensure path ends reflect openness after host-bound clamping.
         span.start = !hasOpenStart;
         span.stop = !hasOpenEnd;
 
-        const minX =
-          hostSpan.x + (hasOpenStart ? 0 : systemLayout.horizontalInset) + strokePad;
-        const maxRight =
-          hostSpan.x +
-          hostSpan.w -
-          (hasOpenEnd ? 0 : systemLayout.horizontalInset) -
-          strokePad;
+        const minX = hostSpan.x + strokePad;
+        const maxRight = hostSpan.x + hostSpan.w - strokePad;
 
         // ensure left edge is not outside host (include stroke padding)
         if (span.x < minX) {
@@ -520,8 +548,6 @@ export function drawIndividuals(ctx: DrawContext) {
 export function drawInstallationConnectors(ctx: DrawContext) {
   const { config, svgElement, individuals, activities } = ctx;
 
-  if (activities.length === 0) return;
-
   svgElement
     .selectAll(".installHatch,.installConnectorRibbon")
     .remove();
@@ -530,8 +556,37 @@ export function drawInstallationConnectors(ctx: DrawContext) {
     individuals.map((ind) => [ind.id, ind])
   );
 
-  let startOfTime = Math.min(...activities.map((a) => a.beginning));
-  let endOfTime = Math.max(...activities.map((a) => a.ending));
+  const activityTimes = activities
+    .flatMap((a) => [a.beginning, a.ending])
+    .filter((t) => Number.isFinite(t) && t !== -1 && t < Model.END_OF_TIME);
+  const individualTimes = individuals
+    .flatMap((i) => [i.beginning, i.ending])
+    .filter((t) => Number.isFinite(t) && t !== -1 && t < Model.END_OF_TIME);
+
+  const installationTimes = individuals
+    .flatMap((individual) =>
+      getInstallationPeriods(individual).flatMap((period) => [
+        period.beginning,
+        period.ending,
+      ])
+    )
+    .filter((t) => Number.isFinite(t) && t >= 0 && t < Model.END_OF_TIME);
+
+  const allTimes = [...activityTimes, ...individualTimes, ...installationTimes];
+  let startOfTime = 0;
+  let endOfTime = 1;
+  if (allTimes.length > 0) {
+    startOfTime = Math.min(0, ...allTimes);
+    endOfTime = Math.max(...allTimes);
+    const duration = endOfTime - startOfTime;
+    if (duration > 0) {
+      endOfTime += duration * 0.02; // 2% buffer for ribbons and chevrons
+    }
+  }
+  if (endOfTime <= startOfTime) {
+    endOfTime = startOfTime + 1;
+  }
+
   let totalLeftMargin =
     config.viewPort.x * config.viewPort.zoom -
     config.layout.individual.xMargin * 2;
@@ -623,14 +678,15 @@ export function drawInstallationConnectors(ctx: DrawContext) {
 
       const targetBox = targetNode.getBBox();
       const installStart = period.beginning;
-      const installEnd = period.ending;
+      const isOpenEnd = (value: number) => value === -1 || value >= Model.END_OF_TIME;
+      const installEnd = isOpenEnd(period.ending) ? Infinity : period.ending;
       const visibleStart = Math.max(installStart, startOfTime);
       const visibleEnd = Math.min(installEnd, endOfTime);
 
       if (visibleEnd <= visibleStart) return;
 
       const x1 = timeToX(visibleStart);
-      const x2 = timeToX(visibleEnd);
+      const x2 = isOpenEnd(period.ending) ? timeToX(endOfTime) + config.layout.individual.temporalMargin : timeToX(visibleEnd);
 
       const lowerTop = lowerTopBase;
       const lowerBottom = lowerTopBase + lowerHeight;
@@ -668,7 +724,7 @@ export function drawInstallationConnectors(ctx: DrawContext) {
       const startLiftDx = INSTALL_RIBBON_RUN_PX;
       const endDropDx = INSTALL_RIBBON_RUN_PX;
 
-      if (installStart >= startOfTime) {
+      if (installStart >= startOfTime || installStart === 0) {
         const pathData = `M ${x1 - startLiftDx} ${lowerTop}
 L ${x1 - startLiftDx} ${lowerBottom}
 L ${x1} ${upperBottom}
@@ -693,7 +749,7 @@ L ${x1} ${upperTop} Z`;
           .attr("data-target-id", target.id);
       }
 
-      if (installEnd <= endOfTime) {
+      if (installEnd <= endOfTime && !isOpenEnd(period.ending)) {
         const pathData = `M ${x2} ${upperTop}
 L ${x2} ${upperBottom}
 L ${x2 + endDropDx} ${lowerBottom}

@@ -2,6 +2,8 @@ export interface ConfigData {
   viewPort: {
     zoom: number;
     x: number;
+    minTimelineSpan: number;
+    timelineBuffer: number;
   };
   layout: {
     individual: {
@@ -78,6 +80,8 @@ export const config: ConfigData = {
   viewPort: {
     zoom: 1,
     x: 1000,
+    minTimelineSpan: 11,
+    timelineBuffer: 2,
   },
   layout: {
     individual: {

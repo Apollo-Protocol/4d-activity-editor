@@ -127,11 +127,19 @@ export function drawIndividuals(ctx: DrawContext) {
     endOfTime = Math.max(...allTimes);
     const duration = endOfTime - startOfTime;
     if (duration > 0) {
-      endOfTime += duration * 0.02; // 2% buffer for ribbons and chevrons
+      const bufferPct = (config.viewPort.timelineBuffer ?? 2) / 100;
+      endOfTime += duration * bufferPct; // configurable buffer for ribbons and chevrons
     }
   }
   if (endOfTime <= startOfTime) {
     endOfTime = startOfTime + 1;
+  }
+
+  // Enforce minimum timeline span (configurable) so small ranges don't
+  // stretch to fill the entire diagram width.
+  const minSpan = config.viewPort.minTimelineSpan ?? 11;
+  if (minSpan > 0 && endOfTime - startOfTime < minSpan) {
+    endOfTime = startOfTime + minSpan;
   }
 
   let duration = endOfTime - startOfTime;
@@ -580,11 +588,18 @@ export function drawInstallationConnectors(ctx: DrawContext) {
     endOfTime = Math.max(...allTimes);
     const duration = endOfTime - startOfTime;
     if (duration > 0) {
-      endOfTime += duration * 0.02; // 2% buffer for ribbons and chevrons
+      const bufferPct = (config.viewPort.timelineBuffer ?? 2) / 100;
+      endOfTime += duration * bufferPct; // configurable buffer for ribbons and chevrons
     }
   }
   if (endOfTime <= startOfTime) {
     endOfTime = startOfTime + 1;
+  }
+
+  // Enforce minimum timeline span (configurable)
+  const minSpan2 = config.viewPort.minTimelineSpan ?? 11;
+  if (minSpan2 > 0 && endOfTime - startOfTime < minSpan2) {
+    endOfTime = startOfTime + minSpan2;
   }
 
   let totalLeftMargin =

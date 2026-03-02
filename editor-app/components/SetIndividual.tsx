@@ -59,6 +59,39 @@ type PendingBoundsChange = {
   action: "trim" | "drop";
 };
 
+type AffectedComponent = {
+  id: string;
+  name: string;
+  fromBeginning: number;
+  fromEnding: number;
+  toBeginning?: number;
+  toEnding?: number;
+  action: "trim" | "drop";
+};
+
+type AffectedInstallation = {
+  periodId: string;
+  individualId: string;
+  individualName: string;
+  systemComponentId: string;
+  systemComponentName: string;
+  fromBeginning: number;
+  fromEnding: number;
+  toBeginning?: number;
+  toEnding?: number;
+  action: "trim" | "drop";
+};
+
+type CascadeWarning = {
+  entityName: string;
+  affectedComponents: AffectedComponent[];
+  affectedInstallations: AffectedInstallation[];
+  pendingIndividual: Individual;
+  /** Pre-computed model updater that applies the chosen action (trim or remove) */
+  applyTrim: () => void;
+  applyRemove: () => void;
+};
+
 const EMPTY_BEGINNING = "";
 const EMPTY_ENDING = "";
 
@@ -117,6 +150,9 @@ const SetIndividual = (props: Props) => {
   const [pendingTrimCount, setPendingTrimCount] = useState(0);
   const [pendingDroppedCount, setPendingDroppedCount] = useState(0);
   const [pendingBoundsChanges, setPendingBoundsChanges] = useState<PendingBoundsChange[]>([]);
+
+  const [showCascadeWarningModal, setShowCascadeWarningModal] = useState(false);
+  const [cascadeWarning, setCascadeWarning] = useState<CascadeWarning | null>(null);
 
   const isEditMode = !!selectedIndividual;
   const selectedEntityTypeId = getEntityTypeIdFromIndividual(inputs);
@@ -211,6 +247,8 @@ const SetIndividual = (props: Props) => {
     setPendingTrimCount(0);
     setPendingDroppedCount(0);
     setPendingBoundsChanges([]);
+    setShowCascadeWarningModal(false);
+    setCascadeWarning(null);
     
     setTypeOpen(false);
     setTypeSearch("");
@@ -475,6 +513,7 @@ const SetIndividual = (props: Props) => {
           runningErrors.push("System Component can only be installed into a System");
         } else {
           const parentStart = normalizeStart(parentSystem.beginning);
+          const parentEnd = normalizeEnd(parentSystem.ending);
           const ownStart = normalizeStart(inputs.beginning);
           const ownEnd = normalizeEnd(inputs.ending);
 
@@ -599,6 +638,388 @@ const SetIndividual = (props: Props) => {
       };
       if (selectedEntityTypeId !== ENTITY_TYPE_IDS.SYSTEM_COMPONENT) {
         next.installedIn = undefined;
+      }
+
+      // --- Cascade detection for SYSTEM and SYSTEM_COMPONENT ---
+      const newStart = normalizeStart(next.beginning);
+      const newEnd = normalizeEnd(next.ending);
+
+      if (
+        selectedEntityTypeId === ENTITY_TYPE_IDS.SYSTEM &&
+        isEditMode
+      ) {
+        const affectedComps: AffectedComponent[] = [];
+        const affectedInstalls: AffectedInstallation[] = [];
+
+        // Find child system components whose bounds exceed the new system bounds
+        const childComponents = Array.from(dataset.individuals.values()).filter(
+          (ind) =>
+            ind.installedIn === next.id &&
+            getEntityTypeIdFromIndividual(ind) === ENTITY_TYPE_IDS.SYSTEM_COMPONENT
+        );
+
+        for (const comp of childComponents) {
+          const compStart = normalizeStart(comp.beginning);
+          const compEnd = normalizeEnd(comp.ending);
+
+          const clampedStart = Math.max(compStart, newStart);
+          const clampedEnd = Math.min(compEnd, newEnd);
+
+          // Preserve original raw values when the normalized value didn't change
+          // e.g. beginning:-1 (infinite past) normalizes to 0, so if clamped to 0
+          // we keep -1 to preserve the visual open-start rendering.
+          const rawClampedStart = clampedStart === compStart ? comp.beginning : clampedStart;
+          const rawClampedEnd = clampedEnd === compEnd ? comp.ending : clampedEnd;
+
+          if (clampedEnd <= clampedStart) {
+            // Component falls entirely outside new bounds
+            affectedComps.push({
+              id: comp.id,
+              name: comp.name,
+              fromBeginning: comp.beginning,
+              fromEnding: comp.ending,
+              action: "drop",
+            });
+
+            // All installations referencing this component are also dropped
+            for (const ind of Array.from(dataset.individuals.values())) {
+              const periods = getInstallationPeriods(ind);
+              for (const p of periods) {
+                if (p.systemComponentId === comp.id) {
+                  affectedInstalls.push({
+                    periodId: p.id,
+                    individualId: ind.id,
+                    individualName: ind.name,
+                    systemComponentId: comp.id,
+                    systemComponentName: comp.name,
+                    fromBeginning: p.beginning,
+                    fromEnding: p.ending,
+                    action: "drop",
+                  });
+                }
+              }
+            }
+          } else {
+            const compTrimmed = clampedStart !== compStart || clampedEnd !== compEnd;
+            if (compTrimmed) {
+              affectedComps.push({
+                id: comp.id,
+                name: comp.name,
+                fromBeginning: comp.beginning,
+                fromEnding: comp.ending,
+                toBeginning: rawClampedStart,
+                toEnding: rawClampedEnd,
+                action: "trim",
+              });
+            }
+
+            // Check installations referencing this component
+            // They are clamped to the trimmed component bounds (or original if not trimmed)
+            const effectiveCompStart = compTrimmed ? clampedStart : compStart;
+            const effectiveCompEnd = compTrimmed ? clampedEnd : compEnd;
+
+            for (const ind of Array.from(dataset.individuals.values())) {
+              const periods = getInstallationPeriods(ind);
+              for (const p of periods) {
+                if (p.systemComponentId === comp.id) {
+                  const pStart = Math.max(p.beginning, effectiveCompStart);
+                  const pEnd = Math.min(p.ending, effectiveCompEnd);
+
+                  if (pEnd <= pStart) {
+                    affectedInstalls.push({
+                      periodId: p.id,
+                      individualId: ind.id,
+                      individualName: ind.name,
+                      systemComponentId: comp.id,
+                      systemComponentName: comp.name,
+                      fromBeginning: p.beginning,
+                      fromEnding: p.ending,
+                      action: "drop",
+                    });
+                  } else if (pStart !== p.beginning || pEnd !== p.ending) {
+                    affectedInstalls.push({
+                      periodId: p.id,
+                      individualId: ind.id,
+                      individualName: ind.name,
+                      systemComponentId: comp.id,
+                      systemComponentName: comp.name,
+                      fromBeginning: p.beginning,
+                      fromEnding: p.ending,
+                      toBeginning: pStart,
+                      toEnding: pEnd,
+                      action: "trim",
+                    });
+                  }
+                }
+              }
+            }
+          }
+        }
+
+        if (affectedComps.length > 0 || affectedInstalls.length > 0) {
+          const pending = { ...next };
+          setCascadeWarning({
+            entityName: next.name,
+            affectedComponents: affectedComps,
+            affectedInstallations: affectedInstalls,
+            pendingIndividual: pending,
+            applyTrim: () => {
+              // Do everything in one atomic updateDataset call
+              updateDataset((d: Model) => {
+                // Save the system itself
+                d.addIndividual(pending);
+
+                // Trim or drop affected components
+                for (const ac of affectedComps) {
+                  const comp = d.individuals.get(ac.id);
+                  if (!comp) continue;
+                  if (ac.action === "trim" && ac.toBeginning !== undefined && ac.toEnding !== undefined) {
+                    // Update bounds directly — do NOT call syncLegacyInstallationFields
+                    // because it would wipe `installedIn` (the parent system reference).
+                    d.addIndividual({
+                      ...comp,
+                      beginning: ac.toBeginning,
+                      ending: ac.toEnding,
+                    });
+                  }
+                  if (ac.action === "drop") {
+                    d.individuals.delete(ac.id);
+                  }
+                }
+
+                // Trim affected installations on the individuals that own them
+                const installsByIndividual = new Map<string, AffectedInstallation[]>();
+                for (const ai of affectedInstalls) {
+                  const list = installsByIndividual.get(ai.individualId) ?? [];
+                  list.push(ai);
+                  installsByIndividual.set(ai.individualId, list);
+                }
+
+                Array.from(installsByIndividual.entries()).forEach(([indId, affectedPeriods]) => {
+                  const ind = d.individuals.get(indId);
+                  if (!ind) return;
+                  const droppedCompIds = new Set(
+                    affectedComps.filter((c) => c.action === "drop").map((c) => c.id)
+                  );
+                  let periods = getInstallationPeriods(ind)
+                    // Remove periods for dropped components
+                    .filter((p) => !droppedCompIds.has(p.systemComponentId));
+
+                  periods = periods.map((p) => {
+                    const match = affectedPeriods.find((a: AffectedInstallation) => a.periodId === p.id);
+                    if (match && match.action === "trim" && match.toBeginning !== undefined && match.toEnding !== undefined) {
+                      return { ...p, beginning: match.toBeginning, ending: match.toEnding };
+                    }
+                    // Drop periods that would be removed
+                    if (match && match.action === "drop") return null;
+                    return p;
+                  }).filter((p): p is InstallationPeriod => !!p);
+
+                  d.addIndividual(syncLegacyInstallationFields({
+                    ...ind,
+                    installedIn: undefined,
+                    installedBeginning: undefined,
+                    installedEnding: undefined,
+                    installations: periods,
+                  }));
+                });
+
+                return d;
+              });
+
+              setShowCascadeWarningModal(false);
+              setCascadeWarning(null);
+              handleClose();
+            },
+            applyRemove: () => {
+              updateDataset((d: Model) => {
+                // Save the system itself
+                d.addIndividual(pending);
+
+                // Remove dropped components entirely
+                const droppedCompIds = new Set(
+                  affectedComps.filter((c) => c.action === "drop").map((c) => c.id)
+                );
+                Array.from(droppedCompIds).forEach((compId) => {
+                  d.individuals.delete(compId);
+                });
+
+                // Remove ALL affected installations (both trimmed and dropped)
+                const installsToRemove = new Set(affectedInstalls.map((ai) => ai.periodId));
+
+                // Also any installations referencing dropped components
+                for (const ind of Array.from(d.individuals.values())) {
+                  const periods = getInstallationPeriods(ind);
+                  const hasAffected = periods.some(
+                    (p) => installsToRemove.has(p.id) || droppedCompIds.has(p.systemComponentId)
+                  );
+                  if (hasAffected) {
+                    const kept = periods.filter(
+                      (p) => !installsToRemove.has(p.id) && !droppedCompIds.has(p.systemComponentId)
+                    );
+                    d.addIndividual(syncLegacyInstallationFields({
+                      ...ind,
+                      installedIn: undefined,
+                      installedBeginning: undefined,
+                      installedEnding: undefined,
+                      installations: kept,
+                    }));
+                  }
+                }
+
+                return d;
+              });
+
+              setShowCascadeWarningModal(false);
+              setCascadeWarning(null);
+              handleClose();
+            },
+          });
+          setShowCascadeWarningModal(true);
+          return;
+        }
+      }
+
+      if (
+        selectedEntityTypeId === ENTITY_TYPE_IDS.SYSTEM_COMPONENT &&
+        isEditMode
+      ) {
+        // Compute effective bounds: intersection of component bounds and parent system bounds
+        let effectiveStart = newStart;
+        let effectiveEnd = newEnd;
+        if (next.installedIn) {
+          const parentSystem = dataset.individuals.get(next.installedIn);
+          if (parentSystem && getEntityTypeIdFromIndividual(parentSystem) === ENTITY_TYPE_IDS.SYSTEM) {
+            effectiveStart = Math.max(effectiveStart, normalizeStart(parentSystem.beginning));
+            effectiveEnd = Math.min(effectiveEnd, normalizeEnd(parentSystem.ending));
+          }
+        }
+
+        const affectedInstalls: AffectedInstallation[] = [];
+
+        // Find all installations across all individuals that reference this component
+        for (const ind of Array.from(dataset.individuals.values())) {
+          const periods = getInstallationPeriods(ind);
+          for (const p of periods) {
+            if (p.systemComponentId === next.id) {
+              const pStart = Math.max(p.beginning, effectiveStart);
+              const pEnd = Math.min(p.ending, effectiveEnd);
+
+              // Preserve raw values when normalized value didn't change
+              const rawPStart = pStart === p.beginning ? p.beginning : pStart;
+              const rawPEnd = pEnd === p.ending ? p.ending : pEnd;
+
+              if (pEnd <= pStart) {
+                affectedInstalls.push({
+                  periodId: p.id,
+                  individualId: ind.id,
+                  individualName: ind.name,
+                  systemComponentId: next.id,
+                  systemComponentName: next.name,
+                  fromBeginning: p.beginning,
+                  fromEnding: p.ending,
+                  action: "drop",
+                });
+              } else if (pStart !== p.beginning || pEnd !== p.ending) {
+                affectedInstalls.push({
+                  periodId: p.id,
+                  individualId: ind.id,
+                  individualName: ind.name,
+                  systemComponentId: next.id,
+                  systemComponentName: next.name,
+                  fromBeginning: p.beginning,
+                  fromEnding: p.ending,
+                  toBeginning: rawPStart,
+                  toEnding: rawPEnd,
+                  action: "trim",
+                });
+              }
+            }
+          }
+        }
+
+        if (affectedInstalls.length > 0) {
+          const pending = { ...next };
+          setCascadeWarning({
+            entityName: next.name,
+            affectedComponents: [],
+            affectedInstallations: affectedInstalls,
+            pendingIndividual: pending,
+            applyTrim: () => {
+              updateDataset((d: Model) => {
+                // Save the system component itself
+                d.addIndividual(pending);
+
+                // Trim affected installations
+                const installsByIndividual = new Map<string, AffectedInstallation[]>();
+                for (const ai of affectedInstalls) {
+                  const list = installsByIndividual.get(ai.individualId) ?? [];
+                  list.push(ai);
+                  installsByIndividual.set(ai.individualId, list);
+                }
+
+                Array.from(installsByIndividual.entries()).forEach(([indId, affectedPeriods]) => {
+                  const ind = d.individuals.get(indId);
+                  if (!ind) return;
+                  const periods = getInstallationPeriods(ind)
+                    .map((p) => {
+                      const match = affectedPeriods.find((a: AffectedInstallation) => a.periodId === p.id);
+                      if (match && match.action === "trim" && match.toBeginning !== undefined && match.toEnding !== undefined) {
+                        return { ...p, beginning: match.toBeginning, ending: match.toEnding };
+                      }
+                      if (match && match.action === "drop") return null;
+                      return p;
+                    })
+                    .filter((p): p is InstallationPeriod => !!p);
+                  d.addIndividual(syncLegacyInstallationFields({
+                    ...ind,
+                    installedIn: undefined,
+                    installedBeginning: undefined,
+                    installedEnding: undefined,
+                    installations: periods,
+                  }));
+                });
+
+                return d;
+              });
+
+              setShowCascadeWarningModal(false);
+              setCascadeWarning(null);
+              handleClose();
+            },
+            applyRemove: () => {
+              updateDataset((d: Model) => {
+                // Save the system component itself
+                d.addIndividual(pending);
+
+                // Remove all affected installations
+                const installsToRemove = new Set(affectedInstalls.map((ai) => ai.periodId));
+                for (const ind of Array.from(d.individuals.values())) {
+                  const periods = getInstallationPeriods(ind);
+                  const hasAffected = periods.some((p) => installsToRemove.has(p.id));
+                  if (hasAffected) {
+                    const kept = periods.filter((p) => !installsToRemove.has(p.id));
+                    d.addIndividual(syncLegacyInstallationFields({
+                      ...ind,
+                      installedIn: undefined,
+                      installedBeginning: undefined,
+                      installedEnding: undefined,
+                      installations: kept,
+                    }));
+                  }
+                }
+
+                return d;
+              });
+
+              setShowCascadeWarningModal(false);
+              setCascadeWarning(null);
+              handleClose();
+            },
+          });
+          setShowCascadeWarningModal(true);
+          return;
+        }
       }
     }
 
@@ -960,7 +1381,8 @@ const SetIndividual = (props: Props) => {
         show={
           show &&
           !showInstallationsModal &&
-          !showBoundsWarningModal
+          !showBoundsWarningModal &&
+          !showCascadeWarningModal
         }
         onHide={handleModalHide}
       >
@@ -1519,6 +1941,90 @@ const SetIndividual = (props: Props) => {
           </Button>
           <Button variant="primary" onClick={confirmBoundsAdjustment}>
             Apply Bounds & Save
+          </Button>
+        </Modal.Footer>
+      </Modal>
+
+      {/* Cascade warning modal for System / System Component bounds changes */}
+      <Modal
+        show={showCascadeWarningModal}
+        onHide={() => {
+          setShowCascadeWarningModal(false);
+          setCascadeWarning(null);
+        }}
+        centered
+        size="lg"
+      >
+        <Modal.Header closeButton>
+          <Modal.Title>
+            Affected Items — {cascadeWarning?.entityName ?? "Entity"}
+          </Modal.Title>
+        </Modal.Header>
+        <Modal.Body>
+          <p>
+            Changing the bounds of <strong>{cascadeWarning?.entityName}</strong> will
+            affect the following items:
+          </p>
+
+          {cascadeWarning && cascadeWarning.affectedComponents.length > 0 && (
+            <div className="mb-3">
+              <div className="fw-semibold mb-2">System Components</div>
+              <div style={{ maxHeight: "180px", overflowY: "auto" }}>
+                {cascadeWarning.affectedComponents.map((ac) => (
+                  <div key={ac.id} className="mb-1 small">
+                    <span className="fw-semibold">{ac.name}</span>
+                    {": "}
+                    {formatBound(ac.fromBeginning, true)}-{formatBound(ac.fromEnding, false)}
+                    {ac.action === "trim"
+                      ? ` → ${formatBound(ac.toBeginning ?? ac.fromBeginning, true)}-${formatBound(ac.toEnding ?? ac.fromEnding, false)} (would be trimmed)`
+                      : " → would be removed (no overlap)"}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {cascadeWarning && cascadeWarning.affectedInstallations.length > 0 && (
+            <div className="mb-3">
+              <div className="fw-semibold mb-2">Installation Periods</div>
+              <div style={{ maxHeight: "220px", overflowY: "auto" }}>
+                {cascadeWarning.affectedInstallations.map((ai) => (
+                  <div key={ai.periodId} className="mb-1 small">
+                    <span className="fw-semibold">{ai.individualName}</span>
+                    {" installed in "}
+                    <span className="fw-semibold">{ai.systemComponentName}</span>
+                    {": "}
+                    {formatBound(ai.fromBeginning, true)}-{formatBound(ai.fromEnding, false)}
+                    {ai.action === "trim"
+                      ? ` → ${formatBound(ai.toBeginning ?? ai.fromBeginning, true)}-${formatBound(ai.toEnding ?? ai.fromEnding, false)} (would be trimmed)`
+                      : " → would be removed (no overlap)"}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </Modal.Body>
+        <Modal.Footer>
+          <Button
+            variant="secondary"
+            onClick={() => {
+              setShowCascadeWarningModal(false);
+              setCascadeWarning(null);
+            }}
+          >
+            Cancel
+          </Button>
+          <Button
+            variant="danger"
+            onClick={() => cascadeWarning?.applyRemove()}
+          >
+            Delete All Affected
+          </Button>
+          <Button
+            variant="primary"
+            onClick={() => cascadeWarning?.applyTrim()}
+          >
+            Trim to Fit
           </Button>
         </Modal.Footer>
       </Modal>

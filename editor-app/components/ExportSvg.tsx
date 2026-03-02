@@ -120,7 +120,7 @@ const ExportSvg = (props: any) => {
     title.setAttribute("font-size", "13");
     title.setAttribute("font-weight", "700");
     title.setAttribute("fill", "#222");
-    title.textContent = "Entity Types";
+    title.textContent = "Entity Legend";
     legendGroup.appendChild(title);
 
     legendItems.forEach((item, index) => {

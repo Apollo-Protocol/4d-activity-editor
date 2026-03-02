@@ -369,6 +369,17 @@ body {
   flex-shrink: 0;
 }
 
+.legend-icon {
+  display: inline-flex;
+  width: 16px;
+  height: 16px;
+  margin-right: 6px;
+  justify-content: center;
+  align-items: center;
+  flex-shrink: 0;
+  font-size: 1.1rem;
+}
+
 .legend-label {
   display: block;
   min-width: 0;

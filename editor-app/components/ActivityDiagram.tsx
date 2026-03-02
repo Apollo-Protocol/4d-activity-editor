@@ -601,6 +601,36 @@ L ${sideX} ${lowerTop} Z`;
           const draggedCenter = draggedSnap.y + draggedSnap.height / 2 + nextOffset;
           const siblings = siblingSnaps.filter((r) => r.id !== draggedIndividual.id);
 
+          // Check validity globally to show red indicator if dragged out of host
+          const closestRow = getClosestTargetRow(
+            dragSnapshot.map((s) => ({
+              id: s.id,
+              centerY: s.y + s.height / 2,
+              node: s.node,
+            })),
+            draggedIndividual.id,
+            draggedCenter
+          );
+
+          let isValidTarget = true;
+          if (closestRow) {
+            const overIndividual = dataset.individuals.get(closestRow.id);
+            isValidTarget = canReorderIndividuals(draggedIndividual, overIndividual);
+          }
+
+          svg
+            .selectAll(".individual")
+            .classed("drop-target-valid", false)
+            .classed("drop-target-invalid", false);
+
+          if (closestRow && !isValidTarget) {
+            d3.select(closestRow.node).classed("drop-target-invalid", true);
+            
+            // If dragging outside the parent system, don't displace siblings
+            siblings.forEach((snap) => shiftElement(snap.id, 0, true));
+            return;
+          }
+
           let insertIdx = siblings.length;
           for (let i = 0; i < siblings.length; i++) {
             if (draggedCenter < siblings[i].y + siblings[i].height / 2) {
@@ -608,11 +638,6 @@ L ${sideX} ${lowerTop} Z`;
               break;
             }
           }
-
-          svg
-            .selectAll(".individual")
-            .classed("drop-target-valid", false)
-            .classed("drop-target-invalid", false);
 
           const origIdx = siblingSnaps.indexOf(draggedSnap);
 
@@ -665,6 +690,10 @@ L ${sideX} ${lowerTop} Z`;
             .selectAll(".individual")
             .classed("drop-target-valid", false)
             .classed("drop-target-invalid", false);
+            
+          if (closestRow && !isValidTarget) {
+            d3.select(closestRow.node).classed("drop-target-invalid", true);
+          }
 
           const origIdx = topLevelSnapshot.indexOf(draggedSnap);
 

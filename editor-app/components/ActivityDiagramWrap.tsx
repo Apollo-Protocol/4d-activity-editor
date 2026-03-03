@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef, Dispatch } from "react";
+import { useCallback, useEffect, useState, useRef, Dispatch } from "react";
 import { config } from "@/diagram/config";
 import SetIndividual from "@/components/SetIndividual";
 import SetActivity from "@/components/SetActivity";
@@ -66,13 +66,15 @@ export default function ActivityDiagramWrap() {
     setHighlightedActivityId(null);
   }, [activityContext]);
 
-  const updateDataset = (updater: Dispatch<Model>) => {
-    setUndoHistory([dataset, ...undoHistory.slice(0, 5)]);
-    const d = dataset.clone();
-    updater(d);
-    setDataset(d);
-    setDirty(true);
-  };
+  const updateDataset = useCallback((updater: Dispatch<Model>) => {
+    setDataset((prevDataset) => {
+      setUndoHistory((prevHistory) => [prevDataset, ...prevHistory.slice(0, 5)]);
+      const d = prevDataset.clone();
+      updater(d);
+      setDirty(true);
+      return d;
+    });
+  }, []);
   /* Callers of this function must also handle the dirty flag. */
   const replaceDataset = (d: Model) => {
     setUndoHistory([]);
@@ -167,31 +169,31 @@ export default function ActivityDiagramWrap() {
     updateDataset((d: Model) => d.addActivity(activity));
   };
 
-  const clickIndividual = (i: Individual) => {
+  const clickIndividual = useCallback((i: Individual) => {
     setSelectedIndividual(i);
     setShowIndividual(true);
-  };
-  const clickActivity = (a: Activity) => {
+  }, []);
+  const clickActivity = useCallback((a: Activity) => {
     setSelectedActivity(a);
     setShowActivity(true);
-  };
-  const clickParticipation = (a: Activity, p: Participation) => {
+  }, []);
+  const clickParticipation = useCallback((a: Activity, p: Participation) => {
     setSelectedActivity(a);
     setSelectedParticipation(p);
     setShowParticipation(true);
-  };
+  }, []);
 
-  const rightClickIndividual = (i: Individual) => {
+  const rightClickIndividual = useCallback((i: Individual) => {
     console.log("Individual right clicked. Functionality can be added here.");
-  };
-  const rightClickActivity = (a: Activity) => {
+  }, []);
+  const rightClickActivity = useCallback((a: Activity) => {
     console.log("Activity right clicked. Functionality can be added here.");
-  };
-  const rightClickParticipation = (a: Activity, p: Participation) => {
+  }, []);
+  const rightClickParticipation = useCallback((a: Activity, p: Participation) => {
     console.log(
       "Participation right clicked. Functionality can be added here."
     );
-  };
+  }, []);
 
   const individualsArray: Individual[] = [];
   dataset.individuals.forEach((i: Individual) => individualsArray.push(i));
@@ -199,7 +201,7 @@ export default function ActivityDiagramWrap() {
   const activitiesArray: Activity[] = [];
   dataset.activities.forEach((a: Activity) => activitiesArray.push(a));
 
-  const reorderIndividuals = (orderedIds: string[]) => {
+  const reorderIndividuals = useCallback((orderedIds: string[]) => {
     updateDataset((d: Model) => {
       const current = Array.from(d.individuals.values());
       const byId = new Map(current.map((individual) => [individual.id, individual]));
@@ -262,7 +264,7 @@ export default function ActivityDiagramWrap() {
         d.individuals.set(individual.id, individual);
       });
     });
-  };
+  }, [updateDataset]);
 
   // Filter activities for the current context
   let activitiesInView: Activity[] = [];

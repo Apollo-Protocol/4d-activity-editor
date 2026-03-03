@@ -126,19 +126,32 @@ const SortIndividuals = (props: any) => {
         Sort Individuals
       </Button>
 
-      <Modal show={showSortIndividuals} onHide={handleClose}>
+      <Modal show={showSortIndividuals} onHide={handleClose} scrollable>
         <Modal.Header closeButton>
           <Modal.Title>Sort Individuals</Modal.Title>
         </Modal.Header>
         <Modal.Body>
-          <div style={{ maxWidth: 400, margin: "30px auto" }}>
+          <div style={{ maxWidth: 400, margin: "10px auto" }}>
             <SortableList
               items={items}
               onChange={(next) => setItems(normalizeSystemComponentGrouping(next))}
               canReorder={canReorderIndividuals}
               renderItem={(item) => (
                 <SortableList.Item id={item.id} key={item.id}>
-                  {item.name}
+                  <div
+                    style={{
+                      marginLeft:
+                        getEntityTypeIdFromIndividual(item) === ENTITY_TYPE_IDS.SYSTEM_COMPONENT
+                          ? "2rem"
+                          : "0",
+                      display: "flex",
+                      alignItems: "center",
+                    }}
+                  >
+                    <span style={{ fontWeight: getEntityTypeIdFromIndividual(item) === ENTITY_TYPE_IDS.SYSTEM ? "bold" : "normal" }}>
+                      {item.name}
+                    </span>
+                  </div>
                   <SortableList.DragHandle />
                 </SortableList.Item>
               )}

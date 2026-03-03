@@ -9,6 +9,7 @@ import {
   event,
   HQDMModel,
   HQDM_NS,
+  installed_object,
   kind_of_activity,
   kind_of_ordinary_physical_object,
   Maybe,
@@ -20,6 +21,8 @@ import {
   possible_world,
   role,
   state_of_ordinary_physical_object,
+  system,
+  system_component,
   Thing,
   utcMillisecondsClass,
 } from "@apollo-protocol/hqdm-lib";
@@ -28,6 +31,7 @@ import { Kind, Model } from "./Model";
 import { EDITOR_VERSION } from "./version";
 import { ENTITY_CATEGORY } from "./entityTypes";
 import type { EntityCategory } from "./entityTypes";
+import type { InstallationPeriod } from "./Schema";
 
 /**
  * ActivityLib
@@ -56,6 +60,9 @@ const INDIVIDUAL_ORDER_PREDICATE = `${EDITOR_NS}#individualOrder`;
 const SORT_INDEX_PREDICATE = `${EDITOR_NS}#sortIndex`;
 const INDIVIDUAL_INSTALLED_IN_PREDICATE = `${EDITOR_NS}#individualInstalledIn`;
 const INDIVIDUAL_ENTITY_TYPE_PREDICATE = `${EDITOR_NS}#individualEntityType`;
+
+// Custom predicate for system component -> system relationship
+const COMPONENT_OF_PREDICATE = `${HQDM_NS}component_of`;
 
 // A well-known ENTITY_NAME used to find the AMRC Community entity.
 const AMRC_COMMUNITY = "AMRC Community";
@@ -268,9 +275,106 @@ export const toModel = (hqdm: HQDMModel): Model => {
     addIndividualCandidate(org, organizationKind);
   });
 
+  // Handle system and system_component types.
+  hqdm.findByType(system).forEach((sys) => {
+    addIndividualCandidate(sys, organizationKind);
+  });
+
+  hqdm.findByType(system_component).forEach((comp) => {
+    addIndividualCandidate(comp, ordPhysObjKind);
+  });
+
   individualCandidates.sort((a, b) => a.order - b.order);
   individualCandidates.forEach(({ thing, kind }) => {
     addIndividual(thing, hqdm, communityName, kind, m);
+  });
+
+  // Resolve system_component -> system relationships via component_of
+  hqdm.findByType(system_component).forEach((comp) => {
+    const compId = getModelId(comp);
+    const parentSystemThing = hqdm.getRelated(comp, COMPONENT_OF_PREDICATE).first();
+    if (parentSystemThing) {
+      const parentId = getModelId(parentSystemThing);
+      const individual = m.individuals.get(compId);
+      if (individual) {
+        individual.installedIn = parentId;
+        individual.entityType = ENTITY_CATEGORY.SYSTEM_COMPONENT;
+      }
+    }
+  });
+
+  // Mark systems explicitly
+  hqdm.findByType(system).forEach((sys) => {
+    const sysId = getModelId(sys);
+    const individual = m.individuals.get(sysId);
+    if (individual) {
+      individual.entityType = ENTITY_CATEGORY.SYSTEM;
+    }
+  });
+
+  // Resolve installed_object entities into installation periods on individuals
+  hqdm.findByType(installed_object).forEach((inst) => {
+    const instId = getModelId(inst);
+    const from = hqdm.getBeginning(inst);
+    const to = hqdm.getEnding(inst);
+    if (!from || !to) return;
+
+    const beginning = getTimeValue(hqdm, from);
+    const ending = getTimeValue(hqdm, to);
+
+    // installed_object has two temporal_part_of links:
+    // one to the individual, one to the system_component
+    const temporalWholes: string[] = [];
+    // Use getRelated to find all temporal_part_of targets
+    const tpTargets = hqdm.getRelated(inst, HQDM_NS + "temporal_part_of");
+    tpTargets.forEach((target: Thing) => {
+      temporalWholes.push(getModelId(target));
+    });
+
+    // Also check getTemporalWhole (some versions store it differently)
+    const singleWhole = hqdm.getTemporalWhole(inst);
+    if (singleWhole) {
+      const wholeId = getModelId(singleWhole);
+      if (!temporalWholes.includes(wholeId)) {
+        temporalWholes.push(wholeId);
+      }
+    }
+
+    // Identify which is the individual and which is the system_component
+    let individualId: string | undefined;
+    let systemComponentId: string | undefined;
+    for (const wholeId of temporalWholes) {
+      const ind = m.individuals.get(wholeId);
+      if (!ind) continue;
+      if (ind.entityType === ENTITY_CATEGORY.SYSTEM_COMPONENT) {
+        systemComponentId = wholeId;
+      } else {
+        individualId = wholeId;
+      }
+    }
+
+    if (individualId && systemComponentId) {
+      const individual = m.individuals.get(individualId);
+      if (individual) {
+        const period: InstallationPeriod = {
+          id: instId,
+          systemComponentId,
+          beginning,
+          ending,
+        };
+        if (!individual.installations) {
+          individual.installations = [];
+        }
+        individual.installations.push(period);
+
+        // Keep legacy fields in sync with the first installation
+        if (!individual.installedIn) {
+          individual.installedIn = systemComponentId;
+          individual.installedBeginning = beginning;
+          individual.installedEnding = ending;
+        }
+      }
+    }
   });
 
   //
@@ -511,11 +615,11 @@ export const toHQDM = (model: Model): HQDMModel => {
     // Create the individual and add it to the possible world, add the name and description.
     let playerEntityType = ordinary_physical_object;
     if (i.entityType === ENTITY_CATEGORY.SYSTEM) {
-      playerEntityType = organization;
+      playerEntityType = system;
+    } else if (i.entityType === ENTITY_CATEGORY.SYSTEM_COMPONENT) {
+      playerEntityType = system_component;
     } else if (i.entityType === ENTITY_CATEGORY.INDIVIDUAL) {
       playerEntityType = person;
-    } else if (i.entityType === ENTITY_CATEGORY.SYSTEM_COMPONENT) {
-      playerEntityType = ordinary_physical_object;
     } else {
       switch (i.type?.id) {
         case person.id:
@@ -571,7 +675,36 @@ export const toHQDM = (model: Model): HQDMModel => {
       );
     }
 
-    if (i.installedIn) {
+    // For system_components, emit component_of to link to parent system
+    if (i.entityType === ENTITY_CATEGORY.SYSTEM_COMPONENT && i.installedIn) {
+      hqdm.relate(
+        COMPONENT_OF_PREDICATE,
+        player,
+        new Thing(BASE + i.installedIn)
+      );
+    }
+
+    // Emit installed_object entities for each installation period
+    if (i.installations && i.installations.length > 0 && i.entityType !== ENTITY_CATEGORY.SYSTEM && i.entityType !== ENTITY_CATEGORY.SYSTEM_COMPONENT) {
+      i.installations.forEach((period) => {
+        const installId = period.id.includes("::")
+          ? BASE + uuidv4()
+          : BASE + period.id;
+        const installThing = hqdm.createThing(installed_object, installId);
+        hqdm.addToPossibleWorld(installThing, modelWorld);
+
+        const installStart = createTimeValue(hqdm, modelWorld, period.beginning);
+        const installEnd = createTimeValue(hqdm, modelWorld, period.ending);
+        hqdm.beginning(installThing, installStart);
+        hqdm.ending(installThing, installEnd);
+
+        // temporal_part_of the individual
+        hqdm.addAsTemporalPartOf(installThing, player);
+        // temporal_part_of the system component
+        hqdm.addAsTemporalPartOf(installThing, new Thing(BASE + period.systemComponentId));
+      });
+    } else if (i.installedIn && !i.installations?.length && i.entityType !== ENTITY_CATEGORY.SYSTEM_COMPONENT) {
+      // Legacy single-installation fallback
       hqdm.relate(
         INDIVIDUAL_INSTALLED_IN_PREDICATE,
         player,
@@ -579,15 +712,10 @@ export const toHQDM = (model: Model): HQDMModel => {
       );
     }
 
-    if (i.entityType) {
-      hqdm.relate(
-        INDIVIDUAL_ENTITY_TYPE_PREDICATE,
-        player,
-        new Thing(i.entityType)
-      );
+    // Only emit member_of_kind for non-system/system_component types
+    if (i.entityType !== ENTITY_CATEGORY.SYSTEM && i.entityType !== ENTITY_CATEGORY.SYSTEM_COMPONENT) {
+      setKindFromUI(player, i.type, kind_of_ordinary_physical_object);
     }
-
-    setKindFromUI(player, i.type, kind_of_ordinary_physical_object);
   });
 
   // Add the activities to the model
@@ -752,6 +880,10 @@ const addIndividual = (thing: Thing, hqdm: HQDMModel, communityName: Thing, kind
     rawEntityType === ENTITY_CATEGORY.SYSTEM_COMPONENT
   ) {
     entityType = rawEntityType;
+  } else if (hqdm.isMemberOf(thing, system)) {
+    entityType = ENTITY_CATEGORY.SYSTEM;
+  } else if (hqdm.isMemberOf(thing, system_component)) {
+    entityType = ENTITY_CATEGORY.SYSTEM_COMPONENT;
   } else if (hqdm.isMemberOf(thing, organization)) {
     entityType = ENTITY_CATEGORY.SYSTEM;
   } else if (installedIn) {

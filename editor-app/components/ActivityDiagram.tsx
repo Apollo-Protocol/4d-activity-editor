@@ -1,11 +1,11 @@
-import { useState, useEffect, useRef, MutableRefObject, JSX, Dispatch, SetStateAction } from "react";
+import { useState, useEffect, useRef, useMemo, MutableRefObject, JSX, Dispatch, SetStateAction } from "react";
 import Breadcrumb from "react-bootstrap/Breadcrumb";
 import Button from "react-bootstrap/Button";
 import { drawActivityDiagram } from "@/diagram/DrawActivityDiagram";
 import { ConfigData } from "@/diagram/config";
 import { Model } from "@/lib/Model";
 import { Activity, Id, Individual, Maybe, Participation } from "@/lib/Schema";
-import { ENTITY_TYPE_IDS, getEntityTypeIdFromIndividual } from "@/lib/entityTypes";
+import { ENTITY_TYPE_IDS, getEntityTypeIdFromIndividual, getEntityTypeLabel } from "@/lib/entityTypes";
 import * as d3 from "d3";
 
 interface Props {
@@ -24,6 +24,7 @@ interface Props {
   hideNonParticipating?: boolean;
   highlightedActivityId?: string | null;
   onReorderIndividuals?: (orderedIds: string[]) => void;
+  renameIndividual?: (id: string, newName: string) => void;
 }
 
 const ActivityDiagram = (props: Props) => {
@@ -42,6 +43,7 @@ const ActivityDiagram = (props: Props) => {
     hideNonParticipating = false,
     highlightedActivityId,
     onReorderIndividuals,
+    renameIndividual,
   } = props;
 
   const [plot, setPlot] = useState({
@@ -50,9 +52,88 @@ const ActivityDiagram = (props: Props) => {
   });
 
   const [interactionMode, setInteractionMode] = useState<"pointer" | "zoom">("pointer");
+  const [isSearchOpen, setIsSearchOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
+
+  const searchHighlightTimerRef = useRef<number | null>(null);
+
+  const [editingEntityId, setEditingEntityId] = useState<string | null>(null);
+  const [editingEntityName, setEditingEntityName] = useState("");
+  const [highlightedSearchIndex, setHighlightedSearchIndex] = useState(-1);
+  const searchResultsRef = useRef<HTMLDivElement>(null);
 
   const zoomRef = useRef<d3.ZoomBehavior<SVGSVGElement, unknown> | null>(null);
   const zoomTransformRef = useRef(d3.zoomIdentity);
+
+  const searchableEntities = useMemo(() => {
+    return Array.from(dataset.individuals.values())
+      .map((individual) => ({
+        id: individual.id,
+        name: individual.name,
+        typeLabel: getEntityTypeLabel(individual.type, individual.installedIn, individual.entityType),
+      }));
+  }, [dataset]);
+
+  const filteredSearchResults = useMemo(() => {
+    const query = searchQuery.trim().toLowerCase();
+    if (!query) return searchableEntities;
+
+    return searchableEntities
+      .filter(
+        (entity) =>
+          entity.name.toLowerCase().includes(query) ||
+          entity.id.toLowerCase().includes(query) ||
+          entity.typeLabel.toLowerCase().includes(query)
+      )
+      .slice(0, 20);
+  }, [searchableEntities, searchQuery]);
+
+  // Reset highlighted index when results change
+  useEffect(() => {
+    setHighlightedSearchIndex(-1);
+  }, [filteredSearchResults]);
+
+  const clearSearchHighlight = () => {
+    if (!svgRef.current) return;
+    const svg = d3.select(svgRef.current);
+    svg.selectAll(".individual").classed("search-result-highlight", false);
+    svg.selectAll(".individualLabel").classed("search-result-highlight", false);
+  };
+
+  const focusEntityFromSearch = (entityId: string) => {
+    if (!svgRef.current) return;
+
+    const svg = d3.select(svgRef.current);
+    const rowNode = svg.select(`#i${entityId}`).node() as SVGGraphicsElement | null;
+    if (!rowNode) return;
+
+    const scrollContainer = document.getElementById("activity-diagram-scrollable-div");
+    if (scrollContainer) {
+      const rowRect = rowNode.getBoundingClientRect();
+      const containerRect = scrollContainer.getBoundingClientRect();
+      const rowTopInContainer = rowRect.top - containerRect.top + scrollContainer.scrollTop;
+      const rowPixelHeight = rowRect.height;
+      const targetTop = Math.max(0, rowTopInContainer - scrollContainer.clientHeight / 2 + rowPixelHeight / 2);
+      scrollContainer.scrollTo({
+        top: targetTop,
+        behavior: "smooth",
+      });
+    }
+
+    clearSearchHighlight();
+
+    svg.select(`#i${entityId}`).classed("search-result-highlight", true);
+    svg.select(`#il${entityId}`).classed("search-result-highlight", true);
+
+    if (searchHighlightTimerRef.current !== null) {
+      window.clearTimeout(searchHighlightTimerRef.current);
+    }
+
+    searchHighlightTimerRef.current = window.setTimeout(() => {
+      clearSearchHighlight();
+      searchHighlightTimerRef.current = null;
+    }, 2000);
+  };
 
   const renderConfig: ConfigData = {
     ...configData,
@@ -474,6 +555,47 @@ L ${sideX} ${lowerTop} Z`;
       updateLinkedActivities();
     };
 
+    // ── Auto-scroll during drag ──
+    const scrollContainer = document.getElementById("activity-diagram-scrollable-div");
+    const AUTO_SCROLL_EDGE = 40;   // px from edge to trigger
+    const AUTO_SCROLL_SPEED = 8;   // px per frame
+    let autoScrollRAF: number | null = null;
+
+    const autoScrollDuringDrag = (clientY: number) => {
+      if (autoScrollRAF) cancelAnimationFrame(autoScrollRAF);
+      if (!scrollContainer) return;
+      const rect = scrollContainer.getBoundingClientRect();
+      const distFromTop = clientY - rect.top;
+      const distFromBottom = rect.bottom - clientY;
+
+      const step = () => {
+        if (!scrollContainer) return;
+        const r = scrollContainer.getBoundingClientRect();
+        const dTop = clientY - r.top;
+        const dBot = r.bottom - clientY;
+        if (dTop < AUTO_SCROLL_EDGE && scrollContainer.scrollTop > 0) {
+          scrollContainer.scrollTop -= AUTO_SCROLL_SPEED;
+          autoScrollRAF = requestAnimationFrame(step);
+        } else if (dBot < AUTO_SCROLL_EDGE && scrollContainer.scrollTop < scrollContainer.scrollHeight - scrollContainer.clientHeight) {
+          scrollContainer.scrollTop += AUTO_SCROLL_SPEED;
+          autoScrollRAF = requestAnimationFrame(step);
+        } else {
+          autoScrollRAF = null;
+        }
+      };
+
+      if (distFromTop < AUTO_SCROLL_EDGE || distFromBottom < AUTO_SCROLL_EDGE) {
+        autoScrollRAF = requestAnimationFrame(step);
+      }
+    };
+
+    const stopAutoScroll = () => {
+      if (autoScrollRAF) {
+        cancelAnimationFrame(autoScrollRAF);
+        autoScrollRAF = null;
+      }
+    };
+
     // ── Drag behavior ──
     const dragBehavior = d3
       .drag<SVGPathElement, Individual>()
@@ -554,6 +676,9 @@ L ${sideX} ${lowerTop} Z`;
           .attr("data-drag-offset", String(nextOffset))
           .attr("data-was-dragged", "1")
           .attr("transform", `translate(0, ${nextOffset})`);
+
+        // Auto-scroll when near the edges of the scroll container
+        autoScrollDuringDrag(event.sourceEvent.clientY);
 
         updateLinkedLabel(draggedIndividual.id, nextOffset);
         svg
@@ -718,6 +843,9 @@ L ${sideX} ${lowerTop} Z`;
         }
       })
       .on("end", function (_event, draggedIndividual) {
+        // Stop auto-scroll
+        stopAutoScroll();
+
         // Clean up all preview transforms
         clearAllPreviewShifts();
 
@@ -885,8 +1013,17 @@ L ${sideX} ${lowerTop} Z`;
         });
       dragSnapshot = [];
       topLevelSnapshot = [];
+      stopAutoScroll();
     };
   }, [plot, svgRef, interactionMode, onReorderIndividuals, dataset]);
+
+  useEffect(() => {
+    return () => {
+      if (searchHighlightTimerRef.current !== null) {
+        window.clearTimeout(searchHighlightTimerRef.current);
+      }
+    };
+  }, []);
 
   const buildCrumbs = () => {
     const context = [];
@@ -930,12 +1067,12 @@ L ${sideX} ${lowerTop} Z`;
             display: "flex",
             justifyContent: "flex-end",
             gap: "6px",
-            marginBottom: "-10px",
-            marginTop: "-30px", /* Push them up to align with Top text */
+            marginBottom: "0px",
+            marginTop: "-44px", /* Align controls vertically with the Top breadcrumb label */
             marginRight: "20px",
             width: "fit-content",
             position: "sticky", /* Ensuring stickiness aligns with globals.css or overrides if needed */
-            top: "86px",
+            top: "72px",
             zIndex: 10,
           }}
         >
@@ -966,6 +1103,193 @@ L ${sideX} ${lowerTop} Z`;
               <path d="M5 7h4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
             </svg>
           </Button>
+
+          <div className="diagram-search-wrap">
+            <Button
+              variant={isSearchOpen ? "primary" : "secondary"}
+              size="sm"
+              onClick={() => {
+                setIsSearchOpen((prev) => !prev);
+                setSearchQuery("");
+              }}
+              aria-pressed={isSearchOpen}
+              title="Search entities"
+              style={{ width: "32px", height: "32px", padding: 0, display: "flex", alignItems: "center", justifyContent: "center" }}
+            >
+              <svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true">
+                <circle cx="7" cy="7" r="4" stroke="currentColor" strokeWidth="1.5" fill="none" />
+                <path d="M11 11l3 3" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+              </svg>
+            </Button>
+
+            {isSearchOpen && (
+              <div className="diagram-search-popover">
+                <div className="diagram-search-input-wrap">
+                  <input
+                    type="text"
+                    value={searchQuery}
+                    onChange={(event) => {
+                      setSearchQuery(event.target.value);
+                      setHighlightedSearchIndex(-1);
+                    }}
+                    onKeyDown={(e) => {
+                      const len = filteredSearchResults.length;
+                      if (len === 0) return;
+                      if (e.key === "ArrowDown") {
+                        e.preventDefault();
+                        setHighlightedSearchIndex((prev) => {
+                          const next = prev < len - 1 ? prev + 1 : 0;
+                          requestAnimationFrame(() => {
+                            const container = searchResultsRef.current;
+                            const child = container?.children[next] as HTMLElement | undefined;
+                            if (container && child) {
+                              const childTop = child.offsetTop;
+                              const childBottom = childTop + child.offsetHeight;
+                              if (childBottom > container.scrollTop + container.clientHeight) {
+                                container.scrollTop = childBottom - container.clientHeight;
+                              } else if (childTop < container.scrollTop) {
+                                container.scrollTop = childTop;
+                              }
+                            }
+                          });
+                          return next;
+                        });
+                      } else if (e.key === "ArrowUp") {
+                        e.preventDefault();
+                        setHighlightedSearchIndex((prev) => {
+                          const next = prev > 0 ? prev - 1 : len - 1;
+                          requestAnimationFrame(() => {
+                            const container = searchResultsRef.current;
+                            const child = container?.children[next] as HTMLElement | undefined;
+                            if (container && child) {
+                              const childTop = child.offsetTop;
+                              const childBottom = childTop + child.offsetHeight;
+                              if (childTop < container.scrollTop) {
+                                container.scrollTop = childTop;
+                              } else if (childBottom > container.scrollTop + container.clientHeight) {
+                                container.scrollTop = childBottom - container.clientHeight;
+                              }
+                            }
+                          });
+                          return next;
+                        });
+                      } else if (e.key === "Enter" && highlightedSearchIndex >= 0 && highlightedSearchIndex < len) {
+                        e.preventDefault();
+                        const entity = filteredSearchResults[highlightedSearchIndex];
+                        focusEntityFromSearch(entity.id);
+                        setSearchQuery(entity.name);
+                      } else if (e.key === "Escape") {
+                        setIsSearchOpen(false);
+                        setSearchQuery("");
+                      }
+                    }}
+                    placeholder="Search entity"
+                    className="diagram-search-input"
+                    autoFocus
+                  />
+                  {searchQuery && (
+                    <button
+                      type="button"
+                      className="diagram-search-clear"
+                      onClick={() => setSearchQuery("")}
+                      title="Clear search"
+                    >
+                      <svg width="14" height="14" viewBox="0 0 16 16" aria-hidden="true">
+                        <path d="M4.646 4.646a.5.5 0 0 1 .708 0L8 7.293l2.646-2.647a.5.5 0 0 1 .708.708L8.707 8l2.647 2.646a.5.5 0 0 1-.708.708L8 8.707l-2.646 2.647a.5.5 0 0 1-.708-.708L7.293 8 4.646 5.354a.5.5 0 0 1 0-.708z" fill="currentColor" />
+                      </svg>
+                    </button>
+                  )}
+                </div>
+
+                <div className="diagram-search-results" ref={searchResultsRef}>
+                  {filteredSearchResults.length === 0 ? (
+                    <div className="diagram-search-empty">No results</div>
+                  ) : (
+                    filteredSearchResults.map((entity) =>
+                      editingEntityId === entity.id ? (
+                        <div key={entity.id} className="diagram-search-result-edit">
+                          <input
+                            type="text"
+                            value={editingEntityName}
+                            onChange={(e) => setEditingEntityName(e.target.value)}
+                            onKeyDown={(e) => {
+                              if (e.key === "Enter") {
+                                if (renameIndividual && editingEntityName.trim()) {
+                                  renameIndividual(entity.id, editingEntityName.trim());
+                                }
+                                setEditingEntityId(null);
+                              } else if (e.key === "Escape") {
+                                setEditingEntityId(null);
+                              }
+                            }}
+                            autoFocus
+                            className="diagram-search-edit-input"
+                          />
+                          <button
+                            type="button"
+                            className="diagram-search-edit-confirm"
+                            title="Confirm"
+                            onMouseDown={(e) => {
+                              e.preventDefault();
+                              if (renameIndividual && editingEntityName.trim()) {
+                                renameIndividual(entity.id, editingEntityName.trim());
+                              }
+                              setEditingEntityId(null);
+                            }}
+                          >
+                            <svg width="14" height="14" viewBox="0 0 16 16" aria-hidden="true">
+                              <path d="M13.485 1.929a.75.75 0 0 1 .086 1.057l-7.25 8.5a.75.75 0 0 1-1.1.042l-3.25-3.25a.75.75 0 0 1 1.06-1.06l2.663 2.663 6.734-7.893a.75.75 0 0 1 1.057-.059z" fill="currentColor" />
+                            </svg>
+                          </button>
+                        </div>
+                      ) : (
+                        <button
+                          key={entity.id}
+                          type="button"
+                          className={`diagram-search-result${filteredSearchResults.indexOf(entity) === highlightedSearchIndex ? " diagram-search-result-active" : ""}`}
+                          onClick={() => {
+                            focusEntityFromSearch(entity.id);
+                            setSearchQuery(entity.name);
+                          }}
+                          onMouseEnter={() => setHighlightedSearchIndex(filteredSearchResults.indexOf(entity))}
+                        >
+                          <span className="diagram-search-name">{entity.name}</span>
+                          <span className="diagram-search-actions">
+                            <span className="diagram-search-type">{entity.typeLabel}</span>
+                            {renameIndividual && (
+                              <span
+                                className="diagram-search-edit-icon"
+                                role="button"
+                                tabIndex={0}
+                                title="Edit name"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setEditingEntityId(entity.id);
+                                  setEditingEntityName(entity.name);
+                                }}
+                                onKeyDown={(e) => {
+                                  if (e.key === "Enter" || e.key === " ") {
+                                    e.stopPropagation();
+                                    e.preventDefault();
+                                    setEditingEntityId(entity.id);
+                                    setEditingEntityName(entity.name);
+                                  }
+                                }}
+                              >
+                                <svg width="12" height="12" viewBox="0 0 16 16" aria-hidden="true">
+                                  <path d="M12.854.146a.5.5 0 0 0-.707 0L10.5 1.793 14.207 5.5l1.647-1.646a.5.5 0 0 0 0-.708L12.854.146zM13.5 6.207L9.793 2.5 3.622 8.671a.5.5 0 0 0-.121.196l-1.47 4.166a.5.5 0 0 0 .638.638l4.166-1.47a.5.5 0 0 0 .196-.12L13.5 6.207z" fill="currentColor" />
+                                </svg>
+                              </span>
+                            )}
+                          </span>
+                        </button>
+                      )
+                    )
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
         </div>
 
         <div

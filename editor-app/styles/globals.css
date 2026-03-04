@@ -307,6 +307,173 @@ body {
   margin-top: -30px;
 }
 
+.diagram-search-wrap {
+  position: relative;
+}
+
+.diagram-search-popover {
+  position: absolute;
+  right: 0;
+  top: 38px;
+  width: 280px;
+  background: #fff;
+  border: 1px solid #dee2e6;
+  border-radius: 0.375rem;
+  padding: 0.375rem;
+  box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.15);
+  z-index: 20;
+}
+
+.diagram-search-input-wrap {
+  position: relative;
+}
+
+.diagram-search-input {
+  width: 100%;
+  border: 1px solid #ced4da;
+  border-radius: 0.375rem;
+  padding: 0.3rem 1.6rem 0.3rem 0.5rem;
+  font-size: 0.9rem;
+}
+
+.diagram-search-clear {
+  position: absolute;
+  right: 4px;
+  top: 50%;
+  transform: translateY(-50%);
+  border: none;
+  background: none;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  color: #6c757d;
+  cursor: pointer;
+}
+
+.diagram-search-clear:hover {
+  color: #212529;
+}
+
+.diagram-search-results {
+  margin-top: 0.35rem;
+  max-height: 220px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+}
+
+.diagram-search-result {
+  border: none;
+  background: transparent;
+  text-align: left;
+  border-radius: 0.3rem;
+  padding: 0.25rem 0.35rem;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.diagram-search-result:hover,
+.diagram-search-result-active {
+  background: rgba(13, 110, 253, 0.08);
+}
+
+.diagram-search-name {
+  font-size: 0.88rem;
+  color: #212529;
+}
+
+.diagram-search-type {
+  font-size: 0.75rem;
+  color: #6c757d;
+}
+
+.diagram-search-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  flex-shrink: 0;
+}
+
+.diagram-search-edit-icon {
+  display: inline-flex;
+  align-items: center;
+  color: #6c757d;
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 0.15s;
+}
+
+.diagram-search-result:hover .diagram-search-edit-icon {
+  opacity: 1;
+}
+
+.diagram-search-edit-icon:hover {
+  color: #0d6efd;
+}
+
+.diagram-search-result-edit {
+  padding: 0.2rem 0.35rem;
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+}
+
+.diagram-search-edit-confirm {
+  flex-shrink: 0;
+  border: none;
+  background: none;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  color: #198754;
+  cursor: pointer;
+}
+
+.diagram-search-edit-confirm:hover {
+  color: #146c43;
+}
+
+.diagram-search-edit-input {
+  width: 100%;
+  border: 1px solid #0d6efd;
+  border-radius: 0.25rem;
+  padding: 0.2rem 0.4rem;
+  font-size: 0.88rem;
+  outline: none;
+}
+
+.diagram-search-empty {
+  font-size: 0.85rem;
+  color: #6c757d;
+  padding: 0.2rem 0.1rem;
+}
+
+.search-result-highlight {
+  animation: entity-search-flash 2s ease;
+}
+
+.individual.search-result-highlight {
+  stroke: #0d6efd !important;
+  stroke-width: 3px !important;
+}
+
+.individualLabel.search-result-highlight {
+  fill: #0d6efd !important;
+  font-weight: 700;
+}
+
+@keyframes entity-search-flash {
+  0% {
+    filter: brightness(1.45);
+  }
+  100% {
+    filter: brightness(1);
+  }
+}
+
 @media (max-width: 576px) {
   .diagram-icon-toggle button {
     width: 26px !important;

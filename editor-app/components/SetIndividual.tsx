@@ -147,6 +147,8 @@ const SetIndividual = (props: Props) => {
   const [showBoundsWarningModal, setShowBoundsWarningModal] = useState(false);
   const [pendingSaveIndividual, setPendingSaveIndividual] =
     useState<Individual | null>(null);
+  const [pendingRemoveIndividual, setPendingRemoveIndividual] =
+    useState<Individual | null>(null);
   const [pendingTrimCount, setPendingTrimCount] = useState(0);
   const [pendingDroppedCount, setPendingDroppedCount] = useState(0);
   const [pendingBoundsChanges, setPendingBoundsChanges] = useState<PendingBoundsChange[]>([]);
@@ -244,6 +246,7 @@ const SetIndividual = (props: Props) => {
     setShowInstallationsModal(false);
     setShowBoundsWarningModal(false);
     setPendingSaveIndividual(null);
+    setPendingRemoveIndividual(null);
     setPendingTrimCount(0);
     setPendingDroppedCount(0);
     setPendingBoundsChanges([]);
@@ -547,7 +550,8 @@ const SetIndividual = (props: Props) => {
     let next = { ...inputs };
 
     if (selectedEntityTypeId === ENTITY_TYPE_IDS.INDIVIDUAL) {
-      let periods = getInstallationPeriods(next);
+      const originalPeriods = getInstallationPeriods(next);
+      let periods = originalPeriods;
       const ownStart = normalizeStart(next.beginning);
       const ownEnd = normalizeEnd(next.ending);
       let trimmedCount = 0;
@@ -614,7 +618,20 @@ const SetIndividual = (props: Props) => {
           installations: periods,
         });
 
+        const affectedPeriodIds = new Set(boundsChanges.map((change) => change.periodId));
+        const removeAllAffectedPeriods = originalPeriods.filter(
+          (period) => !affectedPeriodIds.has(period.id)
+        );
+        const pendingRemoveAll = syncLegacyInstallationFields({
+          ...next,
+          installedIn: undefined,
+          installedBeginning: undefined,
+          installedEnding: undefined,
+          installations: removeAllAffectedPeriods,
+        });
+
         setPendingSaveIndividual(pending);
+        setPendingRemoveIndividual(pendingRemoveAll);
         setPendingTrimCount(trimmedCount);
         setPendingDroppedCount(droppedCount);
         setPendingBoundsChanges(boundsChanges);
@@ -662,8 +679,12 @@ const SetIndividual = (props: Props) => {
           const compStart = normalizeStart(comp.beginning);
           const compEnd = normalizeEnd(comp.ending);
 
+          // If the component's ending is infinity, keep it as infinity
+          // regardless of the system's new bounds.
+          const compEndIsInfinity = comp.ending >= Model.END_OF_TIME;
+
           const clampedStart = Math.max(compStart, newStart);
-          const clampedEnd = Math.min(compEnd, newEnd);
+          const clampedEnd = compEndIsInfinity ? compEnd : Math.min(compEnd, newEnd);
 
           // Preserve original raw values when the normalized value didn't change
           // e.g. beginning:-1 (infinite past) normalizes to 0, so if clamped to 0
@@ -714,9 +735,10 @@ const SetIndividual = (props: Props) => {
             }
 
             // Check installations referencing this component
-            // They are clamped to the trimmed component bounds (or original if not trimmed)
-            const effectiveCompStart = compTrimmed ? clampedStart : compStart;
-            const effectiveCompEnd = compTrimmed ? clampedEnd : compEnd;
+            // They are always clamped to the intersection of the component bounds
+            // and the system's new bounds (even when the component itself keeps infinity).
+            const effectiveCompStart = Math.max(compTrimmed ? clampedStart : compStart, newStart);
+            const effectiveCompEnd = Math.min(compTrimmed ? clampedEnd : compEnd, newEnd);
 
             for (const ind of Array.from(dataset.individuals.values())) {
               const periods = getInstallationPeriods(ind);
@@ -1032,6 +1054,14 @@ const SetIndividual = (props: Props) => {
       return;
     }
     commitIndividualSave(pendingSaveIndividual);
+  };
+
+  const confirmBoundsDeleteAffected = () => {
+    if (!pendingRemoveIndividual) {
+      setShowBoundsWarningModal(false);
+      return;
+    }
+    commitIndividualSave(pendingRemoveIndividual);
   };
 
   const handleDelete = () => {
@@ -1370,6 +1400,21 @@ const SetIndividual = (props: Props) => {
       available: formatIntervals(available),
     };
   };
+
+  const hasPendingTrimAction = pendingBoundsChanges.some((change) => change.action === "trim");
+  const hasPendingDropAction = pendingBoundsChanges.some((change) => change.action === "drop");
+  const cascadeHasTrimAction =
+    !!cascadeWarning &&
+    (
+      cascadeWarning.affectedComponents.some((item) => item.action === "trim") ||
+      cascadeWarning.affectedInstallations.some((item) => item.action === "trim")
+    );
+  const cascadeHasDropAction =
+    !!cascadeWarning &&
+    (
+      cascadeWarning.affectedComponents.some((item) => item.action === "drop") ||
+      cascadeWarning.affectedInstallations.some((item) => item.action === "drop")
+    );
 
   return (
     <>
@@ -1896,28 +1941,23 @@ const SetIndividual = (props: Props) => {
         show={showBoundsWarningModal}
         onHide={() => setShowBoundsWarningModal(false)}
         centered
+        size="lg"
       >
         <Modal.Header closeButton>
           <Modal.Title>
-            Confirm Installation Changes for {inputs.name || "Entity"} ({inputs.beginning === -1 ? "0" : inputs.beginning} - {inputs.ending >= Model.END_OF_TIME ? "∞" : inputs.ending})
+            Affected Items — {inputs.name || "Entity"}
           </Modal.Title>
         </Modal.Header>
         <Modal.Body>
-          {pendingTrimCount > 0 && (
-            <div>
-              {pendingTrimCount} installation period{pendingTrimCount === 1 ? "" : "s"} {pendingTrimCount === 1 ? "will" : "will"} be trimmed to the updated entity bounds.
-            </div>
-          )}
-          {pendingDroppedCount > 0 && (
-            <div className={pendingTrimCount > 0 ? "mt-2" : ""}>
-              {pendingDroppedCount} installation period{pendingDroppedCount === 1 ? "" : "s"} {pendingDroppedCount === 1 ? "has" : "have"} no overlap with the updated bounds and {pendingDroppedCount === 1 ? "will" : "will"} be removed.
-            </div>
-          )}
+          <p>
+            Changing the bounds of <strong>{inputs.name || "Entity"}</strong> will
+            affect the following installation periods:
+          </p>
           {pendingBoundsChanges.length > 0 && (
-            <div className="mt-3">
-              <div className="fw-semibold mb-2">Affected periods</div>
+            <div className="mb-3">
+              <div className="fw-semibold mb-2">Installation Periods</div>
               <div style={{ maxHeight: "220px", overflowY: "auto" }}>
-                {pendingBoundsChanges.map((change) => (
+                {[...pendingBoundsChanges].sort((a, b) => a.fromBeginning - b.fromBeginning).map((change) => (
                   <div key={change.periodId} className="mb-1 small">
                     <span className="fw-semibold">{change.systemComponentName}</span>
                     {change.parentSystemName ? ` (in ${change.parentSystemName})` : ""}
@@ -1937,10 +1977,21 @@ const SetIndividual = (props: Props) => {
             variant="secondary"
             onClick={() => setShowBoundsWarningModal(false)}
           >
-            Keep Editing
+            Cancel
           </Button>
-          <Button variant="primary" onClick={confirmBoundsAdjustment}>
-            Apply Bounds & Save
+          <Button
+            variant="danger"
+            onClick={confirmBoundsDeleteAffected}
+            disabled={!hasPendingDropAction}
+          >
+            Delete All Affected Periods
+          </Button>
+          <Button
+            variant="primary"
+            onClick={confirmBoundsAdjustment}
+            disabled={!hasPendingTrimAction}
+          >
+            Resolve Affected Periods
           </Button>
         </Modal.Footer>
       </Modal>
@@ -1970,7 +2021,7 @@ const SetIndividual = (props: Props) => {
             <div className="mb-3">
               <div className="fw-semibold mb-2">System Components</div>
               <div style={{ maxHeight: "180px", overflowY: "auto" }}>
-                {cascadeWarning.affectedComponents.map((ac) => (
+                {[...cascadeWarning.affectedComponents].sort((a, b) => a.fromBeginning - b.fromBeginning).map((ac) => (
                   <div key={ac.id} className="mb-1 small">
                     <span className="fw-semibold">{ac.name}</span>
                     {": "}
@@ -1988,7 +2039,7 @@ const SetIndividual = (props: Props) => {
             <div className="mb-3">
               <div className="fw-semibold mb-2">Installation Periods</div>
               <div style={{ maxHeight: "220px", overflowY: "auto" }}>
-                {cascadeWarning.affectedInstallations.map((ai) => (
+                {[...cascadeWarning.affectedInstallations].sort((a, b) => a.fromBeginning - b.fromBeginning).map((ai) => (
                   <div key={ai.periodId} className="mb-1 small">
                     <span className="fw-semibold">{ai.individualName}</span>
                     {" installed in "}
@@ -2017,14 +2068,16 @@ const SetIndividual = (props: Props) => {
           <Button
             variant="danger"
             onClick={() => cascadeWarning?.applyRemove()}
+            disabled={!cascadeHasDropAction}
           >
-            Delete All Affected
+            Delete All Affected Periods
           </Button>
           <Button
             variant="primary"
             onClick={() => cascadeWarning?.applyTrim()}
+            disabled={!cascadeHasTrimAction}
           >
-            Trim to Fit
+            Resolve Affected Periods
           </Button>
         </Modal.Footer>
       </Modal>

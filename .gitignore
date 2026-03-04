@@ -1,2 +1,3 @@
 # Vim swapfiles
 *.swp
+node_modules

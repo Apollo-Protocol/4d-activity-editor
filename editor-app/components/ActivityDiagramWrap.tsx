@@ -266,6 +266,15 @@ export default function ActivityDiagramWrap() {
     });
   }, [updateDataset]);
 
+  const renameIndividual = useCallback((id: string, newName: string) => {
+    updateDataset((d: Model) => {
+      const individual = d.individuals.get(id);
+      if (individual) {
+        d.addIndividual({ ...individual, name: newName });
+      }
+    });
+  }, [updateDataset]);
+
   // Filter activities for the current context
   let activitiesInView: Activity[] = [];
   if (activityContext) {
@@ -336,6 +345,7 @@ export default function ActivityDiagramWrap() {
               hideNonParticipating={compactMode}
               highlightedActivityId={highlightedActivityId}
               onReorderIndividuals={reorderIndividuals}
+              renameIndividual={renameIndividual}
             />
           </div>
 

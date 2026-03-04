@@ -910,6 +910,7 @@ L ${sideX} ${lowerTop} Z`;
     return context.reverse();
   };
   const crumbs: JSX.Element[] = buildCrumbs();
+  const isDiagramEmpty = dataset.individuals.size === 0 && dataset.activities.size === 0;
 
   return (
     <>
@@ -929,9 +930,13 @@ L ${sideX} ${lowerTop} Z`;
             display: "flex",
             justifyContent: "flex-end",
             gap: "6px",
-            marginBottom: "-32px",
-            marginRight: "-24px",
+            marginBottom: "-10px",
+            marginTop: "-30px", /* Push them up to align with Top text */
+            marginRight: "20px",
             width: "fit-content",
+            position: "sticky", /* Ensuring stickiness aligns with globals.css or overrides if needed */
+            top: "86px",
+            zIndex: 10,
           }}
         >
           <Button
@@ -975,7 +980,10 @@ L ${sideX} ${lowerTop} Z`;
           <svg
             viewBox={`0 0 ${plot.width} ${plot.height}`}
             ref={svgRef}
-            style={{ minWidth: "100%" }}
+            style={{
+              minWidth: "100%",
+              maxWidth: "100%",
+            }}
           />
         </div>
       </div>

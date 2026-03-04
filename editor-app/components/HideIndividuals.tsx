@@ -33,12 +33,12 @@ const HideIndividuals = ({
   if (!hasInactiveIndividuals) return null;
 
   const tooltip = compactMode ? (
-    <Tooltip id="show-individuals-tooltip">
-      This will show individuals with no activity.
+    <Tooltip id="show-entities-tooltip">
+      This will show entities with no activity.
     </Tooltip>
   ) : (
-    <Tooltip id="hide-individuals-tooltip">
-      This will hide individuals with no activity.
+    <Tooltip id="hide-entities-tooltip">
+      This will hide entities with no activity.
     </Tooltip>
   );
 
@@ -49,7 +49,7 @@ const HideIndividuals = ({
           variant={compactMode ? "secondary" : "primary"}
           onClick={() => setCompactMode(!compactMode)}
         >
-          {compactMode ? "Show Individuals" : "Hide Individuals"}
+          {compactMode ? "Show Entities" : "Hide Entities"}
         </Button>
       </OverlayTrigger>
     </div>

@@ -157,13 +157,21 @@ export function hoverActivities(ctx: DrawContext) {
     .selectAll(".activity")
     .on("mouseover", function (event: MouseEvent) {
       mouseOverElement = event.target as HTMLElement;
-      mouseOverElement.style.opacity =
-        config.presentation.activity.opacityHover;
+      const previousOpacity = mouseOverElement.getAttribute("opacity")
+        ?? String(config.presentation.activity.opacity);
+      mouseOverElement.setAttribute("data-prev-opacity", previousOpacity);
+      mouseOverElement.setAttribute(
+        "opacity",
+        String(config.presentation.activity.opacityHover)
+      );
       tooltip.style("display", "block");
     })
     .on("mouseout", function (event: MouseEvent) {
       if (mouseOverElement) {
-        mouseOverElement.style.opacity = config.presentation.activity.opacity;
+        const previousOpacity = mouseOverElement.getAttribute("data-prev-opacity")
+          ?? String(config.presentation.activity.opacity);
+        mouseOverElement.setAttribute("opacity", previousOpacity);
+        mouseOverElement.removeAttribute("data-prev-opacity");
         mouseOverElement = null;
       }
       tooltip.style("display", "none");

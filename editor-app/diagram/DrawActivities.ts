@@ -162,7 +162,7 @@ export function hoverActivities(ctx: DrawContext) {
     })
     .on("mouseout", function (event: MouseEvent) {
       if (mouseOverElement) {
-        mouseOverElement.style.opacity = config.presentation.activity.opacity;
+        mouseOverElement.style.opacity = "";
         mouseOverElement = null;
       }
       tooltip.style("display", "none");

@@ -58,8 +58,7 @@ function hoverParticipations(ctx: DrawContext) {
     })
     .on("mouseout", function (event: MouseEvent) {
       if (mouseOverElement) {
-        mouseOverElement.style.opacity =
-          config.presentation.participation.opacity;
+        mouseOverElement.style.opacity = "";
         mouseOverElement = null;
       }
       tooltip.style("display", "none");

@@ -55,7 +55,17 @@ export default function ActivityDiagramWrap() {
   const [selectedParticipation, setSelectedParticipation] = useState<
     Participation | undefined
   >(undefined);
-  const [configData, setConfigData] = useState(config);
+  const [configData, setConfigData] = useState(() => {
+    if (typeof window !== "undefined") {
+      try {
+        const stored = sessionStorage.getItem("activity-editor-config");
+        if (stored) return JSON.parse(stored);
+      } catch (e) {
+        console.warn("Failed to restore config from session map:", e);
+      }
+    }
+    return config;
+  });
   const [showConfigModal, setShowConfigModal] = useState(false);
   const [showSortIndividuals, setShowSortIndividuals] = useState(false);
   const [highlightedActivityId, setHighlightedActivityId] = useState<string | null>(null);
@@ -94,6 +104,16 @@ export default function ActivityDiagramWrap() {
       console.warn("Failed to save session storage:", e);
     }
   }, [dataset]);
+
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      try {
+        sessionStorage.setItem("activity-editor-config", JSON.stringify(configData));
+      } catch (e) {
+        console.warn("Failed to save config session storage:", e);
+      }
+    }
+  }, [configData]);
 
   useEffect(() => {
     if (dirty) window.addEventListener("beforeunload", beforeUnloadHandler);

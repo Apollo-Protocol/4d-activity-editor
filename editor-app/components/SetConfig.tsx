@@ -140,11 +140,12 @@ const SetConfig = (props: Props) => {
                         <Form.Group className="mb-2" controlId="formActivityOpacity">
                           <Form.Label>Opacity</Form.Label>
                           <Form.Control
-                            type="text"
+                            type="number"
                             name="presentation.activity.opacity"
                             value={inputs?.presentation?.activity?.opacity}
-                            onChange={handleChangeString}
+                            onChange={handleChangeNumber}
                             className="form-control"
+                            min="0" max="1" step="0.1"
                           />
                         </Form.Group>
                       </Col>
@@ -152,11 +153,12 @@ const SetConfig = (props: Props) => {
                         <Form.Group className="mb-2" controlId="formActivityOpacityHover">
                           <Form.Label>Opacity on Hover</Form.Label>
                           <Form.Control
-                            type="text"
+                            type="number"
                             name="presentation.activity.opacityHover"
                             value={inputs?.presentation?.activity?.opacityHover}
-                            onChange={handleChangeString}
+                            onChange={handleChangeNumber}
                             className="form-control"
+                            min="0" max="1" step="0.1"
                           />
                         </Form.Group>
                       </Col>
@@ -241,11 +243,12 @@ const SetConfig = (props: Props) => {
                         <Form.Group className="mb-2" controlId="formParticipationsOpacity">
                           <Form.Label>Opacity</Form.Label>
                           <Form.Control
-                            type="text"
+                            type="number"
                             name="presentation.participation.opacity"
                             value={inputs?.presentation?.participation?.opacity}
-                            onChange={handleChangeString}
+                            onChange={handleChangeNumber}
                             className="form-control"
+                            min="0" max="1" step="0.1"
                           />
                         </Form.Group>
                       </Col>
@@ -253,11 +256,12 @@ const SetConfig = (props: Props) => {
                         <Form.Group className="mb-2" controlId="formParticipationsOpacityHover">
                           <Form.Label>Opacity on Hover</Form.Label>
                           <Form.Control
-                            type="text"
+                            type="number"
                             name="presentation.participation.opacityHover"
                             value={inputs?.presentation?.participation?.opacityHover}
-                            onChange={handleChangeString}
+                            onChange={handleChangeNumber}
                             className="form-control"
+                            min="0" max="1" step="0.1"
                           />
                         </Form.Group>
                       </Col>

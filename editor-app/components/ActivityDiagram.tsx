@@ -235,7 +235,7 @@ const ActivityDiagram = (props: Props) => {
         .attr("opacity", configData.presentation.activity.opacity)
         .attr("stroke-width", configData.presentation.activity.strokeWidth)
         .attr("stroke-dasharray", configData.presentation.activity.strokeDasharray);
-      svg.selectAll(".participation").attr("opacity", configData.presentation.activity.opacity);
+      svg.selectAll(".participation").attr("opacity", configData.presentation.participation.opacity);
       svg.selectAll(".activityLabel").attr("opacity", 1);
     }
   }, [highlightedActivityId, plot, configData, svgRef]);

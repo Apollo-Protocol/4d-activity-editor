@@ -52,21 +52,14 @@ function hoverParticipations(ctx: DrawContext) {
     .selectAll(".participation")
     .on("mouseover", function (event: MouseEvent) {
       mouseOverElement = event.target as HTMLElement;
-      const previousOpacity = mouseOverElement.getAttribute("opacity")
-        ?? String(config.presentation.participation.opacity);
-      mouseOverElement.setAttribute("data-prev-opacity", previousOpacity);
-      mouseOverElement.setAttribute(
-        "opacity",
-        String(config.presentation.participation.opacityHover)
-      );
+      mouseOverElement.style.opacity =
+        config.presentation.participation.opacityHover;
       tooltip.style("display", "block");
     })
     .on("mouseout", function (event: MouseEvent) {
       if (mouseOverElement) {
-        const previousOpacity = mouseOverElement.getAttribute("data-prev-opacity")
-          ?? String(config.presentation.participation.opacity);
-        mouseOverElement.setAttribute("opacity", previousOpacity);
-        mouseOverElement.removeAttribute("data-prev-opacity");
+        mouseOverElement.style.opacity =
+          config.presentation.participation.opacity;
         mouseOverElement = null;
       }
       tooltip.style("display", "none");

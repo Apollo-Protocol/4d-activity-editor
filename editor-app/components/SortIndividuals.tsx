@@ -118,13 +118,15 @@ const SortIndividuals = (props: any) => {
 
   return (
     <>
-      <Button
-        variant="secondary"
-        onClick={() => setShowSortIndividuals(true)}
-        className={items.length > 1 ? "mx-1 d-block" : "mx-1 d-none"}
-      >
-        Sort Entities
-      </Button>
+      {false && (
+        <Button
+          variant="secondary"
+          onClick={() => setShowSortIndividuals(true)}
+          className={items.length > 1 ? "mx-1 d-block" : "mx-1 d-none"}
+        >
+          Sort Entities
+        </Button>
+      )}
 
       <Modal show={showSortIndividuals} onHide={handleClose} scrollable>
         <Modal.Header closeButton>

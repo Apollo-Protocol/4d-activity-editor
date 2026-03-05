@@ -82,7 +82,7 @@ const ActivityDiagram = (props: Props) => {
       .filter(
         (entity) =>
           entity.name.toLowerCase().includes(query) ||
-          entity.id.toLowerCase().includes(query) ||
+          
           entity.typeLabel.toLowerCase().includes(query)
       )
       .slice(0, 20);
@@ -1082,9 +1082,9 @@ L ${sideX} ${lowerTop} Z`;
             onClick={() => setInteractionMode("pointer")}
             aria-pressed={interactionMode === "pointer"}
             title="Pointer mode"
-            style={{ width: "32px", height: "32px", padding: 0, display: "flex", alignItems: "center", justifyContent: "center" }}
+            style={{ width: "2.2em", height: "2.2em", padding: 0, display: "flex", alignItems: "center", justifyContent: "center" }}
           >
-            <svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true">
+            <svg width="1em" height="1em" viewBox="0 0 16 16" aria-hidden="true">
               <path d="M3 2l9 4-4 1 2 6-2 1-2-6-3 3V2z" fill="currentColor" />
             </svg>
           </Button>
@@ -1094,9 +1094,9 @@ L ${sideX} ${lowerTop} Z`;
             onClick={() => setInteractionMode("zoom")}
             aria-pressed={interactionMode === "zoom"}
             title="Zoom mode"
-            style={{ width: "32px", height: "32px", padding: 0, display: "flex", alignItems: "center", justifyContent: "center" }}
+            style={{ width: "2.2em", height: "2.2em", padding: 0, display: "flex", alignItems: "center", justifyContent: "center" }}
           >
-            <svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true">
+            <svg width="1em" height="1em" viewBox="0 0 16 16" aria-hidden="true">
               <circle cx="7" cy="7" r="4" stroke="currentColor" strokeWidth="1.5" fill="none" />
               <path d="M11 11l3 3" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
               <path d="M7 4.5v4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
@@ -1114,9 +1114,9 @@ L ${sideX} ${lowerTop} Z`;
               }}
               aria-pressed={isSearchOpen}
               title="Search entities"
-              style={{ width: "32px", height: "32px", padding: 0, display: "flex", alignItems: "center", justifyContent: "center" }}
+              style={{ width: "2.2em", height: "2.2em", padding: 0, display: "flex", alignItems: "center", justifyContent: "center" }}
             >
-              <svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true">
+              <svg width="1em" height="1em" viewBox="0 0 16 16" aria-hidden="true">
                 <circle cx="7" cy="7" r="4" stroke="currentColor" strokeWidth="1.5" fill="none" />
                 <path d="M11 11l3 3" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
               </svg>
@@ -1177,7 +1177,6 @@ L ${sideX} ${lowerTop} Z`;
                         e.preventDefault();
                         const entity = filteredSearchResults[highlightedSearchIndex];
                         focusEntityFromSearch(entity.id);
-                        setSearchQuery(entity.name);
                       } else if (e.key === "Escape") {
                         setIsSearchOpen(false);
                         setSearchQuery("");
@@ -1194,7 +1193,7 @@ L ${sideX} ${lowerTop} Z`;
                       onClick={() => setSearchQuery("")}
                       title="Clear search"
                     >
-                      <svg width="14" height="14" viewBox="0 0 16 16" aria-hidden="true">
+                      <svg width="1em" height="1em" viewBox="0 0 16 16" aria-hidden="true">
                         <path d="M4.646 4.646a.5.5 0 0 1 .708 0L8 7.293l2.646-2.647a.5.5 0 0 1 .708.708L8.707 8l2.647 2.646a.5.5 0 0 1-.708.708L8 8.707l-2.646 2.647a.5.5 0 0 1-.708-.708L7.293 8 4.646 5.354a.5.5 0 0 1 0-.708z" fill="currentColor" />
                       </svg>
                     </button>
@@ -1237,7 +1236,7 @@ L ${sideX} ${lowerTop} Z`;
                               setEditingEntityId(null);
                             }}
                           >
-                            <svg width="14" height="14" viewBox="0 0 16 16" aria-hidden="true">
+                            <svg width="1em" height="1em" viewBox="0 0 16 16" aria-hidden="true">
                               <path d="M13.485 1.929a.75.75 0 0 1 .086 1.057l-7.25 8.5a.75.75 0 0 1-1.1.042l-3.25-3.25a.75.75 0 0 1 1.06-1.06l2.663 2.663 6.734-7.893a.75.75 0 0 1 1.057-.059z" fill="currentColor" />
                             </svg>
                           </button>
@@ -1249,7 +1248,6 @@ L ${sideX} ${lowerTop} Z`;
                           className={`diagram-search-result${filteredSearchResults.indexOf(entity) === highlightedSearchIndex ? " diagram-search-result-active" : ""}`}
                           onClick={() => {
                             focusEntityFromSearch(entity.id);
-                            setSearchQuery(entity.name);
                           }}
                           onMouseEnter={() => setHighlightedSearchIndex(filteredSearchResults.indexOf(entity))}
                         >
@@ -1276,7 +1274,7 @@ L ${sideX} ${lowerTop} Z`;
                                   }
                                 }}
                               >
-                                <svg width="12" height="12" viewBox="0 0 16 16" aria-hidden="true">
+                                <svg width="1em" height="1em" viewBox="0 0 16 16" aria-hidden="true">
                                   <path d="M12.854.146a.5.5 0 0 0-.707 0L10.5 1.793 14.207 5.5l1.647-1.646a.5.5 0 0 0 0-.708L12.854.146zM13.5 6.207L9.793 2.5 3.622 8.671a.5.5 0 0 0-.121.196l-1.47 4.166a.5.5 0 0 0 .638.638l4.166-1.47a.5.5 0 0 0 .196-.12L13.5 6.207z" fill="currentColor" />
                                 </svg>
                               </span>

@@ -466,11 +466,26 @@ const SetActivity = (props: Props) => {
       runningErrors.push("Type field is required");
     }
     //Ending and beginning
-    if (inputs.ending - inputs.beginning <= 0) {
-      runningErrors.push("Ending must be after beginning");
+    if (typeof inputs.beginning !== "number" || isNaN(inputs.beginning)) {
+      runningErrors.push("Beginning time is required");
+    } else if (inputs.beginning < 0) {
+      runningErrors.push("Beginning time cannot be negative");
     }
-    if (inputs.ending >= Model.END_OF_TIME) {
+
+    if (typeof inputs.ending !== "number" || isNaN(inputs.ending)) {
+      runningErrors.push("Ending time is required");
+    } else if (inputs.ending < 0) {
+      runningErrors.push("Ending time cannot be negative");
+    } else if (inputs.ending >= Model.END_OF_TIME) {
       runningErrors.push("Ending cannot be greater than " + Model.END_OF_TIME);
+    }
+
+    if (
+      typeof inputs.beginning === "number" && !isNaN(inputs.beginning) &&
+      typeof inputs.ending === "number" && !isNaN(inputs.ending) &&
+      inputs.ending <= inputs.beginning
+    ) {
+      runningErrors.push("Ending must be after beginning");
     }
     //Participant count
     if (
@@ -905,7 +920,7 @@ const SetActivity = (props: Props) => {
                 name="beginning"
                 value={inputs.beginning}
                 onChange={handleChangeNumeric}
-                step="1"
+                step="any"
                 min="0"
                 max={Model.END_OF_TIME - 2}
                 className="form-control"
@@ -916,7 +931,7 @@ const SetActivity = (props: Props) => {
               <Form.Control
                 type="number"
                 name="ending"
-                step="1"
+                step="any"
                 min="1"
                 max={Model.END_OF_TIME - 1}
                 value={inputs.ending}

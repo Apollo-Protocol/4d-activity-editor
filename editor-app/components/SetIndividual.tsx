@@ -6,7 +6,7 @@ import Table from "react-bootstrap/Table";
 import Alert from "react-bootstrap/Alert";
 import Card from "react-bootstrap/Card";
 import { v4 as uuidv4 } from "uuid";
-import { Individual, InstallationPeriod } from "@/lib/Schema";
+import { Activity, Individual, InstallationPeriod } from "@/lib/Schema";
 import { Model } from "@/lib/Model";
 import {
   ENTITY_CATEGORY,
@@ -82,10 +82,26 @@ type AffectedInstallation = {
   action: "trim" | "drop";
 };
 
+type AffectedActivity = {
+  activityId: string;
+  activityName: string;
+  /** The individual whose bounds changed, causing this activity to be affected */
+  individualId: string;
+  individualName: string;
+  systemName?: string;
+  systemComponentName?: string;
+  fromBeginning: number;
+  fromEnding: number;
+  toBeginning?: number;
+  toEnding?: number;
+  action: "trim" | "drop";
+};
+
 type CascadeWarning = {
   entityName: string;
   affectedComponents: AffectedComponent[];
   affectedInstallations: AffectedInstallation[];
+  affectedActivities: AffectedActivity[];
   pendingIndividual: Individual;
   /** Pre-computed model updater that applies the chosen action (trim or remove) */
   applyTrim: () => void;
@@ -152,6 +168,7 @@ const SetIndividual = (props: Props) => {
   const [pendingTrimCount, setPendingTrimCount] = useState(0);
   const [pendingDroppedCount, setPendingDroppedCount] = useState(0);
   const [pendingBoundsChanges, setPendingBoundsChanges] = useState<PendingBoundsChange[]>([]);
+  const [pendingAffectedActivities, setPendingAffectedActivities] = useState<AffectedActivity[]>([]);
 
   const [showCascadeWarningModal, setShowCascadeWarningModal] = useState(false);
   const [cascadeWarning, setCascadeWarning] = useState<CascadeWarning | null>(null);
@@ -211,6 +228,70 @@ const SetIndividual = (props: Props) => {
     return String(value);
   };
 
+  /**
+   * Find activities that have participations with a given individual whose
+   * activity bounds exceed the individual's new bounds AND the situation is
+   * worse than the old bounds (i.e. the new bounds are more restrictive).
+   * @param entityId  The individual whose bounds changed
+   * @param entityName  Friendly name for the individual  
+   * @param newStart  The new normalized start bound for the entity
+   * @param newEnd    The new normalized end bound for the entity
+   * @param oldStart  The old normalized start bound for the entity
+   * @param oldEnd    The old normalized end bound for the entity
+   */
+  const findAffectedActivities = (
+    entityId: string,
+    entityName: string,
+    newStart: number,
+    newEnd: number,
+    oldStart?: number,
+    oldEnd?: number,
+  ): AffectedActivity[] => {
+    const result: AffectedActivity[] = [];
+    for (const act of Array.from(dataset.activities.values())) {
+      if (!act.participations.has(entityId)) continue;
+      const actStart = normalizeStart(act.beginning);
+      const actEnd = normalizeEnd(act.ending);
+      const clampedStart = Math.max(actStart, newStart);
+      const clampedEnd = Math.min(actEnd, newEnd);
+
+      // If old bounds were provided, compute what the clamp was before.
+      // Only warn if the new bounds are MORE restrictive than the old bounds
+      // for this activity (i.e. expanding bounds should never trigger a warning).
+      if (oldStart !== undefined && oldEnd !== undefined) {
+        const oldClampedStart = Math.max(actStart, oldStart);
+        const oldClampedEnd = Math.min(actEnd, oldEnd);
+        // New clamp is at least as permissive as old clamp → skip
+        if (clampedStart <= oldClampedStart && clampedEnd >= oldClampedEnd) continue;
+      }
+
+      if (clampedEnd <= clampedStart) {
+        result.push({
+          activityId: act.id,
+          activityName: act.name,
+          individualId: entityId,
+          individualName: entityName,
+          fromBeginning: act.beginning,
+          fromEnding: act.ending,
+          action: "drop",
+        });
+      } else if (clampedStart !== actStart || clampedEnd !== actEnd) {
+        result.push({
+          activityId: act.id,
+          activityName: act.name,
+          individualId: entityId,
+          individualName: entityName,
+          fromBeginning: act.beginning,
+          fromEnding: act.ending,
+          toBeginning: clampedStart,
+          toEnding: clampedEnd,
+          action: "trim",
+        });
+      }
+    }
+    return result;
+  };
+
   const parseBoundary = (text: string, isBeginning: boolean) => {
     if (text.trim() === "") {
       return isBeginning ? -1 : Model.END_OF_TIME;
@@ -250,6 +331,7 @@ const SetIndividual = (props: Props) => {
     setPendingTrimCount(0);
     setPendingDroppedCount(0);
     setPendingBoundsChanges([]);
+    setPendingAffectedActivities([]);
     setShowCascadeWarningModal(false);
     setCascadeWarning(null);
     
@@ -554,6 +636,9 @@ const SetIndividual = (props: Props) => {
       let periods = originalPeriods;
       const ownStart = normalizeStart(next.beginning);
       const ownEnd = normalizeEnd(next.ending);
+      const existingInd = dataset.individuals.get(next.id);
+      const oldOwnStart = existingInd ? normalizeStart(existingInd.beginning) : ownStart;
+      const oldOwnEnd = existingInd ? normalizeEnd(existingInd.ending) : ownEnd;
       let trimmedCount = 0;
       let droppedCount = 0;
       const boundsChanges: PendingBoundsChange[] = [];
@@ -608,6 +693,9 @@ const SetIndividual = (props: Props) => {
 
       if (trimmedCount > 0 || droppedCount > 0) {
 
+        // Also check activities that participate this individual
+        const indAffectedActivities = findAffectedActivities(next.id, next.name, ownStart, ownEnd, oldOwnStart, oldOwnEnd);
+
         const pending = syncLegacyInstallationFields({
           ...next,
           // Clear legacy fields so getInstallationPeriods inside sync
@@ -635,8 +723,31 @@ const SetIndividual = (props: Props) => {
         setPendingTrimCount(trimmedCount);
         setPendingDroppedCount(droppedCount);
         setPendingBoundsChanges(boundsChanges);
+        setPendingAffectedActivities(indAffectedActivities);
         setShowBoundsWarningModal(true);
         return;
+      }
+
+      // Even without installation changes, check for affected activities
+      {
+        const indAffectedActivities = findAffectedActivities(next.id, next.name, ownStart, ownEnd, oldOwnStart, oldOwnEnd);
+        if (indAffectedActivities.length > 0) {
+          const pending = syncLegacyInstallationFields({
+            ...next,
+            installedIn: undefined,
+            installedBeginning: undefined,
+            installedEnding: undefined,
+            installations: periods,
+          });
+          setPendingSaveIndividual(pending);
+          setPendingRemoveIndividual(pending);
+          setPendingTrimCount(0);
+          setPendingDroppedCount(0);
+          setPendingBoundsChanges([]);
+          setPendingAffectedActivities(indAffectedActivities);
+          setShowBoundsWarningModal(true);
+          return;
+        }
       }
 
       next = syncLegacyInstallationFields({
@@ -665,8 +776,14 @@ const SetIndividual = (props: Props) => {
         selectedEntityTypeId === ENTITY_TYPE_IDS.SYSTEM &&
         isEditMode
       ) {
+        // Get the old system bounds to detect trivial start-date propagation
+        const oldSystem = dataset.individuals.get(next.id);
+        const oldStart = oldSystem ? normalizeStart(oldSystem.beginning) : 0;
+
         const affectedComps: AffectedComponent[] = [];
         const affectedInstalls: AffectedInstallation[] = [];
+        // Components that only need their 0-start bumped to the new system start
+        const silentCompTrims: AffectedComponent[] = [];
 
         // Find child system components whose bounds exceed the new system bounds
         const childComponents = Array.from(dataset.individuals.values()).filter(
@@ -723,7 +840,15 @@ const SetIndividual = (props: Props) => {
           } else {
             const compTrimmed = clampedStart !== compStart || clampedEnd !== compEnd;
             if (compTrimmed) {
-              affectedComps.push({
+              // Detect trivial start-date propagation: old system start was 0,
+              // component also started at 0, and only the start is changing.
+              const isTrivialStartBump =
+                oldStart === 0 &&
+                compStart === 0 &&
+                clampedStart !== compStart &&
+                clampedEnd === compEnd;
+
+              const entry: AffectedComponent = {
                 id: comp.id,
                 name: comp.name,
                 fromBeginning: comp.beginning,
@@ -731,7 +856,13 @@ const SetIndividual = (props: Props) => {
                 toBeginning: rawClampedStart,
                 toEnding: rawClampedEnd,
                 action: "trim",
-              });
+              };
+
+              if (isTrivialStartBump) {
+                silentCompTrims.push(entry);
+              } else {
+                affectedComps.push(entry);
+              }
             }
 
             // Check installations referencing this component
@@ -739,6 +870,9 @@ const SetIndividual = (props: Props) => {
             // and the system's new bounds (even when the component itself keeps infinity).
             const effectiveCompStart = Math.max(compTrimmed ? clampedStart : compStart, newStart);
             const effectiveCompEnd = Math.min(compTrimmed ? clampedEnd : compEnd, newEnd);
+
+            // Whether this component was silently trimmed (trivial start bump)
+            const compIsSilent = silentCompTrims.some((c) => c.id === comp.id);
 
             for (const ind of Array.from(dataset.individuals.values())) {
               const periods = getInstallationPeriods(ind);
@@ -759,18 +893,29 @@ const SetIndividual = (props: Props) => {
                       action: "drop",
                     });
                   } else if (pStart !== p.beginning || pEnd !== p.ending) {
-                    affectedInstalls.push({
-                      periodId: p.id,
-                      individualId: ind.id,
-                      individualName: ind.name,
-                      systemComponentId: comp.id,
-                      systemComponentName: comp.name,
-                      fromBeginning: p.beginning,
-                      fromEnding: p.ending,
-                      toBeginning: pStart,
-                      toEnding: pEnd,
-                      action: "trim",
-                    });
+                    // Trivial: installation start was 0, only start changed,
+                    // and the owning component is also a silent trim
+                    const installIsTrivial =
+                      compIsSilent &&
+                      oldStart === 0 &&
+                      p.beginning === 0 &&
+                      pStart !== p.beginning &&
+                      pEnd === p.ending;
+
+                    if (!installIsTrivial) {
+                      affectedInstalls.push({
+                        periodId: p.id,
+                        individualId: ind.id,
+                        individualName: ind.name,
+                        systemComponentId: comp.id,
+                        systemComponentName: comp.name,
+                        fromBeginning: p.beginning,
+                        fromEnding: p.ending,
+                        toBeginning: pStart,
+                        toEnding: pEnd,
+                        action: "trim",
+                      });
+                    }
                   }
                 }
               }
@@ -778,12 +923,122 @@ const SetIndividual = (props: Props) => {
           }
         }
 
-        if (affectedComps.length > 0 || affectedInstalls.length > 0) {
+        // If there are non-trivial affected items, include silent trims in the affected list
+        if (silentCompTrims.length > 0 && (affectedComps.length > 0 || affectedInstalls.length > 0)) {
+          affectedComps.push(...silentCompTrims);
+        }
+
+        // Check activities that participate the system or any of its child components or installed individuals
+        const affectedActivities: AffectedActivity[] = [];
+        // Activities participating the system itself
+        const oldEnd = oldSystem ? normalizeEnd(oldSystem.ending) : newEnd;
+        affectedActivities.push(...findAffectedActivities(next.id, next.name, newStart, newEnd, oldStart, oldEnd));
+        // Activities participating child components
+        const allCompEntries = [...affectedComps, ...silentCompTrims];
+        for (const comp of childComponents) {
+          const compFinalStart = (() => {
+            const ac = allCompEntries.find((c) => c.id === comp.id);
+            return ac?.toBeginning !== undefined ? normalizeStart(ac.toBeginning) : normalizeStart(comp.beginning);
+          })();
+          const compFinalEnd = (() => {
+            const ac = allCompEntries.find((c) => c.id === comp.id);
+            if (ac?.action === "drop") return 0; // component will be dropped
+            return ac?.toEnding !== undefined ? normalizeEnd(ac.toEnding) : normalizeEnd(comp.ending);
+          })();
+          
+          const compEffStart = Math.max(compFinalStart, newStart);
+          const compEffEnd = Math.min(compFinalEnd, newEnd);
+          const oldCompEffStart = Math.max(normalizeStart(comp.beginning), oldStart);
+          const oldCompEffEnd = Math.min(normalizeEnd(comp.ending), oldEnd);
+
+          if (compEffEnd > compEffStart) {
+            affectedActivities.push(...findAffectedActivities(comp.id, comp.name, compEffStart, compEffEnd, oldCompEffStart, oldCompEffEnd).map(a => ({...a, systemName: next.name})));
+          } else {
+            affectedActivities.push(...findAffectedActivities(comp.id, comp.name, compEffStart, compEffStart, oldCompEffStart, oldCompEffEnd).map(a => ({...a, systemName: next.name})));
+          }
+
+          // Activities participating individuals installed in this component
+          for (const ind of Array.from(dataset.individuals.values())) {
+            const periods = getInstallationPeriods(ind);
+            const isInstalledInComp = periods.some((p) => p.systemComponentId === comp.id);
+            if (!isInstalledInComp) continue;
+            // The individual's effective bounds are clamped to the component's final effective bounds
+            const indStart = normalizeStart(ind.beginning);
+            const indEnd = normalizeEnd(ind.ending);
+            const indEffStart = Math.max(indStart, compEffStart);
+            const indEffEnd = Math.min(indEnd, compEffEnd);
+            const oldIndEffStart = Math.max(indStart, oldCompEffStart);
+            const oldIndEffEnd = Math.min(indEnd, oldCompEffEnd);
+
+            if (indEffEnd > indEffStart) {
+              affectedActivities.push(...findAffectedActivities(ind.id, ind.name, indEffStart, indEffEnd, oldIndEffStart, oldIndEffEnd).map(a => ({...a, systemName: next.name, systemComponentName: comp.name})));
+            } else {
+              affectedActivities.push(...findAffectedActivities(ind.id, ind.name, indEffStart, indEffStart, oldIndEffStart, oldIndEffEnd).map(a => ({...a, systemName: next.name, systemComponentName: comp.name})));
+            }
+          }
+        }
+        // De-duplicate by activityId (activity may participate multiple affected entities)
+        const seenActivityIds = new Set<string>();
+        const dedupedActivities = affectedActivities.filter((aa) => {
+          if (seenActivityIds.has(aa.activityId)) return false;
+          seenActivityIds.add(aa.activityId);
+          return true;
+        });
+
+        // Auto-apply any silent component trims without a warning (only if no other items affected)
+        if (silentCompTrims.length > 0 && affectedComps.length === 0 && affectedInstalls.length === 0 && dedupedActivities.length === 0) {
+          // All affected items are trivial — apply silently
+          updateDataset((d: Model) => {
+            d.addIndividual(next);
+            for (const sc of silentCompTrims) {
+              const comp = d.individuals.get(sc.id);
+              if (comp && sc.toBeginning !== undefined && sc.toEnding !== undefined) {
+                d.addIndividual({ ...comp, beginning: sc.toBeginning, ending: sc.toEnding });
+              }
+            }
+            // Also bump installations whose start matched 0
+            const silentCompIds = new Set(silentCompTrims.map((c) => c.id));
+            for (const ind of Array.from(d.individuals.values())) {
+              const periods = getInstallationPeriods(ind);
+              let changed = false;
+              const updated = periods.map((p) => {
+                if (!silentCompIds.has(p.systemComponentId)) return p;
+                const cStart = Math.max(p.beginning, newStart);
+                const cEnd = Math.min(p.ending, newEnd);
+                if (cEnd <= cStart) { changed = true; return null; }
+                if (cStart !== p.beginning || cEnd !== p.ending) {
+                  changed = true;
+                  return { ...p, beginning: cStart, ending: cEnd };
+                }
+                return p;
+              }).filter((p): p is InstallationPeriod => !!p);
+              if (changed) {
+                d.addIndividual(syncLegacyInstallationFields({
+                  ...ind,
+                  installedIn: undefined,
+                  installedBeginning: undefined,
+                  installedEnding: undefined,
+                  installations: updated,
+                }));
+              }
+            }
+          });
+          handleClose();
+          return;
+        }
+
+        // Include silent trims in the warning if we still have non-trivial items
+        if (silentCompTrims.length > 0 && affectedComps.length === 0) {
+          affectedComps.push(...silentCompTrims);
+        }
+
+        if (affectedComps.length > 0 || affectedInstalls.length > 0 || dedupedActivities.length > 0) {
           const pending = { ...next };
           setCascadeWarning({
             entityName: next.name,
             affectedComponents: affectedComps,
             affectedInstallations: affectedInstalls,
+            affectedActivities: dedupedActivities,
             pendingIndividual: pending,
             applyTrim: () => {
               // Do everything in one atomic updateDataset call
@@ -846,6 +1101,13 @@ const SetIndividual = (props: Props) => {
                   }));
                 });
 
+                // Remove participations for affected activities (drop only)
+                for (const aa of affectedActivities) {
+                  if (aa.action !== "drop") continue;
+                  const act = d.activities.get(aa.activityId);
+                  if (act) act.participations.delete(aa.individualId);
+                }
+
                 return d;
               });
 
@@ -887,6 +1149,12 @@ const SetIndividual = (props: Props) => {
                       installations: kept,
                     }));
                   }
+                }
+
+                // Remove all affected participations
+                for (const aa of affectedActivities) {
+                  const act = d.activities.get(aa.activityId);
+                  if (act) act.participations.delete(aa.individualId);
                 }
 
                 return d;
@@ -960,12 +1228,65 @@ const SetIndividual = (props: Props) => {
           }
         }
 
-        if (affectedInstalls.length > 0) {
+        // Check activities that participate the system component
+        const existingComp = dataset.individuals.get(next.id);
+        let oldEffStart = existingComp ? normalizeStart(existingComp.beginning) : effectiveStart;
+        let oldEffEnd = existingComp ? normalizeEnd(existingComp.ending) : effectiveEnd;
+        let parentSystemName = undefined;
+        if (existingComp?.installedIn) {
+          const parentSystem = dataset.individuals.get(existingComp.installedIn);
+          if (parentSystem && getEntityTypeIdFromIndividual(parentSystem) === ENTITY_TYPE_IDS.SYSTEM) {
+            oldEffStart = Math.max(oldEffStart, normalizeStart(parentSystem.beginning));
+            oldEffEnd = Math.min(oldEffEnd, normalizeEnd(parentSystem.ending));
+            parentSystemName = parentSystem.name;
+          }
+        }
+        if (!parentSystemName && next.installedIn) {
+          const newSys = dataset.individuals.get(next.installedIn);
+          if (newSys && getEntityTypeIdFromIndividual(newSys) === ENTITY_TYPE_IDS.SYSTEM) {
+            parentSystemName = newSys.name;
+          }
+        }
+
+        const compAffectedActivities: AffectedActivity[] = [];
+        compAffectedActivities.push(...findAffectedActivities(next.id, next.name, effectiveStart, effectiveEnd, oldEffStart, oldEffEnd).map(a => ({...a, systemName: parentSystemName})));
+
+        // Also check activities for individuals installed in this component
+        for (const ind of Array.from(dataset.individuals.values())) {
+          const periods = getInstallationPeriods(ind);
+          const isInstalledInComp = periods.some((p) => p.systemComponentId === next.id);
+          if (!isInstalledInComp) continue;
+          const indStart = normalizeStart(ind.beginning);
+          const indEnd = normalizeEnd(ind.ending);
+          const indEffStart = Math.max(indStart, effectiveStart);
+          const indEffEnd = Math.min(indEnd, effectiveEnd);
+          const oldIndEffStart = Math.max(indStart, oldEffStart);
+          const oldIndEffEnd = Math.min(indEnd, oldEffEnd);
+          
+          if (indEffEnd > indEffStart) {
+            compAffectedActivities.push(...findAffectedActivities(ind.id, ind.name, indEffStart, indEffEnd, oldIndEffStart, oldIndEffEnd).map(a => ({...a, systemName: parentSystemName, systemComponentName: next.name})));
+          } else {
+            compAffectedActivities.push(...findAffectedActivities(ind.id, ind.name, indEffStart, indEffStart, oldIndEffStart, oldIndEffEnd).map(a => ({...a, systemName: parentSystemName, systemComponentName: next.name})));
+          }
+        }
+
+        // De-duplicate by activityId+individualId
+        const seenCompActKeys = new Set<string>();
+        const dedupedCompActivities = compAffectedActivities.filter((aa) => {
+          const key = aa.activityId + ":" + aa.individualId;
+          if (seenCompActKeys.has(key)) return false;
+          seenCompActKeys.add(key);
+          return true;
+        });
+
+        if (affectedInstalls.length > 0 || dedupedCompActivities.length > 0) {
           const pending = { ...next };
+
           setCascadeWarning({
             entityName: next.name,
             affectedComponents: [],
             affectedInstallations: affectedInstalls,
+            affectedActivities: dedupedCompActivities,
             pendingIndividual: pending,
             applyTrim: () => {
               updateDataset((d: Model) => {
@@ -1002,6 +1323,13 @@ const SetIndividual = (props: Props) => {
                   }));
                 });
 
+                // Remove participations for affected activities (drop only)
+                for (const aa of dedupedCompActivities) {
+                  if (aa.action !== "drop") continue;
+                  const act = d.activities.get(aa.activityId);
+                  if (act) act.participations.delete(aa.individualId);
+                }
+
                 return d;
               });
 
@@ -1031,6 +1359,12 @@ const SetIndividual = (props: Props) => {
                   }
                 }
 
+                // Remove all affected participations
+                for (const aa of dedupedCompActivities) {
+                  const act = d.activities.get(aa.activityId);
+                  if (act) act.participations.delete(aa.individualId);
+                }
+
                 return d;
               });
 
@@ -1053,7 +1387,21 @@ const SetIndividual = (props: Props) => {
       setShowBoundsWarningModal(false);
       return;
     }
-    commitIndividualSave(pendingSaveIndividual);
+    // If there are affected activities, handle them in a single update
+    if (pendingAffectedActivities.length > 0) {
+      updateDataset((d: Model) => {
+        d.addIndividual(pendingSaveIndividual);
+        // Remove participations for affected activities (drop only)
+        for (const aa of pendingAffectedActivities) {
+          if (aa.action !== "drop") continue;
+          const act = d.activities.get(aa.activityId);
+          if (act) act.participations.delete(aa.individualId);
+        }
+      });
+      handleClose();
+    } else {
+      commitIndividualSave(pendingSaveIndividual);
+    }
   };
 
   const confirmBoundsDeleteAffected = () => {
@@ -1061,7 +1409,20 @@ const SetIndividual = (props: Props) => {
       setShowBoundsWarningModal(false);
       return;
     }
-    commitIndividualSave(pendingRemoveIndividual);
+    // If there are affected activities, handle them in a single update
+    if (pendingAffectedActivities.length > 0) {
+      updateDataset((d: Model) => {
+        d.addIndividual(pendingRemoveIndividual);
+        // Remove all affected participations
+        for (const aa of pendingAffectedActivities) {
+          const act = d.activities.get(aa.activityId);
+          if (act) act.participations.delete(aa.individualId);
+        }
+      });
+      handleClose();
+    } else {
+      commitIndividualSave(pendingRemoveIndividual);
+    }
   };
 
   const handleDelete = () => {
@@ -1401,19 +1762,23 @@ const SetIndividual = (props: Props) => {
     };
   };
 
-  const hasPendingTrimAction = pendingBoundsChanges.some((change) => change.action === "trim");
-  const hasPendingDropAction = pendingBoundsChanges.some((change) => change.action === "drop");
+  const hasPendingTrimAction = pendingBoundsChanges.some((change) => change.action === "trim") ||
+    pendingAffectedActivities.some((aa) => aa.action === "trim");
+  const hasPendingDropAction = pendingBoundsChanges.some((change) => change.action === "drop") ||
+    pendingAffectedActivities.some((aa) => aa.action === "drop");
   const cascadeHasTrimAction =
     !!cascadeWarning &&
     (
       cascadeWarning.affectedComponents.some((item) => item.action === "trim") ||
-      cascadeWarning.affectedInstallations.some((item) => item.action === "trim")
+      cascadeWarning.affectedInstallations.some((item) => item.action === "trim") ||
+      cascadeWarning.affectedActivities.some((item) => item.action === "trim")
     );
   const cascadeHasDropAction =
     !!cascadeWarning &&
     (
       cascadeWarning.affectedComponents.some((item) => item.action === "drop") ||
-      cascadeWarning.affectedInstallations.some((item) => item.action === "drop")
+      cascadeWarning.affectedInstallations.some((item) => item.action === "drop") ||
+      cascadeWarning.affectedActivities.some((item) => item.action === "drop")
     );
 
   return (
@@ -1673,7 +2038,7 @@ const SetIndividual = (props: Props) => {
               <Form.Label>Beginning</Form.Label>
               <Form.Control
                 type="number"
-                min="0"
+                min="0" step="any"
                 value={beginningText}
                 onChange={handleBeginChange}
                 disabled={
@@ -1687,7 +2052,7 @@ const SetIndividual = (props: Props) => {
               <Form.Label>Ending</Form.Label>
               <Form.Control
                 type="number"
-                min="0"
+                min="0" step="any"
                 value={endingText}
                 onChange={handleEndChange}
                 disabled={
@@ -1875,7 +2240,7 @@ const SetIndividual = (props: Props) => {
                     <td>
                       <Form.Control
                         type="number"
-                        min="0"
+                        min="0" step="any"
                         value={row.beginningText}
                         onChange={(event) =>
                           updateInstallationRow(row.id, "beginningText", event.target.value)
@@ -1885,7 +2250,7 @@ const SetIndividual = (props: Props) => {
                     <td>
                       <Form.Control
                         type="number"
-                        min="0"
+                        min="0" step="any"
                         placeholder="∞"
                         value={row.endingText}
                         onChange={(event) =>
@@ -1951,7 +2316,7 @@ const SetIndividual = (props: Props) => {
         <Modal.Body>
           <p>
             Changing the bounds of <strong>{inputs.name || "Entity"}</strong> will
-            affect the following installation periods:
+            affect the following items:
           </p>
           {pendingBoundsChanges.length > 0 && (
             <div className="mb-3">
@@ -1966,6 +2331,30 @@ const SetIndividual = (props: Props) => {
                     {change.action === "trim"
                       ? ` → ${formatBound(change.toBeginning ?? change.fromBeginning, true)}-${formatBound(change.toEnding ?? change.fromEnding, false)} (trimmed)`
                       : " → removed (no overlap)"}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+          {pendingAffectedActivities.length > 0 && (
+            <div className="mb-3">
+              <div className="fw-semibold mb-2">Activities</div>
+              <div style={{ maxHeight: "180px", overflowY: "auto" }}>
+                {[...pendingAffectedActivities].sort((a, b) => a.fromBeginning - b.fromBeginning).map((aa) => (
+                  <div key={aa.activityId} className="mb-1 small">
+                    <span className="fw-semibold">{aa.activityName}</span>
+                    <span className="text-muted">
+                      {" (Participant: "}
+                      {aa.systemName ? `${aa.systemName} → ` : ""}
+                      {aa.systemComponentName ? `${aa.systemComponentName} → ` : ""}
+                      {aa.individualName}
+                      {")"}
+                    </span>
+                    {": "}
+                    {formatBound(aa.fromBeginning, true)}-{formatBound(aa.fromEnding, false)}
+                    {aa.action === "trim"
+                      ? ` → ${formatBound(aa.toBeginning ?? aa.fromBeginning, true)}-${formatBound(aa.toEnding ?? aa.fromEnding, false)} (would be trimmed)`
+                      : " → would be removed (no overlap)"}
                   </div>
                 ))}
               </div>
@@ -2048,6 +2437,31 @@ const SetIndividual = (props: Props) => {
                     {formatBound(ai.fromBeginning, true)}-{formatBound(ai.fromEnding, false)}
                     {ai.action === "trim"
                       ? ` → ${formatBound(ai.toBeginning ?? ai.fromBeginning, true)}-${formatBound(ai.toEnding ?? ai.fromEnding, false)} (would be trimmed)`
+                      : " → would be removed (no overlap)"}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {cascadeWarning && cascadeWarning.affectedActivities.length > 0 && (
+            <div className="mb-3">
+              <div className="fw-semibold mb-2">Activities</div>
+              <div style={{ maxHeight: "180px", overflowY: "auto" }}>
+                {[...cascadeWarning.affectedActivities].sort((a, b) => a.fromBeginning - b.fromBeginning).map((aa) => (
+                  <div key={aa.activityId} className="mb-1 small">
+                    <span className="fw-semibold">{aa.activityName}</span>
+                    <span className="text-muted">
+                      {" (Participant: "}
+                      {aa.systemName ? `${aa.systemName} → ` : ""}
+                      {aa.systemComponentName ? `${aa.systemComponentName} → ` : ""}
+                      {aa.individualName}
+                      {")"}
+                    </span>
+                    {": "}
+                    {formatBound(aa.fromBeginning, true)}-{formatBound(aa.fromEnding, false)}
+                    {aa.action === "trim"
+                      ? ` → ${formatBound(aa.toBeginning ?? aa.fromBeginning, true)}-${formatBound(aa.toEnding ?? aa.fromEnding, false)} (would be trimmed)`
                       : " → would be removed (no overlap)"}
                   </div>
                 ))}

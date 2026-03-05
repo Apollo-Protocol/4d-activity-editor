@@ -82,6 +82,67 @@ export function drawActivities(ctx: DrawContext) {
     x += config.layout.individual.textLength;
   }
 
+  // Create an Activity-specific mask for each activity to flawlessly trim out dead participant zones
+  let defs = svgElement.select("defs.activity-defs");
+  if (defs.empty()) {
+    defs = svgElement.append("defs").attr("class", "activity-defs");
+  } else {
+    defs.selectAll("*").remove(); // clear out old masks
+  }
+
+  const gap = config.layout.individual.gap;
+
+  activities.forEach((a) => {
+    const actX = x + timeInterval * (a.beginning - startOfTime);
+    const actW = (a.ending - a.beginning) * timeInterval;
+    const actEnd = actX + actW;
+
+    const mask = defs.append("mask")
+      .attr("id", "mask-act-" + a.id)
+      .attr("maskUnits", "userSpaceOnUse");
+      
+    // White background means draw everything
+    mask.append("rect")
+      .attr("x", -50000)
+      .attr("y", -50000)
+      .attr("width", 200000)
+      .attr("height", 200000)
+      .attr("fill", "white");
+
+    a.participations?.forEach((p) => {
+      const individual = individuals.find((i) => i.id === p.individualId);
+      if (!individual) return;
+      const rowId = resolveParticipationRowId(a, individual, individuals);
+      const node = svgElement.select("#i" + rowId).node();
+      if (!node) return;
+      const bbox = (node as any).getBBox();
+      const rowLeft = bbox.x;
+      const rowRight = bbox.x + bbox.width;
+      
+      const maskY = bbox.y - gap / 1.5; // push carefully into gap spacing
+      const maskH = bbox.height + gap * 1.3;
+
+      // Cut out right side where individual is dead
+      if (actEnd > rowRight) {
+        mask.append("rect")
+          .attr("x", rowRight)
+          .attr("y", maskY)
+          .attr("width", 100000)
+          .attr("height", maskH)
+          .attr("fill", "black");
+      }
+      // Cut out left side where individual is dead
+      if (actX < rowLeft) {
+        mask.append("rect")
+          .attr("x", -50000)
+          .attr("y", maskY)
+          .attr("width", 50000 + rowLeft) // exactly up to rowLeft
+          .attr("height", maskH)
+          .attr("fill", "black");
+      }
+    });
+  });
+
   svgElement
     .selectAll(".activity")
     .data(activities.values())
@@ -93,8 +154,7 @@ export function drawActivities(ctx: DrawContext) {
     })
     .attr("y", (a: Activity) => {
       return (
-        calculateTopPositionOfNewActivity(svgElement, a, individuals) -
-        config.layout.individual.gap * 0.3
+        calculateTopPositionOfNewActivity(svgElement, a, individuals) + 0.5 // +0.5 to keep stroke fully inside mask
       );
     })
     .attr("width", (a: Activity) => {
@@ -104,7 +164,7 @@ export function drawActivities(ctx: DrawContext) {
       const bottomY = calculateLengthOfNewActivity(svgElement, a, individuals);
       const topY = calculateTopPositionOfNewActivity(svgElement, a, individuals);
       return bottomY
-        ? bottomY - topY + config.layout.individual.gap * 0.6
+        ? bottomY - topY - 1 // -1 to keep stroke inside bottom mask
         : 0;
     })
     .attr("stroke", (a: Activity, i: number) => {
@@ -119,18 +179,17 @@ export function drawActivities(ctx: DrawContext) {
         i % config.presentation.activity.fill.length
       ];
     })
-    .attr("opacity", config.presentation.activity.opacity);
-
+    .attr("opacity", config.presentation.activity.opacity)
+      .attr("mask", (a: Activity) => `url(#mask-act-${a.id})`);
   // small helper functions to reuse computations
   const xOf = (a: Activity) => x + timeInterval * (a.beginning - startOfTime);
   const yOf = (a: Activity) =>
-    calculateTopPositionOfNewActivity(svgElement, a, individuals) -
-    config.layout.individual.gap * 0.3;
+    calculateTopPositionOfNewActivity(svgElement, a, individuals) + 0.5;
   const widthOf = (a: Activity) => (a.ending - a.beginning) * timeInterval;
   const heightOf = (a: Activity) => {
     const bottomY = calculateLengthOfNewActivity(svgElement, a, individuals);
     const topY = calculateTopPositionOfNewActivity(svgElement, a, individuals);
-    return bottomY ? bottomY - topY + config.layout.individual.gap * 0.6 : 0;
+    return bottomY ? bottomY - topY - 1 : 0;
   };
 
   // Subtask badge rendering removed — badge no longer drawn on activities.

@@ -489,6 +489,58 @@ export function drawIndividuals(ctx: DrawContext) {
       return aY - bY;
     });
 
+  const defs = svgElement.select("defs").empty()
+    ? svgElement.append("defs")
+    : svgElement.select("defs");
+
+  let activityMask = defs.select("#activity-mask");
+  if (activityMask.empty()) {
+    activityMask = defs.append("mask")
+      .attr("id", "activity-mask")
+      .attr("maskUnits", "userSpaceOnUse");
+  } else {
+    activityMask.selectAll("*").remove(); // clear old mask
+  }
+
+  activityMask.append("rect")
+    .attr("x", -50000)
+    .attr("y", -50000)
+    .attr("width", 100000)
+    .attr("height", 100000)
+    .attr("fill", "white");
+
+  drawnIndividuals.forEach(i => {
+    const spans = layout.get(i.id)!;
+    if (spans.length > 0) {
+      const firstSpan = spans[0];
+      const rowY = firstSpan.y;
+      const rowH = firstSpan.h;
+
+      activityMask.append("rect")
+        .attr("x", -50000)
+        .attr("y", rowY)
+        .attr("width", 100000)
+        .attr("height", rowH)
+        .attr("fill", "black");
+        
+      const baseHeight = config.layout.individual.height;
+      const pathData = spans.map(s => {
+          const { x, y, w, h, start, stop } = s;
+          const chevOff = Math.min(h / 3, baseHeight / 3);
+
+          return `M ${x} ${y} l ${w} 0`
+            + (stop ? `l 0 ${h}` : `l ${chevOff} ${h / 2} ${-chevOff} ${h / 2}`)
+            + `l ${-w} 0`
+            + (start ? "" : `l ${chevOff} ${-h / 2} ${-chevOff} ${-h / 2}`)
+            + "Z";
+      }).join(" ");
+      
+      activityMask.append("path")
+        .attr("d", pathData)
+        .attr("fill", "white");
+    }
+  });
+
   svgElement
     .selectAll(".individual")
     .data(drawnIndividuals.values())

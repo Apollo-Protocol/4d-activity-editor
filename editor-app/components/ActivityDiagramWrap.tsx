@@ -18,11 +18,14 @@ import {
   normalizeStart,
   syncLegacyInstallationFields,
 } from "@/utils/installations";
+import { save as saveTTL, load as loadTTL } from "@/lib/ActivityLib";
 import ExportJson from "./ExportJson";
 import ExportSvg from "./ExportSvg";
 import HideIndividuals from "./HideIndividuals";
 import DiagramLegend from "./DiagramLegend";
 import EntityTypeLegend from "./EntityTypeLegend";
+
+const SESSION_KEY = "activity-editor-session";
 
 const beforeUnloadHandler = (ev: BeforeUnloadEvent) => {
   ev.returnValue = "";
@@ -57,6 +60,41 @@ export default function ActivityDiagramWrap() {
   const [showSortIndividuals, setShowSortIndividuals] = useState(false);
   const [highlightedActivityId, setHighlightedActivityId] = useState<string | null>(null);
 
+  // Restore from sessionStorage on mount
+  const didRestore = useRef(false);
+  useEffect(() => {
+    if (didRestore.current) return;
+    didRestore.current = true;
+    try {
+      const stored = sessionStorage.getItem(SESSION_KEY);
+      if (stored) {
+        const restored = loadTTL(stored);
+        if (restored instanceof Error) {
+          console.warn("Failed to restore session data:", restored);
+        } else {
+          setDataset(restored);
+        }
+      }
+    } catch (e) {
+      console.warn("Failed to read session storage:", e);
+    }
+  }, []);
+
+  // Persist to sessionStorage whenever dataset changes
+  const isInitialRender = useRef(true);
+  useEffect(() => {
+    if (isInitialRender.current) {
+      isInitialRender.current = false;
+      return;
+    }
+    try {
+      const ttl = saveTTL(dataset);
+      sessionStorage.setItem(SESSION_KEY, ttl);
+    } catch (e) {
+      console.warn("Failed to save session storage:", e);
+    }
+  }, [dataset]);
+
   useEffect(() => {
     if (dirty) window.addEventListener("beforeunload", beforeUnloadHandler);
     else window.removeEventListener("beforeunload", beforeUnloadHandler);
@@ -68,7 +106,10 @@ export default function ActivityDiagramWrap() {
 
   const updateDataset = useCallback((updater: Dispatch<Model>) => {
     setDataset((prevDataset) => {
-      setUndoHistory((prevHistory) => [prevDataset, ...prevHistory.slice(0, 5)]);
+      setUndoHistory((prevHistory) => {
+        if (prevHistory.length > 0 && prevHistory[0] === prevDataset) return prevHistory;
+        return [prevDataset, ...prevHistory.slice(0, 49)];
+      });
       const d = prevDataset.clone();
       updater(d);
       setDirty(true);
@@ -86,7 +127,10 @@ export default function ActivityDiagramWrap() {
     setDataset(undoHistory[0]);
     setUndoHistory(undoHistory.slice(1));
   };
-  const clearDiagram = () => replaceDataset(new Model());
+  const clearDiagram = () => {
+    replaceDataset(new Model());
+    try { sessionStorage.removeItem(SESSION_KEY); } catch (e) { /* ignore */ }
+  };
 
   const svgRef = useRef<SVGSVGElement>(null);
 

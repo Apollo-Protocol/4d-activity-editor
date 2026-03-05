@@ -2,7 +2,7 @@ import React from "react";
 import Card from "react-bootstrap/Card";
 
 const HatchedIcon = () => (
-  <svg width="16" height="16" viewBox="0 0 16 16" style={{ verticalAlign: "middle" }}>
+  <svg width="1em" height="1em" viewBox="0 0 16 16" style={{ verticalAlign: "middle" }}>
     <defs>
       <pattern
         id="legendInstallHatch"
@@ -28,7 +28,7 @@ const HatchedIcon = () => (
 );
 
 const DashedIcon = () => (
-  <svg width="16" height="16" viewBox="0 0 16 16" style={{ verticalAlign: "middle" }}>
+  <svg width="1em" height="1em" viewBox="0 0 16 16" style={{ verticalAlign: "middle" }}>
     <rect
       x="1"
       y="3"

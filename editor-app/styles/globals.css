@@ -90,7 +90,7 @@
   border: none;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
   border-radius: 8px;
-  min-width: 250px;
+  min-width: 15.6rem;
   right: 0;
   left: auto;
 }
@@ -136,7 +136,20 @@ footer a:hover {
 
 /* Ensure content doesn't get hidden behind sticky navbar */
 html {
+  font-size: 16px;
   scroll-padding-top: 80px;
+}
+
+@media (max-width: 1600px) {
+  html {
+    font-size: 14px;
+  }
+}
+
+@media (max-width: 992px) {
+  html {
+    font-size: 12px;
+  }
 }
 
 /* Body base styling */
@@ -187,8 +200,8 @@ body {
 }
 
 #activity-diagram-scrollable-div::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
+  width: 0.5rem;
+  height: 0.5rem;
 }
 
 #activity-diagram-scrollable-div::-webkit-scrollbar-track {
@@ -237,7 +250,7 @@ body {
 
 .editor-layout {
   display: grid;
-  --legend-width: clamp(140px, 14vw, 230px);
+  --legend-width: clamp(8.75rem, 14vw, 14.5rem);
   grid-template-columns: var(--legend-width) 1fr;
   grid-template-areas:
     "legend diagram"
@@ -314,8 +327,8 @@ body {
 .diagram-search-popover {
   position: absolute;
   right: 0;
-  top: 38px;
-  width: 280px;
+  top: 2.5rem;
+  width: 17.5rem;
   background: #fff;
   border: 1px solid #dee2e6;
   border-radius: 0.375rem;
@@ -356,7 +369,7 @@ body {
 
 .diagram-search-results {
   margin-top: 0.35rem;
-  max-height: 220px;
+  max-height: 13.75rem;
   overflow-y: auto;
   display: flex;
   flex-direction: column;
@@ -476,13 +489,13 @@ body {
 
 @media (max-width: 576px) {
   .diagram-icon-toggle button {
-    width: 26px !important;
-    height: 26px !important;
+    width: 1.6rem !important;
+    height: 1.6rem !important;
   }
 
   .diagram-icon-toggle svg {
-    width: 13px;
-    height: 13px;
+    width: 0.8rem;
+    height: 0.8rem;
   }
 }
 
@@ -534,8 +547,8 @@ body {
 
 .legend-color-box {
   display: inline-block;
-  width: 14px;
-  height: 14px;
+  width: 0.875rem;
+  height: 0.875rem;
   border-radius: 3px;
   margin-right: 6px;
   border: 1px solid #888;
@@ -544,8 +557,8 @@ body {
 
 .legend-icon {
   display: inline-flex;
-  width: 16px;
-  height: 16px;
+  width: 1rem;
+  height: 1rem;
   margin-right: 6px;
   justify-content: center;
   align-items: center;
@@ -609,7 +622,7 @@ body {
 }
 
 .activity-modal-btn {
-  height: 38px;
+  height: 2.375rem;
   display: inline-flex;
   align-items: center;
 }
@@ -632,6 +645,16 @@ body {
   .activity-modal-primary {
     margin-left: 0;
     justify-content: flex-end;
+  }
+}
+
+/* Shrink toolbar buttons on laptop-width screens so everything fits on one row */
+@media (max-width: 1599px) and (min-width: 992px) {
+  .editor-toolbar button,
+  .editor-toolbar .btn,
+  .editor-toolbar .dropdown-toggle {
+    font-size: 0.9rem;
+    padding: 0.35rem 0.65rem;
   }
 }
 
@@ -675,14 +698,14 @@ body {
   }
 
   .legend-color-box {
-    width: 9px;
-    height: 9px;
+    width: 0.55rem;
+    height: 0.55rem;
     margin-right: 3px;
   }
 
   .legend-action-btn svg {
-    width: 12px;
-    height: 12px;
+    width: 0.75rem;
+    height: 0.75rem;
   }
 
   .editor-toolbar {
@@ -881,8 +904,8 @@ body {
   }
 
   .legend-color-box {
-    width: 10px;
-    height: 10px;
+    width: 0.6rem;
+    height: 0.6rem;
     margin-right: 4px;
     border-radius: 2px;
   }
@@ -892,20 +915,20 @@ body {
   }
 
   .legend-action-btn svg {
-    width: 12px;
-    height: 12px;
+    width: 0.75rem;
+    height: 0.75rem;
   }
 
   /* Make activity legend scrollable when more than ~7 items */
   .legend-items-container {
-    max-height: 200px;
+    max-height: 12.5rem;
     overflow-y: auto;
     scrollbar-width: thin;
     scrollbar-color: #888 #f1f1f1;
   }
 
   .legend-items-container::-webkit-scrollbar {
-    width: 6px;
+    width: 0.35rem;
   }
 
   .legend-items-container::-webkit-scrollbar-track {
@@ -938,13 +961,13 @@ body {
   }
 
   .legend-color-box {
-    width: 8px;
-    height: 8px;
+    width: 0.5rem;
+    height: 0.5rem;
     margin-right: 2px;
   }
 
   .legend-items-container {
-    max-height: 140px;
+    max-height: 8.75rem;
   }
 }
 

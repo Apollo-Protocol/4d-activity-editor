@@ -74,10 +74,20 @@ export class Model {
     const newModel = new Model(this.name, this.description);
     newModel.filename = this.filename;
     this.activities.forEach((a) => {
-      newModel.addActivity(a);
+      const clonedParticipations = new Map();
+      if (a.participations) {
+        a.participations.forEach((p, key) => clonedParticipations.set(key, { ...p }));
+      }
+      newModel.addActivity({
+        ...a,
+        participations: clonedParticipations,
+      });
     });
     this.individuals.forEach((i) => {
-      newModel.addIndividual(i);
+      newModel.addIndividual({
+        ...i,
+        installations: i.installations ? i.installations.map(inst => ({ ...inst })) : undefined,
+      });
     });
     this.roles
       .filter((r) => !r.isCoreHqdm)

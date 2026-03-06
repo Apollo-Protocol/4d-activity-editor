@@ -67,6 +67,33 @@ export default function Home() {
   </div>
 </div>
 
+    <div className="col-md text-center align-self-center my-4 my-md-0 d-flex justify-content-center">
+      <div style={{ backgroundColor: "#e9ecef", width: "90%", maxWidth: "450px", height: "250px", display: "flex", alignItems: "center", justifyContent: "center", color: "#6c757d", border: "1px dashed #ced4da", borderRadius: "4px", fontSize: "0.9rem" }}>
+        Placeholder: system configuration
+      </div>
+    </div>
+    <div className="col-md">
+    <div className="my-3 p-3">
+          <h2 className="display-5">Dynamic Systems</h2>
+          <p className="lead">Real-world equipment changes over time. Your activity models can reflect that history by organizing individuals into parent systems and defining their installation windows. </p>
+          <p>Configure components to validate whether sub-assemblies, maintenance parts, or temporary structures were actually present when the modeled activity occurred.</p>
+          <Link className="btn btn-outline-secondary" href="system-intro">Learn about components</Link>
+        </div>
+    </div>
+
+    <div className="w-100"></div>
+
+    <div className="container">
+  <div className="row">
+    <div className="col-sm">
+    </div>
+    <div className="col-6 border-bottom pb-3 mb-3 mt-4">
+    </div>
+    <div className="col-sm">
+    </div>
+  </div>
+</div>
+
     <div className="col-md">
     <div className="my-3 p-3">
           <h2 className="display-5">A Tool for the Future</h2>

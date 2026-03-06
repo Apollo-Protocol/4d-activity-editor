@@ -39,6 +39,10 @@ function CollapsibleExample() {
     "/crane",
     "/management",
   ].includes(router.pathname);
+  const isSystemComponentsActive = [
+    "/system-intro",
+    "/system-example",
+  ].includes(router.pathname);
 
   return (
     <Navbar
@@ -63,14 +67,24 @@ function CollapsibleExample() {
         <Navbar.Collapse id="responsive-navbar-nav">
           <Nav className="ms-auto gap-2">
             <NavItem href="/">Home</NavItem>
-            <NavItem href="editor">Editor</NavItem>
-            <NavItem href="manual">Guide</NavItem>
+            <NavItem href="/editor">Editor</NavItem>
             <NavDropdown
-              title="Activity Modelling"
-              id="activity-modelling-dropdown"
-              className={isActivityModellingActive ? "active-dropdown" : ""}
+              title="Guide"
+              id="guide-dropdown"
+              className={(isActivityModellingActive || isSystemComponentsActive || router.pathname === "/manual") ? "active-dropdown" : ""}
               align="end"
             >
+              <NavDropdown.Header>Editor</NavDropdown.Header>
+              <NavDropdown.Item
+                href="/manual"
+                className={router.pathname === "/manual" ? "active" : ""}
+              >
+                Editor Guide
+              </NavDropdown.Item>
+
+              <NavDropdown.Divider />
+
+              <NavDropdown.Header>Activity Modelling</NavDropdown.Header>
               <NavDropdown.Item
                 href="/intro"
                 className={router.pathname === "/intro" ? "active" : ""}
@@ -88,6 +102,22 @@ function CollapsibleExample() {
                 className={router.pathname === "/management" ? "active" : ""}
               >
                 Integrated Information Management
+              </NavDropdown.Item>
+
+              <NavDropdown.Divider />
+
+              <NavDropdown.Header>System &amp; System Components</NavDropdown.Header>
+              <NavDropdown.Item
+                href="/system-intro"
+                className={router.pathname === "/system-intro" ? "active" : ""}
+              >
+                Introduction
+              </NavDropdown.Item>
+              <NavDropdown.Item
+                href="/system-example"
+                className={router.pathname === "/system-example" ? "active" : ""}
+              >
+                Example Analysis
               </NavDropdown.Item>
             </NavDropdown>
           </Nav>

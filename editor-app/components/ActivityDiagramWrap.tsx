@@ -27,6 +27,59 @@ import EntityTypeLegend from "./EntityTypeLegend";
 
 const SESSION_KEY = "activity-editor-session";
 
+const normalizeConfigData = (storedConfig: Partial<typeof config>) => ({
+  ...config,
+  ...storedConfig,
+  viewPort: {
+    ...config.viewPort,
+    ...storedConfig.viewPort,
+  },
+  layout: {
+    ...config.layout,
+    ...storedConfig.layout,
+    individual: {
+      ...config.layout.individual,
+      ...storedConfig.layout?.individual,
+    },
+    system: {
+      ...config.layout.system,
+      ...storedConfig.layout?.system,
+    },
+  },
+  presentation: {
+    ...config.presentation,
+    ...storedConfig.presentation,
+    individual: {
+      ...config.presentation.individual,
+      ...storedConfig.presentation?.individual,
+    },
+    activity: {
+      ...config.presentation.activity,
+      ...storedConfig.presentation?.activity,
+    },
+    participation: {
+      ...config.presentation.participation,
+      ...storedConfig.presentation?.participation,
+    },
+    axis: {
+      ...config.presentation.axis,
+      ...storedConfig.presentation?.axis,
+    },
+  },
+  labels: {
+    ...config.labels,
+    ...storedConfig.labels,
+    individual: {
+      ...config.labels.individual,
+      ...storedConfig.labels?.individual,
+    },
+    activity: {
+      ...config.labels.activity,
+      ...storedConfig.labels?.activity,
+    },
+  },
+});
+
 const beforeUnloadHandler = (ev: BeforeUnloadEvent) => {
   ev.returnValue = "";
   ev.preventDefault();
@@ -43,6 +96,7 @@ export default function ActivityDiagramWrap() {
   const [dirty, setDirty] = useState(false);
   const [activityContext, setActivityContext] = useState<Maybe<Id>>(undefined);
   const [undoHistory, setUndoHistory] = useState<Model[]>([]);
+  const [redoHistory, setRedoHistory] = useState<Model[]>([]);
   const [showIndividual, setShowIndividual] = useState(false);
   const [selectedIndividual, setSelectedIndividual] = useState<
     Individual | undefined
@@ -59,7 +113,7 @@ export default function ActivityDiagramWrap() {
     if (typeof window !== "undefined") {
       try {
         const stored = sessionStorage.getItem("activity-editor-config");
-        if (stored) return JSON.parse(stored);
+        if (stored) return normalizeConfigData(JSON.parse(stored));
       } catch (e) {
         console.warn("Failed to restore config from session map:", e);
       }
@@ -130,6 +184,7 @@ export default function ActivityDiagramWrap() {
         if (prevHistory.length > 0 && prevHistory[0] === prevDataset) return prevHistory;
         return [prevDataset, ...prevHistory.slice(0, 49)];
       });
+      setRedoHistory([]);
       const d = prevDataset.clone();
       updater(d);
       setDirty(true);
@@ -139,13 +194,25 @@ export default function ActivityDiagramWrap() {
   /* Callers of this function must also handle the dirty flag. */
   const replaceDataset = (d: Model) => {
     setUndoHistory([]);
+    setRedoHistory([]);
     setActivityContext(undefined);
     setDataset(d);
   };
   const undo = () => {
-    if (undoHistory.length == 0) return;
-    setDataset(undoHistory[0]);
-    setUndoHistory(undoHistory.slice(1));
+    if (undoHistory.length === 0) return;
+    const [previousDataset, ...remainingHistory] = undoHistory;
+    setRedoHistory((prevHistory) => [dataset, ...prevHistory.slice(0, 49)]);
+    setDataset(previousDataset);
+    setUndoHistory(remainingHistory);
+    setDirty(true);
+  };
+  const redo = () => {
+    if (redoHistory.length === 0) return;
+    const [nextDataset, ...remainingHistory] = redoHistory;
+    setUndoHistory((prevHistory) => [dataset, ...prevHistory.slice(0, 49)]);
+    setDataset(nextDataset);
+    setRedoHistory(remainingHistory);
+    setDirty(true);
   };
   const clearDiagram = () => {
     replaceDataset(new Model());
@@ -364,10 +431,12 @@ export default function ActivityDiagramWrap() {
     : -1;
   const selectedActivityAutoColor =
     selectedActivityIndex >= 0
-      ? config.presentation.activity.fill[
-          selectedActivityIndex % config.presentation.activity.fill.length
+      ? configData.presentation.activity.fill[
+          selectedActivityIndex % configData.presentation.activity.fill.length
         ]
-      : config.presentation.activity.fill[0];
+      : configData.presentation.activity.fill[
+          activitiesInView.length % configData.presentation.activity.fill.length
+        ];
 
   // render
   return (
@@ -474,7 +543,9 @@ export default function ActivityDiagramWrap() {
             <div className="toolbar-group">
               <Undo
                 hasUndo={undoHistory.length > 0}
+                hasRedo={redoHistory.length > 0}
                 undo={undo}
+                redo={redo}
                 clearDiagram={clearDiagram}
               />
               <SetConfig

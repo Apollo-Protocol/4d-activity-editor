@@ -1,8 +1,15 @@
 import React from "react";
 import Button from "react-bootstrap/Button";
 
-const Undo = (props: any) => {
-  const { hasUndo, undo, clearDiagram } = props;
+type Props = {
+  hasUndo: boolean;
+  hasRedo: boolean;
+  undo: () => void;
+  redo: () => void;
+  clearDiagram: () => void;
+};
+
+const Undo = ({ hasUndo, hasRedo, undo, redo, clearDiagram }: Props) => {
 
   return (
     <>
@@ -12,6 +19,13 @@ const Undo = (props: any) => {
         className={hasUndo ? "mx-1 d-block" : "mx-1 d-none"}
       >
         Undo
+      </Button>
+      <Button
+        variant="primary"
+        onClick={redo}
+        className={hasRedo ? "mx-1 d-block" : "mx-1 d-none"}
+      >
+        Redo
       </Button>
       <Button
         variant="danger"

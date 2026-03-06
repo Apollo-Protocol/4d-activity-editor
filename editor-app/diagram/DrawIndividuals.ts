@@ -456,8 +456,8 @@ export function drawIndividuals(ctx: DrawContext) {
         span.start = !hasOpenStart;
         span.stop = !hasOpenEnd;
 
-        const minX = hostSpan.x + strokePad;
-        const maxRight = hostSpan.x + hostSpan.w - strokePad;
+        let minX = hostSpan.x + strokePad;
+        let maxRight = hostSpan.x + hostSpan.w - strokePad;
 
         // ensure left edge is not outside host (include stroke padding)
         if (span.x < minX) {
@@ -607,6 +607,8 @@ export function drawIndividuals(ctx: DrawContext) {
  */
 export function drawInstallationConnectors(ctx: DrawContext) {
   const { config, svgElement, individuals, activities } = ctx;
+  const openEndAlignmentPadding =
+    config.layout.individual.openEndAlignmentPadding ?? 12;
 
   svgElement
     .selectAll(".installHatch,.installConnectorRibbon")
@@ -753,7 +755,16 @@ export function drawInstallationConnectors(ctx: DrawContext) {
       if (visibleEnd <= visibleStart) return;
 
       const x1 = timeToX(visibleStart);
-      const x2 = isOpenEnd(period.ending) ? timeToX(endOfTime) + config.layout.individual.temporalMargin : timeToX(visibleEnd);
+      const targetHasOpenEnd = isOpenEnd(target.ending);
+      const baseX2 = isOpenEnd(period.ending)
+        ? timeToX(endOfTime) + config.layout.individual.temporalMargin
+        : timeToX(visibleEnd);
+      const useOpenEndChevron =
+        isOpenEnd(ind.ending) && isOpenEnd(period.ending) && targetHasOpenEnd;
+      const x2 =
+        useOpenEndChevron
+          ? Math.max(x1 + 1, baseX2 - openEndAlignmentPadding)
+          : baseX2;
 
       const lowerTop = lowerTopBase;
       const lowerBottom = lowerTopBase + lowerHeight;
@@ -773,20 +784,46 @@ export function drawInstallationConnectors(ctx: DrawContext) {
         defs.select(`${clipSelector} path`).attr("d", targetPathD);
       }
 
-      svgElement
-        .append("rect")
-        .attr("class", "installHatch")
-        .attr("x", x1)
-        .attr("y", targetBox.y)
-        .attr("width", Math.max(1, x2 - x1))
-        .attr("height", targetBox.height)
-        .attr("fill", "url(#installHatchHighlight)")
-        .attr("stroke", config.presentation.individual.stroke)
-        .attr("stroke-width", 2.0)
-        .attr("opacity", 1.0)
-        .attr("clip-path", `url(#${clipId})`)
-        .attr("data-installed-id", ind.id)
-        .attr("data-target-id", target.id);
+      if (useOpenEndChevron) {
+        const targetChevronDepth = Math.min(
+          targetBox.height / 3,
+          config.layout.individual.height / 3
+        );
+        const targetMidY = targetBox.y + targetBox.height / 2;
+        const targetChevronTipX = x2 + targetChevronDepth;
+        const hatchPath = `M ${x1} ${targetBox.y}`
+          + ` L ${x2} ${targetBox.y}`
+          + ` L ${targetChevronTipX} ${targetMidY}`
+          + ` L ${x2} ${targetBox.y + targetBox.height}`
+          + ` L ${x1} ${targetBox.y + targetBox.height} Z`;
+
+        svgElement
+          .append("path")
+          .attr("class", "installHatch")
+          .attr("d", hatchPath)
+          .attr("fill", "url(#installHatchHighlight)")
+          .attr("stroke", config.presentation.individual.stroke)
+          .attr("stroke-width", 2.0)
+          .attr("opacity", 1.0)
+          .attr("clip-path", `url(#${clipId})`)
+          .attr("data-installed-id", ind.id)
+          .attr("data-target-id", target.id);
+      } else {
+        svgElement
+          .append("rect")
+          .attr("class", "installHatch")
+          .attr("x", x1)
+          .attr("y", targetBox.y)
+          .attr("width", Math.max(1, x2 - x1))
+          .attr("height", targetBox.height)
+          .attr("fill", "url(#installHatchHighlight)")
+          .attr("stroke", config.presentation.individual.stroke)
+          .attr("stroke-width", 2.0)
+          .attr("opacity", 1.0)
+          .attr("clip-path", `url(#${clipId})`)
+          .attr("data-installed-id", ind.id)
+          .attr("data-target-id", target.id);
+      }
 
       const startLiftDx = INSTALL_RIBBON_RUN_PX;
       const endDropDx = INSTALL_RIBBON_RUN_PX;

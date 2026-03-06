@@ -14,6 +14,7 @@ export interface ConfigData {
       xMargin: number;
       temporalMargin: number;
       textLength: number;
+      openEndAlignmentPadding: number;
     };
     system: {
       containerInset: number;
@@ -92,6 +93,7 @@ export const config: ConfigData = {
       xMargin: 40,
       temporalMargin: 10,
       textLength: 100,
+      openEndAlignmentPadding: 12,
     },
     system: {
       containerInset: 4,

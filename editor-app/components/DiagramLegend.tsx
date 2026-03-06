@@ -93,7 +93,7 @@ const DiagramLegend = ({
               return (
                 <div
                   key={activity.id}
-                  className="legend-item justify-content-between"
+                  className="legend-item align-items-center justify-content-between"
                 >
                   <div className="legend-item-main">
                     <span
@@ -107,12 +107,9 @@ const DiagramLegend = ({
                     <span className="legend-label">
                       {activity.name}
                       {count > 0 && (
-                        <>
-                          <br />
-                          <span style={{ fontWeight: "bolder", fontSize: "0.8em" }}>
-                            ({count} subtask{count !== 1 ? "s" : ""})
-                          </span>
-                        </>
+                        <span className="ms-1" style={{ fontWeight: "bolder", fontSize: "0.8em" }}>
+                          ({count} subtask{count !== 1 ? "s" : ""})
+                        </span>
                       )}
                     </span>
                   </div>

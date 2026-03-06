@@ -896,17 +896,18 @@ const SetActivity = (props: Props) => {
                   type="text"
                   name="colorText"
                   value={inputs.color || ""}
-                  placeholder="Default (auto)"
+                  placeholder={autoActivityColor ? `Auto: ${autoActivityColor}` : "Default (auto)"}
                   onChange={(e) =>
                     updateInputs("color", e.target.value || undefined)
                   }
-                  style={{ maxWidth: "140px" }}
+                  style={{ maxWidth: "150px" }}
                 />
                 {inputs.color && (
                   <Button
                     variant="outline-secondary"
                     size="sm"
                     onClick={() => updateInputs("color", undefined)}
+                    title="Reset to auto color"
                   >
                     Reset
                   </Button>

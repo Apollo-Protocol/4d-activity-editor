@@ -173,7 +173,9 @@ export default function Page() {
     <p>There is an &lsquo;Undo&rsquo; button on the right-hand
             side; this will undo the most recent change you have made.
             The undo history is fairly short; the button disappears when
-            you can&apos;t undo any more.</p>
+            you can&apos;t undo any more. If you undo too far, the
+            &lsquo;Redo&rsquo; button will step forward again until you make a
+            fresh edit.</p>
 
             <p>The &lsquo;Clear diagram&rsquo; button will start again
             with a clean diagram.</p>

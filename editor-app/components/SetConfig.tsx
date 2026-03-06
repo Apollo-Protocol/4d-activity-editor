@@ -7,11 +7,64 @@ import Col from "react-bootstrap/Col";
 import Tabs from "react-bootstrap/Tabs";
 import Tab from "react-bootstrap/Tab";
 
-import { ConfigData } from "@/diagram/config";
+import { config, ConfigData } from "@/diagram/config";
 
 import { saveFile, loadFile } from "./save_load";
 
 const _ = require("lodash");
+
+const normalizeConfigData = (storedConfig: Partial<ConfigData>): ConfigData => ({
+  ...config,
+  ...storedConfig,
+  viewPort: {
+    ...config.viewPort,
+    ...storedConfig.viewPort,
+  },
+  layout: {
+    ...config.layout,
+    ...storedConfig.layout,
+    individual: {
+      ...config.layout.individual,
+      ...storedConfig.layout?.individual,
+    },
+    system: {
+      ...config.layout.system,
+      ...storedConfig.layout?.system,
+    },
+  },
+  presentation: {
+    ...config.presentation,
+    ...storedConfig.presentation,
+    individual: {
+      ...config.presentation.individual,
+      ...storedConfig.presentation?.individual,
+    },
+    activity: {
+      ...config.presentation.activity,
+      ...storedConfig.presentation?.activity,
+    },
+    participation: {
+      ...config.presentation.participation,
+      ...storedConfig.presentation?.participation,
+    },
+    axis: {
+      ...config.presentation.axis,
+      ...storedConfig.presentation?.axis,
+    },
+  },
+  labels: {
+    ...config.labels,
+    ...storedConfig.labels,
+    individual: {
+      ...config.labels.individual,
+      ...storedConfig.labels?.individual,
+    },
+    activity: {
+      ...config.labels.activity,
+      ...storedConfig.labels?.activity,
+    },
+  },
+});
 
 interface Props {
   configData: ConfigData;
@@ -36,7 +89,7 @@ const SetConfig = (props: Props) => {
     loadFile("application/json,.json")
       .then((f: File) => f.text())
       .then((json: string) => {
-        const loadedConfig = JSON.parse(json);
+        const loadedConfig = normalizeConfigData(JSON.parse(json));
         setInputs(loadedConfig);
         setUploadError("");
       })
@@ -52,11 +105,21 @@ const SetConfig = (props: Props) => {
     setShowConfigModal(false);
   };
   const handleShow = () => {
-    setInputs(configData);
+    setInputs(normalizeConfigData(configData));
   };
   const handleAdd = (event: any) => {
     event.preventDefault();
     setConfigData(inputs);
+    handleClose();
+  };
+  const handleReset = () => {
+    if (typeof window !== "undefined") {
+      sessionStorage.removeItem("activity-editor-config");
+    }
+    // Deep copy to ensure fresh object references for React state
+    const defaultConfig = JSON.parse(JSON.stringify(config));
+    setConfigData(defaultConfig);
+    setInputs(defaultConfig);
     handleClose();
   };
 
@@ -394,7 +457,7 @@ const SetConfig = (props: Props) => {
                         type="number"
                         name="viewPort.minTimelineSpan"
                         step="1"
-                        min="1"
+                        min="11"
                         max="100"
                         value={inputs?.viewPort?.minTimelineSpan}
                         onChange={handleChangeNumber}
@@ -469,6 +532,18 @@ const SetConfig = (props: Props) => {
                         type="number"
                         name="layout.individual.textLength"
                         value={inputs?.layout?.individual?.textLength}
+                        onChange={handleChangeNumber}
+                        className="form-control"
+                      />
+                    </Form.Group>
+                    <Form.Group className="mb-2" controlId="formLayoutIndividualOpenEndPadding">
+                      <Form.Label>System Highlight Open-End Padding</Form.Label>
+                      <Form.Control
+                        type="number"
+                        name="layout.individual.openEndAlignmentPadding"
+                        min="0"
+                        max="50"
+                        value={inputs?.layout?.individual?.openEndAlignmentPadding}
                         onChange={handleChangeNumber}
                         className="form-control"
                       />
@@ -561,6 +636,9 @@ const SetConfig = (props: Props) => {
         </Modal.Body>
         <Modal.Footer>
           {uploadError}
+          <Button variant="danger" onClick={handleReset} className="me-auto">
+            Reset Defaults
+          </Button>
           <Button variant="primary" onClick={uploadConfig}>
             Load Settings
           </Button>

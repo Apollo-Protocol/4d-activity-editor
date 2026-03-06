@@ -3,8 +3,17 @@ import Link from "next/link";
 import Image from "next/image";
 import { Col, Container, Row } from "react-bootstrap";
 import styles from "@/styles/Home.module.css";
+import JumpLinks from "@/components/JumpLinks";
 // @ts-ignore
 import ModalImage from "react-modal-image";
+
+const manualSections = [
+        { id: "how-the-diagrams-work", label: "How the diagrams work" },
+        { id: "creating-a-diagram", label: "Creating a diagram" },
+        { id: "changing-a-diagram", label: "Changing a diagram" },
+        { id: "breaking-down-activities", label: "Breaking down activities" },
+        { id: "saving-and-loading-diagrams", label: "Saving and loading" },
+];
 
 export default function Page() {
   return (
@@ -19,9 +28,13 @@ export default function Page() {
       <div className="container">
       <div className="row">
     <div className="col mb-5">
-    <h1 className="display-4 font-weight-normal">Editor Guide</h1>
+                <h1 id="page-top" className="display-4 font-weight-normal">Editor Guide</h1>
     </div>
   </div>
+
+        <div className="doc-page-layout">
+                <JumpLinks items={manualSections} label="Jump to section" />
+                <div className="doc-page-content">
 
   <div className="row">
     
@@ -41,7 +54,7 @@ export default function Page() {
     <div className="w-100"></div>
 
     <div className="col-md">
-    <h4 className="">How the Diagrams Work</h4>
+        <h4 id="how-the-diagrams-work" className="doc-section-heading">How the Diagrams Work</h4>
     <p>The axes of the diagram are labelled &lsquo;space&rsquo;
             and &lsquo;time&rsquo;, but this should be taken rather
             broadly. The &lsquo;time&rsquo; axis shows activities
@@ -64,7 +77,7 @@ export default function Page() {
     <div className="col-md text-center align-self-center"><picture><ModalImage small="manual/boil-egg-basic.svg" large="manual/boil-egg-basic.svg" imageBackgroundColor="#fff" alt="" /></picture></div>
 
     <div className="w-100 mt-5"></div>
-    <div className="col-md"><h2 className="text-primary">Creating A Diagram</h2></div>
+        <div className="col-md"><h2 id="creating-a-diagram" className="text-primary doc-section-heading">Creating A Diagram</h2></div>
     <div className="col-md"></div>
     <div className="w-100"></div>
 
@@ -136,7 +149,7 @@ export default function Page() {
     <div className="col-md text-center align-self-center"><picture><ModalImage className="w-100 mb-5" small="manual/created-activity.png" large="manual/created-activity.png" imageBackgroundColor="#fff" alt="" /></picture></div>
 
     <div className="w-100 mt-5"></div>
-    <div className="col-md"><h2 className="text-primary">Changing A Diagram</h2></div>
+        <div className="col-md"><h2 id="changing-a-diagram" className="text-primary doc-section-heading">Changing A Diagram</h2></div>
     <div className="col-md"></div>
     <div className="w-100"></div>
 
@@ -201,7 +214,7 @@ export default function Page() {
     <div className="col-md"></div>
 
     <div className="w-100 mt-5"></div>
-    <div className="col-md"><h2 className="text-primary">Breaking Down Activites</h2></div>
+        <div className="col-md"><h2 id="breaking-down-activities" className="text-primary doc-section-heading">Breaking Down Activites</h2></div>
     <div className="col-md"></div>
     <div className="w-100"></div>
 
@@ -238,7 +251,7 @@ export default function Page() {
     <div className="col-md text-center align-self-center"><picture><ModalImage className="w-100 mb-5" small="manual/sub-activities.png" large="manual/sub-activities.png" imageBackgroundColor="#fff" alt="" /></picture></div>
 
     <div className="w-100 mt-5"></div>
-    <div className="col-md"><h2 className="text-primary">Saving and Loading Diagrams</h2></div>
+        <div className="col-md"><h2 id="saving-and-loading-diagrams" className="text-primary doc-section-heading">Saving and Loading Diagrams</h2></div>
     <div className="col-md"></div>
     <div className="w-100"></div>
 
@@ -302,6 +315,9 @@ export default function Page() {
 
 
   </div>
+        <p className="doc-back-to-top"><a href="#page-top">Back to top</a></p>
+</div>
+</div>
 </div>
     </Container>
     </>

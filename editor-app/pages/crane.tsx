@@ -3,8 +3,33 @@ import Link from "next/link";
 import Image from "next/image";
 import { Col, Container, Row } from "react-bootstrap";
 import styles from "@/styles/Home.module.css";
+import JumpLinks, { JumpLinkItem } from "@/components/JumpLinks";
 // @ts-ignore
 import ModalImage from "react-modal-image";
+
+const craneSections: JumpLinkItem[] = [
+  { id: "crane-overview", label: "Overview" },
+  { id: "top-level-approach", label: "Top-level approach" },
+  { id: "crane-step-1", label: "Step 1" },
+  {
+    id: "crane-step-2",
+    label: "Step 2",
+    children: [
+      { id: "representing-a-step-on-the-diagram", label: "Representing a step" },
+      { id: "adding-more-steps", label: "Adding more steps" },
+      { id: "break-down-the-individual-steps", label: "Break down the steps" },
+    ],
+  },
+  {
+    id: "crane-step-3",
+    label: "Step 3",
+    children: [
+      { id: "identifying-decision-points", label: "Identifying decision points" },
+      { id: "finding-the-source-of-information", label: "Finding the source" },
+      { id: "deciding-where-to-stop", label: "Where to stop" },
+    ],
+  },
+];
 
 export default function Page() {
   return (
@@ -17,11 +42,14 @@ export default function Page() {
       <Container>
       <div className="row">
     <div className="col mb-5">
-    <h1 className="display-4 font-weight-norma text-center">Analysing a Crane Lift</h1>
+    <h1 id="page-top" className="display-4 font-weight-norma text-center">Analysing a Crane Lift</h1>
     </div>
   </div>
+        <div className="doc-page-layout">
+          <JumpLinks items={craneSections} label="Jump to section" />
+          <div className="doc-page-content">
         <Row className="justify-content-center row-cols-1 row-cols-lg-2">
-          <Col>
+          <Col id="crane-overview" className="doc-section-heading">
             <p><picture><img className="w-100" src="crane/crane-lift.jpeg" alt="" /></picture></p>
 
             <p>This document walks through the process of analysing the
@@ -36,7 +64,7 @@ export default function Page() {
             activity in question and breaking down the steps in the
             activity until decision points can be identified.</p>
 
-            <h2>Top-level approach</h2>
+            <h2 id="top-level-approach" className="doc-section-heading">Top-level approach</h2>
             <p>At the top level, the methodology is about identifying
             information that is required, and deciding how to make sure
             that information is provided at an appropriate quality. It
@@ -53,7 +81,7 @@ export default function Page() {
             may also be the case that you find you are currently
             collecting a lot of data you can&apos;t make any use of.)</p>
 
-            <h2>Step 1: Lifecycle Activity Model</h2>
+            <h2 id="crane-step-1" className="doc-section-heading">Step 1: Lifecycle Activity Model</h2>
 
             <p> Everything has a lifecycle; comprising at least a start 
             and an end.  Activities are no different.  If we wish to 
@@ -76,7 +104,7 @@ export default function Page() {
             editor option to import and export reference data (activity,
             resource and participant types) may be helpful here.</p>
 
-            <h2>Step 2: Analysing the Activities</h2>
+            <h2 id="crane-step-2" className="doc-section-heading">Step 2: Analysing the Activities</h2>
 
             <p>The first step in analysing a particular activity is to
             identify the steps involved and the points where decisions
@@ -87,7 +115,7 @@ export default function Page() {
             Method Statement as being involved in the lift, and which
             steps required which participants.</p>
 
-            <h3>Representing a step on the diagram</h3>
+            <h3 id="representing-a-step-on-the-diagram" className="doc-section-heading">Representing a step on the diagram</h3>
 
             <p>Take the first step in the process as documented, and {}
             <Link href="manual#creating-a-diagram">represent it on the
@@ -113,7 +141,7 @@ export default function Page() {
             for example to require that a suitable record must be
             kept.</p>
 
-            <h3>Adding more steps</h3>
+            <h3 id="adding-more-steps" className="doc-section-heading">Adding more steps</h3>
 
             <p>Continue adding the rest of the steps in the process as
             documented. Create new physical objects as needed and add
@@ -133,7 +161,7 @@ export default function Page() {
             breaking down the steps further, and looking in more detail
             at what each step involves.</p>
 
-            <h3>Break down the individual steps</h3>
+            <h3 id="break-down-the-individual-steps" className="doc-section-heading">Break down the individual steps</h3>
 
             <p>It is then necessary to further analyse each step,
             breaking it down further if necessary and identifying the
@@ -190,7 +218,7 @@ export default function Page() {
             <p>The completed diagram can be loaded into the editor from
             the examples menu.</p>
 
-            <h2>Step 3: Identifying Decisions</h2>
+            <h2 id="crane-step-3" className="doc-section-heading">Step 3: Identifying Decisions</h2>
 
             <p>This step has not been carried out in detail, as it is
             out of the scope of the activity diagram editor as such.
@@ -199,7 +227,7 @@ export default function Page() {
             involved. Our hope is that in the future tooling can be
             developed to make this stage of the analysis easier.</p>
 
-            <h3>Identifying decision points</h3>
+            <h3 id="identifying-decision-points" className="doc-section-heading">Identifying decision points</h3>
 
             <p>Decisions are normally made at the start or end of
             activities. A decision in the middle of an activity normally
@@ -219,7 +247,7 @@ export default function Page() {
             analysis we have no way of knowing whether these
             requirements can be met consistently.</p>
 
-            <h3>Finding the source of the information</h3>
+            <h3 id="finding-the-source-of-information" className="doc-section-heading">Finding the source of the information</h3>
 
             <p>Having identified the decision points in the activity,
             and the information required to make these decisions, we now
@@ -238,7 +266,7 @@ export default function Page() {
             <picture><ModalImage small="crane/life-crane.svg" large="crane/life-crane.svg" imageBackgroundColor="#fff" alt="" /></picture>
             <br/>
 
-            <h3>Deciding where to stop</h3>
+            <h3 id="deciding-where-to-stop" className="doc-section-heading">Deciding where to stop</h3>
 
             <p>One of the important questions to ask here is &lsquo;when
             do we stop analysing&rsquo;. The answer is &lsquo;when you
@@ -256,8 +284,11 @@ export default function Page() {
             present or not. However, it is important to recognise that
             information quality management is a process, and we may need
             to revisit decisions like this later.</p>
+            <p className="doc-back-to-top"><a href="#page-top">Back to top</a></p>
           </Col>
         </Row>
+          </div>
+        </div>
       </Container>
     </>
   );

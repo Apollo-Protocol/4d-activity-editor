@@ -3,6 +3,7 @@ import React, { useState, useEffect } from "react";
 import { SortableList } from "@/components/SortableList/SortableList";
 import Button from "react-bootstrap/Button";
 import Modal from "react-bootstrap/Modal";
+import DraggableModalDialog from "@/components/DraggableModalDialog";
 import { ENTITY_TYPE_IDS, getEntityTypeIdFromIndividual } from "@/lib/entityTypes";
 
 const SortIndividuals = (props: any) => {
@@ -128,7 +129,7 @@ const SortIndividuals = (props: any) => {
         </Button>
       )}
 
-      <Modal show={showSortIndividuals} onHide={handleClose} scrollable>
+      <Modal dialogAs={DraggableModalDialog} show={showSortIndividuals} onHide={handleClose} scrollable>
         <Modal.Header closeButton>
           <Modal.Title>Sort Entities</Modal.Title>
         </Modal.Header>

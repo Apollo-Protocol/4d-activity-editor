@@ -21,7 +21,7 @@ export default function Page() {
       </Head>
       <Container>
       <div className="row">
-    <div className="col mb-5">
+    <div className="col mb-2 mb-lg-5">
     <h1 id="page-top" className="display-4 font-weight-normal">Integrated Information Management</h1>
     </div>
   </div>

@@ -7,33 +7,26 @@ const systemExampleSections: JumpLinkItem[] = [
   { id: "system-example-overview", label: "Overview" },
   { id: "system-example-step-1", label: "Step 1: Define the system" },
   { id: "system-example-step-2", label: "Step 2: Define the slots" },
-  { id: "system-example-step-3", label: "Step 3: Install equipment" },
+  { id: "system-example-step-3", label: "Step 3: Fuse equipment" },
   { id: "system-example-step-4", label: "Step 4: Model activities" },
   { id: "system-example-step-5", label: "Step 5: Use warnings" },
   { id: "system-example-variations", label: "Suggested variations" },
 ];
 
-const Placeholder = ({ alt }: { alt: string }) => (
-  <picture>
-    <div
-      className="mb-5 mt-3"
-      style={{
-        backgroundColor: "#e9ecef",
-        width: "100%",
-        height: "200px",
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        color: "#6c757d",
-        border: "1px dashed #ced4da",
-        borderRadius: "4px",
-        fontSize: "0.9rem",
-      }}
-    >
-      {alt}
-    </div>
-  </picture>
-);
+const ImageComponent = ({ alt }: { alt: string }) => {
+  const filenameBase = alt.toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '');
+  const generatedSrc = `/system-example/${filenameBase}.png`;
+  return (
+    <picture>
+      <img
+        src={generatedSrc}
+        alt={alt}
+        className="img-fluid mb-5 mt-3 border rounded shadow-sm"
+        style={{ width: "100%", height: "auto" }}
+      />
+    </picture>
+  );
+};
 
 export default function Page() {
   return (
@@ -45,7 +38,7 @@ export default function Page() {
       </Head>
       <Container>
         <div className="row">
-          <div className="col mb-5">
+          <div className="col mb-2 mb-lg-5">
             <h1 id="page-top" className="display-4 font-weight-normal">
               Example Analysis: Modelling Replaceable Equipment in a System
             </h1>
@@ -74,7 +67,7 @@ export default function Page() {
                 </p>
               </Col>
               <Col className="col-md text-center align-self-center">
-                <Placeholder alt="Screenshot: example overview diagram" />
+                <ImageComponent alt="example overview diagram" />
               </Col>
             </Row>
 
@@ -96,7 +89,7 @@ export default function Page() {
                 </p>
               </Col>
               <Col className="col-md text-center align-self-center">
-                <Placeholder alt="Screenshot: creating Packaging Cell A" />
+                <ImageComponent alt="creating Packaging Cell A" />
               </Col>
             </Row>
 
@@ -109,18 +102,18 @@ export default function Page() {
                 <p>
                   Add system components such as <strong>Main Controller Slot</strong>,
                   <strong> Vision Camera Mount</strong>, and <strong>Tool Head Position</strong>. Each
-                  one should be installed into <strong>Packaging Cell A</strong> and given bounds that
+                  one should be made a component of <strong>Packaging Cell A</strong> and given bounds that
                   describe when that slot exists in the model.
                 </p>
                 <p>
-                  This is the structural part of the model. The component is not the device installed
-                  there. It is the named place in the system where a device may be installed. That
-                  distinction is what allows you to replace equipment later without losing the slot
-                  identity.
+                  This is the structural part of the model. The component is not the device
+                  occupying that position. It is the named place in the system where a device may be
+                  fused. That distinction is what allows you to replace equipment later without
+                  losing the slot identity.
                 </p>
               </Col>
               <Col className="col-md text-center align-self-center">
-                <Placeholder alt="Screenshot: defining system component slots" />
+                <ImageComponent alt="defining system component slots" />
               </Col>
             </Row>
 
@@ -128,12 +121,13 @@ export default function Page() {
             <Row className="justify-content-center row-cols-1 row-cols-lg-2 mt-5">
               <Col>
                 <h4 id="system-example-step-3" className="doc-section-heading">
-                  Step 3: Install equipment over time
+                  Step 3: Fuse equipment into component slots over time
                 </h4>
                 <p>
                   Create ordinary individuals for the equipment itself, for example
                   <strong> PLC Unit 01</strong>, <strong>Camera Unit 01</strong>, and later
                   <strong> Camera Unit 02</strong>. Reopen those individuals and add installation rows
+                  (the editor calls these fusions &ldquo;installations&rdquo;)
                   that place them into the relevant component slots for the correct periods.
                 </p>
                 <p>
@@ -144,7 +138,7 @@ export default function Page() {
                 </p>
               </Col>
               <Col className="col-md text-center align-self-center">
-                <Placeholder alt="Screenshot: installation periods for equipment" />
+                <ImageComponent alt="installation periods for equipment" />
               </Col>
             </Row>
 
@@ -167,7 +161,7 @@ export default function Page() {
                 </p>
               </Col>
               <Col className="col-md text-center align-self-center">
-                <Placeholder alt="Screenshot: activity validation against installations" />
+                <ImageComponent alt="activity validation against installations" />
               </Col>
             </Row>
 
@@ -190,7 +184,7 @@ export default function Page() {
                 </p>
               </Col>
               <Col className="col-md text-center align-self-center">
-                <Placeholder alt="Screenshot: affected-items warning dialog" />
+                <ImageComponent alt="affected-items warning dialog" />
               </Col>
             </Row>
 
@@ -214,7 +208,7 @@ export default function Page() {
                 </p>
               </Col>
               <Col className="col-md text-center align-self-center">
-                <Placeholder alt="Screenshot: suggested variation diagram" />
+                <ImageComponent alt="suggested variation diagram" />
               </Col>
             </Row>
 

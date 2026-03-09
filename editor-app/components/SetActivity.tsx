@@ -7,6 +7,7 @@ import React, {
 } from "react";
 import Button from "react-bootstrap/Button";
 import Modal from "react-bootstrap/Modal";
+import DraggableModalDialog from "@/components/DraggableModalDialog";
 import Form from "react-bootstrap/Form";
 import ListGroup from "react-bootstrap/ListGroup";
 import Alert from "react-bootstrap/Alert";
@@ -678,7 +679,7 @@ const SetActivity = (props: Props) => {
         Add Activity
       </Button>
 
-      <Modal show={show} onHide={handleModalHide} onShow={handleShow}>
+      <Modal dialogAs={DraggableModalDialog} show={show} onHide={handleModalHide} onShow={handleShow}>
         <Modal.Header closeButton>
           <Modal.Title>
             {selectedActivity ? "Edit Activity" : "Add Activity"}
@@ -1044,7 +1045,7 @@ const SetActivity = (props: Props) => {
       </Modal>
 
       {/* Parent chooser modal */}
-      <Modal show={showParentModal} onHide={() => setShowParentModal(false)}>
+      <Modal dialogAs={DraggableModalDialog} show={showParentModal} onHide={() => setShowParentModal(false)}>
         <Modal.Header closeButton>
           <Modal.Title>Choose parent activity (or None)</Modal.Title>
         </Modal.Header>

@@ -1,6 +1,7 @@
 import React, { Dispatch, SetStateAction, useState } from "react";
 import Button from "react-bootstrap/Button";
 import Modal from "react-bootstrap/Modal";
+import DraggableModalDialog from "@/components/DraggableModalDialog";
 import Form from "react-bootstrap/Form";
 import Row from "react-bootstrap/Row";
 import Col from "react-bootstrap/Col";
@@ -158,7 +159,7 @@ const SetConfig = (props: Props) => {
         Settings
       </Button>
 
-      <Modal
+      <Modal dialogAs={DraggableModalDialog} 
         show={showConfigModal}
         onHide={handleClose}
         onShow={handleShow}

@@ -9,10 +9,10 @@ import styles from "@/styles/Home.module.css";
 
 const introSections: JumpLinkItem[] = [
   { id: "intro-overview", label: "Overview" },
-  { id: "intro-step-1", label: "Step 1" },
-  { id: "intro-step-2", label: "Step 2" },
-  { id: "intro-step-3", label: "Step 3" },
-  { id: "intro-step-4", label: "Step 4" },
+  { id: "intro-step-1", label: "Step 1: Develop an initial lifecycle activity model" },
+  { id: "intro-step-2", label: "Step 2: Identify participants in each activity" },
+  { id: "intro-step-3", label: "Step 3: Identify decisions relating to those activities" },
+  { id: "intro-step-4", label: "Step 4: Proceed to information requirements capture" },
 ];
 
 export default function Page() {
@@ -25,7 +25,7 @@ export default function Page() {
       </Head>
       <Container>
       <div className="row">
-    <div className="col mb-5">
+    <div className="col mb-2 mb-lg-5">
     <h1 id="page-top" className="display-4 font-weight-normal">Introduction to Activity Modelling</h1>
     </div>
   </div>

@@ -10,10 +10,10 @@ import ModalImage from "react-modal-image";
 const craneSections: JumpLinkItem[] = [
   { id: "crane-overview", label: "Overview" },
   { id: "top-level-approach", label: "Top-level approach" },
-  { id: "crane-step-1", label: "Step 1" },
+  { id: "crane-step-1", label: "Step 1: Lifecycle Activity Model" },
   {
     id: "crane-step-2",
-    label: "Step 2",
+    label: "Step 2: Analysing the Activities",
     children: [
       { id: "representing-a-step-on-the-diagram", label: "Representing a step" },
       { id: "adding-more-steps", label: "Adding more steps" },
@@ -22,7 +22,7 @@ const craneSections: JumpLinkItem[] = [
   },
   {
     id: "crane-step-3",
-    label: "Step 3",
+    label: "Step 3: Identifying Decisions",
     children: [
       { id: "identifying-decision-points", label: "Identifying decision points" },
       { id: "finding-the-source-of-information", label: "Finding the source" },
@@ -41,7 +41,7 @@ export default function Page() {
       </Head>
       <Container>
       <div className="row">
-    <div className="col mb-5">
+    <div className="col mb-2 mb-lg-5">
     <h1 id="page-top" className="display-4 font-weight-normal">Analysing a Crane Lift</h1>
     </div>
   </div>

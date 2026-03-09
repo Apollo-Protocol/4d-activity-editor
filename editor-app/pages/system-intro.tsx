@@ -7,46 +7,39 @@ const systemIntroSections: JumpLinkItem[] = [
   { id: "system-overview", label: "Overview" },
   { id: "system-step-1", label: "Step 1: Create the system" },
   { id: "system-step-2", label: "Step 2: Add system components" },
-  { id: "system-step-3", label: "Step 3: Install individuals" },
+  { id: "system-step-3", label: "Step 3: Fuse individuals" },
   { id: "system-step-4", label: "Step 4: Check activities" },
   { id: "system-validations", label: "Validations and safeguards" },
 ];
 
-const Placeholder = ({ alt }: { alt: string }) => (
-  <picture>
-    <div
-      className="mb-5 mt-3"
-      style={{
-        backgroundColor: "#e9ecef",
-        width: "100%",
-        height: "200px",
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        color: "#6c757d",
-        border: "1px dashed #ced4da",
-        borderRadius: "4px",
-        fontSize: "0.9rem",
-      }}
-    >
-      {alt}
-    </div>
-  </picture>
-);
+const ImageComponent = ({ alt }: { alt: string }) => {
+  const filenameBase = alt.toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '');
+  const generatedSrc = `/system-intro/${filenameBase}.png`;
+  return (
+    <picture>
+      <img
+        src={generatedSrc}
+        alt={alt}
+        className="img-fluid mb-5 mt-3 border rounded shadow-sm"
+        style={{ width: "100%", height: "auto" }}
+      />
+    </picture>
+  );
+};
 
 export default function Page() {
   return (
     <>
       <Head>
-        <title>System and Installation Modelling | Activity Diagram Editor</title>
+        <title>System and Component Modelling | Activity Diagram Editor</title>
         <meta name="viewport" content="width=device-width, initial-scale=1" />
         <link rel="icon" href="favicon.ico" />
       </Head>
       <Container>
         <div className="row">
-          <div className="col mb-5">
+          <div className="col mb-2 mb-lg-5">
             <h1 id="page-top" className="display-4 font-weight-normal">
-              Introduction to System and Installation Modelling
+              Introduction to System and Component Modelling
             </h1>
           </div>
         </div>
@@ -68,9 +61,10 @@ export default function Page() {
                 </p>
                 <p>
                   There are three entity categories involved. A <strong>System</strong> defines a
-                  parent asset or assembly. A <strong>System Component</strong> defines a slot or
-                  bounded place within that system. An <strong>Individual</strong> can then be
-                  installed into one or more system-component slots across specific time ranges.
+                  parent asset or assembly. A <strong>System Component</strong> defines a named slot or
+                  role within that system. An <strong>Individual</strong> can then be
+                  fused with one or more system-component slots across specific time ranges
+                  (these fusions are called <em>installations</em> in the editor).
                   That lets the editor represent both structure and change over time in the same
                   diagram.
                 </p>
@@ -83,7 +77,7 @@ export default function Page() {
                 </p>
               </Col>
               <Col className="col-md text-center align-self-center">
-                <Placeholder alt="Screenshot: system overview diagram" />
+                <ImageComponent alt="system overview diagram" />
               </Col>
             </Row>
 
@@ -107,7 +101,7 @@ export default function Page() {
                 </p>
               </Col>
               <Col className="col-md text-center align-self-center">
-                <Placeholder alt="Screenshot: creating a system entity" />
+                <ImageComponent alt="creating a system entity" />
               </Col>
             </Row>
 
@@ -120,7 +114,7 @@ export default function Page() {
                 <p>
                   A system component represents a named slot within a system. Create another entity,
                   change its category to <strong>System Component</strong>, and use the
-                  <strong> Install To System</strong> field to select its parent system.
+                  <strong> Component Of System</strong> field to select its parent system.
                 </p>
                 <p>
                   The editor requires a parent system before a system component can be saved. It also
@@ -131,7 +125,7 @@ export default function Page() {
                 </p>
               </Col>
               <Col className="col-md text-center align-self-center">
-                <Placeholder alt="Screenshot: adding a system component" />
+                <ImageComponent alt="adding a system component" />
               </Col>
             </Row>
 
@@ -139,11 +133,13 @@ export default function Page() {
             <Row className="justify-content-center row-cols-1 row-cols-lg-2 mt-5">
               <Col>
                 <h4 id="system-step-3" className="doc-section-heading">
-                  Step 3: Install individuals
+                  Step 3: Fuse individuals into component slots
                 </h4>
                 <p>
                   Installation periods are applied to ordinary individuals, not to systems or system
-                  components. Once an individual exists, reopen it in edit mode and use the
+                  components. An installation represents the fusion of an individual with a
+                  system-component slot for a specific time range. Once an individual exists,
+                  reopen it in edit mode and use the
                   <strong> Add Installation</strong> button. Each row records a target system
                   component, a start time, and an end time.
                 </p>
@@ -155,7 +151,7 @@ export default function Page() {
                 </p>
               </Col>
               <Col className="col-md text-center align-self-center">
-                <Placeholder alt="Screenshot: installation period modal" />
+                <ImageComponent alt="installation period modal" />
               </Col>
             </Row>
 
@@ -179,7 +175,7 @@ export default function Page() {
                 </p>
               </Col>
               <Col className="col-md text-center align-self-center">
-                <Placeholder alt="Screenshot: activity validation against installation" />
+                <ImageComponent alt="activity validation against installation" />
               </Col>
             </Row>
 
@@ -215,7 +211,7 @@ export default function Page() {
                 </p>
               </Col>
               <Col className="col-md text-center align-self-center">
-                <Placeholder alt="Screenshot: validation warnings dialog" />
+                <ImageComponent alt="validation warnings dialog" />
               </Col>
             </Row>
 

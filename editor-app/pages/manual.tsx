@@ -5,6 +5,7 @@ import JumpLinks, { JumpLinkItem } from "@/components/JumpLinks";
 
 const manualSections: JumpLinkItem[] = [
   { id: "overview", label: "Overview" },
+  { id: "terminology", label: "Terminology" },
   { id: "entities", label: "Adding Entities" },
   { id: "activities", label: "Adding Activities" },
   { id: "participations", label: "Adding Participations" },
@@ -20,8 +21,8 @@ const manualSections: JumpLinkItem[] = [
   { id: "sort-drag", label: "Sorting by Dragging" },
   { id: "activity-color", label: "Picking Activity Color" },
   { id: "settings", label: "Settings", children: [
-    { id: "settings-layout", label: "Layout" },
-    { id: "settings-configuration", label: "Configuration" },
+    { id: "settings-presentation", label: "Presentation Styles" },
+    { id: "settings-layout", label: "Layout & Configuration" },
   ] },
   { id: "saving-loading", label: "Saving and Loading", children: [
     { id: "saving-turtle", label: "Turtle Files" },
@@ -30,27 +31,20 @@ const manualSections: JumpLinkItem[] = [
   ] },
 ];
 
-const Placeholder = ({ alt }: { alt: string }) => (
-  <picture>
-    <div
-      className="mb-5 mt-3"
-      style={{
-        backgroundColor: "#e9ecef",
-        width: "100%",
-        height: "200px",
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        color: "#6c757d",
-        border: "1px dashed #ced4da",
-        borderRadius: "4px",
-        fontSize: "0.9rem",
-      }}
-    >
-      {alt}
-    </div>
-  </picture>
-);
+const ImageComponent = ({ alt, src }: { alt: string, src?: string }) => {
+  const filenameBase = alt.toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '');
+  const generatedSrc = src || `/manual/${filenameBase}.png`;
+  return (
+    <picture>
+      <img
+        src={generatedSrc}
+        alt={alt}
+        className="img-fluid mb-5 mt-3 border rounded shadow-sm"
+        style={{ width: "100%", height: "auto" }}
+      />
+    </picture>
+  );
+};
 
 export default function Page() {
   return (
@@ -63,7 +57,7 @@ export default function Page() {
       </Head>
       <Container>
         <div className="row">
-          <div className="col mb-5">
+          <div className="col mb-2 mb-lg-5">
             <h1 id="page-top" className="display-4 font-weight-normal">Editor Guide</h1>
           </div>
         </div>
@@ -92,7 +86,99 @@ export default function Page() {
                 </p>
               </Col>
               <Col className="col-md text-center align-self-center">
-                <Placeholder alt="Screenshot: editor overview" />
+                <ImageComponent src="/manual/overview.png" alt="editor overview" />
+              </Col>
+            </Row>
+
+            {/* Terminology */}
+            <Row className="justify-content-center row-cols-1 mt-5">
+              <Col>
+                <h4 id="terminology" className="doc-section-heading">Terminology</h4>
+                <p>
+                  The editor is built on a 4-dimensional modelling approach where everything
+                  that exists occupies both space and time. The following terms are used
+                  throughout this guide and in the editor itself:
+                </p>
+                <dl>
+                  <dt>Individual</dt>
+                  <dd>
+                    Something that persists through space and time, such as a person, a piece of
+                    equipment, an organisation, or a document. On the diagram each individual is
+                    drawn as a horizontal band running left to right for the duration of its
+                    existence.
+                  </dd>
+
+                  <dt>Activity</dt>
+                  <dd>
+                    A bounded period during which individuals come together to achieve
+                    something. On the diagram an activity is rendered as an outline rectangle
+                    spanning the time window and the participating entity rows.
+                  </dd>
+
+                  <dt>Participation</dt>
+                  <dd>
+                    The link between an individual and an activity for a defined period.
+                    On the diagram a participation is shown as a filled block at the
+                    intersection of the individual&apos;s row and the activity&apos;s time span.
+                  </dd>
+
+                  <dt>System</dt>
+                  <dd>
+                    A structured assembly of system components. A system is drawn as a large
+                    outline rectangle whose interior contains its components.
+                  </dd>
+
+                  <dt>System Component</dt>
+                  <dd>
+                    A persistent role or slot within a system. It represents a named position
+                    that may be filled by different individuals over time; the role persists
+                    even when temporarily unfilled. A system component is a <em>component of</em>
+                    {" "}its parent system.
+                  </dd>
+
+                  <dt>Installation</dt>
+                  <dd>
+                    The fusion of an individual with a system-component slot for a specific
+                    time range. Installations allow the same slot to be occupied by different
+                    individuals at different times.
+                  </dd>
+
+                  <dt>State</dt>
+                  <dd>
+                    A qualitative property of an individual that changes over time (e.g.
+                    Open/Closed, Running/Stopped). States are rendered as distinctly shaded
+                    segments within an individual&apos;s band.
+                  </dd>
+
+                  <dt>Event</dt>
+                  <dd>
+                    An individual with minimal or zero temporal extent, representing an
+                    instantaneous or near-instantaneous occurrence rather than a
+                    persisting state.
+                  </dd>
+
+                  <dt>Temporal Boundaries</dt>
+                  <dd>
+                    Every individual has a beginning and an ending. A flat vertical edge means
+                    the bound is known; an open chevron means it is unknown. Both ends are
+                    set independently.
+                  </dd>
+
+                  <dt>Space Axis (Y-Axis)</dt>
+                  <dd>
+                    The vertical axis of the diagram. It does not represent physical location;
+                    it gives visual room to distinct individuals. Vertical nesting encodes
+                    part-whole relationships: if A is part of B, A&apos;s band sits within
+                    B&apos;s extent on the diagram.
+                  </dd>
+
+                  <dt>Time Axis (X-Axis)</dt>
+                  <dd>
+                    The horizontal axis, always running left to right in temporal sequence.
+                    It can be linear (uniform scale) or non-linear (compressed/stretched
+                    regions) depending on what needs emphasis.
+                  </dd>
+                </dl>
               </Col>
             </Row>
 
@@ -105,22 +191,22 @@ export default function Page() {
                   participate in activities.  They appear as labelled rows on
                   the vertical (space) axis of the diagram.  To add a new
                   entity, open the <strong>Add Entity</strong> panel in the
-                  toolbar.  Enter a unique name and, optionally, select a
-                  predefined type from the dropdown.  Press
+                  toolbar.  Enter a name, set the beginning and ending times,
+                  and optionally select a type from the dropdown.  Press
                   &ldquo;Add&rdquo; and the entity appears as a new row on
                   the diagram.
                 </p>
                 <p>
-                  You can add as many entities as your model requires.  Each
-                  entity is given a default colour based on its type, and its
-                  row can later be repositioned by dragging
-                  (see <a href="#sort-drag">Sorting by Dragging</a> below).  When an entity is no longer
-                  needed, right-click its row header or use the entity menu
-                  to remove it from the model.
+                  The &lsquo;Type&rsquo; field can be used to categorise
+                  entities, to assist with the analysis; there are three
+                  built-in types, and more can be added with the
+                  &lsquo;Add Type&rsquo; button.  To start with there is no
+                  harm in leaving all individuals as the default
+                  &lsquo;Resource&rsquo; type.
                 </p>
               </Col>
               <Col className="col-md text-center align-self-center">
-                <Placeholder alt="Screenshot: add entity panel" />
+                <ImageComponent alt="add entity panel" />
               </Col>
             </Row>
 
@@ -132,25 +218,25 @@ export default function Page() {
                   Activities are the temporal events that make up your model.
                   They are drawn as coloured blocks on the time axis.  To
                   create a new activity, use the <strong>Add Activity</strong>
-                  {" "}control in the toolbar.  You will be prompted to provide
-                  a name, choose a colour, and set the start and end times.
+                  {" "}control in the toolbar.  Enter a name, set the start
+                  and end times, and optionally choose a colour.
                 </p>
                 <p>
                   The activity immediately appears on the diagram spanning the
                   defined time window.  Activities can overlap in time when
                   they happen concurrently.  After creation, you can edit the
                   name, change the time boundaries, or reassign the colour
-                  from the activity&apos;s context menu or the editing panel
+                  from the editing panel
                   (see <a href="#edit-activity">Editing Activity</a>).
                 </p>
                 <p>
-                  You can also assign an activity a <strong>type</strong>,
-                  which groups it in the Activity Legend and makes the diagram
-                  easier to read when many activities are present.
+                  The &lsquo;Type&rsquo; field, as with individuals, can be
+                  used to categorise activities, or can be left at the
+                  default &lsquo;Task&rsquo; type.
                 </p>
               </Col>
               <Col className="col-md text-center align-self-center">
-                <Placeholder alt="Screenshot: add activity panel" />
+                <ImageComponent alt="add activity panel" />
               </Col>
             </Row>
 
@@ -161,26 +247,27 @@ export default function Page() {
                 <p>
                   A participation links an entity to an activity, recording
                   that the entity is involved during that activity&apos;s time
-                  window.  It is shown as a shaded region at the intersection
+                  window.  It is shown as a filled block at the intersection
                   of the entity&apos;s row and the activity&apos;s time span.
                 </p>
                 <p>
-                  To add a participation, open the <strong>Set
-                  Participation</strong> control.  Select the target entity
-                  and the target activity from the provided dropdowns and
-                  confirm.  The intersection cell on the diagram fills in
+                  To add a participation, open the activity editor (click
+                  the arrow icon next to the activity in the Activity Legend,
+                  or see <a href="#edit-activity">Editing Activity</a>).
+                  The editor shows a list of all individuals; tick the
+                  ones that should participate and they are added
                   immediately.  Each entity can participate in many
                   activities and each activity can have many participating
                   entities.
                 </p>
                 <p>
-                  To remove a participation, select the existing
-                  participation and click &ldquo;Remove&rdquo;.  This only
-                  unlinks the entity from the activity; neither is deleted.
+                  To remove a participation, untick the individual in the
+                  same activity editor.  This only unlinks the entity from
+                  the activity; neither is deleted.
                 </p>
               </Col>
               <Col className="col-md text-center align-self-center">
-                <Placeholder alt="Screenshot: add participation" />
+                <ImageComponent alt="add participation" />
               </Col>
             </Row>
 
@@ -191,22 +278,15 @@ export default function Page() {
                 <p>
                   Every entity and activity can be assigned a semantic
                   <strong> type</strong>.  Types act as classifier labels that
-                  flow through to legends, colour coding and downstream data
-                  queries.  The <strong>Set&nbsp;Config</strong> panel lets
-                  you manage the available type definitions: create new types
-                  with a name and colour, rename existing ones, or delete
-                  types that are no longer required.
-                </p>
-                <p>
-                  To change an entity&apos;s or activity&apos;s type, open
-                  its editing panel and choose a different type from the
-                  dropdown.  All diagram colours and legend entries update
-                  automatically.  Consistent type usage ensures that the model
-                  can be queried or filtered reliably once exported.
+                  flow through to colour coding and downstream data queries.
+                  When adding or editing an entity or activity, the type
+                  dropdown lets you select from the existing types or create
+                  a new one inline with the &lsquo;Add Type&rsquo; button.
+                  You can also rename a type directly inside the dropdown.
                 </p>
               </Col>
               <Col className="col-md text-center align-self-center">
-                <Placeholder alt="Screenshot: type editing panel" />
+                <ImageComponent alt="type editing panel" />
               </Col>
             </Row>
 
@@ -215,21 +295,24 @@ export default function Page() {
               <Col>
                 <h4 id="activity-legend" className="doc-section-heading">Activity Legend</h4>
                 <p>
-                  The Activity Legend sits alongside the diagram and groups all
-                  activities hierarchically by their type.  Each entry shows
-                  the activity name, its assigned colour and type category.
-                  Clicking an entry in the legend highlights the
-                  corresponding activity on the diagram, making it easy to
-                  locate a specific event in a complex model.
+                  The Activity Legend sits alongside the diagram and lists all
+                  activities.  Each entry shows the activity name and its
+                  assigned colour.  If an activity has sub-tasks, the count
+                  is shown next to the name.  When there are more than five
+                  activities, a search box appears at the top of the legend
+                  for quick filtering.
                 </p>
                 <p>
+                  Each legend entry has two action buttons: the target icon
+                  highlights the activity on the diagram
+                  (see <a href="#highlight-activity">Highlighting Activity</a>),
+                  and the arrow icon opens the activity editor
+                  (see <a href="#edit-activity">Editing Activity</a>).
                   As you add or remove activities, the legend updates live.
-                  Use it to get a quick overview of which activity types are
-                  present and how many events fall under each category.
                 </p>
               </Col>
               <Col className="col-md text-center align-self-center">
-                <Placeholder alt="Screenshot: activity legend" />
+                <ImageComponent alt="activity legend" />
               </Col>
             </Row>
 
@@ -238,23 +321,23 @@ export default function Page() {
               <Col>
                 <h4 id="entity-legend" className="doc-section-heading">Entity Legend</h4>
                 <p>
-                  The Entity Legend classifies every entity on the diagram by
-                  its type.  It provides a quick reference showing which
-                  entities are personnel, systems, tools or any other custom
-                  type you have defined.  Each legend row displays the entity
-                  name, its colour swatch and type label.
+                  The Entity Legend is a static reference panel that explains
+                  the symbols used on the diagram.  It shows five indicators:
                 </p>
+                <ul>
+                  <li><strong>System</strong> (filled square) - a structured assembly</li>
+                  <li><strong>System Component</strong> (diamond) - a slot within a system</li>
+                  <li><strong>Individual</strong> (circle) - a standalone entity</li>
+                  <li><strong>Installation Period</strong> (hatched rectangle) - the time range an individual is fused with a component</li>
+                  <li><strong>Currently Installed</strong> (dashed rectangle) - a currently active installation</li>
+                </ul>
                 <p>
-                  Clicking an entity in the legend scrolls the diagram to
-                  bring that entity&apos;s row into view, which is
-                  particularly useful on large models with many rows.  The
-                  legend respects any hidden entities
-                  (see <a href="#hide-entities">Hide Entities</a> below),
-                  so filtered-out rows do not appear in the list.
+                  The Entity Legend is for reference only; it is not
+                  interactive.
                 </p>
               </Col>
               <Col className="col-md text-center align-self-center">
-                <Placeholder alt="Screenshot: entity legend" />
+                <ImageComponent alt="entity legend" />
               </Col>
             </Row>
 
@@ -263,22 +346,23 @@ export default function Page() {
               <Col>
                 <h4 id="highlight-activity" className="doc-section-heading">Highlighting Activity</h4>
                 <p>
-                  Clicking an activity block on the diagram enters
-                  <strong> highlight mode</strong>.  The selected activity is
-                  rendered at full opacity while every other element dims,
-                  visually isolating the activity and all of its
-                  participations.  This makes it straightforward to see exactly
-                  which entities are involved and how the activity sits in
-                  relation to the overall timeline.
+                  To highlight an activity, click the target icon next to the
+                  activity&apos;s entry in the Activity Legend.  The selected
+                  activity is rendered at full opacity while every other
+                  element dims, visually isolating the activity and all of
+                  its participations.  This makes it straightforward to see
+                  exactly which entities are involved and how the activity
+                  sits in relation to the overall timeline.
                 </p>
                 <p>
-                  Clicking the same activity again, or clicking empty space on
-                  the diagram, exits highlight mode and restores all elements
-                  to their normal appearance.
+                  To remove the highlight, click the same target icon again.
+                  Note that clicking directly on an activity block on the
+                  diagram opens the activity editor rather than highlighting
+                  it.
                 </p>
               </Col>
               <Col className="col-md text-center align-self-center">
-                <Placeholder alt="Screenshot: highlighted activity" />
+                <ImageComponent alt="highlighted activity" />
               </Col>
             </Row>
 
@@ -287,22 +371,22 @@ export default function Page() {
               <Col>
                 <h4 id="edit-activity" className="doc-section-heading">Editing Activity</h4>
                 <p>
-                  To modify an existing activity, select it and open the
-                  <strong> Set Activity</strong> panel.  From here you can
-                  change the activity name, adjust the start and end times to
-                  reposition it on the timeline, reassign it to a different
-                  type, or update its colour.  All changes are reflected on
-                  the diagram immediately.
+                  To modify an existing activity, click its block on the
+                  diagram or click the arrow icon in the Activity Legend.
+                  This opens the activity editor where you can change the
+                  name, adjust the start and end times, reassign the type,
+                  update the colour, and manage which individuals participate.
+                  All changes are reflected on the diagram immediately.
                 </p>
                 <p>
-                  You can also delete an activity entirely from this panel.
-                  Deleting an activity removes all of its participations at
-                  the same time, so entities that were linked to it are
-                  unaffected but no longer shown as participants.
+                  The editor also provides a <strong>Copy</strong> button to
+                  duplicate the activity and a <strong>Delete</strong> button
+                  to remove it.  Deleting an activity removes all of its
+                  participations at the same time.
                 </p>
               </Col>
               <Col className="col-md text-center align-self-center">
-                <Placeholder alt="Screenshot: edit activity panel" />
+                <ImageComponent alt="edit activity panel" />
               </Col>
             </Row>
 
@@ -311,22 +395,21 @@ export default function Page() {
               <Col>
                 <h4 id="zoom" className="doc-section-heading">Zoom</h4>
                 <p>
-                  Complex diagrams spanning long timelines benefit from the
-                  built-in zoom controls.  Use the <strong>+</strong>
-                  {" "}and <strong>&minus;</strong> buttons on the toolbar
-                  (or scroll the mouse wheel while holding <kbd>Ctrl</kbd>)
-                  to scale the diagram in or out.  Zooming adjusts the
-                  spacing of the time axis, keeping entity rows the same
-                  height so labels remain readable.
+                  Three small buttons appear in the top-right corner of the
+                  diagram area: a pointer, a zoom icon, and a search icon.
+                  To zoom, click the zoom button to enter zoom mode.  You
+                  can then use the mouse wheel or pinch gestures to scale
+                  the diagram in or out, and click-drag to pan.  To return
+                  to normal interaction, click the pointer button.
                 </p>
                 <p>
-                  A &ldquo;Fit to view&rdquo; option resets the zoom level so
-                  that the entire diagram is visible within the browser
-                  viewport in one go.
+                  The zoom range runs from 0.5Ã— to 4Ã— magnification.
+                  Zooming adjusts the spacing of the time axis, keeping
+                  entity rows the same height so labels remain readable.
                 </p>
               </Col>
               <Col className="col-md text-center align-self-center">
-                <Placeholder alt="Screenshot: zoom controls" />
+                <ImageComponent alt="zoom controls" />
               </Col>
             </Row>
 
@@ -336,8 +419,8 @@ export default function Page() {
                 <h4 id="search-entity" className="doc-section-heading">Search Entity</h4>
                 <p>
                   When a model contains dozens of entities, scrolling through
-                  all the rows can be slow.  The <strong>Search
-                  Entity</strong> tool in the toolbar opens a compact popover
+                  all the rows can be slow.  Click the search icon in the
+                  top-right corner of the diagram to open a compact popover
                   with a text input.  As you type, the list filters down to
                   entities whose names match.  Clicking a result scrolls the
                   diagram to centre on that entity&apos;s row and briefly
@@ -345,13 +428,12 @@ export default function Page() {
                 </p>
                 <p>
                   From the search results you can also rename an entity
-                  inline &mdash; click the pencil icon next to a result,
-                  type the new name and confirm.  The diagram updates
-                  instantly.
+                  inline: click the pencil icon next to a result, type the
+                  new name and confirm.  The diagram updates instantly.
                 </p>
               </Col>
               <Col className="col-md text-center align-self-center">
-                <Placeholder alt="Screenshot: search entity popover" />
+                <ImageComponent alt="search entity popover" />
               </Col>
             </Row>
 
@@ -360,24 +442,24 @@ export default function Page() {
               <Col>
                 <h4 id="undo-redo" className="doc-section-heading">Undo &amp; Redo</h4>
                 <p>
-                  Every change you make to the model &mdash; adding,
-                  editing or deleting entities, activities and
-                  participations &mdash; is recorded in an internal history
-                  stack.  Press the <strong>Undo</strong> button (or
-                  {" "}<kbd>Ctrl&nbsp;+&nbsp;Z</kbd>) to reverse the most
-                  recent change.  Press <strong>Redo</strong>
-                  {" "}(<kbd>Ctrl&nbsp;+&nbsp;Y</kbd>) to reapply an undone
-                  change.
+                  Every change you make to the model (adding, editing or
+                  deleting entities, activities and participations) is
+                  recorded in an internal history stack.  Press the
+                  <strong> Undo</strong> button to reverse the most recent
+                  change.  Press <strong>Redo</strong> to reapply an undone
+                  change.  The history keeps up to 50 steps.
                 </p>
                 <p>
                   The undo history persists as long as the editor session is
                   open, so you can step back through many changes.  Once a
                   new change is made after an undo, the redo stack for the
-                  previous forward path is cleared.
+                  previous forward path is cleared.  A separate
+                  <strong> Clear diagram</strong> button removes everything
+                  from the model at once.
                 </p>
               </Col>
               <Col className="col-md text-center align-self-center">
-                <Placeholder alt="Screenshot: undo / redo buttons" />
+                <ImageComponent alt="undo / redo buttons" />
               </Col>
             </Row>
 
@@ -386,22 +468,24 @@ export default function Page() {
               <Col>
                 <h4 id="hide-entities" className="doc-section-heading">Hide Entities</h4>
                 <p>
-                  Large diagrams can become visually cluttered.  The
-                  <strong> Hide Entities</strong> feature lets you temporarily
-                  remove specific entity rows from the visible diagram
-                  without deleting them from the model.  Open the hide panel,
-                  select which entities to hide, and the diagram redraws
-                  without those rows.
+                  Large diagrams can become visually cluttered.  If any
+                  entities do not participate in an activity, a
+                  <strong> Hide Entities</strong> button appears in the
+                  toolbar.  Clicking it hides all non-participating entity
+                  rows from the diagram, allowing you to focus on the active
+                  parts of the model.  Click the button again (now labelled
+                  <strong> Show Entities</strong>) to reveal them.
                 </p>
                 <p>
-                  Hidden entities still exist in the underlying data.  You
-                  can reveal them again at any time by toggling their
-                  visibility back on.  This is useful when you want to focus
-                  on a subset of participants for a presentation or review.
+                  Hidden entities still exist in the underlying data.
+                  Entities that are part of a system hierarchy (for example
+                  a system component installed in a system) will not be
+                  hidden even if they have no direct participation, because
+                  the parent-child relationship keeps them visible.
                 </p>
               </Col>
               <Col className="col-md text-center align-self-center">
-                <Placeholder alt="Screenshot: hide entities panel" />
+                <ImageComponent alt="hide entities panel" />
               </Col>
             </Row>
 
@@ -424,7 +508,7 @@ export default function Page() {
                 </p>
               </Col>
               <Col className="col-md text-center align-self-center">
-                <Placeholder alt="Screenshot: drag-and-drop sorting" />
+                <ImageComponent alt="drag-and-drop sorting" />
               </Col>
             </Row>
 
@@ -448,7 +532,7 @@ export default function Page() {
                 </p>
               </Col>
               <Col className="col-md text-center align-self-center">
-                <Placeholder alt="Screenshot: activity colour picker" />
+                <ImageComponent alt="activity colour picker" />
               </Col>
             </Row>
 
@@ -457,98 +541,99 @@ export default function Page() {
               <Col>
                 <h4 id="settings" className="doc-section-heading">Settings</h4>
                 <p>
-                  The <strong>Settings</strong> panel exposes global
+                  The <strong>Settings</strong> dialog exposes global
                   configuration options that affect the entire diagram.
-                  Changes are applied immediately and are included when you
-                  export.  The panel is split into two tabs:
-                  <a href="#settings-layout"> Layout</a> and
-                  <a href="#settings-configuration"> Configuration</a>.
+                  Changes are applied when you press <strong>Save</strong>.
+                  The dialog is split into two tabs:
+                  <a href="#settings-presentation"> Presentation Styles</a> and
+                  <a href="#settings-layout"> Layout &amp; Configuration</a>.
+                  At the bottom of the dialog you will also find
+                  <strong> Reset Defaults</strong>,
+                  <strong> Load Settings</strong> (from file) and
+                  <strong> Save Settings</strong> (to file) buttons for
+                  managing presets.
                 </p>
               </Col>
               <Col className="col-md text-center align-self-center">
-                <Placeholder alt="Screenshot: settings panel overview" />
+                <ImageComponent alt="settings panel overview" />
               </Col>
             </Row>
 
-            {/* Settings — Layout */}
+            {/* Settings â€” Presentation Styles */}
             <Row className="justify-content-center row-cols-1 row-cols-lg-2 mt-5">
               <Col>
-                <h5 id="settings-layout" className="doc-section-heading">Layout</h5>
+                <h5 id="settings-presentation" className="doc-section-heading">Presentation Styles</h5>
                 <p>
-                  The Layout tab controls the physical dimensions and spacing
-                  of the diagram.  Key options include:
+                  The Presentation Styles tab controls the visual appearance
+                  of diagram elements.  It is split into three sections:
                 </p>
                 <ul>
                   <li>
-                    <strong>Row height</strong> &mdash; the vertical size of
-                    each entity row.  Reducing row height lets more entities
-                    fit on screen; increasing it gives more room for labels.
+                    <strong>Activities</strong> - fill colour list, border
+                    colour list, opacity, opacity on hover, border width,
+                    border dash array, font size, and max label characters.
                   </li>
                   <li>
-                    <strong>Margins</strong> &mdash; the top, bottom, left
-                    and right padding around the diagram canvas.  Tighter
-                    margins make exports more compact.
+                    <strong>Participations</strong> - fill colour, border
+                    colour, opacity, opacity on hover, border width, and
+                    border dash array.
                   </li>
                   <li>
-                    <strong>Time-axis spacing</strong> &mdash; the horizontal
-                    distance between time ticks.  Wider spacing spreads
-                    activities out, making overlaps easier to read; narrower
-                    spacing compresses long timelines into a smaller width.
-                  </li>
-                  <li>
-                    <strong>Label font size</strong> &mdash; controls the
-                    text size of entity and activity labels on the diagram.
+                    <strong>Individuals</strong> - fill colour, fill hover
+                    colour, border colour, border width, font size, and max
+                    label characters.
                   </li>
                 </ul>
-                <p>
-                  Experimenting with these values is recommended when
-                  preparing a diagram for sharing or printing, as the
-                  optimal balance depends on the number of entities and the
-                  length of the timeline.
-                </p>
               </Col>
               <Col className="col-md text-center align-self-center">
-                <Placeholder alt="Screenshot: settings layout tab" />
+                <ImageComponent alt="settings Presentation Styles tab" />
               </Col>
             </Row>
 
-            {/* Settings — Configuration */}
+            {/* Settings â€” Layout & Configuration */}
             <Row className="justify-content-center row-cols-1 row-cols-lg-2 mt-5">
               <Col>
-                <h5 id="settings-configuration" className="doc-section-heading">Configuration</h5>
+                <h5 id="settings-layout" className="doc-section-heading">Layout &amp; Configuration</h5>
                 <p>
-                  The Configuration tab holds behavioural and display
-                  toggles that do not affect dimensions:
+                  The Layout &amp; Configuration tab controls dimensions,
+                  spacing and behavioural options:
                 </p>
                 <ul>
                   <li>
-                    <strong>Time grid</strong> &mdash; show or hide the
-                    vertical grid lines that align with time ticks.
+                    <strong>Zoom &amp; Timeline:</strong>
+                    <ul>
+                      <li><small>Time Axis:</small> The horizontal scale/magnification of the timeline.</li>
+                      <li><small>Minimum Timeline Span:</small> The lowest number of time units the diagram will display by default, ensuring very short models still have breathing room.</li>
+                      <li><small>Timeline Buffer (%):</small> The percentage of padding added to the start and end of the bounds so elements do not sit flush against the edges of the screen.</li>
+                    </ul>
                   </li>
                   <li>
-                    <strong>Participation labels</strong> &mdash; toggle
-                    whether participation cells display a text label or
-                    remain blank.
+                    <strong>Individual Layout:</strong>
+                    <ul>
+                      <li><small>Height:</small> The vertical thickness of the individual rows on the diagram.</li>
+                      <li><small>Gap:</small> The empty vertical space between adjacent individual rows.</li>
+                      <li><small>Text Area:</small> The width of the left-hand column reserved for entity names/labels.</li>
+                      <li><small>System Highlight Open-End Padding:</small> Extra visual space applied when an entity&apos;s beginning or ending time is unknown (open chevron).</li>
+                    </ul>
                   </li>
                   <li>
-                    <strong>Default activity colour</strong> &mdash; set the
-                    colour that new activities receive when no explicit
-                    colour is chosen.
+                    <strong>System Layout:</strong>
+                    <ul>
+                      <li><small>Container Inset:</small> The vertical padding inside a System border containing its internal components.</li>
+                      <li><small>Horizontal Inset:</small> The horizontal padding inside a System&apos;s time boundaries.</li>
+                      <li><small>Component Gap:</small> The vertical gap specifically between System Components.</li>
+                      <li><small>Component Height Factor:</small> How much taller a System Component row is relative to a standard individual row.</li>
+                      <li><small>Min Host Height Factor:</small> The minimum vertical height of a parent system relative to a single individual row.</li>
+                      <li><small>Host Height Growth Per Component:</small> How much extra vertical space is added to the system enclosure for each component installed inside it.</li>
+                    </ul>
                   </li>
                   <li>
-                    <strong>Diagram title</strong> &mdash; an optional
-                    heading rendered at the top of the diagram and included
-                    in SVG / JSON exports.
+                    <strong>Labels:</strong> Global toggles to enable or hide labels for individuals and activities entirely.
                   </li>
                 </ul>
-                <p>
-                  These options let you adapt the editor to different
-                  presentation contexts without changing the underlying
-                  model data.
-                </p>
               </Col>
               <Col className="col-md text-center align-self-center">
-                <Placeholder alt="Screenshot: settings configuration tab" />
+                <ImageComponent alt="settings Layout and Configuration tab" />
               </Col>
             </Row>
 
@@ -573,7 +658,7 @@ export default function Page() {
                 </p>
               </Col>
               <Col className="col-md text-center align-self-center mt-4 mt-lg-0">
-                <Placeholder alt="Screenshot: Save TTL, Load TTL, and Reference Types only toggle" />
+                <ImageComponent alt="Save TTL, Load TTL, and Reference Types only toggle" />
               </Col>
             </Row>
 
@@ -591,7 +676,7 @@ export default function Page() {
                 </p>
               </Col>
               <Col className="col-md text-center align-self-center mt-4 mt-lg-0">
-                <Placeholder alt="Screenshot: Load example dropdown menu" />
+                <ImageComponent alt="Load example dropdown menu" />
               </Col>
             </Row>
 
@@ -613,7 +698,7 @@ export default function Page() {
                 </p>
               </Col>
               <Col className="col-md text-center align-self-center mt-4 mt-lg-0">
-                <Placeholder alt="Screenshot: Export SVG and Export JSON buttons" />
+                <ImageComponent alt="Export SVG and Export JSON buttons" />
               </Col>
             </Row>
 

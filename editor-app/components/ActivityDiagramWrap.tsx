@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState, useRef, Dispatch } from "react";
+import Link from "next/link";
 import { config } from "@/diagram/config";
 import SetIndividual from "@/components/SetIndividual";
 import SetActivity from "@/components/SetActivity";
@@ -462,24 +463,74 @@ export default function ActivityDiagramWrap() {
             </div>
           </div>
           <div className="editor-diagram">
-            <ActivityDiagram
-              dataset={dataset}
-              configData={configData}
-              setConfigData={setConfigData}
-              activityContext={activityContext}
-              setActivityContext={setActivityContext}
-              clickIndividual={clickIndividual}
-              clickActivity={clickActivity}
-              clickParticipation={clickParticipation}
-              rightClickIndividual={rightClickIndividual}
-              rightClickActivity={rightClickActivity}
-              rightClickParticipation={rightClickParticipation}
-              svgRef={svgRef}
-              hideNonParticipating={compactMode}
-              highlightedActivityId={highlightedActivityId}
-              onReorderIndividuals={reorderIndividuals}
-              renameIndividual={renameIndividual}
-            />
+            {dataset.individuals.size === 0 && dataset.activities.size === 0 ? (
+              <div className="w-100 h-100 bg-white overflow-auto empty-state-container">
+                <div className="container py-2 py-md-3">
+                  <div className="position-relative overflow-hidden p-3 p-md-4 text-center">
+                    <div className="col-md-7 p-lg-4 mx-auto my-3 my-md-4 empty-state-hero">
+                      <h1 className="display-4 font-weight-normal">Activity Diagram Editor</h1>
+                      <p className="lead font-weight-normal">
+                        Your diagram is empty. Start by adding entities and activities,
+                        or follow the guide to get familiar with the editor workflow.
+                      </p>
+                      <Link href="/manual" className="btn btn-outline-secondary mt-2">
+                        Open Editor Guide
+                      </Link>
+                    </div>
+                  </div>
+
+                  <div className="row pt-3 pt-md-4 empty-state-cards">
+                    <div className="col-md mb-3 mb-md-0">
+                      <div className="bg-light mr-md-3 pt-3 px-3 pt-md-5 px-md-5 text-center overflow-hidden h-100">
+                        <div className="my-3 p-3">
+                          <h2 className="display-5">Learn</h2>
+                          <p className="lead">
+                            Read the editor guide to learn terminology, settings,
+                            navigation, and how to create your first model.
+                          </p>
+                          <Link href="/manual" className="btn btn-outline-secondary">
+                            Learn more
+                          </Link>
+                        </div>
+                        <div className="bg-white box-shadow mx-auto"></div>
+                      </div>
+                    </div>
+                    <div className="col-md">
+                      <div className="bg-light mr-md-3 pt-3 px-3 pt-md-5 px-md-5 text-center overflow-hidden h-100">
+                        <div className="my-3 p-3">
+                          <h2 className="display-5">Start Modelling</h2>
+                          <p className="lead">
+                            Use <strong>Add Entity</strong> and <strong>Add Activity</strong> below,
+                            or load a prepared example to explore how a complete
+                            diagram is structured.
+                          </p>
+                        </div>
+                        <div className="bg-white box-shadow mx-auto"></div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <ActivityDiagram
+                dataset={dataset}
+                configData={configData}
+                setConfigData={setConfigData}
+                activityContext={activityContext}
+                setActivityContext={setActivityContext}
+                clickIndividual={clickIndividual}
+                clickActivity={clickActivity}
+                clickParticipation={clickParticipation}
+                rightClickIndividual={rightClickIndividual}
+                rightClickActivity={rightClickActivity}
+                rightClickParticipation={rightClickParticipation}
+                svgRef={svgRef}
+                hideNonParticipating={compactMode}
+                highlightedActivityId={highlightedActivityId}
+                onReorderIndividuals={reorderIndividuals}
+                renameIndividual={renameIndividual}
+              />
+            )}
           </div>
 
           <div className="editor-toolbar">

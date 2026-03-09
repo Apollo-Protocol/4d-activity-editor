@@ -7,6 +7,7 @@ import React, {
 } from "react";
 import Button from "react-bootstrap/Button";
 import Modal from "react-bootstrap/Modal";
+import DraggableModalDialog from "@/components/DraggableModalDialog";
 import Form from "react-bootstrap/Form";
 import { Activity, Participation } from "@/lib/Schema";
 import { InputGroup } from "react-bootstrap";
@@ -254,7 +255,7 @@ const SetParticipation = (props: Props) => {
 
   return (
     <>
-      <Modal show={show} onHide={handleModalHide} onShow={handleShow}>
+      <Modal dialogAs={DraggableModalDialog} show={show} onHide={handleModalHide} onShow={handleShow}>
         <Modal.Header closeButton>
           <Modal.Title>Edit Participation</Modal.Title>
         </Modal.Header>

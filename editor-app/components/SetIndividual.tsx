@@ -1,6 +1,7 @@
 import React, { Dispatch, SetStateAction, useEffect, useMemo, useState } from "react";
 import Button from "react-bootstrap/Button";
 import Modal from "react-bootstrap/Modal";
+import DraggableModalDialog from "@/components/DraggableModalDialog";
 import Form from "react-bootstrap/Form";
 import Table from "react-bootstrap/Table";
 import Alert from "react-bootstrap/Alert";
@@ -1787,7 +1788,7 @@ const SetIndividual = (props: Props) => {
         Add Entity
       </Button>
 
-      <Modal
+      <Modal dialogAs={DraggableModalDialog} 
         show={
           show &&
           !showInstallationsModal &&
@@ -2175,7 +2176,7 @@ const SetIndividual = (props: Props) => {
         </Modal.Footer>
       </Modal>
 
-      <Modal
+      <Modal dialogAs={DraggableModalDialog} 
         show={showInstallationsModal}
         onHide={() => setShowInstallationsModal(false)}
         size="xl"
@@ -2302,7 +2303,7 @@ const SetIndividual = (props: Props) => {
         </Modal.Footer>
       </Modal>
 
-      <Modal
+      <Modal dialogAs={DraggableModalDialog} 
         show={showBoundsWarningModal}
         onHide={() => setShowBoundsWarningModal(false)}
         centered
@@ -2386,7 +2387,7 @@ const SetIndividual = (props: Props) => {
       </Modal>
 
       {/* Cascade warning modal for System / System Component bounds changes */}
-      <Modal
+      <Modal dialogAs={DraggableModalDialog} 
         show={showCascadeWarningModal}
         onHide={() => {
           setShowCascadeWarningModal(false);

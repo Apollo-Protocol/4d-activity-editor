@@ -14,6 +14,7 @@ const manualSections: JumpLinkItem[] = [
   { id: "entity-legend", label: "Entity Legend" },
   { id: "highlight-activity", label: "Highlighting Activity" },
   { id: "edit-activity", label: "Editing Activity" },
+  { id: "sub-tasks", label: "Breaking Down Activities" },
   { id: "zoom", label: "Zoom" },
   { id: "search-entity", label: "Search Entity" },
   { id: "undo-redo", label: "Undo & Redo" },
@@ -110,22 +111,22 @@ export default function Page() {
 
                   <dt>Activity</dt>
                   <dd>
-                    A bounded period during which individuals come together to achieve
+                    A bounded period during which entities come together to achieve
                     something. On the diagram an activity is rendered as an outline rectangle
                     spanning the time window and the participating entity rows.
                   </dd>
 
                   <dt>Participation</dt>
                   <dd>
-                    The link between an individual and an activity for a defined period.
+                    The link between an entity and an activity for a defined period.
                     On the diagram a participation is shown as a filled block at the
-                    intersection of the individual&apos;s row and the activity&apos;s time span.
+                    intersection of the entity&apos;s row and the activity&apos;s time span.
                   </dd>
 
                   <dt>System</dt>
                   <dd>
                     A structured assembly of system components. A system is drawn as a large
-                    outline rectangle whose interior contains its components.
+                    outline rectangle whose interior contains its entities.
                   </dd>
 
                   <dt>System Component</dt>
@@ -145,21 +146,21 @@ export default function Page() {
 
                   <dt>State</dt>
                   <dd>
-                    A qualitative property of an individual that changes over time (e.g.
+                    A qualitative property of an entity that changes over time (e.g.
                     Open/Closed, Running/Stopped). States are rendered as distinctly shaded
-                    segments within an individual&apos;s band.
+                    segments within an entity&apos;s band.
                   </dd>
 
                   <dt>Event</dt>
                   <dd>
-                    An individual with minimal or zero temporal extent, representing an
+                    An entity with minimal or zero temporal extent, representing an
                     instantaneous or near-instantaneous occurrence rather than a
                     persisting state.
                   </dd>
 
                   <dt>Temporal Boundaries</dt>
                   <dd>
-                    Every individual has a beginning and an ending. A flat vertical edge means
+                    Every entity has a beginning and an ending. A flat vertical edge means
                     the bound is known; an open chevron means it is unknown. Both ends are
                     set independently.
                   </dd>
@@ -167,7 +168,7 @@ export default function Page() {
                   <dt>Space Axis (Y-Axis)</dt>
                   <dd>
                     The vertical axis of the diagram. It does not represent physical location;
-                    it gives visual room to distinct individuals. Vertical nesting encodes
+                    it gives visual room to distinct entities. Vertical nesting encodes
                     part-whole relationships: if A is part of B, A&apos;s band sits within
                     B&apos;s extent on the diagram.
                   </dd>
@@ -216,10 +217,18 @@ export default function Page() {
                 <h4 id="activities" className="doc-section-heading">Adding Activities</h4>
                 <p>
                   Activities are the temporal events that make up your model.
-                  They are drawn as coloured blocks on the time axis.  To
-                  create a new activity, use the <strong>Add Activity</strong>
-                  {" "}control in the toolbar.  Enter a name, set the start
-                  and end times, and optionally choose a colour.
+                  They are drawn as coloured blocks on the time axis. Now that you have some individuals, we can create the activities they are involved in.
+                </p>
+                <p>
+                  To create a new activity, use the <strong>Add Activity</strong> control in the toolbar. 
+                  An activity needs a name, and happens over a particular period of time. 
+                  The &lsquo;Beginning&rsquo; and &lsquo;Ending&rsquo; fields specify when this activity starts and finishes. 
+                  The time scale doesn&apos;t mean anything in particular.
+                </p>
+                <p>
+                  The &lsquo;Participants&rsquo; field at the bottom specifies which individuals are involved in this activity. 
+                  You can only add individuals that already exist; if you need a new individual to participate, save the activity, 
+                  create the individual first, and then come back to edit the activity to add them.
                 </p>
                 <p>
                   The activity immediately appears on the diagram spanning the
@@ -248,10 +257,17 @@ export default function Page() {
                   A participation links an entity to an activity, recording
                   that the entity is involved during that activity&apos;s time
                   window.  It is shown as a filled block at the intersection
-                  of the entity&apos;s row and the activity&apos;s time span.
+                  of the entity&apos;s row and the activity&apos;s time span. Clicking on a &lsquo;participant&rsquo;, 
+                  which is the shaded box indicating that an individual participates in an activity, brings up a new box.
                 </p>
                 <p>
-                  To add a participation, open the activity editor (click
+                  This allows you to specify that this individual performs a particular role in the activity. 
+                  So, for example, if Bob is hammering in a nail, then Bob might be assigned &lsquo;the person hammering in the nail&rsquo;, 
+                  and the nail might be &lsquo;the nail being hammered in&rsquo;. For such a simple example this seems silly, but when you are trying to build 
+                  a specification for the different types of activity you need to model, this level of detail becomes more important.
+                </p>
+                <p>
+                  To add a participation initially, open the activity editor (click
                   the arrow icon next to the activity in the Activity Legend,
                   or see <a href="#edit-activity">Editing Activity</a>).
                   The editor shows a list of all individuals; tick the
@@ -369,10 +385,10 @@ export default function Page() {
             {/* Editing Activity */}
             <Row className="justify-content-center row-cols-1 row-cols-lg-2 mt-5">
               <Col>
-                <h4 id="edit-activity" className="doc-section-heading">Editing Activity</h4>
+                <h4 id="edit-activity" className="doc-section-heading">Editing Activity / Changing Properties</h4>
                 <p>
-                  To modify an existing activity, click its block on the
-                  diagram or click the arrow icon in the Activity Legend.
+                  Clicking on an individual or an activity will bring up the dialog used to create it 
+                  so that its properties can be changed. You can also click the arrow icon in the Activity Legend.
                   This opens the activity editor where you can change the
                   name, adjust the start and end times, reassign the type,
                   update the colour, and manage which individuals participate.
@@ -381,12 +397,41 @@ export default function Page() {
                 <p>
                   The editor also provides a <strong>Copy</strong> button to
                   duplicate the activity and a <strong>Delete</strong> button
-                  to remove it.  Deleting an activity removes all of its
-                  participations at the same time.
+                  to remove it. Individuals and activities can be deleted entirely at any point. 
+                  A copied activity will need to have its beginning or ending changed; otherwise, it will entirely overlap the activity it was copied from.
                 </p>
               </Col>
               <Col className="col-md text-center align-self-center">
                 <ImageComponent alt="edit activity panel" />
+              </Col>
+            </Row>
+
+            {/* Sub-Tasks */}
+            <Row className="justify-content-center row-cols-1 row-cols-lg-2 mt-5">
+              <Col>
+                <h4 id="sub-tasks" className="doc-section-heading">Breaking Down Activities</h4>
+                <p>
+                  One of the aims of the methodology this diagram editor supports is to 
+                  break activities down into their sub-tasks. By doing this, it helps identify 
+                  participants (and information requirements) that may have been initially overlooked.
+                </p>
+                <p>
+                  To break an activity down into sub-tasks, click on the activity to bring up the 
+                  &lsquo;Edit Activity&rsquo; dialog and then click the <strong>Sub-tasks</strong> button.
+                </p>
+                <p>
+                  This will open a new diagram representing the sub-tasks for that specific parent activity. The navigation 
+                  at the top of the diagram shows you where you are, and allows you to go back up to the parent.
+                </p>
+                <p>
+                  Be aware that when saving a diagram, the starts and ends of sub-activities will be bound and moved 
+                  to sit within their parent activity. This ensures the activity data makes sense in the output file. 
+                  (We are actively exploring the best way to handle this; one of the purposes of this project is to promote discussion of these questions).
+                </p>
+              </Col>
+              <Col className="col-md text-center align-self-center d-flex flex-column gap-3">
+                <ImageComponent alt="edit activity dialog subtasks button" />
+                <ImageComponent alt="subtasks diagram view" />
               </Col>
             </Row>
 
@@ -403,7 +448,7 @@ export default function Page() {
                   to normal interaction, click the pointer button.
                 </p>
                 <p>
-                  The zoom range runs from 0.5Ã— to 4Ã— magnification.
+                  The zoom range runs from 0.5&times; to 4&times; magnification.
                   Zooming adjusts the spacing of the time axis, keeping
                   entity rows the same height so labels remain readable.
                 </p>
@@ -440,22 +485,24 @@ export default function Page() {
             {/* Undo & Redo */}
             <Row className="justify-content-center row-cols-1 row-cols-lg-2 mt-5">
               <Col>
-                <h4 id="undo-redo" className="doc-section-heading">Undo &amp; Redo</h4>
+                <h4 id="undo-redo" className="doc-section-heading">Undo &amp; Redo and Starting Again</h4>
                 <p>
                   Every change you make to the model (adding, editing or
                   deleting entities, activities and participations) is
-                  recorded in an internal history stack.  Press the
-                  <strong> Undo</strong> button to reverse the most recent
-                  change.  Press <strong>Redo</strong> to reapply an undone
-                  change.  The history keeps up to 50 steps.
+                  recorded in an internal history stack.  There is an 
+                  <strong> Undo</strong> button on the right-hand side; 
+                  this will undo the most recent change you have made. 
+                  Press <strong>Redo</strong> to reapply an undone
+                  change.
                 </p>
                 <p>
-                  The undo history persists as long as the editor session is
-                  open, so you can step back through many changes.  Once a
-                  new change is made after an undo, the redo stack for the
-                  previous forward path is cleared.  A separate
-                  <strong> Clear diagram</strong> button removes everything
-                  from the model at once.
+                  The undo history is fairly short (it keeps up to 50 steps); 
+                  the button disappears when you can&apos;t undo any more changes. 
+                  Once a new change is made after an undo, the redo stack for the
+                  previous forward path is cleared.
+                </p>
+                <p>
+                  The <strong>Clear diagram</strong> button will start again with a completely clean diagram.
                 </p>
               </Col>
               <Col className="col-md text-center align-self-center">
@@ -539,19 +586,22 @@ export default function Page() {
             {/* Settings */}
             <Row className="justify-content-center row-cols-1 row-cols-lg-2 mt-5">
               <Col>
-                <h4 id="settings" className="doc-section-heading">Settings</h4>
+                <h4 id="settings" className="doc-section-heading">Changing The Display (Settings)</h4>
                 <p>
-                  The <strong>Settings</strong> dialog exposes global
-                  configuration options that affect the entire diagram.
+                  The <strong>Settings</strong> button lets you change how the diagram is displayed. 
+                  The options are mostly fairly self-explanatory, affecting global configuration options that dictate the visual layout.
                   Changes are applied when you press <strong>Save</strong>.
                   The dialog is split into two tabs:
                   <a href="#settings-presentation"> Presentation Styles</a> and
                   <a href="#settings-layout"> Layout &amp; Configuration</a>.
-                  At the bottom of the dialog you will also find
-                  <strong> Reset Defaults</strong>,
-                  <strong> Load Settings</strong> (from file) and
-                  <strong> Save Settings</strong> (to file) buttons for
-                  managing presets.
+                </p>
+                <p>
+                  At the bottom of the dialog you will also find a <strong>Reset Defaults</strong> button, along with 
+                  <strong> Save Settings</strong> to save your settings to a local file, and 
+                  <strong> Load Settings</strong> to load a settings file in again.
+                </p>
+                <p>
+                  Note that if you refresh the page, or go away to a different page and come back, your settings will momentarily reset back to the defaults.
                 </p>
               </Col>
               <Col className="col-md text-center align-self-center">
@@ -559,7 +609,7 @@ export default function Page() {
               </Col>
             </Row>
 
-            {/* Settings â€” Presentation Styles */}
+            {/* Settings ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â Presentation Styles */}
             <Row className="justify-content-center row-cols-1 row-cols-lg-2 mt-5">
               <Col>
                 <h5 id="settings-presentation" className="doc-section-heading">Presentation Styles</h5>
@@ -590,7 +640,7 @@ export default function Page() {
               </Col>
             </Row>
 
-            {/* Settings â€” Layout & Configuration */}
+            {/* Settings ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â Layout & Configuration */}
             <Row className="justify-content-center row-cols-1 row-cols-lg-2 mt-5">
               <Col>
                 <h5 id="settings-layout" className="doc-section-heading">Layout &amp; Configuration</h5>
@@ -702,7 +752,7 @@ export default function Page() {
               </Col>
             </Row>
 
-            <p className="doc-back-to-top mt-5"><a href="#page-top">Back to top</a></p>
+                        <p className="doc-back-to-top mt-5"><a href="#page-top">Back to top</a></p>
           </div>
         </div>
       </Container>

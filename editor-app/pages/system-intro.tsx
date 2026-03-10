@@ -2,32 +2,73 @@ import Head from "next/head";
 import Link from "next/link";
 import { Col, Container, Row } from "react-bootstrap";
 import JumpLinks, { JumpLinkItem } from "@/components/JumpLinks";
+// @ts-ignore
+import ModalImage from "react-modal-image";
 
 const systemIntroSections: JumpLinkItem[] = [
   { id: "system-overview", label: "Overview" },
   { id: "system-step-1", label: "Step 1: Create the system" },
   { id: "system-step-2", label: "Step 2: Add system components" },
   { id: "system-step-3", label: "Step 3: Fuse individuals" },
-  { id: "system-step-4", label: "Step 4: Check activities" },
+  { id: "system-step-4", label: "Step 4: Check activities against entities" },
   { id: "system-validations", label: "Validations and safeguards" },
 ];
 
-const ImageComponent = ({ alt }: { alt: string }) => {
+const ImageComponent = ({
+  alt,
+  src,
+  maxWidth,
+}: {
+  alt: string;
+  src?: string;
+  maxWidth?: string;
+}) => {
   const filenameBase = alt.toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '');
-  const generatedSrc = `/system-intro/${filenameBase}.png`;
+  const generatedSrc = src ?? `/system-intro/${filenameBase}.png`;
   return (
-    <picture>
-      <img
-        src={generatedSrc}
+    <div style={{ maxWidth: maxWidth ?? "100%", margin: "0 auto" }}>
+      <ModalImage 
+        small={generatedSrc}
+        large={generatedSrc}
         alt={alt}
-        className="img-fluid mb-5 mt-3 border rounded shadow-sm"
-        style={{ width: "100%", height: "auto" }}
+        className="img-fluid mb-3 mt-3 border rounded shadow-sm w-100"
+        imageBackgroundColor="#fff"
       />
-    </picture>
+    </div>
+  );
+};
+
+const ValidationImagePlaceholder = ({ title }: { title: string }) => {
+  return (
+    <div className="border rounded shadow-sm bg-light h-100 d-flex align-items-center justify-content-center text-center p-3">
+      <div>
+        <div className="fw-semibold">{title}</div>
+        <div className="small text-muted mt-2">Add screenshot when available</div>
+      </div>
+    </div>
   );
 };
 
 export default function Page() {
+  const validationGalleryItems: Array<{ title: string; alt?: string; src?: string }> = [
+    {
+      title: "System component needs a parent system",
+      alt: "system component parent required",
+    },
+    {
+      title: "System component must belong to a system",
+      alt: "system component must belong to system",
+    },
+    {
+      title: "Installation rows must fit slot and entity bounds",
+      alt: "installation bounds validation",
+    },
+    {
+      title: "Affected-items warning before trimming or removal",
+      alt: "affected items warning",
+    },
+  ];
+
   return (
     <>
       <Head>
@@ -77,7 +118,9 @@ export default function Page() {
                 </p>
               </Col>
               <Col className="col-md text-center align-self-center">
-                <ImageComponent alt="system overview diagram" />
+                <ImageComponent
+                  alt="system overview diagram"
+                />
               </Col>
             </Row>
 
@@ -101,7 +144,10 @@ export default function Page() {
                 </p>
               </Col>
               <Col className="col-md text-center align-self-center">
-                <ImageComponent alt="creating a system entity" />
+                <ImageComponent
+                  alt="creating a system entity"
+                  maxWidth="430px"
+                />
               </Col>
             </Row>
 
@@ -125,7 +171,10 @@ export default function Page() {
                 </p>
               </Col>
               <Col className="col-md text-center align-self-center">
-                <ImageComponent alt="adding a system component" />
+                <ImageComponent
+                  alt="adding a system component"
+                  maxWidth="430px"
+                />
               </Col>
             </Row>
 
@@ -151,7 +200,9 @@ export default function Page() {
                 </p>
               </Col>
               <Col className="col-md text-center align-self-center">
-                <ImageComponent alt="installation period modal" />
+                <ImageComponent
+                  alt="installation period modal"
+                />
               </Col>
             </Row>
 
@@ -159,23 +210,27 @@ export default function Page() {
             <Row className="justify-content-center row-cols-1 row-cols-lg-2 mt-5">
               <Col>
                 <h4 id="system-step-4" className="doc-section-heading">
-                  Step 4: Check activities against installations
+                  Step 4: Check activities against entities
                 </h4>
                 <p>
-                  Activities still use participants in the usual way, but an individual can only be
-                  selected as a valid participant when the activity sits inside one of that
-                  individual&apos;s installation windows. If an activity falls outside the installed
-                  period, the editor raises a validation error instead of accepting the participation.
+                  Activities still use participants in the usual way, but the participant list is
+                  organised by systems, system components, and individuals. Only entities whose
+                  lifespan overlaps the activity time window appear as valid options. For
+                  individuals with installation periods, those periods are checked as an additional
+                  constraint before the participation is accepted.
                 </p>
                 <p>
-                  This is the point where system modelling becomes useful rather than decorative. The
-                  activity model and the installation model start checking one another, so the
-                  recorded activity only uses equipment while it is actually installed in the slot you
-                  have modelled.
+                  This is the point where system modelling becomes useful rather than decorative.
+                  The activity model and the entity model start checking one another, so the
+                  participant options reflect the structure and time bounds already captured in the
+                  diagram.
                 </p>
               </Col>
               <Col className="col-md text-center align-self-center">
-                <ImageComponent alt="activity validation against installation" />
+                <ImageComponent
+                  alt="activity validation against entities"
+                  maxWidth="430px"
+                />
               </Col>
             </Row>
 
@@ -184,18 +239,17 @@ export default function Page() {
               <Col id="system-validations" className="amrc-text doc-section-heading">
                 <h4>Validations and safeguards</h4>
                 <p>
-                  The system and installation workflow includes several checks to prevent invalid or
+                  The system and entity workflow includes several checks to prevent invalid or
                   inconsistent states:
                 </p>
                 <ul>
                   <li>A system component cannot be saved without a parent system.</li>
-                  <li>A system component can only be installed into an entity that is itself a system.</li>
+                  <li>A system component can only be a component of an entity that is itself a system.</li>
                   <li>Installation rows must include a valid system component and a non-negative beginning.</li>
                   <li>Each installation ending must be after its beginning.</li>
                   <li>Installation periods must stay within both the system-component bounds and the installed individual&apos;s own bounds.</li>
                   <li>Two rows for the same individual cannot overlap in the same system-component slot.</li>
                   <li>Two different individuals cannot overlap in the same component slot at the same time.</li>
-                  <li>An activity participant is rejected when the activity is outside the individual&apos;s installation window.</li>
                 </ul>
                 <p>
                   The editor also sanitizes installation periods after individual updates. If a target
@@ -210,8 +264,28 @@ export default function Page() {
                   whether to resolve or delete the affected records.
                 </p>
               </Col>
-              <Col className="col-md text-center align-self-center">
-                <ImageComponent alt="validation warnings dialog" />
+              <Col className="col-md align-self-start">
+                <Row className="g-3 mt-1">
+                  {validationGalleryItems.map((item, index) => {
+                    const isFirstRow = index < 2;
+                    return (
+                      <Col key={item.title} className={isFirstRow ? "col-6" : "col-12"}>
+                        <div className="h-100">
+                          {item.alt ? (
+                            <ImageComponent
+                              alt={item.alt}
+                              src={item.src}
+                              maxWidth="100%"
+                            />
+                          ) : (
+                            <ValidationImagePlaceholder title={item.title} />
+                          )}
+                          <div className="small text-muted text-center px-2">{item.title}</div>
+                        </div>
+                      </Col>
+                    );
+                  })}
+                </Row>
               </Col>
             </Row>
 

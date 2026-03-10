@@ -43,7 +43,7 @@ type ParticipationOption = {
   individual: Individual;
   mode: "default" | "outside" | "installed";
   label: string;
-  group: "System" | "System Component" | "Individual" | "Installed Object";
+  group: "System" | "System Component" | "Individual";
 };
 
 const SetActivity = (props: Props) => {
@@ -383,7 +383,7 @@ const SetActivity = (props: Props) => {
             individual,
             mode: "installed",
             label: `${individual.name} [installed in ${window.installedTarget.name} (${periodsLabel})]`,
-            group: "Installed Object",
+            group: "Individual",
           });
         }
 
@@ -427,7 +427,6 @@ const SetActivity = (props: Props) => {
       "System",
       "System Component",
       "Individual",
-      "Installed Object",
     ];
 
     return orderedLabels

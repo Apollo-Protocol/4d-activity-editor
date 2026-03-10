@@ -1278,3 +1278,27 @@ body {
 .modal.fade .modal-dialog {
   transition: transform 0.05s ease-out !important;
 }
+
+/* Make header and footer scale smoothly for laptops */
+@media (max-width: 1400px) and (min-width: 992px) {
+  .navbar, .app-footer { padding-top: 0.5rem !important; padding-bottom: 0.5rem !important; }
+  .navbar-brand { font-size: 1.1rem; }
+  .app-footer { font-size: 0.9rem; }
+}
+
+/* Reduce jump link size vertically on laptops so it all fits */
+@media (max-height: 900px) and (min-width: 992px) {
+  .doc-jump-links-nav { max-height: calc(100vh - 160px); overflow-y: auto; }
+  .doc-jump-links-link { padding: 0.2rem 0.5rem !important; font-size: 0.85rem !important; }
+  .doc-jump-links-link.is-subsection { font-size: 0.8rem !important; padding-left: 1.5rem !important; }
+  .doc-jump-links-title { font-size: 0.9rem !important; margin-bottom: 0.5rem !important; }
+}
+
+/* Constrain react-modal-image zoomed size to leave a comfortable margin */
+.__react_modal_image__medium_img {
+  max-width: 75vw !important;
+  max-height: 75vh !important;
+  border-radius: 8px;
+  box-shadow: 0 10px 40px rgba(0,0,0,0.5);
+}
+

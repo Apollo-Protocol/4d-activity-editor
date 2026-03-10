@@ -589,14 +589,14 @@ const SetIndividual = (props: Props) => {
 
     if (selectedEntityTypeId === ENTITY_TYPE_IDS.SYSTEM_COMPONENT) {
       if (!inputs.installedIn) {
-        runningErrors.push("System Component must be installed to a System");
+        runningErrors.push("System Component must be a component of a System");
       } else {
         const parentSystem = dataset.individuals.get(inputs.installedIn);
         if (
           !parentSystem ||
           getEntityTypeIdFromIndividual(parentSystem) !== ENTITY_TYPE_IDS.SYSTEM
         ) {
-          runningErrors.push("System Component can only be installed into a System");
+          runningErrors.push("System Component can only be a component of a System");
         } else {
           const parentStart = normalizeStart(parentSystem.beginning);
           const parentEnd = normalizeEnd(parentSystem.ending);
@@ -2003,7 +2003,7 @@ const SetIndividual = (props: Props) => {
 
             {selectedEntityTypeId === ENTITY_TYPE_IDS.SYSTEM_COMPONENT && (
               <Form.Group className="mb-3" controlId="formSystemComponentParent">
-                <Form.Label>Install To System</Form.Label>
+                <Form.Label>Component Of System</Form.Label>
                 <Form.Select
                   value={inputs.installedIn ?? ""}
                   onChange={(event) => {
@@ -2024,7 +2024,7 @@ const SetIndividual = (props: Props) => {
                 </Form.Select>
                 {systems.length === 0 && (
                   <Form.Text className="text-danger">
-                    Create a System entity before adding a System Component.
+                    Create a System entity before adding a Component Of System.
                   </Form.Text>
                 )}
                 {systemComponentSlotHints && (

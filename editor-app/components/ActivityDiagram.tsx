@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useMemo, MutableRefObject, JSX, Dispatch, SetStateAction } from "react";
 import Breadcrumb from "react-bootstrap/Breadcrumb";
 import Button from "react-bootstrap/Button";
+import Draggable from "react-draggable";
 import { drawActivityDiagram } from "@/diagram/DrawActivityDiagram";
 import { ConfigData } from "@/diagram/config";
 import { Model } from "@/lib/Model";
@@ -61,6 +62,7 @@ const ActivityDiagram = (props: Props) => {
   const [editingEntityName, setEditingEntityName] = useState("");
   const [highlightedSearchIndex, setHighlightedSearchIndex] = useState(-1);
   const searchResultsRef = useRef<HTMLDivElement>(null);
+  const searchDragRef = useRef<HTMLDivElement>(null);
 
   const zoomRef = useRef<d3.ZoomBehavior<SVGSVGElement, unknown> | null>(null);
   const zoomTransformRef = useRef(d3.zoomIdentity);
@@ -1123,7 +1125,31 @@ L ${sideX} ${lowerTop} Z`;
             </Button>
 
             {isSearchOpen && (
-              <div className="diagram-search-popover">
+              <Draggable nodeRef={searchDragRef} handle=".diagram-search-drag-handle">
+              <div className="diagram-search-popover" ref={searchDragRef}>
+                <div
+                  className="diagram-search-drag-handle"
+                  style={{
+                    cursor: "grab",
+                    width: "100%",
+                    height: "12px",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    marginBottom: "6px",
+                    opacity: 0.3,
+                  }}
+                  title="Drag to move"
+                  onMouseDown={(e) => (e.currentTarget.style.cursor = "grabbing")}
+                  onMouseUp={(e) => (e.currentTarget.style.cursor = "grab")}
+                >
+                  <svg width="24" height="6" viewBox="0 0 24 6" fill="currentColor">
+                    <circle cx="2" cy="3" r="1.5" />
+                    <circle cx="8" cy="3" r="1.5" />
+                    <circle cx="14" cy="3" r="1.5" />
+                    <circle cx="20" cy="3" r="1.5" />
+                  </svg>
+                </div>
                 <div className="diagram-search-input-wrap">
                   <input
                     type="text"
@@ -1286,6 +1312,7 @@ L ${sideX} ${lowerTop} Z`;
                   )}
                 </div>
               </div>
+              </Draggable>
             )}
           </div>
         </div>

@@ -18,7 +18,7 @@ function Footer() {
       <div className="container-fluid px-4">
         <div className="row">
           {/* Left - Links */}
-          <div className="col-lg-3 col-md-3 col-sm-12 mb-3 mb-lg-0 text-center text-md-start">
+          <div className="col-lg-4 col-md-4 col-sm-12 mb-3 mb-lg-0 text-center text-md-start">
             <div className="footer-links">
               <h6 className="footer-links-title text-dark mb-2">More</h6>
               <ul className="footer-links-list list-unstyled mb-0">
@@ -52,7 +52,7 @@ function Footer() {
           </div>
 
           {/* Right - All Logos on same row */}
-          <div className="col-lg-5 col-md-5 col-sm-12">
+          <div className="col-lg-4 col-md-4 col-sm-12">
             <div className="footer-logos d-flex align-items-start justify-content-center justify-content-lg-end flex-wrap gap-3">
               <Link href="https://www.amrc.co.uk/">
             <picture>

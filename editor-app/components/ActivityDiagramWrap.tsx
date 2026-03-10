@@ -439,11 +439,13 @@ export default function ActivityDiagramWrap() {
           activitiesInView.length % configData.presentation.activity.fill.length
         ];
 
+  const isDiagramEmpty = dataset.individuals.size === 0 && dataset.activities.size === 0;
+
   // render
   return (
     <>
       <Container fluid>
-        <div className="editor-layout">
+        <div className={`editor-layout ${isDiagramEmpty ? "is-empty" : ""}`}>
           <div className="editor-legend">
             <div className="legend-sticky">
               <EntityTypeLegend />
@@ -463,7 +465,7 @@ export default function ActivityDiagramWrap() {
             </div>
           </div>
           <div className="editor-diagram">
-            {dataset.individuals.size === 0 && dataset.activities.size === 0 ? (
+            {isDiagramEmpty ? (
               <div className="w-100 h-100 bg-white overflow-auto empty-state-container">
                 <div className="container py-2 py-md-3">
                   <div className="position-relative overflow-hidden p-3 p-md-4 text-center">
@@ -533,7 +535,7 @@ export default function ActivityDiagramWrap() {
             )}
           </div>
 
-          <div className="editor-toolbar">
+          <div className={`editor-toolbar ${isDiagramEmpty ? "container empty-toolbar" : ""}`}>
             <div className="toolbar-group">
             <SetIndividual
               deleteIndividual={deleteIndividual}

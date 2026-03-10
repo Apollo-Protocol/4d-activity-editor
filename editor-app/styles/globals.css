@@ -425,6 +425,17 @@ body {
   align-items: start;
 }
 
+.editor-layout.is-empty {
+  grid-template-areas:
+    "legend diagram"
+    "legend toolbar";
+}
+
+.editor-layout.is-empty .empty-toolbar {
+  padding-left: 0;
+  padding-right: 0;
+}
+
 .editor-legend {
   grid-area: legend;
   width: var(--legend-width);
@@ -824,11 +835,17 @@ body {
 }
 
 @media (max-width: 991.98px) {
-  .editor-layout {
+  .editor-layout,
+  .editor-layout.is-empty {
     grid-template-columns: 1fr 1fr;
     grid-template-areas:
       "diagram diagram"
       "legend toolbar";
+  }
+
+  .editor-layout.is-empty .empty-toolbar {
+    padding-left: var(--bs-gutter-x, 0.75rem);
+    padding-right: var(--bs-gutter-x, 0.75rem);
   }
 
   .editor-legend {
@@ -1198,6 +1215,7 @@ body {
   width: 100%;
   min-height: 100%;
   line-height: 1.2;
+  font-size: 0.85rem;
 }
 
 .breadcrumb-wrapper .breadcrumb-item {

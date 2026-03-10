@@ -1,9 +1,34 @@
 import Head from "next/head";
 import Link from "next/link";
+import fs from "fs";
+import path from "path";
 import { Col, Container, Row } from "react-bootstrap";
 import JumpLinks, { JumpLinkItem } from "@/components/JumpLinks";
 // @ts-ignore
 import ModalImage from "react-modal-image";
+
+export async function getStaticProps() {
+  const imagesDir = path.join(process.cwd(), 'public', 'system-intro');
+  let files: string[] = [];
+  try {
+    files = fs.readdirSync(imagesDir);
+  } catch (e) {
+    // ignore
+  }
+  const imageMap: Record<string, string> = {};
+  files.forEach(file => {
+    const parsed = path.parse(file);
+    if (parsed.ext) {
+      imageMap[parsed.name] = parsed.ext.replace('.', '');
+    }
+  });
+
+  return {
+    props: {
+      imageMap
+    }
+  };
+}
 
 const systemIntroSections: JumpLinkItem[] = [
   { id: "system-overview", label: "Overview" },
@@ -18,20 +43,23 @@ const ImageComponent = ({
   alt,
   src,
   maxWidth,
+  imageMap,
 }: {
   alt: string;
   src?: string;
   maxWidth?: string;
+  imageMap?: Record<string, string>;
 }) => {
   const filenameBase = alt.toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '');
-  const generatedSrc = src ?? `/system-intro/${filenameBase}.png`;
+  const finalExt = (imageMap && imageMap[filenameBase]) ?? "png";
+  const generatedSrc = src ?? `/system-intro/${filenameBase}.${finalExt}`;
   return (
     <div style={{ maxWidth: maxWidth ?? "100%", margin: "0 auto" }}>
       <ModalImage 
         small={generatedSrc}
         large={generatedSrc}
         alt={alt}
-        className="img-fluid mb-3 mt-3 border rounded shadow-sm w-100"
+        className="img-fluid mb-3 mt-3 border rounded shadow-sm w-100 zoom-cursor-img"
         imageBackgroundColor="#fff"
       />
     </div>
@@ -49,7 +77,7 @@ const ValidationImagePlaceholder = ({ title }: { title: string }) => {
   );
 };
 
-export default function Page() {
+export default function Page({ imageMap }: { imageMap: Record<string, string> }) {
   const validationGalleryItems: Array<{ title: string; alt?: string; src?: string }> = [
     {
       title: "System component needs a parent system",
@@ -270,7 +298,7 @@ export default function Page() {
                     const isFirstRow = index < 2;
                     return (
                       <Col key={item.title} className={isFirstRow ? "col-6" : "col-12"}>
-                        <div className="h-100">
+                        <div className="h-100 d-flex flex-column">
                           {item.alt ? (
                             <ImageComponent
                               alt={item.alt}
@@ -280,7 +308,7 @@ export default function Page() {
                           ) : (
                             <ValidationImagePlaceholder title={item.title} />
                           )}
-                          <div className="small text-muted text-center px-2">{item.title}</div>
+                          <div className="small text-muted text-center px-2 mt-auto">{item.title}</div>
                         </div>
                       </Col>
                     );

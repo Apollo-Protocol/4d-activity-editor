@@ -2,6 +2,8 @@ import Head from "next/head";
 import Link from "next/link";
 import { Col, Container, Row } from "react-bootstrap";
 import JumpLinks, { JumpLinkItem } from "@/components/JumpLinks";
+// @ts-ignore
+import ModalImage from "react-modal-image";
 
 const manualSections: JumpLinkItem[] = [
   { id: "overview", label: "Overview" },
@@ -36,14 +38,15 @@ const ImageComponent = ({ alt, src }: { alt: string, src?: string }) => {
   const filenameBase = alt.toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '');
   const generatedSrc = src || `/manual/${filenameBase}.png`;
   return (
-    <picture>
-      <img
-        src={generatedSrc}
+    <div style={{ width: "100%", margin: "0 auto" }}>
+      <ModalImage
+        small={generatedSrc}
+        large={generatedSrc}
         alt={alt}
-        className="img-fluid mb-5 mt-3 border rounded shadow-sm"
-        style={{ width: "100%", height: "auto" }}
+        className="img-fluid mb-5 mt-3 border rounded shadow-sm w-100 zoom-cursor-img"
+        imageBackgroundColor="#fff"
       />
-    </picture>
+    </div>
   );
 };
 
@@ -723,6 +726,8 @@ export default function Page() {
                 <p>
                   The &lsquo;boil an egg&rsquo; example is relatively simple, if perhaps analysed to a rather excessive
                   level of detail. The &lsquo;crane lift&rsquo; example is the full diagram from <Link href="crane">the example analysis</Link>.
+                  The &lsquo;packaging cell&rsquo; example provides a complete system hierarchy showing equipment swap-outs 
+                  over time, which accompanies <Link href="system-example">the system and component analysis</Link>.
                 </p>
               </Col>
               <Col className="col-md text-center align-self-center mt-4 mt-lg-0">

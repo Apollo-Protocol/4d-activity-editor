@@ -1302,3 +1302,9 @@ body {
   box-shadow: 0 10px 40px rgba(0,0,0,0.5);
 }
 
+
+/* Force zoom-in cursor for all ModalImage thumbnails (overrides inline style) */
+.zoom-cursor-img {
+  cursor: zoom-in !important;
+}
+

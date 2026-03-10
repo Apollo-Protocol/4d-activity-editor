@@ -168,7 +168,7 @@ export default function Page() {
                 kept.</p>
               </Col>
               <Col className="col-md text-center align-self-center mt-4 mt-lg-0">
-                <picture><ModalImage small="crane/rams-briefing.svg" large="crane/rams-briefing.svg" imageBackgroundColor="#fff" alt="" /></picture>
+                <picture><ModalImage className="img-fluid border rounded shadow-sm zoom-cursor-img w-100" small="crane/rams-briefing.svg" large="crane/rams-briefing.svg" imageBackgroundColor="#fff" alt="" /></picture>
               </Col>
             </Row>
 
@@ -190,9 +190,9 @@ export default function Page() {
                 at what each step involves.</p>
               </Col>
               <Col className="col-md text-center align-self-center mt-4 mt-lg-0 d-flex flex-column gap-3">
-                <picture><ModalImage small="crane/rams-review.svg" large="crane/rams-review.svg" imageBackgroundColor="#fff" alt="" /></picture>
-                <picture><ModalImage small="crane/rams-walk-route.svg" large="crane/rams-walk-route.svg" imageBackgroundColor="#fff" alt="" /></picture>
-                <picture><ModalImage small="crane/rams-complete.svg" large="crane/rams-complete.svg" imageBackgroundColor="#fff" alt="" /></picture>
+                <picture><ModalImage className="img-fluid border rounded shadow-sm zoom-cursor-img w-100" small="crane/rams-review.svg" large="crane/rams-review.svg" imageBackgroundColor="#fff" alt="" /></picture>
+                <picture><ModalImage className="img-fluid border rounded shadow-sm zoom-cursor-img w-100" small="crane/rams-walk-route.svg" large="crane/rams-walk-route.svg" imageBackgroundColor="#fff" alt="" /></picture>
+                <picture><ModalImage className="img-fluid border rounded shadow-sm zoom-cursor-img w-100" small="crane/rams-complete.svg" large="crane/rams-complete.svg" imageBackgroundColor="#fff" alt="" /></picture>
               </Col>
             </Row>
 
@@ -209,7 +209,7 @@ export default function Page() {
 
                 <p>Here is one of the steps from the lift above, represented
                 on a separate diagram.</p>
-                <picture><ModalImage small="crane/sub-inspect-inspect.svg" large="crane/sub-inspect-inspect.svg" imageBackgroundColor="#fff" alt="" /></picture>
+                <picture><ModalImage className="img-fluid border rounded shadow-sm zoom-cursor-img w-100" small="crane/sub-inspect-inspect.svg" large="crane/sub-inspect-inspect.svg" imageBackgroundColor="#fff" alt="" /></picture>
                 <br />
 
                 <p>Looking into the activity at this level of detail has
@@ -245,10 +245,10 @@ export default function Page() {
                 the examples menu.</p>
               </Col>
               <Col className="col-md text-center align-self-center mt-4 mt-lg-0 d-flex flex-column gap-3">
-                <picture><ModalImage small="crane/sub-inspect-first.svg" large="crane/sub-inspect-first.svg" imageBackgroundColor="#fff" alt="" /></picture>
-                <picture><ModalImage small="crane/sub-inspect-quarantine.svg" large="crane/sub-inspect-quarantine.svg" imageBackgroundColor="#fff" alt="" /></picture>
-                <picture><ModalImage small="crane/sub-inspect-inspect.svg" large="crane/sub-inspect-inspect.svg" imageBackgroundColor="#fff" alt="" /></picture>
-                <picture><ModalImage small="crane/sub-inspect-top.svg" large="crane/sub-inspect-top.svg" imageBackgroundColor="#fff" alt="" /></picture>
+                <picture><ModalImage className="img-fluid border rounded shadow-sm zoom-cursor-img w-100" small="crane/sub-inspect-first.svg" large="crane/sub-inspect-first.svg" imageBackgroundColor="#fff" alt="" /></picture>
+                <picture><ModalImage className="img-fluid border rounded shadow-sm zoom-cursor-img w-100" small="crane/sub-inspect-quarantine.svg" large="crane/sub-inspect-quarantine.svg" imageBackgroundColor="#fff" alt="" /></picture>
+                <picture><ModalImage className="img-fluid border rounded shadow-sm zoom-cursor-img w-100" small="crane/sub-inspect-inspect.svg" large="crane/sub-inspect-inspect.svg" imageBackgroundColor="#fff" alt="" /></picture>
+                <picture><ModalImage className="img-fluid border rounded shadow-sm zoom-cursor-img w-100" small="crane/sub-inspect-top.svg" large="crane/sub-inspect-top.svg" imageBackgroundColor="#fff" alt="" /></picture>
               </Col>
             </Row>
 
@@ -312,7 +312,7 @@ export default function Page() {
                 supplied to us at the time the crane was bought.</p>
               </Col>
               <Col className="col-md text-center align-self-center mt-4 mt-lg-0">
-                <picture><ModalImage small="crane/life-crane.svg" large="crane/life-crane.svg" imageBackgroundColor="#fff" alt="" /></picture>
+                <picture><ModalImage className="img-fluid border rounded shadow-sm zoom-cursor-img w-100" small="crane/life-crane.svg" large="crane/life-crane.svg" imageBackgroundColor="#fff" alt="" /></picture>
               </Col>
             </Row>
 

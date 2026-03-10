@@ -1,7 +1,34 @@
 import Head from "next/head";
 import Link from "next/link";
+import fs from "fs";
+import path from "path";
 import { Col, Container, Row } from "react-bootstrap";
 import JumpLinks, { JumpLinkItem } from "@/components/JumpLinks";
+// @ts-ignore
+import ModalImage from "react-modal-image";
+
+export async function getStaticProps() {
+  const imagesDir = path.join(process.cwd(), 'public', 'system-example');
+  let files: string[] = [];
+  try {
+    files = fs.readdirSync(imagesDir);
+  } catch (e) {
+    // ignore if directory doesn't exist
+  }
+  const imageMap: Record<string, string> = {};
+  files.forEach(file => {
+    const parsed = path.parse(file);
+    if (parsed.ext) {
+      imageMap[parsed.name] = parsed.ext.replace('.', '');
+    }
+  });
+
+  return {
+    props: {
+      imageMap
+    }
+  };
+}
 
 const systemExampleSections: JumpLinkItem[] = [
   { id: "system-example-overview", label: "Overview" },
@@ -10,25 +37,40 @@ const systemExampleSections: JumpLinkItem[] = [
   { id: "system-example-step-3", label: "Step 3: Fuse equipment" },
   { id: "system-example-step-4", label: "Step 4: Model activities" },
   { id: "system-example-step-5", label: "Step 5: Use warnings" },
-  { id: "system-example-variations", label: "Suggested variations" },
+  { id: "system-example-full", label: "Load the full example" },
 ];
 
-const ImageComponent = ({ alt }: { alt: string }) => {
+const ImageComponent = ({
+  alt,
+  src,
+  ext,
+  imageMap,
+}: {
+  alt: string;
+  src?: string;
+  ext?: string;
+  imageMap?: Record<string, string>;
+}) => {
   const filenameBase = alt.toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '');
-  const generatedSrc = `/system-example/${filenameBase}.png`;
+  
+  // Auto-detect extension from imageMap if available, else fallback to 'ext' prop or 'png'
+  const finalExt = ext ?? (imageMap && imageMap[filenameBase]) ?? "png";
+  
+  const generatedSrc = src ?? `/system-example/${filenameBase}.${finalExt}`;
   return (
-    <picture>
-      <img
-        src={generatedSrc}
+    <div style={{ width: "100%", margin: "0 auto" }}>
+      <ModalImage
+        small={generatedSrc}
+        large={generatedSrc}
         alt={alt}
-        className="img-fluid mb-5 mt-3 border rounded shadow-sm"
-        style={{ width: "100%", height: "auto" }}
+        className="img-fluid mb-1 mt-3 border rounded shadow-sm w-100 zoom-cursor-img"
+        imageBackgroundColor="#fff"
       />
-    </picture>
+    </div>
   );
 };
 
-export default function Page() {
+export default function Page({ imageMap }: { imageMap: Record<string, string> }) {
   return (
     <>
       <Head>
@@ -67,7 +109,10 @@ export default function Page() {
                 </p>
               </Col>
               <Col className="col-md text-center align-self-center">
-                <ImageComponent alt="example overview diagram" />
+                <ImageComponent imageMap={imageMap} alt="example overview diagram" />
+                <p className="text-muted small mt-1 mb-0 text-center">
+                  Image courtesy of <a href="https://motioncontrolsrobotics.com/resources/case-study/two-packaging-lines-one-palletizing-station/" target="_blank" rel="noopener noreferrer">Motion Controls Robotics</a>
+                </p>
               </Col>
             </Row>
 
@@ -89,7 +134,7 @@ export default function Page() {
                 </p>
               </Col>
               <Col className="col-md text-center align-self-center">
-                <ImageComponent alt="creating Packaging Cell A" />
+                <ImageComponent imageMap={imageMap} alt="creating Packaging Cell A" />
               </Col>
             </Row>
 
@@ -113,7 +158,7 @@ export default function Page() {
                 </p>
               </Col>
               <Col className="col-md text-center align-self-center">
-                <ImageComponent alt="defining system component slots" />
+                <ImageComponent imageMap={imageMap} alt="defining system component slots" />
               </Col>
             </Row>
 
@@ -128,17 +173,22 @@ export default function Page() {
                   <strong> PLC Unit 01</strong>, <strong>Camera Unit 01</strong>, and later
                   <strong> Camera Unit 02</strong>. Reopen those individuals and add installation rows
                   (the editor calls these fusions &ldquo;installations&rdquo;)
-                  that place them into the relevant component slots for the correct periods.
+                  that place them into the relevant component slots for the correct periods. For
+                  this worked example, install <strong>Camera Unit 01</strong> into
+                  <strong> Vision Camera Mount</strong> from <strong>0 to 5</strong>, then install
+                  <strong> Camera Unit 02</strong> into the same mount from <strong>6 to 10</strong>.
+                  Install <strong>PLC Unit 01</strong> into <strong>Main Controller Slot</strong>
+                  from <strong>0 to infinity</strong>.
                 </p>
                 <p>
-                  A useful pattern is to model a replacement explicitly. Let <strong>Camera Unit 01</strong>
-                  {" "}end its installation when it is removed, and let <strong>Camera Unit 02</strong>
-                  {" "}start when it is fitted. The editor will reject overlapping occupancy of the same
-                  slot, which makes the changeover visible and unambiguous.
+                  This gives you one clearly bounded replacement and one continuously installed item
+                  for comparison. The editor will reject overlapping occupancy of the same slot, so
+                  the camera handover stays explicit, while the always-installed PLC gives you a
+                  participant that should stay valid across the full test period.
                 </p>
               </Col>
               <Col className="col-md text-center align-self-center">
-                <ImageComponent alt="installation periods for equipment" />
+                <ImageComponent imageMap={imageMap} alt="installation periods for equipment" />
               </Col>
             </Row>
 
@@ -149,19 +199,28 @@ export default function Page() {
                   Step 4: Model activities against the installed equipment
                 </h4>
                 <p>
-                  Now create activities such as <strong>Commission Cell</strong>, <strong>Inspect
-                  Vision Station</strong>, <strong>Replace Camera</strong>, and <strong>Validate Tool
-                  Setup</strong>. Add the relevant installed individuals as participants.
+                  This step is where the structure model starts doing useful checking. Create four
+                  test activities. Because you define the start and end times and select participants
+                  within the same form, you can immediately see whether the relevant installations
+                  are available to pick for those specific time ranges.
                 </p>
                 <p>
-                  The key check happens here. If <strong>Inspect Vision Station</strong> is dated after
-                  <strong> Camera Unit 01</strong> has been removed and before <strong>Camera Unit 02</strong>
-                  {" "}is installed, the editor will flag that participant as outside the installation
-                  window. That tells you the activity model and the installation model disagree.
+                  For this example, try creating <strong>Inspect Vision Station A</strong> from
+                  <strong> 1 to 4</strong>. In the participant list, the installation for <strong>Camera Unit 01 </strong>
+                   should appear because it is installed from <strong>0 to 5</strong>. Then try creating
+                  <strong> Camera Gap Check</strong> from <strong>5 to 6</strong>. For that activity,
+                  neither camera installation will appear, because the activity falls into the handover gap
+                  between the two installations. Next, try <strong>Inspect Vision Station B </strong>
+                  from <strong>7 to 9</strong>, where the installation for <strong>Camera Unit 02</strong> should appear
+                  because it is installed from <strong>6 to 10</strong>. Finally, try
+                  <strong> PLC Check</strong> from <strong>2 to 8</strong>. The installation for <strong>PLC Unit 01 </strong>
+                  should appear because it is installed in <strong>Main Controller Slot</strong> from
+                  <strong> 0 to infinity</strong>. The practical test is simply whether the right
+                  installation is available to choose.
                 </p>
               </Col>
               <Col className="col-md text-center align-self-center">
-                <ImageComponent alt="activity validation against installations" />
+                <ImageComponent imageMap={imageMap} alt="activity validation against installations" />
               </Col>
             </Row>
 
@@ -172,44 +231,45 @@ export default function Page() {
                   Step 5: Use the affected-items warnings
                 </h4>
                 <p>
-                  The final step is to deliberately test the warnings. Shorten the system lifespan or
-                  one of the component slot lifespans and observe the affected-items dialog. The
-                  editor will list what would be trimmed or removed: dependent components, installation
-                  periods, and activity participations.
+                  The final step is to deliberately trigger the affected-items dialog. After saving
+                  the activities above, reopen <strong>Camera Unit 01</strong> and shorten its bounds
+                  so they no longer cover the full period from <strong>0 to 5</strong>. For example,
+                  change it to <strong>2 to 3</strong> and save the edit.
                 </p>
                 <p>
-                  This warning is valuable because it shows how much downstream meaning is attached to
-                  the structural model. Once activities depend on installed equipment, changing the
-                  structure is no longer a cosmetic change. It changes which records remain valid.
+                  That should produce a review dialog. The editor will list downstream items that
+                  would be trimmed or removed, such as the installation of <strong>Camera Unit 01</strong>
+                  into <strong>Vision Camera Mount</strong> and any activities that depend on it. In
+                  practice, an activity like <strong>Inspect Vision Station A</strong> may be trimmed
+                  if only part of its time range still overlaps, while an activity with no remaining
+                  overlap would be removed. This is useful because it makes the consequences of
+                  changing entity bounds explicit before the edit is applied.
                 </p>
               </Col>
               <Col className="col-md text-center align-self-center">
-                <ImageComponent alt="affected-items warning dialog" />
+                <ImageComponent imageMap={imageMap} alt="affected-items warning dialog" />
               </Col>
             </Row>
 
-            {/* Variations */}
+            {/* Full Example */}
             <Row className="justify-content-center row-cols-1 row-cols-lg-2 mt-5">
               <Col>
-                <h4 id="system-example-variations" className="doc-section-heading">
-                  Suggested variations
+                <h4 id="system-example-full" className="doc-section-heading">
+                  Load the full example
                 </h4>
                 <p>
-                  The same approach can be applied to many other scenarios. Good candidates for future
-                  worked examples are an air-handling unit with replaceable filters, a power cabinet
-                  with swapped modules, or a maintenance bay where tools and fixtures occupy specific
-                  stations across different jobs.
+                  You can load the complete packaging cell setup directly in the editor by choosing
+                  <strong> Packaging Cell</strong> from the examples menu. This will let you explore
+                  the system hierarchy, individuals, and the validation checks in real time.
                 </p>
                 <p>
-                  If you want this page to become a fuller worked example later, the next step would
-                  be to add a dedicated example file to the editor&apos;s examples menu and reference it
-                  from this walkthrough in the same way the crane example is handled for activity
-                  modelling.
+                  The same structural approach can be applied to many other scenarios where equipment
+                  changes over time, such as an air-handling unit with replaceable filters, a power
+                  cabinet with swapped modules, or a maintenance bay where tools and fixtures occupy
+                  specific stations across different jobs.
                 </p>
               </Col>
-              <Col className="col-md text-center align-self-center">
-                <ImageComponent alt="suggested variation diagram" />
-              </Col>
+              <Col className="col-md text-center align-self-center"></Col>
             </Row>
 
             <div className="d-flex flex-wrap gap-2 mt-4">

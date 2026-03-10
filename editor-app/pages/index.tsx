@@ -68,9 +68,14 @@ export default function Home() {
 </div>
 
     <div className="col-md text-center align-self-center my-4 my-md-0 d-flex justify-content-center">
-      <div style={{ backgroundColor: "#e9ecef", width: "90%", maxWidth: "450px", height: "250px", display: "flex", alignItems: "center", justifyContent: "center", color: "#6c757d", border: "1px dashed #ced4da", borderRadius: "4px", fontSize: "0.9rem" }}>
-        Placeholder: system configuration
-      </div>
+      <picture style={{ width: "100%", display: "flex", justifyContent: "center" }}>
+        <img 
+          src="activity_validation_against_installations.svg" 
+          className="img-fluid border rounded shadow-sm w-100" 
+          alt="System component validaton showing camera installations passing checks"
+          style={{ maxWidth: "90%" }}
+        />
+      </picture>
     </div>
     <div className="col-md">
     <div className="my-3 p-3">

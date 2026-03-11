@@ -64,10 +64,16 @@ const manualSections: JumpLinkItem[] = [
 const ImageComponent = ({ alt, src, maxWidth, imageMap }: { alt: string, src?: string, maxWidth?: string, imageMap?: Record<string, string> }) => {
   const filenameBase = alt.toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '');
   const extension = (imageMap && imageMap[filenameBase]) ?? "png";
-  const finalExt = extension === "fig" ? "svg" : extension;
+  const finalExt = extension;
   const generatedSrc = src || `/manual/${filenameBase}.${finalExt}`;
+  const resolvedMaxWidth = maxWidth
+    ?? (finalExt === "gif"
+      ? "460px"
+      : (filenameBase.startsWith("terminology_") || filenameBase.startsWith("settings_"))
+        ? "380px"
+        : "300px");
   return (
-    <div style={{ width: "100%", maxWidth: maxWidth ?? "300px", margin: "0 auto" }}>
+    <div style={{ width: "100%", maxWidth: resolvedMaxWidth, margin: "0 auto" }}>
       <ModalImage
         small={generatedSrc}
         large={generatedSrc}
@@ -525,7 +531,7 @@ export default function Page({ imageMap }: { imageMap: Record<string, string> })
               </Col>
               <Col className="col-md text-center align-self-center d-flex flex-column gap-3">
                 <ImageComponent alt="edit activity dialog subtasks button" imageMap={imageMap} />
-                <ImageComponent alt="subtasks diagram view" imageMap={imageMap} />
+                <ImageComponent alt="subtasks diagram view" maxWidth="460px" imageMap={imageMap} />
               </Col>
             </Row>
 
@@ -807,7 +813,7 @@ export default function Page({ imageMap }: { imageMap: Record<string, string> })
                 </p>
               </Col>
               <Col className="col-md text-center align-self-center mt-4 mt-lg-0">
-                <ImageComponent alt="Save TTL, Load TTL, and Reference Types only toggle" imageMap={imageMap} />
+                <ImageComponent alt="ttl config" imageMap={imageMap} />
               </Col>
             </Row>
 
@@ -849,7 +855,7 @@ export default function Page({ imageMap }: { imageMap: Record<string, string> })
                 </p>
               </Col>
               <Col className="col-md text-center align-self-center mt-4 mt-lg-0">
-                <ImageComponent alt="Export SVG and Export JSON buttons" imageMap={imageMap} />
+                <ImageComponent alt="export svg and json buttons" imageMap={imageMap} />
               </Col>
             </Row>
 

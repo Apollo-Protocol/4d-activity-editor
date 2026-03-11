@@ -824,8 +824,27 @@ body {
   }
 }
 
-/* Shrink toolbar buttons on laptop-width screens so everything fits on one row */
+/* Reduce guide-page typography on laptop-width screens */
 @media (max-width: 1599px) and (min-width: 992px) {
+  .doc-page-content,
+  .doc-page-content p,
+  .doc-page-content li,
+  .doc-page-content dt,
+  .doc-page-content dd,
+  .doc-page-content .doc-section-heading {
+    font-size: 0.92rem;
+  }
+
+  .doc-page-content h1,
+  .doc-page-content h2,
+  .doc-page-content h3,
+  .doc-page-content h4,
+  .doc-page-content h5,
+  .doc-page-content h6 {
+    font-size: 0.95em;
+  }
+
+  /* Keep toolbar controls compact at laptop widths. */
   .editor-toolbar button,
   .editor-toolbar .btn,
   .editor-toolbar .dropdown-toggle {
@@ -1298,10 +1317,30 @@ body {
 }
 
 /* Make header and footer scale smoothly for laptops */
-@media (max-width: 1400px) and (min-width: 992px) {
-  .navbar, .app-footer { padding-top: 0.5rem !important; padding-bottom: 0.5rem !important; }
-  .navbar-brand { font-size: 1.1rem; }
-  .app-footer { font-size: 0.9rem; }
+@media (max-width: 1599px) and (min-width: 992px) {
+  .navbar,
+  .app-footer {
+    padding-top: 0.45rem !important;
+    padding-bottom: 0.45rem !important;
+  }
+
+  .navbar-brand {
+    font-size: 1rem !important;
+  }
+
+  .navbar .nav-link,
+  .navbar .dropdown-toggle,
+  .navbar .dropdown-item {
+    font-size: 0.9rem !important;
+  }
+
+  .app-footer,
+  .app-footer p,
+  .app-footer a,
+  .app-footer li,
+  .app-footer .small {
+    font-size: 0.88rem !important;
+  }
 }
 
 /* Reduce jump link size vertically on laptops so it all fits */

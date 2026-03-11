@@ -6,6 +6,7 @@ import Row from "react-bootstrap/Row";
 import Col from "react-bootstrap/Col";
 import Tabs from "react-bootstrap/Tabs";
 import Tab from "react-bootstrap/Tab";
+import DraggableModalDialog from "@/components/DraggableModalDialog";
 
 import { config, ConfigData } from "@/diagram/config";
 
@@ -159,6 +160,7 @@ const SetConfig = (props: Props) => {
       </Button>
 
       <Modal
+        dialogAs={DraggableModalDialog}
         show={showConfigModal}
         onHide={handleClose}
         onShow={handleShow}

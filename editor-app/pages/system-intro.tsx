@@ -148,6 +148,7 @@ export default function Page({ imageMap }: { imageMap: Record<string, string> })
               <Col className="col-md text-center align-self-center">
                 <ImageComponent
                   alt="system overview diagram"
+                  imageMap={imageMap}
                 />
               </Col>
             </Row>
@@ -175,6 +176,7 @@ export default function Page({ imageMap }: { imageMap: Record<string, string> })
                 <ImageComponent
                   alt="creating a system entity"
                   maxWidth="300px"
+                  imageMap={imageMap}
                 />
               </Col>
             </Row>
@@ -202,6 +204,7 @@ export default function Page({ imageMap }: { imageMap: Record<string, string> })
                 <ImageComponent
                   alt="adding a system component"
                   maxWidth="300px"
+                  imageMap={imageMap}
                 />
               </Col>
             </Row>
@@ -230,6 +233,7 @@ export default function Page({ imageMap }: { imageMap: Record<string, string> })
               <Col className="col-md text-center align-self-center">
                 <ImageComponent
                   alt="installation period modal"
+                  imageMap={imageMap}
                 />
               </Col>
             </Row>
@@ -258,6 +262,7 @@ export default function Page({ imageMap }: { imageMap: Record<string, string> })
                 <ImageComponent
                   alt="activity validation against entities"
                   maxWidth="300px"
+                  imageMap={imageMap}
                 />
               </Col>
             </Row>
@@ -304,6 +309,7 @@ export default function Page({ imageMap }: { imageMap: Record<string, string> })
                               alt={item.alt}
                               src={item.src}
                               maxWidth="100%"
+                              imageMap={imageMap}
                             />
                           ) : (
                             <ValidationImagePlaceholder title={item.title} />

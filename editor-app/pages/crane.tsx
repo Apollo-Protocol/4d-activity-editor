@@ -1,11 +1,37 @@
 import Head from "next/head";
 import Link from "next/link";
 import Image from "next/image";
+import fs from "fs";
+import path from "path";
 import { Col, Container, Row } from "react-bootstrap";
 import styles from "@/styles/Home.module.css";
 import JumpLinks, { JumpLinkItem } from "@/components/JumpLinks";
 // @ts-ignore
 import ModalImage from "react-modal-image";
+
+export async function getStaticProps() {
+  const imagesDir = path.join(process.cwd(), "public", "crane");
+  let files: string[] = [];
+  try {
+    files = fs.readdirSync(imagesDir);
+  } catch (e) {
+    // ignore
+  }
+
+  const imageMap: Record<string, string> = {};
+  files.forEach((file) => {
+    const parsed = path.parse(file);
+    if (parsed.ext) {
+      imageMap[parsed.name] = parsed.ext.replace(".", "");
+    }
+  });
+
+  return {
+    props: {
+      imageMap,
+    },
+  };
+}
 
 const craneSections: JumpLinkItem[] = [
   { id: "crane-overview", label: "Overview" },
@@ -31,7 +57,10 @@ const craneSections: JumpLinkItem[] = [
   },
 ];
 
-export default function Page() {
+const getCraneImageSrc = (baseName: string, imageMap: Record<string, string>, fallbackExt: string = "svg") =>
+  `/crane/${baseName}.${imageMap[baseName] ?? fallbackExt}`;
+
+export default function Page({ imageMap }: { imageMap: Record<string, string> }) {
   return (
     <>
       <Head>
@@ -66,7 +95,7 @@ export default function Page() {
               </Col>
               <Col className="col-md text-center align-self-center mt-4 mt-lg-0">
                 <picture>
-                  <img className="w-100" src="crane/crane-lift.jpeg" alt="" />
+                  <img className="w-100" src={getCraneImageSrc("crane-lift", imageMap, "jpeg")} alt="" />
                 </picture>
               </Col>
             </Row>
@@ -168,7 +197,7 @@ export default function Page() {
                 kept.</p>
               </Col>
               <Col className="col-md text-center align-self-center mt-4 mt-lg-0">
-                <picture><ModalImage className="img-fluid border rounded shadow-sm zoom-cursor-img w-100" small="crane/rams-briefing.svg" large="crane/rams-briefing.svg" imageBackgroundColor="#fff" alt="" /></picture>
+                <picture><ModalImage className="img-fluid border rounded shadow-sm zoom-cursor-img w-100" small={getCraneImageSrc("rams-briefing", imageMap)} large={getCraneImageSrc("rams-briefing", imageMap)} imageBackgroundColor="#fff" alt="" /></picture>
               </Col>
             </Row>
 
@@ -190,9 +219,9 @@ export default function Page() {
                 at what each step involves.</p>
               </Col>
               <Col className="col-md text-center align-self-center mt-4 mt-lg-0 d-flex flex-column gap-3">
-                <picture><ModalImage className="img-fluid border rounded shadow-sm zoom-cursor-img w-100" small="crane/rams-review.svg" large="crane/rams-review.svg" imageBackgroundColor="#fff" alt="" /></picture>
-                <picture><ModalImage className="img-fluid border rounded shadow-sm zoom-cursor-img w-100" small="crane/rams-walk-route.svg" large="crane/rams-walk-route.svg" imageBackgroundColor="#fff" alt="" /></picture>
-                <picture><ModalImage className="img-fluid border rounded shadow-sm zoom-cursor-img w-100" small="crane/rams-complete.svg" large="crane/rams-complete.svg" imageBackgroundColor="#fff" alt="" /></picture>
+                <picture><ModalImage className="img-fluid border rounded shadow-sm zoom-cursor-img w-100" small={getCraneImageSrc("rams-review", imageMap)} large={getCraneImageSrc("rams-review", imageMap)} imageBackgroundColor="#fff" alt="" /></picture>
+                <picture><ModalImage className="img-fluid border rounded shadow-sm zoom-cursor-img w-100" small={getCraneImageSrc("rams-walk-route", imageMap)} large={getCraneImageSrc("rams-walk-route", imageMap)} imageBackgroundColor="#fff" alt="" /></picture>
+                <picture><ModalImage className="img-fluid border rounded shadow-sm zoom-cursor-img w-100" small={getCraneImageSrc("rams-complete", imageMap)} large={getCraneImageSrc("rams-complete", imageMap)} imageBackgroundColor="#fff" alt="" /></picture>
               </Col>
             </Row>
 
@@ -209,7 +238,7 @@ export default function Page() {
 
                 <p>Here is one of the steps from the lift above, represented
                 on a separate diagram.</p>
-                <picture><ModalImage className="img-fluid border rounded shadow-sm zoom-cursor-img w-100" small="crane/sub-inspect-inspect.svg" large="crane/sub-inspect-inspect.svg" imageBackgroundColor="#fff" alt="" /></picture>
+                <picture><ModalImage className="img-fluid border rounded shadow-sm zoom-cursor-img w-100" small={getCraneImageSrc("sub-inspect-inspect", imageMap)} large={getCraneImageSrc("sub-inspect-inspect", imageMap)} imageBackgroundColor="#fff" alt="" /></picture>
                 <br />
 
                 <p>Looking into the activity at this level of detail has
@@ -245,10 +274,10 @@ export default function Page() {
                 the examples menu.</p>
               </Col>
               <Col className="col-md text-center align-self-center mt-4 mt-lg-0 d-flex flex-column gap-3">
-                <picture><ModalImage className="img-fluid border rounded shadow-sm zoom-cursor-img w-100" small="crane/sub-inspect-first.svg" large="crane/sub-inspect-first.svg" imageBackgroundColor="#fff" alt="" /></picture>
-                <picture><ModalImage className="img-fluid border rounded shadow-sm zoom-cursor-img w-100" small="crane/sub-inspect-quarantine.svg" large="crane/sub-inspect-quarantine.svg" imageBackgroundColor="#fff" alt="" /></picture>
-                <picture><ModalImage className="img-fluid border rounded shadow-sm zoom-cursor-img w-100" small="crane/sub-inspect-inspect.svg" large="crane/sub-inspect-inspect.svg" imageBackgroundColor="#fff" alt="" /></picture>
-                <picture><ModalImage className="img-fluid border rounded shadow-sm zoom-cursor-img w-100" small="crane/sub-inspect-top.svg" large="crane/sub-inspect-top.svg" imageBackgroundColor="#fff" alt="" /></picture>
+                <picture><ModalImage className="img-fluid border rounded shadow-sm zoom-cursor-img w-100" small={getCraneImageSrc("sub-inspect-first", imageMap)} large={getCraneImageSrc("sub-inspect-first", imageMap)} imageBackgroundColor="#fff" alt="" /></picture>
+                <picture><ModalImage className="img-fluid border rounded shadow-sm zoom-cursor-img w-100" small={getCraneImageSrc("sub-inspect-quarantine", imageMap)} large={getCraneImageSrc("sub-inspect-quarantine", imageMap)} imageBackgroundColor="#fff" alt="" /></picture>
+                <picture><ModalImage className="img-fluid border rounded shadow-sm zoom-cursor-img w-100" small={getCraneImageSrc("sub-inspect-inspect", imageMap)} large={getCraneImageSrc("sub-inspect-inspect", imageMap)} imageBackgroundColor="#fff" alt="" /></picture>
+                <picture><ModalImage className="img-fluid border rounded shadow-sm zoom-cursor-img w-100" small={getCraneImageSrc("sub-inspect-top", imageMap)} large={getCraneImageSrc("sub-inspect-top", imageMap)} imageBackgroundColor="#fff" alt="" /></picture>
               </Col>
             </Row>
 
@@ -312,7 +341,7 @@ export default function Page() {
                 supplied to us at the time the crane was bought.</p>
               </Col>
               <Col className="col-md text-center align-self-center mt-4 mt-lg-0">
-                <picture><ModalImage className="img-fluid border rounded shadow-sm zoom-cursor-img w-100" small="crane/life-crane.svg" large="crane/life-crane.svg" imageBackgroundColor="#fff" alt="" /></picture>
+                <picture><ModalImage className="img-fluid border rounded shadow-sm zoom-cursor-img w-100" small={getCraneImageSrc("life-crane", imageMap)} large={getCraneImageSrc("life-crane", imageMap)} imageBackgroundColor="#fff" alt="" /></picture>
               </Col>
             </Row>
 

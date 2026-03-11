@@ -54,7 +54,7 @@ const ImageComponent = ({
   const finalExt = (imageMap && imageMap[filenameBase]) ?? "png";
   const generatedSrc = src ?? `/system-intro/${filenameBase}.${finalExt}`;
   return (
-    <div style={{ maxWidth: maxWidth ?? "100%", margin: "0 auto" }}>
+    <div style={{ width: "100%", maxWidth: maxWidth ?? "300px", margin: "0 auto" }}>
       <ModalImage 
         small={generatedSrc}
         large={generatedSrc}
@@ -174,7 +174,7 @@ export default function Page({ imageMap }: { imageMap: Record<string, string> })
               <Col className="col-md text-center align-self-center">
                 <ImageComponent
                   alt="creating a system entity"
-                  maxWidth="430px"
+                  maxWidth="300px"
                 />
               </Col>
             </Row>
@@ -201,7 +201,7 @@ export default function Page({ imageMap }: { imageMap: Record<string, string> })
               <Col className="col-md text-center align-self-center">
                 <ImageComponent
                   alt="adding a system component"
-                  maxWidth="430px"
+                  maxWidth="300px"
                 />
               </Col>
             </Row>
@@ -257,7 +257,7 @@ export default function Page({ imageMap }: { imageMap: Record<string, string> })
               <Col className="col-md text-center align-self-center">
                 <ImageComponent
                   alt="activity validation against entities"
-                  maxWidth="430px"
+                  maxWidth="300px"
                 />
               </Col>
             </Row>

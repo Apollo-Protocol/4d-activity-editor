@@ -1,7 +1,6 @@
 import React, { Dispatch, SetStateAction, useState } from "react";
 import Button from "react-bootstrap/Button";
 import Modal from "react-bootstrap/Modal";
-import DraggableModalDialog from "@/components/DraggableModalDialog";
 import Form from "react-bootstrap/Form";
 import Row from "react-bootstrap/Row";
 import Col from "react-bootstrap/Col";
@@ -159,7 +158,7 @@ const SetConfig = (props: Props) => {
         Settings
       </Button>
 
-      <Modal dialogAs={DraggableModalDialog} 
+      <Modal
         show={showConfigModal}
         onHide={handleClose}
         onShow={handleShow}
@@ -245,30 +244,6 @@ const SetConfig = (props: Props) => {
                             type="text"
                             name="presentation.activity.strokeDasharray"
                             value={inputs?.presentation?.activity?.strokeDasharray}
-                            onChange={handleChangeString}
-                            className="form-control"
-                          />
-                        </Form.Group>
-                      </Col>
-                      <Col xs={6}>
-                        <Form.Group className="mb-2" controlId="formLabelsActivityFontsize">
-                          <Form.Label>Font Size</Form.Label>
-                          <Form.Control
-                            type="text"
-                            name="labels.activity.fontSize"
-                            value={inputs?.labels?.activity?.fontSize}
-                            onChange={handleChangeString}
-                            className="form-control"
-                          />
-                        </Form.Group>
-                      </Col>
-                      <Col xs={6}>
-                        <Form.Group className="mb-2" controlId="formLabelsActivityMaxChars">
-                          <Form.Label>Max Label Characters</Form.Label>
-                          <Form.Control
-                            type="text"
-                            name="labels.activity.maxChars"
-                            value={inputs?.labels?.activity?.maxChars}
                             onChange={handleChangeString}
                             className="form-control"
                           />

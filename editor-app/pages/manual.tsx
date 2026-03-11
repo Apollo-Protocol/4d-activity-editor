@@ -1,9 +1,35 @@
 import Head from "next/head";
 import Link from "next/link";
+import fs from "fs";
+import path from "path";
 import { Col, Container, Row } from "react-bootstrap";
 import JumpLinks, { JumpLinkItem } from "@/components/JumpLinks";
 // @ts-ignore
 import ModalImage from "react-modal-image";
+
+export async function getStaticProps() {
+  const imagesDir = path.join(process.cwd(), "public", "manual");
+  let files: string[] = [];
+  try {
+    files = fs.readdirSync(imagesDir);
+  } catch (e) {
+    // ignore
+  }
+
+  const imageMap: Record<string, string> = {};
+  files.forEach((file) => {
+    const parsed = path.parse(file);
+    if (parsed.ext) {
+      imageMap[parsed.name] = parsed.ext.replace(".", "");
+    }
+  });
+
+  return {
+    props: {
+      imageMap,
+    },
+  };
+}
 
 const manualSections: JumpLinkItem[] = [
   { id: "overview", label: "Overview" },
@@ -28,17 +54,20 @@ const manualSections: JumpLinkItem[] = [
     { id: "settings-layout", label: "Layout & Configuration" },
   ] },
   { id: "saving-loading", label: "Saving and Loading", children: [
+    { id: "session-auto-saving", label: "Session Auto-Saving" },
     { id: "saving-turtle", label: "Turtle Files" },
     { id: "loading-example", label: "Loading an example" },
     { id: "export-formats", label: "Exporting other Formats" }
   ] },
 ];
 
-const ImageComponent = ({ alt, src }: { alt: string, src?: string }) => {
+const ImageComponent = ({ alt, src, maxWidth, imageMap }: { alt: string, src?: string, maxWidth?: string, imageMap?: Record<string, string> }) => {
   const filenameBase = alt.toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '');
-  const generatedSrc = src || `/manual/${filenameBase}.png`;
+  const extension = (imageMap && imageMap[filenameBase]) ?? "png";
+  const finalExt = extension === "fig" ? "svg" : extension;
+  const generatedSrc = src || `/manual/${filenameBase}.${finalExt}`;
   return (
-    <div style={{ width: "100%", margin: "0 auto" }}>
+    <div style={{ width: "100%", maxWidth: maxWidth ?? "300px", margin: "0 auto" }}>
       <ModalImage
         small={generatedSrc}
         large={generatedSrc}
@@ -50,7 +79,7 @@ const ImageComponent = ({ alt, src }: { alt: string, src?: string }) => {
   );
 };
 
-export default function Page() {
+export default function Page({ imageMap }: { imageMap: Record<string, string> }) {
   return (
     <>
       <Head>
@@ -90,12 +119,12 @@ export default function Page() {
                 </p>
               </Col>
               <Col className="col-md text-center align-self-center">
-                <ImageComponent src="/manual/overview.png" alt="editor overview" />
+                <ImageComponent src="/manual/overview.png" alt="editor overview" maxWidth="530px" imageMap={imageMap} />
               </Col>
             </Row>
 
             {/* Terminology */}
-            <Row className="justify-content-center row-cols-1 mt-5">
+            <Row className="row-cols-1 mt-5">
               <Col>
                 <h4 id="terminology" className="doc-section-heading">Terminology</h4>
                 <p>
@@ -103,86 +132,145 @@ export default function Page() {
                   that exists occupies both space and time. The following terms are used
                   throughout this guide and in the editor itself:
                 </p>
-                <dl>
-                  <dt>Individual</dt>
-                  <dd>
-                    Something that persists through space and time, such as a person, a piece of
-                    equipment, an organisation, or a document. On the diagram each individual is
-                    drawn as a horizontal band running left to right for the duration of its
-                    existence.
-                  </dd>
 
-                  <dt>Activity</dt>
-                  <dd>
-                    A bounded period during which entities come together to achieve
-                    something. On the diagram an activity is rendered as an outline rectangle
-                    spanning the time window and the participating entity rows.
-                  </dd>
+                <Row className="g-3 align-items-start mb-2">
+                  <Col lg={6}>
+                    <dl className="mb-0">
+                      <dt>Individual</dt>
+                      <dd className="mb-0">
+                        Something that persists through space and time, such as a person, a piece of
+                        equipment, an organisation, or a document. On the diagram each individual is
+                        drawn as a horizontal band running left to right for the duration of its
+                        existence.
+                      </dd>
+                    </dl>
+                  </Col>
+                  <Col lg={6} className="text-center">
+                    <ImageComponent alt="terminology individual" imageMap={imageMap} />
+                  </Col>
+                </Row>
 
-                  <dt>Participation</dt>
-                  <dd>
-                    The link between an entity and an activity for a defined period.
-                    On the diagram a participation is shown as a filled block at the
-                    intersection of the entity&apos;s row and the activity&apos;s time span.
-                  </dd>
+                <Row className="g-3 align-items-start mb-2">
+                  <Col lg={6}>
+                    <dl className="mb-0">
+                      <dt>Activity</dt>
+                      <dd className="mb-0">
+                        A bounded period during which entities come together to achieve
+                        something. On the diagram an activity is rendered as an outline rectangle
+                        spanning the time window and the participating entity rows.
+                      </dd>
+                    </dl>
+                  </Col>
+                  <Col lg={6} className="text-center">
+                    <ImageComponent alt="terminology activity" imageMap={imageMap} />
+                  </Col>
+                </Row>
 
-                  <dt>System</dt>
-                  <dd>
-                    A structured assembly of system components. A system is drawn as a large
-                    outline rectangle whose interior contains its entities.
-                  </dd>
+                <Row className="g-3 align-items-start mb-2">
+                  <Col lg={6}>
+                    <dl className="mb-0">
+                      <dt>Participation</dt>
+                      <dd className="mb-0">
+                        The link between an entity and an activity for a defined period.
+                        On the diagram a participation is shown as a filled block at the
+                        intersection of the entity&apos;s row and the activity&apos;s time span.
+                      </dd>
+                    </dl>
+                  </Col>
+                  <Col lg={6} className="text-center">
+                    <ImageComponent alt="terminology participation" imageMap={imageMap} />
+                  </Col>
+                </Row>
 
-                  <dt>System Component</dt>
-                  <dd>
-                    A persistent role or slot within a system. It represents a named position
-                    that may be filled by different individuals over time; the role persists
-                    even when temporarily unfilled. A system component is a <em>component of</em>
-                    {" "}its parent system.
-                  </dd>
+                <Row className="g-3 align-items-start mb-2">
+                  <Col lg={6}>
+                    <dl className="mb-0">
+                      <dt>System</dt>
+                      <dd className="mb-0">
+                        A structured assembly of system components. A system is drawn as a large
+                        outline rectangle whose interior contains its entities.
+                      </dd>
+                    </dl>
+                  </Col>
+                  <Col lg={6} className="text-center">
+                    <ImageComponent alt="terminology system" imageMap={imageMap} />
+                  </Col>
+                </Row>
 
-                  <dt>Installation</dt>
-                  <dd>
-                    The fusion of an individual with a system-component slot for a specific
-                    time range. Installations allow the same slot to be occupied by different
-                    individuals at different times.
-                  </dd>
+                <Row className="g-3 align-items-start mb-2">
+                  <Col lg={6}>
+                    <dl className="mb-0">
+                      <dt>System Component</dt>
+                      <dd className="mb-0">
+                        A persistent role or slot within a system. It represents a named position
+                        that may be filled by different individuals over time; the role persists
+                        even when temporarily unfilled. A system component is a <em>component of</em>
+                        {" "}its parent system.
+                      </dd>
+                    </dl>
+                  </Col>
+                  <Col lg={6} className="text-center">
+                    <ImageComponent alt="terminology system component" imageMap={imageMap} />
+                  </Col>
+                </Row>
 
-                  <dt>State</dt>
-                  <dd>
-                    A qualitative property of an entity that changes over time (e.g.
-                    Open/Closed, Running/Stopped). States are rendered as distinctly shaded
-                    segments within an entity&apos;s band.
-                  </dd>
+                <Row className="g-3 align-items-start mb-3">
+                  <Col lg={6}>
+                    <dl className="mb-0">
+                      <dt>Installation</dt>
+                      <dd className="mb-0">
+                        The fusion of an individual with a system-component slot for a specific
+                        time range. Installations allow the same slot to be occupied by different
+                        individuals at different times.
+                      </dd>
+                    </dl>
+                  </Col>
+                  <Col lg={6} className="text-center">
+                    <ImageComponent alt="terminology installation" imageMap={imageMap} />
+                  </Col>
+                </Row>
 
-                  <dt>Event</dt>
-                  <dd>
-                    An entity with minimal or zero temporal extent, representing an
-                    instantaneous or near-instantaneous occurrence rather than a
-                    persisting state.
-                  </dd>
+                <Row>
+                  <Col lg={6}>
+                    <dl>
+                      <dt>State</dt>
+                      <dd>
+                        A qualitative property of an entity that changes over time (e.g.
+                        Open/Closed, Running/Stopped). States are rendered as distinctly shaded
+                        segments within an entity&apos;s band.
+                      </dd>
 
-                  <dt>Temporal Boundaries</dt>
-                  <dd>
-                    Every entity has a beginning and an ending. A flat vertical edge means
-                    the bound is known; an open chevron means it is unknown. Both ends are
-                    set independently.
-                  </dd>
+                      <dt>Event</dt>
+                      <dd>
+                        An entity with minimal or zero temporal extent, representing an
+                        instantaneous or near-instantaneous occurrence rather than a
+                        persisting state.
+                      </dd>
 
-                  <dt>Space Axis (Y-Axis)</dt>
-                  <dd>
-                    The vertical axis of the diagram. It does not represent physical location;
-                    it gives visual room to distinct entities. Vertical nesting encodes
-                    part-whole relationships: if A is part of B, A&apos;s band sits within
-                    B&apos;s extent on the diagram.
-                  </dd>
+                      <dt>Temporal Boundaries</dt>
+                      <dd>
+                        Every entity has a beginning and an ending. A flat vertical edge means
+                        the bound is known; an open chevron means it is unknown. Both ends are
+                        set independently.
+                      </dd>
 
-                  <dt>Time Axis (X-Axis)</dt>
-                  <dd>
-                    The horizontal axis, always running left to right in temporal sequence.
-                    It can be linear (uniform scale) or non-linear (compressed/stretched
-                    regions) depending on what needs emphasis.
-                  </dd>
-                </dl>
+                      <dt>Space Axis (Y-Axis)</dt>
+                      <dd>
+                        The vertical axis of the diagram. It does not represent physical location;
+                        it gives visual room to distinct entities. Vertical nesting encodes
+                        part-whole relationships: if A is part of B, A&apos;s band sits within
+                        B&apos;s extent on the diagram.
+                      </dd>
+
+                      <dt>Time Axis (X-Axis)</dt>
+                      <dd>
+                        The horizontal axis, always running left to right in temporal sequence.
+                        It can be linear (uniform scale) or non-linear (compressed/stretched
+                        regions) depending on what needs emphasis.
+                      </dd>
+                    </dl>
+                  </Col>
+                </Row>
               </Col>
             </Row>
 
@@ -195,7 +283,7 @@ export default function Page() {
                   participate in activities.  They appear as labelled rows on
                   the vertical (space) axis of the diagram.  To add a new
                   entity, open the <strong>Add Entity</strong> panel in the
-                  toolbar.  Enter a name, set the beginning and ending times,
+                  toolbar. Select an entity type, enter a name, set the beginning and ending times,
                   and optionally select a type from the dropdown.  Press
                   &ldquo;Add&rdquo; and the entity appears as a new row on
                   the diagram.
@@ -210,7 +298,7 @@ export default function Page() {
                 </p>
               </Col>
               <Col className="col-md text-center align-self-center">
-                <ImageComponent alt="add entity panel" />
+                <ImageComponent alt="add entity panel" imageMap={imageMap} />
               </Col>
             </Row>
 
@@ -220,7 +308,7 @@ export default function Page() {
                 <h4 id="activities" className="doc-section-heading">Adding Activities</h4>
                 <p>
                   Activities are the temporal events that make up your model.
-                  They are drawn as coloured blocks on the time axis. Now that you have some individuals, we can create the activities they are involved in.
+                  They are drawn as coloured blocks on the time axis. Now that you have some entities, we can create the activities they are involved in.
                 </p>
                 <p>
                   To create a new activity, use the <strong>Add Activity</strong> control in the toolbar. 
@@ -229,9 +317,9 @@ export default function Page() {
                   The time scale doesn&apos;t mean anything in particular.
                 </p>
                 <p>
-                  The &lsquo;Participants&rsquo; field at the bottom specifies which individuals are involved in this activity. 
-                  You can only add individuals that already exist; if you need a new individual to participate, save the activity, 
-                  create the individual first, and then come back to edit the activity to add them.
+                  The &lsquo;Participants&rsquo; field at the bottom specifies which entities are involved in this activity. 
+                  You can only add entities that already exist; if you need a new entity to participate, save the activity, 
+                  create the entity first, and then come back to edit the activity to add them.
                 </p>
                 <p>
                   The activity immediately appears on the diagram spanning the
@@ -242,13 +330,13 @@ export default function Page() {
                   (see <a href="#edit-activity">Editing Activity</a>).
                 </p>
                 <p>
-                  The &lsquo;Type&rsquo; field, as with individuals, can be
+                  The &lsquo;Type&rsquo; field, as with entities, can be
                   used to categorise activities, or can be left at the
                   default &lsquo;Task&rsquo; type.
                 </p>
               </Col>
               <Col className="col-md text-center align-self-center">
-                <ImageComponent alt="add activity panel" />
+                <ImageComponent alt="add activity panel" imageMap={imageMap} />
               </Col>
             </Row>
 
@@ -261,10 +349,10 @@ export default function Page() {
                   that the entity is involved during that activity&apos;s time
                   window.  It is shown as a filled block at the intersection
                   of the entity&apos;s row and the activity&apos;s time span. Clicking on a &lsquo;participant&rsquo;, 
-                  which is the shaded box indicating that an individual participates in an activity, brings up a new box.
+                  which is the shaded box indicating that an entity participates in an activity, brings up a new box.
                 </p>
                 <p>
-                  This allows you to specify that this individual performs a particular role in the activity. 
+                  This allows you to specify that this entity performs a particular role in the activity. 
                   So, for example, if Bob is hammering in a nail, then Bob might be assigned &lsquo;the person hammering in the nail&rsquo;, 
                   and the nail might be &lsquo;the nail being hammered in&rsquo;. For such a simple example this seems silly, but when you are trying to build 
                   a specification for the different types of activity you need to model, this level of detail becomes more important.
@@ -273,20 +361,20 @@ export default function Page() {
                   To add a participation initially, open the activity editor (click
                   the arrow icon next to the activity in the Activity Legend,
                   or see <a href="#edit-activity">Editing Activity</a>).
-                  The editor shows a list of all individuals; tick the
+                  The editor groups and shows a list of all entities; tick the
                   ones that should participate and they are added
                   immediately.  Each entity can participate in many
                   activities and each activity can have many participating
                   entities.
                 </p>
                 <p>
-                  To remove a participation, untick the individual in the
+                  To remove a participation, untick the entity in the
                   same activity editor.  This only unlinks the entity from
                   the activity; neither is deleted.
                 </p>
               </Col>
               <Col className="col-md text-center align-self-center">
-                <ImageComponent alt="add participation" />
+                <ImageComponent alt="add participation" imageMap={imageMap} />
               </Col>
             </Row>
 
@@ -305,7 +393,7 @@ export default function Page() {
                 </p>
               </Col>
               <Col className="col-md text-center align-self-center">
-                <ImageComponent alt="type editing panel" />
+                <ImageComponent alt="type editing panel" imageMap={imageMap} />
               </Col>
             </Row>
 
@@ -331,7 +419,7 @@ export default function Page() {
                 </p>
               </Col>
               <Col className="col-md text-center align-self-center">
-                <ImageComponent alt="activity legend" />
+                <ImageComponent alt="activity legend" imageMap={imageMap} />
               </Col>
             </Row>
 
@@ -356,7 +444,7 @@ export default function Page() {
                 </p>
               </Col>
               <Col className="col-md text-center align-self-center">
-                <ImageComponent alt="entity legend" />
+                <ImageComponent alt="entity legend" imageMap={imageMap} />
               </Col>
             </Row>
 
@@ -381,7 +469,7 @@ export default function Page() {
                 </p>
               </Col>
               <Col className="col-md text-center align-self-center">
-                <ImageComponent alt="highlighted activity" />
+                <ImageComponent alt="highlighted activity" imageMap={imageMap} />
               </Col>
             </Row>
 
@@ -390,22 +478,22 @@ export default function Page() {
               <Col>
                 <h4 id="edit-activity" className="doc-section-heading">Editing Activity / Changing Properties</h4>
                 <p>
-                  Clicking on an individual or an activity will bring up the dialog used to create it 
+                  Clicking on an entity or an activity will bring up the dialog used to create it 
                   so that its properties can be changed. You can also click the arrow icon in the Activity Legend.
                   This opens the activity editor where you can change the
                   name, adjust the start and end times, reassign the type,
-                  update the colour, and manage which individuals participate.
+                  update the colour, and manage which entities participate.
                   All changes are reflected on the diagram immediately.
                 </p>
                 <p>
                   The editor also provides a <strong>Copy</strong> button to
                   duplicate the activity and a <strong>Delete</strong> button
-                  to remove it. Individuals and activities can be deleted entirely at any point. 
+                  to remove it. Entities and activities can be deleted entirely at any point. 
                   A copied activity will need to have its beginning or ending changed; otherwise, it will entirely overlap the activity it was copied from.
                 </p>
               </Col>
               <Col className="col-md text-center align-self-center">
-                <ImageComponent alt="edit activity panel" />
+                <ImageComponent alt="edit activity panel" imageMap={imageMap} />
               </Col>
             </Row>
 
@@ -423,8 +511,11 @@ export default function Page() {
                   &lsquo;Edit Activity&rsquo; dialog and then click the <strong>Sub-tasks</strong> button.
                 </p>
                 <p>
-                  This will open a new diagram representing the sub-tasks for that specific parent activity. The navigation 
-                  at the top of the diagram shows you where you are, and allows you to go back up to the parent.
+                  This will open a new diagram representing the sub-tasks for that specific parent activity. The breadcrumb navigation 
+                  at the top of the diagram shows you where you are, and allows you to easily jump back up to the parent or directly to the top-level diagram.
+                </p>
+                <p>
+                  You can also reorganize your tasks as your diagram evolves. If a sub-task grows in scope, you can <strong>promote</strong> it to be a top-level task instead, or you can assign a sub-task to an entirely different parent activity to restructure your model.
                 </p>
                 <p>
                   Be aware that when saving a diagram, the starts and ends of sub-activities will be bound and moved 
@@ -433,8 +524,8 @@ export default function Page() {
                 </p>
               </Col>
               <Col className="col-md text-center align-self-center d-flex flex-column gap-3">
-                <ImageComponent alt="edit activity dialog subtasks button" />
-                <ImageComponent alt="subtasks diagram view" />
+                <ImageComponent alt="edit activity dialog subtasks button" imageMap={imageMap} />
+                <ImageComponent alt="subtasks diagram view" imageMap={imageMap} />
               </Col>
             </Row>
 
@@ -451,13 +542,13 @@ export default function Page() {
                   to normal interaction, click the pointer button.
                 </p>
                 <p>
-                  The zoom range runs from 0.5&times; to 4&times; magnification.
+                  The zoom range runs from <span className="badge bg-secondary font-monospace" style={{ fontSize: '0.9em' }}>0.5&times;</span> to <span className="badge bg-secondary font-monospace" style={{ fontSize: '0.9em' }}>4&times;</span> magnification.
                   Zooming adjusts the spacing of the time axis, keeping
                   entity rows the same height so labels remain readable.
                 </p>
               </Col>
               <Col className="col-md text-center align-self-center">
-                <ImageComponent alt="zoom controls" />
+                <ImageComponent alt="zoom controls" imageMap={imageMap} />
               </Col>
             </Row>
 
@@ -475,13 +566,16 @@ export default function Page() {
                   flashes it to draw your attention.
                 </p>
                 <p>
+                  To ensure a clear view of your workspace, the search popover (as well as all dialog modals in the editor) is entirely draggable. You can click and hold the top handle of the search wrapper or the header of any modal to move it out of the way of your active diagram elements.
+                </p>
+                <p>
                   From the search results you can also rename an entity
                   inline: click the pencil icon next to a result, type the
                   new name and confirm.  The diagram updates instantly.
                 </p>
               </Col>
               <Col className="col-md text-center align-self-center">
-                <ImageComponent alt="search entity popover" />
+                <ImageComponent alt="search entity popover" imageMap={imageMap} />
               </Col>
             </Row>
 
@@ -509,7 +603,7 @@ export default function Page() {
                 </p>
               </Col>
               <Col className="col-md text-center align-self-center">
-                <ImageComponent alt="undo / redo buttons" />
+                <ImageComponent alt="undo / redo buttons" imageMap={imageMap} />
               </Col>
             </Row>
 
@@ -529,13 +623,13 @@ export default function Page() {
                 <p>
                   Hidden entities still exist in the underlying data.
                   Entities that are part of a system hierarchy (for example
-                  a system component installed in a system) will not be
+                  a component of a system) will not be
                   hidden even if they have no direct participation, because
                   the parent-child relationship keeps them visible.
                 </p>
               </Col>
               <Col className="col-md text-center align-self-center">
-                <ImageComponent alt="hide entities panel" />
+                <ImageComponent alt="hide entities panel" imageMap={imageMap} />
               </Col>
             </Row>
 
@@ -558,7 +652,7 @@ export default function Page() {
                 </p>
               </Col>
               <Col className="col-md text-center align-self-center">
-                <ImageComponent alt="drag-and-drop sorting" />
+                <ImageComponent alt="drag-and-drop sorting" imageMap={imageMap} />
               </Col>
             </Row>
 
@@ -582,7 +676,7 @@ export default function Page() {
                 </p>
               </Col>
               <Col className="col-md text-center align-self-center">
-                <ImageComponent alt="activity colour picker" />
+                <ImageComponent alt="activity colour picker" imageMap={imageMap} />
               </Col>
             </Row>
 
@@ -603,16 +697,13 @@ export default function Page() {
                   <strong> Save Settings</strong> to save your settings to a local file, and 
                   <strong> Load Settings</strong> to load a settings file in again.
                 </p>
-                <p>
-                  Note that if you refresh the page, or go away to a different page and come back, your settings will momentarily reset back to the defaults.
-                </p>
               </Col>
               <Col className="col-md text-center align-self-center">
-                <ImageComponent alt="settings panel overview" />
+                <ImageComponent alt="settings panel overview" imageMap={imageMap} />
               </Col>
             </Row>
 
-            {/* Settings ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â Presentation Styles */}
+            {/* Settings Presentation Styles */}
             <Row className="justify-content-center row-cols-1 row-cols-lg-2 mt-5">
               <Col>
                 <h5 id="settings-presentation" className="doc-section-heading">Presentation Styles</h5>
@@ -624,7 +715,7 @@ export default function Page() {
                   <li>
                     <strong>Activities</strong> - fill colour list, border
                     colour list, opacity, opacity on hover, border width,
-                    border dash array, font size, and max label characters.
+                    and border dash array.
                   </li>
                   <li>
                     <strong>Participations</strong> - fill colour, border
@@ -639,11 +730,11 @@ export default function Page() {
                 </ul>
               </Col>
               <Col className="col-md text-center align-self-center">
-                <ImageComponent alt="settings Presentation Styles tab" />
+                <ImageComponent alt="settings Presentation Styles tab" imageMap={imageMap} />
               </Col>
             </Row>
 
-            {/* Settings ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â Layout & Configuration */}
+            {/* Settings Layout & Configuration */}
             <Row className="justify-content-center row-cols-1 row-cols-lg-2 mt-5">
               <Col>
                 <h5 id="settings-layout" className="doc-section-heading">Layout &amp; Configuration</h5>
@@ -686,7 +777,7 @@ export default function Page() {
                 </ul>
               </Col>
               <Col className="col-md text-center align-self-center">
-                <ImageComponent alt="settings Layout and Configuration tab" />
+                <ImageComponent alt="settings Layout and Configuration tab" imageMap={imageMap} />
               </Col>
             </Row>
 
@@ -694,7 +785,12 @@ export default function Page() {
             <Row className="justify-content-center row-cols-1 row-cols-lg-2 mt-5">
               <Col>
                 <h4 id="saving-loading" className="doc-section-heading text-primary">Saving and Loading Diagrams</h4>
-                
+
+                <h5 id="session-auto-saving" className="doc-section-heading mt-4">Session Auto-Saving</h5>
+                <p>
+                  Any changes made to your diagram and settings during your session are automatically saved in the background. You can safely navigate through other pages of the website, and your diagram will persist when you return to the editor. However, these changes will be lost when you completely close the browser tab or window unless you explicitly save them.
+                </p>
+
                 {/* Turtle Files */}
                 <h5 id="saving-turtle" className="doc-section-heading mt-4">Saving and Loading Turtle Files</h5>
                 <p>
@@ -711,7 +807,7 @@ export default function Page() {
                 </p>
               </Col>
               <Col className="col-md text-center align-self-center mt-4 mt-lg-0">
-                <ImageComponent alt="Save TTL, Load TTL, and Reference Types only toggle" />
+                <ImageComponent alt="Save TTL, Load TTL, and Reference Types only toggle" imageMap={imageMap} />
               </Col>
             </Row>
 
@@ -731,7 +827,7 @@ export default function Page() {
                 </p>
               </Col>
               <Col className="col-md text-center align-self-center mt-4 mt-lg-0">
-                <ImageComponent alt="Load example dropdown menu" />
+                <ImageComponent alt="Load example dropdown menu" imageMap={imageMap} />
               </Col>
             </Row>
 
@@ -753,7 +849,7 @@ export default function Page() {
                 </p>
               </Col>
               <Col className="col-md text-center align-self-center mt-4 mt-lg-0">
-                <ImageComponent alt="Export SVG and Export JSON buttons" />
+                <ImageComponent alt="Export SVG and Export JSON buttons" imageMap={imageMap} />
               </Col>
             </Row>
 

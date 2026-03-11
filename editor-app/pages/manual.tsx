@@ -425,7 +425,7 @@ export default function Page({ imageMap }: { imageMap: Record<string, string> })
                 </p>
               </Col>
               <Col className="col-md text-center align-self-center">
-                <ImageComponent alt="activity legend" imageMap={imageMap} />
+                <ImageComponent alt="activity legend" imageMap={imageMap} maxWidth="200px" />
               </Col>
             </Row>
 

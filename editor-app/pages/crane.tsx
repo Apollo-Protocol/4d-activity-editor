@@ -60,6 +60,13 @@ const craneSections: JumpLinkItem[] = [
 const getCraneImageSrc = (baseName: string, imageMap: Record<string, string>, fallbackExt: string = "svg") =>
   `/crane/${baseName}.${imageMap[baseName] ?? fallbackExt}`;
 
+const getCraneImageAlt = (baseName: string) =>
+  baseName
+    .split(/[-_]+/)
+    .filter(Boolean)
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(" ");
+
 export default function Page({ imageMap }: { imageMap: Record<string, string> }) {
   return (
     <>
@@ -197,7 +204,7 @@ export default function Page({ imageMap }: { imageMap: Record<string, string> })
                 kept.</p>
               </Col>
               <Col className="col-md text-center align-self-center mt-4 mt-lg-0">
-                <picture><ModalImage className="img-fluid border rounded shadow-sm zoom-cursor-img w-100" small={getCraneImageSrc("rams-briefing", imageMap)} large={getCraneImageSrc("rams-briefing", imageMap)} imageBackgroundColor="#fff" alt="" /></picture>
+                <picture><ModalImage className="img-fluid border rounded shadow-sm zoom-cursor-img w-100" small={getCraneImageSrc("rams-briefing", imageMap)} large={getCraneImageSrc("rams-briefing", imageMap)} imageBackgroundColor="#fff" alt={getCraneImageAlt("rams-briefing")} /></picture>
               </Col>
             </Row>
 
@@ -219,9 +226,9 @@ export default function Page({ imageMap }: { imageMap: Record<string, string> })
                 at what each step involves.</p>
               </Col>
               <Col className="col-md text-center align-self-center mt-4 mt-lg-0 d-flex flex-column gap-3">
-                <picture><ModalImage className="img-fluid border rounded shadow-sm zoom-cursor-img w-100" small={getCraneImageSrc("rams-review", imageMap)} large={getCraneImageSrc("rams-review", imageMap)} imageBackgroundColor="#fff" alt="" /></picture>
-                <picture><ModalImage className="img-fluid border rounded shadow-sm zoom-cursor-img w-100" small={getCraneImageSrc("rams-walk-route", imageMap)} large={getCraneImageSrc("rams-walk-route", imageMap)} imageBackgroundColor="#fff" alt="" /></picture>
-                <picture><ModalImage className="img-fluid border rounded shadow-sm zoom-cursor-img w-100" small={getCraneImageSrc("rams-complete", imageMap)} large={getCraneImageSrc("rams-complete", imageMap)} imageBackgroundColor="#fff" alt="" /></picture>
+                <picture><ModalImage className="img-fluid border rounded shadow-sm zoom-cursor-img w-100" small={getCraneImageSrc("rams-review", imageMap)} large={getCraneImageSrc("rams-review", imageMap)} imageBackgroundColor="#fff" alt={getCraneImageAlt("rams-review")} /></picture>
+                <picture><ModalImage className="img-fluid border rounded shadow-sm zoom-cursor-img w-100" small={getCraneImageSrc("rams-walk-route", imageMap)} large={getCraneImageSrc("rams-walk-route", imageMap)} imageBackgroundColor="#fff" alt={getCraneImageAlt("rams-walk-route")} /></picture>
+                <picture><ModalImage className="img-fluid border rounded shadow-sm zoom-cursor-img w-100" small={getCraneImageSrc("rams-complete", imageMap)} large={getCraneImageSrc("rams-complete", imageMap)} imageBackgroundColor="#fff" alt={getCraneImageAlt("rams-complete")} /></picture>
               </Col>
             </Row>
 
@@ -238,8 +245,6 @@ export default function Page({ imageMap }: { imageMap: Record<string, string> })
 
                 <p>Here is one of the steps from the lift above, represented
                 on a separate diagram.</p>
-                <picture><ModalImage className="img-fluid border rounded shadow-sm zoom-cursor-img w-100" small={getCraneImageSrc("sub-inspect-inspect", imageMap)} large={getCraneImageSrc("sub-inspect-inspect", imageMap)} imageBackgroundColor="#fff" alt="" /></picture>
-                <br />
 
                 <p>Looking into the activity at this level of detail has
                 identified more participants in the activity: there are
@@ -254,16 +259,42 @@ export default function Page({ imageMap }: { imageMap: Record<string, string> })
                 situations (an unsafe crane) where the entire activity will
                 need to be abandoned. Currently it is not clear how best to
                 model these situations; work is ongoing.</p>
+              </Col>
+              <Col className="col-md text-center align-self-center mt-4 mt-lg-0">
+                <picture><ModalImage className="img-fluid border rounded shadow-sm zoom-cursor-img w-100" small={getCraneImageSrc("sub-inspect-inspect", imageMap)} large={getCraneImageSrc("sub-inspect-inspect", imageMap)} imageBackgroundColor="#fff" alt={getCraneImageAlt("sub-inspect-inspect")} /></picture>
+              </Col>
+            </Row>
 
+            <Row className="justify-content-center row-cols-1 row-cols-lg-2 mt-3">
+              <Col>
                 <p>To create a sub-task breakdown like this, <Link
                 href="manual#breaking-down-activities">open the sub-tasks
                 of one of the existing steps</Link>. This will open a new
                 diagram view showing sub-tasks of the chosen task. Now start
                 creating activities as before.</p>
+              </Col>
+              <Col className="col-md text-center align-self-center mt-4 mt-lg-0">
+                <picture><ModalImage className="img-fluid border rounded shadow-sm zoom-cursor-img w-100" small={getCraneImageSrc("sub-inspect-first", imageMap)} large={getCraneImageSrc("sub-inspect-first", imageMap)} imageBackgroundColor="#fff" alt={getCraneImageAlt("sub-inspect-first")} /></picture>
+              </Col>
+            </Row>
 
+            <Row className="justify-content-center row-cols-1 row-cols-lg-2 mt-3">
+              <Col>
                 <p>Create new individuals as needed; these will also show
                 up on the top-level view.</p>
+              </Col>
+              <Col className="col-md align-self-center mt-4 mt-lg-0">
+                <div className="text-center mb-3">
+                  <picture><ModalImage className="img-fluid border rounded shadow-sm zoom-cursor-img w-100" small={getCraneImageSrc("sub-inspect-quarantine", imageMap)} large={getCraneImageSrc("sub-inspect-quarantine", imageMap)} imageBackgroundColor="#fff" alt={getCraneImageAlt("sub-inspect-quarantine")} /></picture>
+                </div>
+                <div className="text-center">
+                  <picture><ModalImage className="img-fluid border rounded shadow-sm zoom-cursor-img w-100" small={getCraneImageSrc("sub-inspect-inspect", imageMap)} large={getCraneImageSrc("sub-inspect-inspect", imageMap)} imageBackgroundColor="#fff" alt={getCraneImageAlt("sub-inspect-inspect")} /></picture>
+                </div>
+              </Col>
+            </Row>
 
+            <Row className="justify-content-center row-cols-1 row-cols-lg-2 mt-3">
+              <Col>
                 <p>Once the sub-task has been analysed, it is helpful to go
                 back to the top-level view and add the new individuals
                 identified as participants in the top-level activity.</p>
@@ -273,11 +304,8 @@ export default function Page({ imageMap }: { imageMap: Record<string, string> })
                 <p>The completed diagram can be loaded into the editor from
                 the examples menu.</p>
               </Col>
-              <Col className="col-md text-center align-self-center mt-4 mt-lg-0 d-flex flex-column gap-3">
-                <picture><ModalImage className="img-fluid border rounded shadow-sm zoom-cursor-img w-100" small={getCraneImageSrc("sub-inspect-first", imageMap)} large={getCraneImageSrc("sub-inspect-first", imageMap)} imageBackgroundColor="#fff" alt="" /></picture>
-                <picture><ModalImage className="img-fluid border rounded shadow-sm zoom-cursor-img w-100" small={getCraneImageSrc("sub-inspect-quarantine", imageMap)} large={getCraneImageSrc("sub-inspect-quarantine", imageMap)} imageBackgroundColor="#fff" alt="" /></picture>
-                <picture><ModalImage className="img-fluid border rounded shadow-sm zoom-cursor-img w-100" small={getCraneImageSrc("sub-inspect-inspect", imageMap)} large={getCraneImageSrc("sub-inspect-inspect", imageMap)} imageBackgroundColor="#fff" alt="" /></picture>
-                <picture><ModalImage className="img-fluid border rounded shadow-sm zoom-cursor-img w-100" small={getCraneImageSrc("sub-inspect-top", imageMap)} large={getCraneImageSrc("sub-inspect-top", imageMap)} imageBackgroundColor="#fff" alt="" /></picture>
+              <Col className="col-md text-center align-self-center mt-4 mt-lg-0">
+                <picture><ModalImage className="img-fluid border rounded shadow-sm zoom-cursor-img w-100" small={getCraneImageSrc("sub-inspect-top", imageMap)} large={getCraneImageSrc("sub-inspect-top", imageMap)} imageBackgroundColor="#fff" alt={getCraneImageAlt("sub-inspect-top")} /></picture>
               </Col>
             </Row>
 
@@ -341,7 +369,7 @@ export default function Page({ imageMap }: { imageMap: Record<string, string> })
                 supplied to us at the time the crane was bought.</p>
               </Col>
               <Col className="col-md text-center align-self-center mt-4 mt-lg-0">
-                <picture><ModalImage className="img-fluid border rounded shadow-sm zoom-cursor-img w-100" small={getCraneImageSrc("life-crane", imageMap)} large={getCraneImageSrc("life-crane", imageMap)} imageBackgroundColor="#fff" alt="" /></picture>
+                <picture><ModalImage className="img-fluid border rounded shadow-sm zoom-cursor-img w-100" small={getCraneImageSrc("life-crane", imageMap)} large={getCraneImageSrc("life-crane", imageMap)} imageBackgroundColor="#fff" alt={getCraneImageAlt("life-crane")} /></picture>
               </Col>
             </Row>
 

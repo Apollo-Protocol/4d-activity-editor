@@ -35,8 +35,13 @@ const systemIntroSections: JumpLinkItem[] = [
   { id: "system-step-1", label: "Step 1: Create the system" },
   { id: "system-step-2", label: "Step 2: Add system components" },
   { id: "system-step-3", label: "Step 3: Fuse individuals" },
-  { id: "system-step-4", label: "Step 4: Check activities against entities" },
-  { id: "system-validations", label: "Validations and safeguards" },
+  {
+    id: "system-step-4",
+    label: "Step 4: Check activities against entities",
+    children: [
+      { id: "system-validations", label: "Validations and safeguards" },
+    ],
+  },
 ];
 
 const ImageComponent = ({
@@ -51,6 +56,11 @@ const ImageComponent = ({
   imageMap?: Record<string, string>;
 }) => {
   const filenameBase = alt.toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '');
+  const modalAlt = filenameBase
+    .split(/[_-]+/)
+    .filter(Boolean)
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(' ');
   const finalExt = (imageMap && imageMap[filenameBase]) ?? "png";
   const generatedSrc = src ?? `/system-intro/${filenameBase}.${finalExt}`;
   return (
@@ -58,7 +68,7 @@ const ImageComponent = ({
       <ModalImage 
         small={generatedSrc}
         large={generatedSrc}
-        alt={alt}
+        alt={modalAlt}
         className="img-fluid mb-3 mt-3 border rounded shadow-sm w-100 zoom-cursor-img"
         imageBackgroundColor="#fff"
       />
@@ -66,37 +76,7 @@ const ImageComponent = ({
   );
 };
 
-const ValidationImagePlaceholder = ({ title }: { title: string }) => {
-  return (
-    <div className="border rounded shadow-sm bg-light h-100 d-flex align-items-center justify-content-center text-center p-3">
-      <div>
-        <div className="fw-semibold">{title}</div>
-        <div className="small text-muted mt-2">Add screenshot when available</div>
-      </div>
-    </div>
-  );
-};
-
 export default function Page({ imageMap }: { imageMap: Record<string, string> }) {
-  const validationGalleryItems: Array<{ title: string; alt?: string; src?: string }> = [
-    {
-      title: "System component needs a parent system",
-      alt: "system component parent required",
-    },
-    {
-      title: "System component must belong to a system",
-      alt: "system component must belong to system",
-    },
-    {
-      title: "Installation rows must fit slot and entity bounds",
-      alt: "installation bounds validation",
-    },
-    {
-      title: "Affected-items warning before trimming or removal",
-      alt: "affected items warning",
-    },
-  ];
-
   return (
     <>
       <Head>
@@ -268,16 +248,41 @@ export default function Page({ imageMap }: { imageMap: Record<string, string> })
             </Row>
 
             {/* Validations */}
+            <Row className="mt-5">
+              <Col>
+                <h3 id="system-validations" className="doc-section-heading">Validations and safeguards</h3>
+              </Col>
+            </Row>
+
+            <Row className="justify-content-center row-cols-1 row-cols-lg-2 mt-4">
+              <Col className="align-self-center">
+                <p>
+                  A system component cannot be saved without a parent system.
+                </p>
+              </Col>
+              <Col className="col-md text-center align-self-center mt-4 mt-lg-0">
+                <ImageComponent alt="system component parent required" imageMap={imageMap} />
+              </Col>
+            </Row>
+
             <Row className="justify-content-center row-cols-1 row-cols-lg-2 mt-5">
-              <Col id="system-validations" className="amrc-text doc-section-heading">
-                <h3>Validations and safeguards</h3>
+              <Col className="align-self-center">
+                <p>
+                  A system component can only be a component of an entity that is itself a system.
+                </p>
+              </Col>
+              <Col className="col-md text-center align-self-center mt-4 mt-lg-0">
+                <ImageComponent alt="system component must belong to system" imageMap={imageMap} />
+              </Col>
+            </Row>
+
+            <Row className="justify-content-center row-cols-1 row-cols-lg-2 mt-5">
+              <Col className="align-self-center">
                 <p>
                   The system and entity workflow includes several checks to prevent invalid or
                   inconsistent states:
                 </p>
                 <ul>
-                  <li>A system component cannot be saved without a parent system.</li>
-                  <li>A system component can only be a component of an entity that is itself a system.</li>
                   <li>Installation rows must include a valid system component and a non-negative beginning.</li>
                   <li>Each installation ending must be after its beginning.</li>
                   <li>Installation periods must stay within both the system-component bounds and the installed individual&apos;s own bounds.</li>
@@ -290,6 +295,14 @@ export default function Page({ imageMap }: { imageMap: Record<string, string> })
                   component, and the parent system disappears, the affected installation period is
                   removed automatically.
                 </p>
+              </Col>
+              <Col className="col-md text-center align-self-center mt-4 mt-lg-0">
+                <ImageComponent alt="installation bounds validation" imageMap={imageMap} />
+              </Col>
+            </Row>
+
+            <Row className="justify-content-center row-cols-1 row-cols-lg-2 mt-5">
+              <Col className="align-self-center">
                 <p>
                   When you shorten a system or a system component, the editor opens an affected-items
                   warning before saving. That warning shows which nested components, installation
@@ -297,29 +310,8 @@ export default function Page({ imageMap }: { imageMap: Record<string, string> })
                   whether to resolve or delete the affected records.
                 </p>
               </Col>
-              <Col className="col-md align-self-start">
-                <Row className="g-3 mt-1">
-                  {validationGalleryItems.map((item, index) => {
-                    const isFirstRow = index < 2;
-                    return (
-                      <Col key={item.title} className={isFirstRow ? "col-6" : "col-12"}>
-                        <div className="h-100 d-flex flex-column">
-                          {item.alt ? (
-                            <ImageComponent
-                              alt={item.alt}
-                              src={item.src}
-                              maxWidth="100%"
-                              imageMap={imageMap}
-                            />
-                          ) : (
-                            <ValidationImagePlaceholder title={item.title} />
-                          )}
-                          <div className="small text-muted text-center px-2 mt-auto">{item.title}</div>
-                        </div>
-                      </Col>
-                    );
-                  })}
-                </Row>
+              <Col className="col-md text-center align-self-center mt-4 mt-lg-0">
+                <ImageComponent alt="affected items warning" imageMap={imageMap} />
               </Col>
             </Row>
 

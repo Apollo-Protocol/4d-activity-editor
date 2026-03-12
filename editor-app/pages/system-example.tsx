@@ -35,9 +35,14 @@ const systemExampleSections: JumpLinkItem[] = [
   { id: "system-example-step-1", label: "Step 1: Define the system" },
   { id: "system-example-step-2", label: "Step 2: Define the slots" },
   { id: "system-example-step-3", label: "Step 3: Fuse equipment" },
-  { id: "system-example-step-4", label: "Step 4: Model activities" },
-  { id: "system-example-step-5", label: "Step 5: Use warnings" },
-  { id: "system-example-full", label: "Load the full example" },
+  {
+    id: "system-example-step-4",
+    label: "Step 4: Model activities",
+    children: [
+      { id: "system-example-warnings", label: "Use the affected-items warnings" },
+      { id: "system-example-full", label: "Load the full example" },
+    ],
+  },
 ];
 
 const ImageComponent = ({
@@ -52,6 +57,11 @@ const ImageComponent = ({
   imageMap?: Record<string, string>;
 }) => {
   const filenameBase = alt.toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '');
+  const modalAlt = filenameBase
+    .split(/[_-]+/)
+    .filter(Boolean)
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(' ');
   
   // Auto-detect extension from imageMap if available, else fallback to 'ext' prop or 'png'
   const finalExt = ext ?? (imageMap && imageMap[filenameBase]) ?? "png";
@@ -62,7 +72,7 @@ const ImageComponent = ({
       <ModalImage
         small={generatedSrc}
         large={generatedSrc}
-        alt={alt}
+        alt={modalAlt}
         className="img-fluid mb-1 mt-3 border rounded shadow-sm w-100 zoom-cursor-img"
         imageBackgroundColor="#fff"
       />
@@ -224,12 +234,12 @@ export default function Page({ imageMap }: { imageMap: Record<string, string> })
               </Col>
             </Row>
 
-            {/* Step 5 */}
+            {/* Affected-items warnings */}
             <Row className="justify-content-center row-cols-1 row-cols-lg-2 mt-5">
               <Col>
-                <h2 id="system-example-step-5" className="doc-section-heading">
-                  Step 5: Use the affected-items warnings
-                </h2>
+                <h3 id="system-example-warnings" className="doc-section-heading">
+                  Use the affected-items warnings
+                </h3>
                 <p>
                   The final step is to deliberately trigger the affected-items dialog. After saving
                   the activities above, reopen <strong>Camera Unit 01</strong> and shorten its bounds
@@ -254,9 +264,9 @@ export default function Page({ imageMap }: { imageMap: Record<string, string> })
             {/* Full Example */}
             <Row className="justify-content-center row-cols-1 row-cols-lg-2 mt-5">
               <Col>
-                <h2 id="system-example-full" className="doc-section-heading">
+                <h3 id="system-example-full" className="doc-section-heading">
                   Load the full example
-                </h2>
+                </h3>
                 <p>
                   You can load the complete packaging cell setup directly in the editor by choosing
                   <strong> Packaging Cell</strong> from the examples menu. This will let you explore

@@ -115,6 +115,11 @@ const manualSections: JumpLinkItem[] = [
 
 const ImageComponent = ({ alt, src, maxWidth, imageMap }: { alt: string, src?: string, maxWidth?: string, imageMap?: Record<string, string> }) => {
   const filenameBase = alt.toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '');
+  const modalAlt = filenameBase
+    .split(/[_-]+/)
+    .filter(Boolean)
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(' ');
   const extension = (imageMap && imageMap[filenameBase]) ?? "png";
   const finalExt = extension;
   const generatedSrc = src || `/manual/${filenameBase}.${finalExt}`;
@@ -129,7 +134,7 @@ const ImageComponent = ({ alt, src, maxWidth, imageMap }: { alt: string, src?: s
       <ModalImage
         small={generatedSrc}
         large={generatedSrc}
-        alt={alt}
+        alt={modalAlt}
         className="img-fluid mb-5 mt-3 border rounded shadow-sm w-100 zoom-cursor-img"
         imageBackgroundColor="#fff"
       />
@@ -461,7 +466,7 @@ export default function Page({ imageMap }: { imageMap: Record<string, string> })
                 </p>
               </Col>
               <Col className="col-md text-center align-self-center">
-                <ImageComponent alt="edit activity panel" imageMap={imageMap} />
+                <ImageComponent alt="Edit Activity Panel" imageMap={imageMap} />
               </Col>
             </Row>
 

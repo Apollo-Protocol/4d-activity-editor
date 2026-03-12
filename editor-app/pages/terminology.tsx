@@ -42,6 +42,11 @@ export async function getStaticProps() {
 export default function Terminology({ imageMap }: { imageMap: Record<string, string> }) {
   const ImageComponent = ({ src, alt, maxWidth }: { src?: string; alt: string; maxWidth?: string }) => {
     const filenameBase = alt.toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '');
+    const modalAlt = filenameBase
+      .split(/[_-]+/)
+      .filter(Boolean)
+      .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+      .join(' ');
     const finalExt = imageMap[filenameBase] || 'png';
     const finalSrc = src || `/manual/${filenameBase}.${finalExt}`;
     const resolvedMaxWidth = maxWidth ?? (finalExt === "gif" ? "460px" : (filenameBase.startsWith("terminology_") || filenameBase.startsWith("settings_") ? "380px" : "300px"));
@@ -51,7 +56,7 @@ export default function Terminology({ imageMap }: { imageMap: Record<string, str
         <ModalImage
           small={finalSrc}
           large={finalSrc}
-          alt={alt}
+          alt={modalAlt}
           className="img-fluid mb-5 mt-3 border rounded shadow-sm w-100 zoom-cursor-img"
           imageBackgroundColor="#fff"
         />

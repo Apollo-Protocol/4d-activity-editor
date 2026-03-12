@@ -141,6 +141,13 @@
   scroll-margin-top: 0;
 }
 
+dt.doc-section-heading {
+  font-size: 1.45rem;
+  font-weight: 300;
+  margin-top: 1.25rem;
+  margin-bottom: 0.35rem;
+}
+
 h2.doc-section-heading {
   font-size: 2rem;
   font-weight: 500;
@@ -150,16 +157,31 @@ h2.doc-section-heading {
 
 h3.doc-section-heading {
   font-size: 1.75rem;
-  font-weight: 500;
+  font-weight: 300;
   margin-top: 1.5rem;
   margin-bottom: 0.5rem;
 }
 
 h4.doc-section-heading {
-  font-size: 1.5rem;
-  font-weight: 500;
+  font-size: 1.25rem;
+  font-weight: 300;
   margin-top: 1.25rem;
   margin-bottom: 0.5rem;
+}
+
+@media (max-width: 1599px) and (min-width: 992px) {
+  h2.doc-section-heading {
+    font-size: 1.8rem;
+  }
+
+  h3.doc-section-heading {
+    font-size: 1.45rem;
+  }
+
+  h4.doc-section-heading,
+  dt.doc-section-heading {
+    font-size: 1.1rem;
+  }
 }
 
 .doc-back-to-top {
@@ -1233,7 +1255,7 @@ body {
   padding-right: 1.5rem;
   padding-top: 0.45rem;
   padding-bottom: 0.45rem;
-  margin-top: -24px; /* Collapse the gap from _app.tsx's paddingTop: 100px (100 - 76 = 24) */
+  margin-top: -30px; /* Collapse the gap from _app.tsx's paddingTop */
   margin-bottom: 1rem;
   min-height: 52px;
   display: flex !important;
@@ -1378,12 +1400,24 @@ body {
   cursor: zoom-in !important;
 }
 
+.__react_modal_image__header {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
 
-.doc-page-content h3 { font-size: 2rem; font-weight: 300; color: #111827; margin-top: 3.5rem; margin-bottom: 1.5rem; }
-.doc-page-content h4 { font-size: 1.4rem; font-weight: 600; color: #1f2937; margin-top: 2rem; margin-bottom: 0.5rem; }
-.doc-page-content h5 { font-size: 1.15rem; font-weight: 600; color: #4b5563; margin-top: 1.5rem; margin-bottom: 0.5rem; }
-@media (max-width: 1599px) and (min-width: 992px) {
-  .doc-page-content h3 { font-size: 1.8rem; }
-  .doc-page-content h4 { font-size: 1.25rem; }
-  .doc-page-content h5 { font-size: 1rem; }
+.__react_modal_image__icon_menu {
+  position: absolute;
+  right: 0.75rem;
+  top: 50%;
+  transform: translateY(-50%);
+  float: none !important;
+}
+
+.__react_modal_image__caption {
+  display: block !important;
+  text-align: center;
+  width: 100%;
+  margin: 0;
+  padding: 10px 3.5rem 10px 3.5rem;
 }

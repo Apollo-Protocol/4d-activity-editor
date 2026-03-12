@@ -56,8 +56,8 @@ function CollapsibleExample() {
       variant="light"
       fixed="top"
       style={{
-        backgroundColor: "rgba(255, 255, 255, 0.98)",
-        backdropFilter: "blur(10px)",
+        backgroundColor: "#fff",
+        backdropFilter: "none",
         boxShadow: "0 2px 8px rgba(0, 0, 0, 0.08)",
         zIndex: 1030,
       }}

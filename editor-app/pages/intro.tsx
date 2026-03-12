@@ -34,7 +34,7 @@ export default function Page() {
         <div className="doc-page-content">
         <Row className="justify-content-center row-cols-1 row-cols-lg-2">
           <Col id="intro-overview" className="amrc-text doc-section-heading">
-            <p>Activity happens all the time: the wind blows, seasons
+            <p className="lead">Activity happens all the time: the wind blows, seasons
             pass and the sun&apos;s fusion radiates photons and other
             subatomic particles throughout the solar system.  Human
             activity is also part of the range of activities.  Keeping
@@ -46,7 +46,7 @@ export default function Page() {
             participants (e.g. the environment itself or the floor of a
             building in which activity of interest is taking place).</p>
 
-            <p>Whether a participant is significant-enough to warrant
+            <p className="lead">Whether a participant is significant-enough to warrant
             inclusion in a model is ultimately a decision, a decision
             based on whether there is a need for information records of
             it.  For business activity lifecycles, the only need for
@@ -63,7 +63,7 @@ export default function Page() {
         </Row>
         <Row className="justify-content-center row-cols-1 row-cols-lg-2 mt-5">
           <Col>
-            <h4 id="intro-step-1" className="doc-section-heading">Step 1: Develop an initial lifecycle activity model</h4>
+            <h2 id="intro-step-1" className="doc-section-heading">Step 1: Develop an initial lifecycle activity model</h2>
 
             <p>An activity lifecycle is a
             decomposition of possible activities that represents a pattern
@@ -73,7 +73,7 @@ export default function Page() {
             around which the activity analysis and decomposition can be
             done.</p>
 
-            <h4 id="intro-step-2" className="doc-section-heading">Step 2: Identify participants in each activity</h4>
+            <h2 id="intro-step-2" className="doc-section-heading">Step 2: Identify participants in each activity</h2>
 
             <p>Why are participants important?  Firstly, they are the
             only things involved in activities.  If something else is
@@ -87,7 +87,7 @@ export default function Page() {
             its lifecycle (at least, if we arrange for the data records
             to be managed in a way that allows for this).</p>
 
-            <h4 id="intro-step-3" className="doc-section-heading">Step 3: Identify decisions relating to those activities</h4>
+            <h2 id="intro-step-3" className="doc-section-heading">Step 3: Identify decisions relating to those activities</h2>
 
             <p>Identifying the decisions that require information should
             be an easy task once Steps 1 & 2 have been completed sufficiently.  
@@ -96,7 +96,7 @@ export default function Page() {
             <p>When done in enough detail, decisions tend to be needed at the
             start and end of activities.</p>
 
-            <h4 id="intro-step-4" className="doc-section-heading">Step 4: Proceed to information requirements capture</h4>
+            <h2 id="intro-step-4" className="doc-section-heading">Step 4: Proceed to information requirements capture</h2>
 
             <p>Once the activity lifecycle has been captured with the
             participants it is now ready for information requirements

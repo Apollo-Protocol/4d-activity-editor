@@ -94,14 +94,14 @@ export default function Page({ imageMap }: { imageMap: Record<string, string> })
             {/* Overview */}
             <Row className="justify-content-center row-cols-1 row-cols-lg-2">
               <Col id="system-example-overview" className="amrc-text doc-section-heading">
-                <p>
+                <p className="lead">
                   This is a suggested walkthrough you can recreate in the editor. The aim is to show
                   how system modelling complements activity modelling when equipment changes over
                   time. In this example, imagine a packaging cell with a controller cabinet, a vision
                   station, and a tool mount that can host different pieces of equipment through the
                   life of the cell.
                 </p>
-                <p>
+                <p className="lead">
                   The point of the exercise is not simply to draw the structure. It is to make later
                   activities testable against that structure so you can see whether inspection,
                   replacement, or commissioning work refers to equipment that is actually present at
@@ -119,9 +119,9 @@ export default function Page({ imageMap }: { imageMap: Record<string, string> })
             {/* Step 1 */}
             <Row className="justify-content-center row-cols-1 row-cols-lg-2 mt-5">
               <Col>
-                <h4 id="system-example-step-1" className="doc-section-heading">
+                <h2 id="system-example-step-1" className="doc-section-heading">
                   Step 1: Define the system
-                </h4>
+                </h2>
                 <p>
                   Create a system called <strong>Packaging Cell A</strong> and give it a lifespan that
                   represents the period you want to analyse. This creates the parent entity for the
@@ -141,9 +141,9 @@ export default function Page({ imageMap }: { imageMap: Record<string, string> })
             {/* Step 2 */}
             <Row className="justify-content-center row-cols-1 row-cols-lg-2 mt-5">
               <Col>
-                <h4 id="system-example-step-2" className="doc-section-heading">
+                <h2 id="system-example-step-2" className="doc-section-heading">
                   Step 2: Define the slots
-                </h4>
+                </h2>
                 <p>
                   Add system components such as <strong>Main Controller Slot</strong>,
                   <strong> Vision Camera Mount</strong>, and <strong>Tool Head Position</strong>. Each
@@ -165,9 +165,9 @@ export default function Page({ imageMap }: { imageMap: Record<string, string> })
             {/* Step 3 */}
             <Row className="justify-content-center row-cols-1 row-cols-lg-2 mt-5">
               <Col>
-                <h4 id="system-example-step-3" className="doc-section-heading">
+                <h2 id="system-example-step-3" className="doc-section-heading">
                   Step 3: Fuse equipment into component slots over time
-                </h4>
+                </h2>
                 <p>
                   Create ordinary individuals for the equipment itself, for example
                   <strong> PLC Unit 01</strong>, <strong>Camera Unit 01</strong>, and later
@@ -195,9 +195,9 @@ export default function Page({ imageMap }: { imageMap: Record<string, string> })
             {/* Step 4 */}
             <Row className="justify-content-center row-cols-1 row-cols-lg-2 mt-5">
               <Col>
-                <h4 id="system-example-step-4" className="doc-section-heading">
+                <h2 id="system-example-step-4" className="doc-section-heading">
                   Step 4: Model activities against the installed equipment
-                </h4>
+                </h2>
                 <p>
                   This step is where the structure model starts doing useful checking. Create four
                   test activities. Because you define the start and end times and select participants
@@ -227,9 +227,9 @@ export default function Page({ imageMap }: { imageMap: Record<string, string> })
             {/* Step 5 */}
             <Row className="justify-content-center row-cols-1 row-cols-lg-2 mt-5">
               <Col>
-                <h4 id="system-example-step-5" className="doc-section-heading">
+                <h2 id="system-example-step-5" className="doc-section-heading">
                   Step 5: Use the affected-items warnings
-                </h4>
+                </h2>
                 <p>
                   The final step is to deliberately trigger the affected-items dialog. After saving
                   the activities above, reopen <strong>Camera Unit 01</strong> and shorten its bounds
@@ -254,9 +254,9 @@ export default function Page({ imageMap }: { imageMap: Record<string, string> })
             {/* Full Example */}
             <Row className="justify-content-center row-cols-1 row-cols-lg-2 mt-5">
               <Col>
-                <h4 id="system-example-full" className="doc-section-heading">
+                <h2 id="system-example-full" className="doc-section-heading">
                   Load the full example
-                </h4>
+                </h2>
                 <p>
                   You can load the complete packaging cell setup directly in the editor by choosing
                   <strong> Packaging Cell</strong> from the examples menu. This will let you explore

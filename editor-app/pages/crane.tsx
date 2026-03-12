@@ -81,13 +81,13 @@ export default function Page({ imageMap }: { imageMap: Record<string, string> })
             {/* Overview */}
             <Row className="justify-content-center row-cols-1 row-cols-lg-2">
               <Col id="crane-overview" className="amrc-text doc-section-heading">
-                <p>This document walks through the process of analysing the
+                <p className="lead">This document walks through the process of analysing the
                 data required to perform an industrial activity, in this
                 case a lift with an overhead crane. The purpose of this
                 analysis is to illustrate the application of the
                 activity analysis method.</p>
 
-                <p>This analysis performs Step 2 of the {}<Link
+                <p className="lead">This analysis performs Step 2 of the {}<Link
                 href="intro">information requirements methodology</Link>,
                 that of identifying all participants involved in the
                 activity in question and breaking down the steps in the

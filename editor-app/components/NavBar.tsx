@@ -34,6 +34,11 @@ function NavItem(props: NavItemProps) {
 
 function CollapsibleExample() {
   const router = useRouter();
+  const isEditorDropdownActive = [
+    "/manual",
+    "/editor",
+    "/terminology",
+  ].includes(router.pathname);
   const isActivityModellingActive = [
     "/intro",
     "/crane",
@@ -67,24 +72,37 @@ function CollapsibleExample() {
         <Navbar.Collapse id="responsive-navbar-nav">
           <Nav className="ms-auto gap-2">
             <NavItem href="/">Home</NavItem>
-            <NavItem href="/editor">Editor</NavItem>
             <NavDropdown
-              title="Guide"
-              id="guide-dropdown"
-              className={(isActivityModellingActive || isSystemComponentsActive || router.pathname === "/manual") ? "active-dropdown" : ""}
+              title="Editor"
+              id="editor-dropdown"
+              className={isEditorDropdownActive ? "active-dropdown" : ""}
               align="end"
             >
-              <NavDropdown.Header>Editor</NavDropdown.Header>
               <NavDropdown.Item
                 href="/manual"
                 className={router.pathname === "/manual" ? "active" : ""}
               >
-                Editor Guide
+                Guide
               </NavDropdown.Item>
-
-              <NavDropdown.Divider />
-
-              <NavDropdown.Header>Activity Modelling</NavDropdown.Header>
+              <NavDropdown.Item
+                href="/editor"
+                className={router.pathname === "/editor" ? "active" : ""}
+              >
+                Diagram Editor
+              </NavDropdown.Item>
+              <NavDropdown.Item
+                href="/terminology"
+                className={router.pathname === "/terminology" ? "active" : ""}
+              >
+                Terminology
+              </NavDropdown.Item>
+            </NavDropdown>
+            <NavDropdown
+              title="Activity Modelling"
+              id="activity-modelling-dropdown"
+              className={isActivityModellingActive ? "active-dropdown" : ""}
+              align="end"
+            >
               <NavDropdown.Item
                 href="/intro"
                 className={router.pathname === "/intro" ? "active" : ""}
@@ -103,10 +121,13 @@ function CollapsibleExample() {
               >
                 Integrated Information Management
               </NavDropdown.Item>
-
-              <NavDropdown.Divider />
-
-              <NavDropdown.Header>System &amp; System Components</NavDropdown.Header>
+            </NavDropdown>
+            <NavDropdown
+              title="System &amp; System Component"
+              id="system-dropdown"
+              className={isSystemComponentsActive ? "active-dropdown" : ""}
+              align="end"
+            >
               <NavDropdown.Item
                 href="/system-intro"
                 className={router.pathname === "/system-intro" ? "active" : ""}

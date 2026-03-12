@@ -95,7 +95,7 @@ export default function JumpLinks({
     <ul className={`doc-jump-links-list${depth > 0 ? " is-nested" : ""}`}>
       {linkItems.map((item) => {
         const isActive = item.id === activeId;
-        const hasActiveChild = item.children?.some((child) => itemIds.includes(activeId) && flattenIds([child]).includes(activeId));
+        const hasActiveChild = item.children?.some((child) => flattenIds([child]).includes(activeId));
 
         return (
           <li key={item.id} className="doc-jump-links-item">
@@ -110,7 +110,7 @@ export default function JumpLinks({
             >
               {item.label}
             </a>
-            {item.children && (isActive || hasActiveChild || depth === 0) ? renderItems(item.children, depth + 1) : null}
+            {item.children ? renderItems(item.children, depth + 1) : null}
           </li>
         );
       })}

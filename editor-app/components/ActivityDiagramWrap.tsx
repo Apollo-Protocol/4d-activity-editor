@@ -472,18 +472,14 @@ export default function ActivityDiagramWrap() {
                     <div className="col-md-7 p-lg-4 mx-auto my-3 my-md-4 empty-state-hero">
                       <h1 className="display-4 font-weight-normal">Activity Diagram Editor</h1>
                       <p className="lead font-weight-normal">
-                        Your diagram is empty. Start by adding entities and activities,
-                        or follow the guide to get familiar with the editor workflow.
+                        Your diagram is empty.
                       </p>
-                      <Link href="/manual" className="btn btn-outline-secondary mt-2">
-                        Open Editor Guide
-                      </Link>
                     </div>
                   </div>
 
-                  <div className="row pt-3 pt-md-4 empty-state-cards">
-                    <div className="col-md mb-3 mb-md-0">
-                      <div className="bg-light mr-md-3 pt-3 px-3 pt-md-5 px-md-5 text-center overflow-hidden h-100">
+                  <div className="row pt-3 pt-md-4 empty-state-cards justify-content-center">
+                    <div className="col-md-5 mb-3 mb-md-0">
+                      <div className="bg-light pt-3 px-3 pt-md-4 px-md-4 text-center overflow-hidden h-100">
                         <div className="my-3 p-3">
                           <h2 className="display-5">Learn</h2>
                           <p className="lead">
@@ -491,23 +487,20 @@ export default function ActivityDiagramWrap() {
                             navigation, and how to create your first model.
                           </p>
                           <Link href="/manual" className="btn btn-outline-secondary">
-                            Learn more
+                            Open Editor Guide
                           </Link>
                         </div>
-                        <div className="bg-white box-shadow mx-auto"></div>
                       </div>
                     </div>
-                    <div className="col-md">
-                      <div className="bg-light mr-md-3 pt-3 px-3 pt-md-5 px-md-5 text-center overflow-hidden h-100">
+                    <div className="col-md-5">
+                      <div className="bg-light pt-3 px-3 pt-md-4 px-md-4 text-center overflow-hidden h-100">
                         <div className="my-3 p-3">
                           <h2 className="display-5">Start Modelling</h2>
                           <p className="lead">
-                            Use <strong>Add Entity</strong> and <strong>Add Activity</strong> below,
-                            or load a prepared example to explore how a complete
-                            diagram is structured.
+                            Use <strong>Add Entity</strong> to get started creating
+                            your own diagram or load a prepared example.
                           </p>
                         </div>
-                        <div className="bg-white box-shadow mx-auto"></div>
                       </div>
                     </div>
                   </div>

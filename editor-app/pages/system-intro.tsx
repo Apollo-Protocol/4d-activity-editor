@@ -120,7 +120,7 @@ export default function Page({ imageMap }: { imageMap: Record<string, string> })
             {/* Overview */}
             <Row className="justify-content-center row-cols-1 row-cols-lg-2">
               <Col id="system-overview" className="amrc-text doc-section-heading">
-                <p>
+                <p className="lead">
                   The editor can describe not only activities and participants, but also the
                   structure of a system and the periods during which replaceable objects occupy
                   named system-component slots. This is useful when the same physical location or
@@ -128,7 +128,7 @@ export default function Page({ imageMap }: { imageMap: Record<string, string> })
                   validate that an activity only uses an installed object while it is actually in
                   place.
                 </p>
-                <p>
+                <p className="lead">
                   There are three entity categories involved. A <strong>System</strong> defines a
                   parent asset or assembly. A <strong>System Component</strong> defines a named slot or
                   role within that system. An <strong>Individual</strong> can then be
@@ -137,7 +137,7 @@ export default function Page({ imageMap }: { imageMap: Record<string, string> })
                   That lets the editor represent both structure and change over time in the same
                   diagram.
                 </p>
-                <p>
+                <p className="lead">
                   This sits alongside the <Link href="/manual">editor guide</Link> and the
                   <Link href="/intro"> activity-modelling introduction</Link>. The difference is
                   that this guidance is focused on how the system structure is created, how
@@ -156,9 +156,9 @@ export default function Page({ imageMap }: { imageMap: Record<string, string> })
             {/* Step 1 */}
             <Row className="justify-content-center row-cols-1 row-cols-lg-2 mt-5">
               <Col>
-                <h4 id="system-step-1" className="doc-section-heading">
+                <h2 id="system-step-1" className="doc-section-heading">
                   Step 1: Create the system
-                </h4>
+                </h2>
                 <p>
                   Start by creating an entity and setting its category to <strong>System</strong>.
                   This creates the top-level container for the part of the asset or assembly you are
@@ -184,9 +184,9 @@ export default function Page({ imageMap }: { imageMap: Record<string, string> })
             {/* Step 2 */}
             <Row className="justify-content-center row-cols-1 row-cols-lg-2 mt-5">
               <Col>
-                <h4 id="system-step-2" className="doc-section-heading">
+                <h2 id="system-step-2" className="doc-section-heading">
                   Step 2: Add system components
-                </h4>
+                </h2>
                 <p>
                   A system component represents a named slot within a system. Create another entity,
                   change its category to <strong>System Component</strong>, and use the
@@ -212,9 +212,9 @@ export default function Page({ imageMap }: { imageMap: Record<string, string> })
             {/* Step 3 */}
             <Row className="justify-content-center row-cols-1 row-cols-lg-2 mt-5">
               <Col>
-                <h4 id="system-step-3" className="doc-section-heading">
+                <h2 id="system-step-3" className="doc-section-heading">
                   Step 3: Fuse individuals into component slots
-                </h4>
+                </h2>
                 <p>
                   Installation periods are applied to ordinary individuals, not to systems or system
                   components. An installation represents the fusion of an individual with a
@@ -241,9 +241,9 @@ export default function Page({ imageMap }: { imageMap: Record<string, string> })
             {/* Step 4 */}
             <Row className="justify-content-center row-cols-1 row-cols-lg-2 mt-5">
               <Col>
-                <h4 id="system-step-4" className="doc-section-heading">
+                <h2 id="system-step-4" className="doc-section-heading">
                   Step 4: Check activities against entities
-                </h4>
+                </h2>
                 <p>
                   Activities still use participants in the usual way, but the participant list is
                   organised by systems, system components, and individuals. Only entities whose
@@ -270,7 +270,7 @@ export default function Page({ imageMap }: { imageMap: Record<string, string> })
             {/* Validations */}
             <Row className="justify-content-center row-cols-1 row-cols-lg-2 mt-5">
               <Col id="system-validations" className="amrc-text doc-section-heading">
-                <h4>Validations and safeguards</h4>
+                <h3>Validations and safeguards</h3>
                 <p>
                   The system and entity workflow includes several checks to prevent invalid or
                   inconsistent states:

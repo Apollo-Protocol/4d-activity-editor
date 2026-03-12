@@ -138,7 +138,28 @@
 }
 
 .doc-section-heading {
-  scroll-margin-top: 96px;
+  scroll-margin-top: 0;
+}
+
+h2.doc-section-heading {
+  font-size: 2rem;
+  font-weight: 500;
+  margin-top: 2rem;
+  margin-bottom: 0.5rem;
+}
+
+h3.doc-section-heading {
+  font-size: 1.75rem;
+  font-weight: 500;
+  margin-top: 1.5rem;
+  margin-bottom: 0.5rem;
+}
+
+h4.doc-section-heading {
+  font-size: 1.5rem;
+  font-weight: 500;
+  margin-top: 1.25rem;
+  margin-bottom: 0.5rem;
 }
 
 .doc-back-to-top {
@@ -268,7 +289,7 @@ footer a:hover {
 /* Ensure content doesn't get hidden behind sticky navbar */
 html {
   font-size: clamp(13px, 0.5vw + 12px, 16px);
-  scroll-padding-top: 130px;
+  scroll-padding-top: 152px;
 }
 
 /* Tablet and below: collapse jump links into a sticky toggle */
@@ -830,19 +851,11 @@ body {
   .doc-page-content p,
   .doc-page-content li,
   .doc-page-content dt,
-  .doc-page-content dd,
-  .doc-page-content .doc-section-heading {
+  .doc-page-content dd {
     font-size: 0.92rem;
   }
 
-  .doc-page-content h1,
-  .doc-page-content h2,
-  .doc-page-content h3,
-  .doc-page-content h4,
-  .doc-page-content h5,
-  .doc-page-content h6 {
-    font-size: 0.95em;
-  }
+  
 
   /* Keep toolbar controls compact at laptop widths. */
   .editor-toolbar button,
@@ -1211,8 +1224,8 @@ body {
   position: sticky;
   top: 76px;
   z-index: 1020;
-  background-color: rgba(255, 255, 255, 0.95);
-  backdrop-filter: blur(5px);
+  background-color: #fff;
+  backdrop-filter: none;
   border-bottom: 1px solid rgba(0,0,0,0.05);
   margin-left: -1.5rem;
   margin-right: -1.5rem;
@@ -1365,3 +1378,12 @@ body {
   cursor: zoom-in !important;
 }
 
+
+.doc-page-content h3 { font-size: 2rem; font-weight: 300; color: #111827; margin-top: 3.5rem; margin-bottom: 1.5rem; }
+.doc-page-content h4 { font-size: 1.4rem; font-weight: 600; color: #1f2937; margin-top: 2rem; margin-bottom: 0.5rem; }
+.doc-page-content h5 { font-size: 1.15rem; font-weight: 600; color: #4b5563; margin-top: 1.5rem; margin-bottom: 0.5rem; }
+@media (max-width: 1599px) and (min-width: 992px) {
+  .doc-page-content h3 { font-size: 1.8rem; }
+  .doc-page-content h4 { font-size: 1.25rem; }
+  .doc-page-content h5 { font-size: 1rem; }
+}

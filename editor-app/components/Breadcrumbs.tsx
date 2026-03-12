@@ -14,6 +14,7 @@ const pathMap: Record<string, string> = {
   "/system-example": "System Model Example",
   "/crane": "Crane Lift Walkthrough",
   "/management": "Managing Diagrams",
+  "/terminology": "Terminology",
 };
 
 // NextJS native link wrapper for React-Bootstrap Dropdown

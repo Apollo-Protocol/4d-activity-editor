@@ -466,20 +466,40 @@ export default function ActivityDiagramWrap() {
           </div>
           <div className="editor-diagram">
             {isDiagramEmpty ? (
-              <div className="w-100 h-100 bg-white overflow-auto empty-state-container">
-                <div className="container py-2 py-md-3">
-                  <div className="position-relative overflow-hidden p-3 p-md-4 text-center">
-                    <div className="col-md-7 p-lg-4 mx-auto my-3 my-md-4 empty-state-hero">
+              <div className="w-100 h-100 bg-white overflow-auto">
+                <div className="container py-3 py-md-4">
+                  <div className="empty-state-stage">
+                    <div className="empty-state-hero">
                       <h1 className="display-4 font-weight-normal">Activity Diagram Editor</h1>
                       <p className="lead font-weight-normal">
-                        Your diagram is empty.
+                        Your diagram is empty, but the canvas does not have to stay quiet for long.
+                        Start with an entity, pull in an example, or load a TTL file and bring the model to life.
                       </p>
+                    </div>
+
+                    <div className="empty-state-illustration" aria-hidden="true">
+                      <div className="empty-state-orbit empty-state-orbit-left"></div>
+                      <div className="empty-state-orbit empty-state-orbit-right"></div>
+                      <div className="empty-state-bot">
+                        <div className="empty-state-bot-antenna"></div>
+                        <div className="empty-state-bot-head">
+                          <span></span>
+                          <span></span>
+                        </div>
+                        <div className="empty-state-bot-body">
+                          <div className="empty-state-bot-panel"></div>
+                        </div>
+                        <div className="empty-state-bot-arm empty-state-bot-arm-left"></div>
+                        <div className="empty-state-bot-arm empty-state-bot-arm-right"></div>
+                        <div className="empty-state-bot-leg empty-state-bot-leg-left"></div>
+                        <div className="empty-state-bot-leg empty-state-bot-leg-right"></div>
+                      </div>
                     </div>
                   </div>
 
-                  <div className="row pt-3 pt-md-4 empty-state-cards justify-content-center">
-                    <div className="col-md-5 mb-3 mb-md-0">
-                      <div className="bg-light pt-3 px-3 pt-md-4 px-md-4 text-center overflow-hidden h-100">
+                  <div className="row pt-3 pt-md-4">
+                    <div className="col-md">
+                      <div className="bg-light mr-md-3 pt-3 px-3 pt-md-5 px-md-5 text-center overflow-hidden h-100">
                         <div className="my-3 p-3">
                           <h2 className="display-5">Learn</h2>
                           <p className="lead">
@@ -490,17 +510,42 @@ export default function ActivityDiagramWrap() {
                             Open Editor Guide
                           </Link>
                         </div>
+                        <div className="bg-white box-shadow mx-auto"></div>
                       </div>
                     </div>
-                    <div className="col-md-5">
-                      <div className="bg-light pt-3 px-3 pt-md-4 px-md-4 text-center overflow-hidden h-100">
+                    <div className="col-md">
+                      <div className="bg-light mr-md-3 pt-3 px-3 pt-md-5 px-md-5 text-center overflow-hidden h-100">
                         <div className="my-3 p-3">
                           <h2 className="display-5">Start Modelling</h2>
                           <p className="lead">
-                            Use <strong>Add Entity</strong> to get started creating
-                            your own diagram or load a prepared example.
+                            Create the first entity or load an existing model to populate the workspace.
                           </p>
+                          <div className="empty-state-actions">
+                            <SetIndividual
+                              deleteIndividual={deleteIndividual}
+                              setIndividual={setIndividual}
+                              show={showIndividual}
+                              setShow={setShowIndividual}
+                              selectedIndividual={selectedIndividual}
+                              setSelectedIndividual={setSelectedIndividual}
+                              dataset={dataset}
+                              updateDataset={updateDataset}
+                              triggerVariant="outline-secondary"
+                              triggerClassName=""
+                            />
+                            <DiagramPersistence
+                              dataset={dataset}
+                              setDataset={replaceDataset}
+                              svgRef={svgRef}
+                              setDirty={setDirty}
+                              showSaveButton={false}
+                              showReferenceToggle={false}
+                              className="empty-persistence"
+                              buttonVariant="outline-secondary"
+                            />
+                          </div>
                         </div>
+                        <div className="bg-white box-shadow mx-auto"></div>
                       </div>
                     </div>
                   </div>
@@ -528,7 +573,7 @@ export default function ActivityDiagramWrap() {
             )}
           </div>
 
-          <div className={`editor-toolbar ${isDiagramEmpty ? "container empty-toolbar" : ""}`}>
+          <div className={`editor-toolbar ${isDiagramEmpty ? "d-none" : ""}`}>
             <div className="toolbar-group">
             <SetIndividual
               deleteIndividual={deleteIndividual}

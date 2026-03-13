@@ -32,6 +32,9 @@ interface Props {
   setSelectedIndividual: Dispatch<SetStateAction<Individual | undefined>>;
   dataset: Model;
   updateDataset: Dispatch<Dispatch<Model>>;
+  showTrigger?: boolean;
+  triggerClassName?: string;
+  triggerVariant?: string;
 }
 
 type InstallationRow = {
@@ -122,6 +125,9 @@ const SetIndividual = (props: Props) => {
     setSelectedIndividual,
     dataset,
     updateDataset,
+    showTrigger = true,
+    triggerClassName = "mx-1",
+    triggerVariant = "primary",
   } = props;
 
   const defaultIndividual: Individual = {
@@ -1784,9 +1790,11 @@ const SetIndividual = (props: Props) => {
 
   return (
     <>
-      <Button variant="primary" onClick={() => setShow(true)} className="mx-1">
-        Add Entity
-      </Button>
+      {showTrigger ? (
+        <Button variant={triggerVariant} onClick={() => setShow(true)} className={triggerClassName}>
+          Add Entity
+        </Button>
+      ) : null}
 
       <Modal dialogAs={DraggableModalDialog} 
         show={

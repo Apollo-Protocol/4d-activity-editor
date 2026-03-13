@@ -488,7 +488,7 @@ export default function Page({ imageMap }: { imageMap: Record<string, string> })
                   entity rows the same height so labels remain readable.
                 </p>
                 <p>
-                  To reset the zoom back to the normal level, right-click on the zoom image.
+                  To reset the zoom back to the normal level, right-click on the zoom icon.
                 </p>
               </Col>
               <Col className="col-md text-center align-self-center">

@@ -35,14 +35,9 @@ const systemExampleSections: JumpLinkItem[] = [
   { id: "system-example-step-1", label: "Step 1: Define the system" },
   { id: "system-example-step-2", label: "Step 2: Define the slots" },
   { id: "system-example-step-3", label: "Step 3: Fuse equipment" },
-  {
-    id: "system-example-step-4",
-    label: "Step 4: Model activities",
-    children: [
-      { id: "system-example-warnings", label: "Use the affected-items warnings" },
-      { id: "system-example-full", label: "Load the full example" },
-    ],
-  },
+  { id: "system-example-step-4", label: "Step 4: Model activities" },
+  { id: "system-example-warnings", label: "Use the affected-items warnings" },
+  { id: "system-example-full", label: "Load the full example" },
 ];
 
 const ImageComponent = ({
@@ -237,12 +232,11 @@ export default function Page({ imageMap }: { imageMap: Record<string, string> })
             {/* Affected-items warnings */}
             <Row className="justify-content-center row-cols-1 row-cols-lg-2 mt-5">
               <Col>
-                <h3 id="system-example-warnings" className="doc-section-heading">
+                <h2 id="system-example-warnings" className="doc-section-heading">
                   Use the affected-items warnings
-                </h3>
+                </h2>
                 <p>
-                  The final step is to deliberately trigger the affected-items dialog. After saving
-                  the activities above, reopen <strong>Camera Unit 01</strong> and shorten its bounds
+                  After saving the activities above, reopen <strong>Camera Unit 01</strong> and shorten its bounds
                   so they no longer cover the full period from <strong>0 to 5</strong>. For example,
                   change it to <strong>2 to 3</strong> and save the edit.
                 </p>
@@ -264,9 +258,9 @@ export default function Page({ imageMap }: { imageMap: Record<string, string> })
             {/* Full Example */}
             <Row className="justify-content-center row-cols-1 row-cols-lg-2 mt-5">
               <Col>
-                <h3 id="system-example-full" className="doc-section-heading">
+                <h2 id="system-example-full" className="doc-section-heading">
                   Load the full example
-                </h3>
+                </h2>
                 <p>
                   You can load the complete packaging cell setup directly in the editor by choosing
                   <strong> Packaging Cell</strong> from the examples menu. This will let you explore

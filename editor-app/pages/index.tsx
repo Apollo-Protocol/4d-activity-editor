@@ -70,7 +70,7 @@ export default function Home() {
     <div className="col-md text-center align-self-center my-4 my-md-0 d-flex justify-content-center">
       <picture style={{ width: "100%", display: "flex", justifyContent: "center" }}>
         <img 
-          src="activity_validation_against_installations.svg" 
+          src="dynamic_systems.svg" 
           className="img-fluid border rounded shadow-sm w-100" 
           alt="System component validaton showing camera installations passing checks"
           style={{ maxWidth: "90%" }}

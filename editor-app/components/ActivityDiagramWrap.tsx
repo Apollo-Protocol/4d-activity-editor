@@ -470,11 +470,26 @@ export default function ActivityDiagramWrap() {
                 <div className="container py-3 py-md-4">
                   <div className="empty-state-stage">
                     <div className="empty-state-hero">
-                      <h1 className="display-4 font-weight-normal">Activity Diagram Editor</h1>
-                      <p className="lead font-weight-normal">
-                        Your diagram is empty, but the canvas does not have to stay quiet for long.
-                        Start with an entity, pull in an example, or load a TTL file and bring the model to life.
-                      </p>
+                      <div className="empty-state-board">
+                        <span className="empty-state-board-top">Top</span>
+                        <span className="empty-state-board-axis empty-state-board-axis-y"></span>
+                        <span className="empty-state-board-axis empty-state-board-axis-x"></span>
+                        <span className="empty-state-board-label empty-state-board-label-space">Space</span>
+                        <span className="empty-state-board-label empty-state-board-label-time">Time</span>
+                        <div className="empty-state-board-chalk" aria-hidden="true">
+                          <span className="empty-state-eraser"></span>
+                          <span className="empty-state-chalk-stick empty-state-chalk-stick-1"></span>
+                          <span className="empty-state-chalk-stick empty-state-chalk-stick-2"></span>
+                          <span className="empty-state-chalk-stick empty-state-chalk-stick-3"></span>
+                        </div>
+                        <div className="empty-state-board-copy">
+                          <h1 className="display-4 font-weight-normal">Activity Diagram Editor</h1>
+                          <p className="lead font-weight-normal mb-0">
+                            Your diagram is empty, but the canvas does not have to stay quiet for long.
+                            Start with an entity, pull in an example, or load a TTL file and bring the model to life.
+                          </p>
+                        </div>
+                      </div>
                     </div>
 
                     <div className="empty-state-illustration" aria-hidden="true">
@@ -575,16 +590,18 @@ export default function ActivityDiagramWrap() {
 
           <div className={`editor-toolbar ${isDiagramEmpty ? "d-none" : ""}`}>
             <div className="toolbar-group">
-            <SetIndividual
-              deleteIndividual={deleteIndividual}
-              setIndividual={setIndividual}
-              show={showIndividual}
-              setShow={setShowIndividual}
-              selectedIndividual={selectedIndividual}
-              setSelectedIndividual={setSelectedIndividual}
-              dataset={dataset}
-              updateDataset={updateDataset}
-            />
+            {!isDiagramEmpty && (
+              <SetIndividual
+                deleteIndividual={deleteIndividual}
+                setIndividual={setIndividual}
+                show={showIndividual}
+                setShow={setShowIndividual}
+                selectedIndividual={selectedIndividual}
+                setSelectedIndividual={setSelectedIndividual}
+                dataset={dataset}
+                updateDataset={updateDataset}
+              />
+            )}
             <SetActivity
               show={showActivity}
               setShow={setShowActivity}

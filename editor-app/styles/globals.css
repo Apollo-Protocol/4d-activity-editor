@@ -697,6 +697,16 @@ body {
   font-weight: 700;
 }
 
+.installHatch.search-result-highlight {
+  stroke: #0d6efd !important;
+  stroke-width: 2.5px !important;
+}
+
+.installConnectorRibbon.search-result-highlight {
+  stroke: #0d6efd !important;
+  stroke-width: 2px !important;
+}
+
 @keyframes entity-search-flash {
   0% {
     filter: brightness(1.45);
@@ -875,6 +885,10 @@ body {
   .doc-page-content dt,
   .doc-page-content dd {
     font-size: 0.92rem;
+  }
+
+  .doc-page-content p.lead {
+    font-size: 1.05rem;
   }
 
   
@@ -1260,6 +1274,19 @@ body {
   min-height: 52px;
   display: flex !important;
   align-items: center;
+}
+
+/* Cover the gap between the navbar bottom and breadcrumb top so page content
+   cannot peek through when the navbar shrinks on laptops. */
+.breadcrumb-wrapper::before {
+  content: "";
+  position: absolute;
+  top: -30px;
+  left: 0;
+  right: 0;
+  height: 30px;
+  background-color: #fff;
+  z-index: -1;
 }
 
 .breadcrumb-wrapper .breadcrumb {

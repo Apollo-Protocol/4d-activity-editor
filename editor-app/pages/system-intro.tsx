@@ -35,13 +35,8 @@ const systemIntroSections: JumpLinkItem[] = [
   { id: "system-step-1", label: "Step 1: Create the system" },
   { id: "system-step-2", label: "Step 2: Add system components" },
   { id: "system-step-3", label: "Step 3: Fuse individuals" },
-  {
-    id: "system-step-4",
-    label: "Step 4: Check activities against entities",
-    children: [
-      { id: "system-validations", label: "Validations and safeguards" },
-    ],
-  },
+  { id: "system-step-4", label: "Step 4: Check activities against entities" },
+  { id: "system-validations", label: "Validations and safeguards" },
 ];
 
 const ImageComponent = ({
@@ -213,7 +208,9 @@ export default function Page({ imageMap }: { imageMap: Record<string, string> })
               <Col className="col-md text-center align-self-center">
                 <ImageComponent
                   alt="installation period modal"
+                  maxWidth="500px"
                   imageMap={imageMap}
+
                 />
               </Col>
             </Row>
@@ -248,14 +245,10 @@ export default function Page({ imageMap }: { imageMap: Record<string, string> })
             </Row>
 
             {/* Validations */}
-            <Row className="mt-5">
-              <Col>
-                <h3 id="system-validations" className="doc-section-heading">Validations and safeguards</h3>
-              </Col>
-            </Row>
+            <h2 id="system-validations" className="doc-section-heading mt-5">Validations and safeguards</h2>
 
             <Row className="justify-content-center row-cols-1 row-cols-lg-2 mt-4">
-              <Col className="align-self-center">
+              <Col>
                 <p>
                   A system component cannot be saved without a parent system.
                 </p>
@@ -265,8 +258,8 @@ export default function Page({ imageMap }: { imageMap: Record<string, string> })
               </Col>
             </Row>
 
-            <Row className="justify-content-center row-cols-1 row-cols-lg-2 mt-5">
-              <Col className="align-self-center">
+            <Row className="justify-content-center row-cols-1 row-cols-lg-2 mt-3">
+              <Col>
                 <p>
                   A system component can only be a component of an entity that is itself a system.
                 </p>
@@ -276,8 +269,8 @@ export default function Page({ imageMap }: { imageMap: Record<string, string> })
               </Col>
             </Row>
 
-            <Row className="justify-content-center row-cols-1 row-cols-lg-2 mt-5">
-              <Col className="align-self-center">
+            <Row className="justify-content-center row-cols-1 row-cols-lg-2 mt-3">
+              <Col>
                 <p>
                   The system and entity workflow includes several checks to prevent invalid or
                   inconsistent states:
@@ -297,12 +290,12 @@ export default function Page({ imageMap }: { imageMap: Record<string, string> })
                 </p>
               </Col>
               <Col className="col-md text-center align-self-center mt-4 mt-lg-0">
-                <ImageComponent alt="installation bounds validation" imageMap={imageMap} />
+                <ImageComponent alt="installation bounds validation" maxWidth="500px" imageMap={imageMap} />
               </Col>
             </Row>
 
-            <Row className="justify-content-center row-cols-1 row-cols-lg-2 mt-5">
-              <Col className="align-self-center">
+            <Row className="justify-content-center row-cols-1 row-cols-lg-2 mt-3">
+              <Col>
                 <p>
                   When you shorten a system or a system component, the editor opens an affected-items
                   warning before saving. That warning shows which nested components, installation
@@ -311,7 +304,7 @@ export default function Page({ imageMap }: { imageMap: Record<string, string> })
                 </p>
               </Col>
               <Col className="col-md text-center align-self-center mt-4 mt-lg-0">
-                <ImageComponent alt="affected items warning" imageMap={imageMap} />
+                <ImageComponent alt="affected items warning" maxWidth="500px" imageMap={imageMap} />
               </Col>
             </Row>
 

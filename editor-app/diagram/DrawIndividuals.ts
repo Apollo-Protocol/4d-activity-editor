@@ -565,7 +565,8 @@ export function drawIndividuals(ctx: DrawContext) {
     .attr("stroke", config.presentation.individual.stroke)
     .attr("stroke-width", config.presentation.individual.strokeWidth)
     .attr("fill", (d: Individual) =>
-      getEntityTypeIdFromIndividual(d) === ENTITY_TYPE_IDS.SYSTEM
+      getEntityTypeIdFromIndividual(d) === ENTITY_TYPE_IDS.SYSTEM ||
+      getEntityTypeIdFromIndividual(d) === ENTITY_TYPE_IDS.SYSTEM_COMPONENT
         ? "white"
         : config.presentation.individual.fill
     )
@@ -912,7 +913,8 @@ export function hoverIndividuals(ctx: DrawContext) {
         const targetInd = d || ctx.individuals.find(x => "i" + x.id === (mouseOverElement as HTMLElement).getAttribute("id"));
         
         let restoreFill = config.presentation.individual.fill;
-        if (targetInd && getEntityTypeIdFromIndividual(targetInd) === ENTITY_TYPE_IDS.SYSTEM) {
+        if (targetInd && (getEntityTypeIdFromIndividual(targetInd) === ENTITY_TYPE_IDS.SYSTEM ||
+            getEntityTypeIdFromIndividual(targetInd) === ENTITY_TYPE_IDS.SYSTEM_COMPONENT)) {
           restoreFill = "white";
         }
         

@@ -7,6 +7,7 @@ import { ConfigData } from "@/diagram/config";
 import { Model } from "@/lib/Model";
 import { Activity, Id, Individual, Maybe, Participation } from "@/lib/Schema";
 import { ENTITY_TYPE_IDS, getEntityTypeIdFromIndividual, getEntityTypeLabel } from "@/lib/entityTypes";
+import { getActiveInstallationForActivity } from "@/utils/installations";
 import * as d3 from "d3";
 
 interface Props {
@@ -100,6 +101,8 @@ const ActivityDiagram = (props: Props) => {
     const svg = d3.select(svgRef.current);
     svg.selectAll(".individual").classed("search-result-highlight", false);
     svg.selectAll(".individualLabel").classed("search-result-highlight", false);
+    svg.selectAll(".installHatch").classed("search-result-highlight", false);
+    svg.selectAll(".installConnectorRibbon").classed("search-result-highlight", false);
   };
 
   const focusEntityFromSearch = (entityId: string) => {
@@ -126,6 +129,25 @@ const ActivityDiagram = (props: Props) => {
 
     svg.select(`#i${entityId}`).classed("search-result-highlight", true);
     svg.select(`#il${entityId}`).classed("search-result-highlight", true);
+
+    const entity = dataset.individuals.get(entityId);
+    const entityType = entity ? getEntityTypeIdFromIndividual(entity) : null;
+    const isSystemComponent = entityType === ENTITY_TYPE_IDS.SYSTEM_COMPONENT;
+
+    svg.selectAll(".installHatch").each(function () {
+      const el = this as Element;
+      if (el.getAttribute("data-installed-id") === entityId || el.getAttribute("data-target-id") === entityId) {
+        d3.select(el).classed("search-result-highlight", true);
+      }
+    });
+    if (!isSystemComponent) {
+      svg.selectAll(".installConnectorRibbon").each(function () {
+        const el = this as Element;
+        if (el.getAttribute("data-installed-id") === entityId || el.getAttribute("data-target-id") === entityId) {
+          d3.select(el).classed("search-result-highlight", true);
+        }
+      });
+    }
 
     if (searchHighlightTimerRef.current !== null) {
       window.clearTimeout(searchHighlightTimerRef.current);
@@ -415,47 +437,128 @@ L ${sideX} ${lowerTop} Z`;
         .attr("transform", t);
     };
 
+    interface ActivityBoundsSnapshot {
+      y: number;
+      height: number;
+    }
+
+    let activityBoundsSnapshot = new Map<string, ActivityBoundsSnapshot>();
+
+    const snapshotActivityBounds = () => {
+      activityBoundsSnapshot = new Map();
+      svg.selectAll<SVGRectElement, unknown>(".activity").each(function () {
+        const activityNode = this as SVGRectElement;
+        activityBoundsSnapshot.set(activityNode.id.substring(1), {
+          y: Number(activityNode.getAttribute("y") ?? "0"),
+          height: Number(activityNode.getAttribute("height") ?? "0"),
+        });
+      });
+    };
+
+    const restoreActivityBounds = () => {
+      svg.selectAll<SVGRectElement, unknown>(".activity").each(function () {
+        const activityNode = this as SVGRectElement;
+        const baseBounds = activityBoundsSnapshot.get(activityNode.id.substring(1));
+        if (!baseBounds) return;
+
+        d3.select(activityNode)
+          .attr("y", baseBounds.y)
+          .attr("height", baseBounds.height);
+      });
+    };
+
+    const resolvePreviewActivityRowId = (
+      activity: Activity,
+      individual: Individual
+    ) => {
+      const activeInstallation = getActiveInstallationForActivity(individual, activity);
+      const installedTarget = activeInstallation
+        ? dataset.individuals.get(activeInstallation.systemComponentId)
+        : individual.installedIn
+        ? dataset.individuals.get(individual.installedIn)
+        : undefined;
+      const isInstalledInComponent =
+        !!installedTarget &&
+        getEntityTypeIdFromIndividual(installedTarget) === ENTITY_TYPE_IDS.SYSTEM_COMPONENT;
+
+      if (!isInstalledInComponent) {
+        return individual.id;
+      }
+
+      if (!activeInstallation) {
+        return individual.id;
+      }
+
+      const installedSystem = installedTarget.installedIn
+        ? dataset.individuals.get(installedTarget.installedIn)
+        : undefined;
+      const isInstalledInSystem =
+        !!installedSystem &&
+        getEntityTypeIdFromIndividual(installedSystem) === ENTITY_TYPE_IDS.SYSTEM;
+
+      return isInstalledInSystem ? installedSystem.id : installedTarget.id;
+    };
+
+    const getPreviewRowBounds = (rowId: string) => {
+      const rowNode = svg.select(`#i${rowId}`).node() as SVGGraphicsElement | null;
+      if (!rowNode) {
+        return null;
+      }
+
+      const bbox = rowNode.getBBox();
+      const rowYAttr = Number(rowNode.getAttribute("data-row-y") ?? "NaN");
+      const baseTop = Number.isFinite(rowYAttr) ? rowYAttr : bbox.y;
+      const offset = entityOffsets.get(rowId) ?? getElementOffset(rowId);
+
+      return {
+        top: baseTop + offset,
+        bottom: baseTop + offset + bbox.height,
+      };
+    };
+
     const updateLinkedActivities = () => {
       svg.selectAll<SVGRectElement, unknown>(".activity").each(function () {
         const activityNode = this as SVGRectElement;
         const activityId = activityNode.id.substring(1); // remove 'a'
+        const baseBounds = activityBoundsSnapshot.get(activityId) ?? {
+          y: Number(activityNode.getAttribute("y") ?? "0"),
+          height: Number(activityNode.getAttribute("height") ?? "0"),
+        };
+        const activity = dataset.activities.get(activityId);
         
         let minTop = Infinity;
         let maxBottom = -Infinity;
         
-        svg.selectAll<SVGRectElement, unknown>(".participation")
-          .filter(function () {
-            return (this as SVGElement).getAttribute("data-activity-id") === activityId;
-          })
-          .each(function () {
-            const partNode = this as SVGRectElement;
-            const y = Number(partNode.getAttribute("y"));
-            const height = Number(partNode.getAttribute("height"));
-            
-            // Get the transform offset of this participation
-            const t = partNode.getAttribute("transform");
-            let offset = 0;
-            if (t) {
-              const m = t.match(/translate\(\s*[\d.eE+-]+\s*,\s*([\d.eE+-]+)\s*\)/);
-              if (m) offset = Number(m[1]);
-            }
-            
-            const actualTop = y + offset;
-            const actualBottom = y + height + offset;
-            
-            if (actualTop < minTop) minTop = actualTop;
-            if (actualBottom > maxBottom) maxBottom = actualBottom;
-          });
+        activity?.participations?.forEach((participation) => {
+          const individual = dataset.individuals.get(participation.individualId);
+          if (!individual) {
+            return;
+          }
+
+          const rowId = resolvePreviewActivityRowId(activity, individual);
+          const rowBounds = getPreviewRowBounds(rowId);
+          if (!rowBounds) {
+            return;
+          }
+
+          if (rowBounds.top < minTop) minTop = rowBounds.top;
+          if (rowBounds.bottom > maxBottom) maxBottom = rowBounds.bottom;
+        });
           
-        if (minTop !== Infinity && maxBottom !== -Infinity) {
-          const gap = configData.layout.individual.gap;
-          const newY = minTop - gap * 0.3;
-          const newHeight = maxBottom - minTop + gap * 0.6;
-          
+        if (minTop === Infinity || maxBottom === -Infinity) {
           d3.select(activityNode)
-            .attr("y", newY)
-            .attr("height", newHeight);
+            .attr("y", baseBounds.y)
+            .attr("height", baseBounds.height);
+          return;
         }
+
+        const gap = configData.layout.individual.gap;
+        const previewTop = minTop - gap * 0.3;
+        const previewBottom = maxBottom + gap * 0.3;
+
+        d3.select(activityNode)
+          .attr("y", previewTop)
+          .attr("height", Math.max(0, previewBottom - previewTop));
       });
     };
 
@@ -473,9 +576,11 @@ L ${sideX} ${lowerTop} Z`;
     }
     let dragSnapshot: RowSnapshot[] = [];          // ALL rows (including nested components)
     let topLevelSnapshot: RowSnapshot[] = [];      // only top-level rows (systems as groups)
+    let entityOffsets = new Map<string, number>();   // intended Y offset per entity (avoids reading mid-transition DOM)
 
     // ── Shift helpers ──
     const shiftElement = (id: string, dy: number, animate: boolean) => {
+      entityOffsets.set(id, dy);
       const t = dy === 0 ? null : `translate(0, ${dy})`;
       if (animate) {
         svg.select(`#i${id}`).transition().duration(50).attr("transform", t);
@@ -553,8 +658,9 @@ L ${sideX} ${lowerTop} Z`;
       dragSnapshot.forEach((snap) => {
         updateLinkedRibbons(snap.id, 0);
       });
-      // Third pass: reset all activities
-      updateLinkedActivities();
+      // Third pass: clear offset tracking and restore activity bounds
+      entityOffsets.clear();
+      restoreActivityBounds();
     };
 
     // ── Auto-scroll during drag ──
@@ -599,12 +705,44 @@ L ${sideX} ${lowerTop} Z`;
     };
 
     // ── Drag behavior ──
+
+    // Helper: raise a single entity's bar, label, dashes, hatches, and ribbons
+    const raiseEntityVisuals = (id: string) => {
+      svg.select(`#i${id}`).raise();
+      svg.select(`#il${id}`).raise();
+      svg
+        .selectAll<SVGPathElement, unknown>(".installDash")
+        .filter(function () {
+          return (this as SVGElement).getAttribute("data-individual-id") === id;
+        })
+        .raise();
+      svg
+        .selectAll<SVGRectElement, unknown>(".installHatch")
+        .filter(function () {
+          return (this as SVGElement).getAttribute("data-target-id") === id;
+        })
+        .raise();
+      svg
+        .selectAll<SVGPathElement, unknown>(".installConnectorRibbon")
+        .filter(function () {
+          const node = this as SVGElement;
+          return node.getAttribute("data-installed-id") === id
+            || node.getAttribute("data-target-id") === id;
+        })
+        .raise();
+      // Raise activities and participations so they stay on top
+      svg.selectAll(".activity").raise();
+      svg.selectAll(".participation").raise();
+    };
+
     const dragBehavior = d3
       .drag<SVGPathElement, Individual>()
       .on("start", function (event, draggedIndividual) {
         const draggedType = getEntityTypeIdFromIndividual(draggedIndividual);
         const isSystem = draggedType === ENTITY_TYPE_IDS.SYSTEM;
         const isDraggedComponent = isNestedComponent(draggedIndividual);
+
+        snapshotActivityBounds();
 
         // Build full snapshot of every .individual element
         dragSnapshot = svg
@@ -626,45 +764,10 @@ L ${sideX} ${lowerTop} Z`;
         // Build top-level snapshot (exclude nested system components)
         topLevelSnapshot = dragSnapshot.filter((r) => !r.parentSystemId);
 
-        // Helper: raise a single entity's bar, label, dashes, hatches, and ribbons
-        const raiseEntityVisuals = (id: string) => {
-          svg.select(`#i${id}`).raise();
-          svg.select(`#il${id}`).raise();
-          svg
-            .selectAll<SVGPathElement, unknown>(".installDash")
-            .filter(function () {
-              return (this as SVGElement).getAttribute("data-individual-id") === id;
-            })
-            .raise();
-          svg
-            .selectAll<SVGRectElement, unknown>(".installHatch")
-            .filter(function () {
-              return (this as SVGElement).getAttribute("data-target-id") === id;
-            })
-            .raise();
-          svg
-            .selectAll<SVGPathElement, unknown>(".installConnectorRibbon")
-            .filter(function () {
-              const node = this as SVGElement;
-              return node.getAttribute("data-installed-id") === id
-                || node.getAttribute("data-target-id") === id;
-            })
-            .raise();
-          // Raise activities and participations so they stay on top
-          svg.selectAll(".activity").raise();
-          svg.selectAll(".participation").raise();
-        };
-
-        // Raise dragged element (and components) above everything for z-order
-        raiseEntityVisuals(draggedIndividual.id);
-        if (isSystem) {
-          const compIds = getComponentIdsForSystem(draggedIndividual.id);
-          compIds.forEach((cid) => raiseEntityVisuals(cid));
-        }
-
         d3.select(this)
           .attr("data-drag-offset", "0")
           .attr("data-was-dragged", "0")
+          .attr("data-raised", "0")
           .style("cursor", "grabbing");
       })
       .on("drag", function (event, draggedIndividual) {
@@ -673,6 +776,16 @@ L ${sideX} ${lowerTop} Z`;
         const draggedType = getEntityTypeIdFromIndividual(draggedIndividual);
         const isSystem = draggedType === ENTITY_TYPE_IDS.SYSTEM;
         const isDraggedComponent = isNestedComponent(draggedIndividual);
+
+        // Raise dragged element above everything on the first actual movement
+        if (d3.select(this).attr("data-raised") === "0") {
+          d3.select(this).attr("data-raised", "1");
+          raiseEntityVisuals(draggedIndividual.id);
+          if (isSystem) {
+            const compIds = getComponentIdsForSystem(draggedIndividual.id);
+            compIds.forEach((cid) => raiseEntityVisuals(cid));
+          }
+        }
 
         d3.select(this)
           .attr("data-drag-offset", String(nextOffset))
@@ -692,11 +805,13 @@ L ${sideX} ${lowerTop} Z`;
         updateLinkedHatches(draggedIndividual.id, nextOffset);
         updateLinkedRibbons(draggedIndividual.id, nextOffset);
         updateLinkedParticipations(draggedIndividual.id, nextOffset);
+        entityOffsets.set(draggedIndividual.id, nextOffset);
 
         // If dragging a system, also move its components
         if (isSystem) {
           const compIds = getComponentIdsForSystem(draggedIndividual.id);
           compIds.forEach((cid) => {
+            entityOffsets.set(cid, nextOffset);
             svg.select(`#i${cid}`).attr("transform", `translate(0, ${nextOffset})`);
             updateLinkedLabel(cid, nextOffset);
             svg
@@ -871,6 +986,7 @@ L ${sideX} ${lowerTop} Z`;
           .attr("transform", null)
           .attr("data-drag-offset", null)
           .attr("data-was-dragged", null)
+          .attr("data-raised", null)
           .style("cursor", "ns-resize");
 
         svg.select(`#il${draggedIndividual.id}`).attr("transform", null);
@@ -897,6 +1013,8 @@ L ${sideX} ${lowerTop} Z`;
         const savedFull = [...dragSnapshot];
         dragSnapshot = [];
         topLevelSnapshot = [];
+        activityBoundsSnapshot.clear();
+        entityOffsets.clear();
 
         if (!wasDragged) return;
 
@@ -1015,6 +1133,8 @@ L ${sideX} ${lowerTop} Z`;
         });
       dragSnapshot = [];
       topLevelSnapshot = [];
+      activityBoundsSnapshot.clear();
+      entityOffsets.clear();
       stopAutoScroll();
     };
   }, [plot, svgRef, interactionMode, onReorderIndividuals, dataset]);

@@ -493,13 +493,27 @@ export default function ActivityDiagramWrap() {
                     </div>
 
                     <div className="empty-state-illustration" aria-hidden="true">
-                      <div className="empty-state-orbit empty-state-orbit-left"></div>
-                      <div className="empty-state-orbit empty-state-orbit-right"></div>
+                      <div className="empty-state-deco empty-state-deco-left">
+                        <span className="empty-state-star empty-state-star-lg"></span>
+                        <span className="empty-state-clock empty-state-clock-sm"></span>
+                        <span className="empty-state-star empty-state-star-sm"></span>
+                        <span className="empty-state-dot"></span>
+                        <span className="empty-state-dot empty-state-dot-alt"></span>
+                      </div>
+                      <div className="empty-state-deco empty-state-deco-right">
+                        <span className="empty-state-clock empty-state-clock-lg"></span>
+                        <span className="empty-state-star empty-state-star-md"></span>
+                        <span className="empty-state-star empty-state-star-sm"></span>
+                        <span className="empty-state-dot"></span>
+                        <span className="empty-state-dot empty-state-dot-alt"></span>
+                      </div>
                       <div className="empty-state-bot">
                         <div className="empty-state-bot-antenna"></div>
                         <div className="empty-state-bot-head">
                           <span></span>
                           <span></span>
+                          <div className="empty-state-bot-nose"></div>
+                          <div className="empty-state-bot-mouth"></div>
                         </div>
                         <div className="empty-state-bot-body">
                           <div className="empty-state-bot-panel"></div>

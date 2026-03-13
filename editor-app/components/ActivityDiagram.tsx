@@ -735,12 +735,25 @@ L ${sideX} ${lowerTop} Z`;
       svg.selectAll(".participation").raise();
     };
 
+    const DRAG_ACTIVATION_DISTANCE = 6;
+
+    const getDragRowSelection = (
+      node: SVGGraphicsElement,
+      individualId: string
+    ) => {
+      const nodeId = node.getAttribute("id") ?? "";
+      if (nodeId === `i${individualId}`) {
+        return d3.select(node as SVGPathElement);
+      }
+      return svg.select<SVGPathElement>(`#i${individualId}`);
+    };
+
     const dragBehavior = d3
-      .drag<SVGPathElement, Individual>()
+      .drag<SVGGraphicsElement, Individual>()
+      .clickDistance(4)
       .on("start", function (event, draggedIndividual) {
-        const draggedType = getEntityTypeIdFromIndividual(draggedIndividual);
-        const isSystem = draggedType === ENTITY_TYPE_IDS.SYSTEM;
-        const isDraggedComponent = isNestedComponent(draggedIndividual);
+        const draggedSelection = getDragRowSelection(this, draggedIndividual.id);
+        if (draggedSelection.empty()) return;
 
         snapshotActivityBounds();
 
@@ -764,22 +777,40 @@ L ${sideX} ${lowerTop} Z`;
         // Build top-level snapshot (exclude nested system components)
         topLevelSnapshot = dragSnapshot.filter((r) => !r.parentSystemId);
 
-        d3.select(this)
+        draggedSelection
           .attr("data-drag-offset", "0")
+          .attr("data-total-drag", "0")
           .attr("data-was-dragged", "0")
           .attr("data-raised", "0")
-          .style("cursor", "grabbing");
+          .style("cursor", "default");
       })
       .on("drag", function (event, draggedIndividual) {
-        const currentOffset = Number(d3.select(this).attr("data-drag-offset") ?? "0");
+        const draggedSelection = getDragRowSelection(this, draggedIndividual.id);
+        if (draggedSelection.empty()) return;
+
+        const accumulatedDrag =
+          Number(draggedSelection.attr("data-total-drag") ?? "0") +
+          Math.abs(event.dy);
+        draggedSelection.attr("data-total-drag", String(accumulatedDrag));
+
+        const dragActivated =
+          draggedSelection.attr("data-was-dragged") === "1" ||
+          accumulatedDrag >= DRAG_ACTIVATION_DISTANCE;
+        if (!dragActivated) {
+          return;
+        }
+
+        draggedSelection.attr("data-was-dragged", "1");
+
+        const currentOffset = Number(draggedSelection.attr("data-drag-offset") ?? "0");
         const nextOffset = currentOffset + event.dy;
         const draggedType = getEntityTypeIdFromIndividual(draggedIndividual);
         const isSystem = draggedType === ENTITY_TYPE_IDS.SYSTEM;
         const isDraggedComponent = isNestedComponent(draggedIndividual);
 
         // Raise dragged element above everything on the first actual movement
-        if (d3.select(this).attr("data-raised") === "0") {
-          d3.select(this).attr("data-raised", "1");
+        if (draggedSelection.attr("data-raised") === "0") {
+          draggedSelection.attr("data-raised", "1");
           raiseEntityVisuals(draggedIndividual.id);
           if (isSystem) {
             const compIds = getComponentIdsForSystem(draggedIndividual.id);
@@ -787,9 +818,8 @@ L ${sideX} ${lowerTop} Z`;
           }
         }
 
-        d3.select(this)
+        draggedSelection
           .attr("data-drag-offset", String(nextOffset))
-          .attr("data-was-dragged", "1")
           .attr("transform", `translate(0, ${nextOffset})`);
 
         // Auto-scroll when near the edges of the scroll container
@@ -972,8 +1002,8 @@ L ${sideX} ${lowerTop} Z`;
           .classed("drop-target-valid", false)
           .classed("drop-target-invalid", false);
 
-        const draggedNode = this as SVGPathElement;
-        const draggedSelection = d3.select(draggedNode);
+        const draggedSelection = getDragRowSelection(this, draggedIndividual.id);
+        if (draggedSelection.empty()) return;
         const wasDragged = draggedSelection.attr("data-was-dragged") === "1";
         const dragOffset = Number(draggedSelection.attr("data-drag-offset") ?? "0");
 
@@ -985,9 +1015,10 @@ L ${sideX} ${lowerTop} Z`;
         draggedSelection
           .attr("transform", null)
           .attr("data-drag-offset", null)
+          .attr("data-total-drag", null)
           .attr("data-was-dragged", null)
           .attr("data-raised", null)
-          .style("cursor", "ns-resize");
+          .style("cursor", "default");
 
         svg.select(`#il${draggedIndividual.id}`).attr("transform", null);
         svg
@@ -1107,19 +1138,20 @@ L ${sideX} ${lowerTop} Z`;
         }
       });
 
-    rowSelection
-      .style("cursor", "ns-resize")
+    svg
+      .selectAll<SVGGraphicsElement, Individual>(".individual, .individualLabel")
+      .style("cursor", "default")
       .call(dragBehavior as any);
 
     return () => {
       svg
-        .selectAll(".individual")
+        .selectAll(".individual, .individualLabel")
         .on(".drag", null)
         .interrupt()
         .style("cursor", null)
-        .attr("transform", null)
         .classed("drop-target-valid", false)
         .classed("drop-target-invalid", false);
+      svg.selectAll(".individual").attr("transform", null);
       svg.selectAll(".individualLabel").interrupt().attr("transform", null);
       svg.selectAll(".installDash").interrupt().attr("transform", null);
       svg.selectAll(".installHatch").interrupt().attr("transform", null)

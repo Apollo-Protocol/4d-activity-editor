@@ -507,14 +507,11 @@ body {
   width: 100%;
   min-height: 20rem;
   padding: 2.1rem 2.5rem 3.45rem 4.2rem;
-  border: 10px solid #9a7a4f;
+  border: 10px solid #000000;
   border-radius: 0.4rem;
-  background:
-    radial-gradient(circle at 22% 18%, rgba(255, 255, 255, 0.12), transparent 34%),
-    radial-gradient(circle at 78% 65%, rgba(255, 255, 255, 0.08), transparent 38%),
-    linear-gradient(160deg, #315f52 0%, #2b5449 45%, #23473d 100%);
+  background: #ffffff;
   box-shadow:
-    inset 0 0 0 2px rgba(23, 45, 38, 0.8),
+    inset 0 0 0 2px rgba(0, 0, 0, 0.85),
     inset 0 18px 30px rgba(255, 255, 255, 0.05),
     inset 0 -14px 30px rgba(0, 0, 0, 0.28),
     0 0.8rem 1.4rem rgba(0, 0, 0, 0.12);
@@ -525,7 +522,7 @@ body {
   position: absolute;
   top: -1.45rem;
   left: 0.2rem;
-  color: #6f6f73;
+  color: #000000;
   font-size: 0.75rem;
   font-style: italic;
 }
@@ -575,11 +572,11 @@ body {
 
 .empty-state-board-label {
   position: absolute;
-  color: #f3f3f4;
+  color: #000000;
   font-weight: 600;
   line-height: 1;
   z-index: 1;
-  text-shadow: 0 1px 0 rgba(0, 0, 0, 0.25);
+  text-shadow: none;
 }
 
 .empty-state-board-label-space {
@@ -588,7 +585,7 @@ body {
   font-size: 1.06rem;
   transform: translateY(-50%) rotate(-90deg);
   transform-origin: center;
-  background: linear-gradient(180deg, rgba(44, 86, 74, 0.95) 0%, rgba(38, 74, 64, 0.95) 100%);
+  background: transparent;
   padding: 0.12rem 0.2rem;
 }
 
@@ -597,7 +594,7 @@ body {
   bottom: 1.55rem;
   font-size: 1.06rem;
   transform: translateX(-50%);
-  background: linear-gradient(180deg, rgba(44, 86, 74, 0.95) 0%, rgba(38, 74, 64, 0.95) 100%);
+  background: transparent;
   padding: 0.12rem 0.2rem;
 }
 
@@ -616,11 +613,11 @@ body {
   width: 2.25rem;
   height: 0.78rem;
   border-radius: 0.22rem;
-  border: 1px solid rgba(84, 64, 39, 0.55);
-  background: linear-gradient(180deg, #d4a06b 0%, #b9824e 100%);
+  border: 1px solid rgba(0, 0, 0, 0.8);
+  background: linear-gradient(180deg, #2f2f2f 0%, #0f0f0f 100%);
   box-shadow:
-    inset 0 -0.1rem 0 rgba(101, 68, 39, 0.35),
-    0 1px 0 rgba(0, 0, 0, 0.18);
+    inset 0 -0.1rem 0 rgba(255, 255, 255, 0.12),
+    0 1px 0 rgba(0, 0, 0, 0.25);
   transform: rotate(-8deg);
 }
 
@@ -649,41 +646,195 @@ body {
 .empty-state-board-copy {
   position: relative;
   z-index: 2;
-  color: #f3f3f4;
+  color: #000000;
   max-width: 34rem;
   padding: 0.25rem 0.1rem 0 0.1rem;
 }
 
 .empty-state-board-copy h1 {
-  color: #f3f3f4;
+  color: #000000;
   margin-bottom: 0.85rem;
 }
 
 .empty-state-board-copy p {
-  color: #e7e7ea;
+  color: #000000;
   font-size: 1.1rem;
   line-height: 1.55;
 }
 
-.empty-state-orbit {
+/* ── Decorative stars & clocks (space-time theme) ── */
+
+.empty-state-deco {
   position: absolute;
-  border: 1px dashed rgba(93, 76, 62, 0.3);
-  border-radius: 999px;
   z-index: 0;
+  pointer-events: none;
 }
 
-.empty-state-orbit-left {
-  width: 9.2rem;
-  height: 9.2rem;
-  left: 1.1rem;
-  top: 3.4rem;
+/* ── Stars (5-point, pure CSS) ── */
+
+.empty-state-star {
+  position: absolute;
+  display: block;
+  background: #302620;
+  clip-path: polygon(
+    50% 0%, 61% 35%, 98% 35%, 68% 57%,
+    79% 91%, 50% 70%, 21% 91%, 32% 57%,
+    2% 35%, 39% 35%
+  );
 }
 
-.empty-state-orbit-right {
-  width: 11rem;
+.empty-state-star-lg {
+  width: 2rem;
+  height: 2rem;
+  opacity: 0.7;
+}
+
+.empty-state-star-md {
+  width: 1.4rem;
+  height: 1.4rem;
+  opacity: 0.55;
+}
+
+.empty-state-star-sm {
+  width: 0.95rem;
+  height: 0.95rem;
+  opacity: 0.4;
+}
+
+/* ── Clocks (circle + hands via pseudo-elements) ── */
+
+.empty-state-clock {
+  position: absolute;
+  display: block;
+  border: 0.14rem solid rgba(48, 38, 32, 0.82);
+  border-radius: 50%;
+  background:
+    radial-gradient(circle at center, #302620 0 0.14rem, transparent 0.15rem),
+    radial-gradient(circle at center, transparent 58%, rgba(48, 38, 32, 0.14) 59%, rgba(48, 38, 32, 0.14) 67%, transparent 68%),
+    #ffffff;
+  box-shadow:
+    inset 0 0 0 0.06rem rgba(48, 38, 32, 0.08),
+    0 0.08rem 0.2rem rgba(48, 38, 32, 0.08);
+}
+
+.empty-state-clock::before,
+.empty-state-clock::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  background: #302620;
+  border-radius: 999px;
+  transform-origin: center bottom;
+}
+
+/* minute hand */
+.empty-state-clock::before {
+  width: 0.11rem;
+  height: 34%;
+  transform: translate(-50%, -100%) rotate(28deg);
+}
+
+/* hour hand */
+.empty-state-clock::after {
+  width: 0.14rem;
+  height: 24%;
+  transform: translate(-50%, -100%) rotate(118deg);
+}
+
+.empty-state-clock-lg {
+  width: 2.4rem;
+  height: 2.4rem;
+}
+
+.empty-state-clock-sm {
+  width: 1.6rem;
+  height: 1.6rem;
+}
+
+/* ── Tiny accent dots ── */
+
+.empty-state-dot {
+  position: absolute;
+  display: block;
+  width: 0.35rem;
+  height: 0.35rem;
+  border-radius: 50%;
+  background: rgba(48, 38, 32, 0.5);
+}
+
+.empty-state-dot-alt {
+  width: 0.24rem;
+  height: 0.24rem;
+  background: rgba(48, 38, 32, 0.35);
+}
+
+/* ── Left cluster placement ── */
+
+.empty-state-deco-left {
+  left: 0.6rem;
+  top: 2.8rem;
+  width: 8rem;
   height: 11rem;
-  right: 1.1rem;
-  top: 2.3rem;
+}
+
+.empty-state-deco-left .empty-state-star-lg {
+  left: 0.6rem;
+  top: 1.2rem;
+}
+
+.empty-state-deco-left .empty-state-clock-sm {
+  left: 4.2rem;
+  top: 4.8rem;
+}
+
+.empty-state-deco-left .empty-state-star-sm {
+  left: 1.6rem;
+  top: 7.8rem;
+}
+
+.empty-state-deco-left .empty-state-dot:not(.empty-state-dot-alt) {
+  left: 5.6rem;
+  top: 1.9rem;
+}
+
+.empty-state-deco-left .empty-state-dot-alt {
+  left: 3.0rem;
+  top: 3.3rem;
+}
+
+/* ── Right cluster placement ── */
+
+.empty-state-deco-right {
+  right: 0.6rem;
+  top: 2.0rem;
+  width: 9rem;
+  height: 12rem;
+}
+
+.empty-state-deco-right .empty-state-clock-lg {
+  right: 0.8rem;
+  top: 1.0rem;
+}
+
+.empty-state-deco-right .empty-state-star-md {
+  right: 4.6rem;
+  top: 4.2rem;
+}
+
+.empty-state-deco-right .empty-state-star-sm {
+  right: 1.2rem;
+  top: 7.5rem;
+}
+
+.empty-state-deco-right .empty-state-dot:not(.empty-state-dot-alt) {
+  right: 5.0rem;
+  top: 1.5rem;
+}
+
+.empty-state-deco-right .empty-state-dot-alt {
+  right: 2.6rem;
+  top: 5.8rem;
 }
 
 .empty-state-bot {
@@ -742,7 +893,7 @@ body {
   left: 1.7rem;
 }
 
-.empty-state-bot-head span:last-child {
+.empty-state-bot-head span:nth-child(2) {
   right: 1.7rem;
 }
 
@@ -764,6 +915,29 @@ body {
 .empty-state-bot-head::after {
   right: 1.15rem;
   transform: rotate(36deg);
+}
+
+.empty-state-bot-nose {
+  position: absolute;
+  top: 2.7rem;
+  left: 50%;
+  width: 0.55rem;
+  height: 0.55rem;
+  background: #302620;
+  border-radius: 50%;
+  transform: translateX(-50%);
+}
+
+.empty-state-bot-mouth {
+  position: absolute;
+  top: 3.5rem;
+  left: 50%;
+  width: 1.4rem;
+  height: 0.45rem;
+  border: 2px solid #302620;
+  border-bottom: none;
+  border-radius: 0.45rem 0.45rem 0 0;
+  transform: translateX(-50%);
 }
 
 .empty-state-bot-body {

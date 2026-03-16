@@ -2,6 +2,8 @@ export interface ConfigData {
   viewPort: {
     zoom: number;
     x: number;
+    minTimelineSpan: number;
+    timelineBuffer: number;
   };
   layout: {
     individual: {
@@ -12,6 +14,16 @@ export interface ConfigData {
       xMargin: number;
       temporalMargin: number;
       textLength: number;
+      openEndAlignmentPadding: number;
+    };
+    system: {
+      containerInset: number;
+      horizontalInset: number;
+      componentGap: number;
+      componentHeightFactor: number;
+      minHostHeightFactor: number;
+      hostHeightGrowthPerComponent: number;
+      hostComponentPadding: number;
     };
   };
   presentation: {
@@ -69,6 +81,8 @@ export const config: ConfigData = {
   viewPort: {
     zoom: 1,
     x: 1000,
+    minTimelineSpan: 11,
+    timelineBuffer: 2,
   },
   layout: {
     individual: {
@@ -79,6 +93,16 @@ export const config: ConfigData = {
       xMargin: 40,
       temporalMargin: 10,
       textLength: 100,
+      openEndAlignmentPadding: 12,
+    },
+    system: {
+      containerInset: 4,
+      horizontalInset: 24,
+      componentGap: 10,
+      componentHeightFactor: 1,
+      minHostHeightFactor: 3,
+      hostHeightGrowthPerComponent: 1,
+      hostComponentPadding: 8,
     },
   },
   presentation: {

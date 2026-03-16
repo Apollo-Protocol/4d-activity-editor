@@ -1,6 +1,8 @@
 import { MouseEvent } from "react";
 import { Activity } from "@/lib/Schema";
+import { ENTITY_TYPE_IDS, getEntityTypeIdFromIndividual } from "@/lib/entityTypes";
 import { DrawContext } from "./DrawHelpers";
+import { getActiveInstallationForActivity } from "@/utils/installations";
 
 let mouseOverElement: any | null = null;
 
@@ -10,10 +12,13 @@ export function drawParticipations(ctx: DrawContext) {
   const parts: any[] = [];
   activities.forEach((a) => {
     a.participations?.forEach((p) => {
+      const box = getPositionOfParticipation(ctx, svgElement, a, p.individualId);
+      if (!box) return;
       parts.push({
-        box: getPositionOfParticipation(svgElement, a.id, p.individualId),
+        box,
         activityId: a.id,
         individualId: p.individualId,
+        rowId: box.rowId,
         participation: p,
       });
     });
@@ -25,6 +30,9 @@ export function drawParticipations(ctx: DrawContext) {
     .join("rect")
     .attr("class", "participation")
     .attr("id", (p: any) => "p" + p.activityId + p.individualId)
+    .attr("data-individual-id", (p: any) => p.individualId)
+    .attr("data-row-id", (p: any) => p.rowId)
+    .attr("data-activity-id", (p: any) => p.activityId)
     .attr("x", (d: any) => d.box.x)
     .attr("y", (d: any) => d.box.y)
     .attr("width", (d: any) => d.box.width)
@@ -50,8 +58,7 @@ function hoverParticipations(ctx: DrawContext) {
     })
     .on("mouseout", function (event: MouseEvent) {
       if (mouseOverElement) {
-        mouseOverElement.style.opacity =
-          config.presentation.participation.opacity;
+        mouseOverElement.style.opacity = "";
         mouseOverElement = null;
       }
       tooltip.style("display", "none");
@@ -103,30 +110,54 @@ function participationTooltip(part: any) {
 }
 
 function getPositionOfParticipation(
+  ctx: DrawContext,
   svgElement: any,
-  activityId: string,
+  activity: Activity,
   individualId: string
 ) {
-  const activityElement = svgElement
-    .select("#a" + activityId)
-    .node()
-    .getBBox();
+  const activityNode = svgElement.select("#a" + activity.id).node();
+  if (!activityNode) return null;
+  const activityElement = activityNode.getBBox();
 
   const x = activityElement.x;
   const width = activityElement.width;
 
-  const individualElement = svgElement
-    .select("#i" + individualId)
-    .node()
-    .getBBox();
+  const individual = ctx.individuals.find((i) => i.id === individualId);
+  if (!individual) return null;
+
+  let drawRowId = individualId;
+  const activeInstallation = getActiveInstallationForActivity(individual, activity);
+  const installedTarget = activeInstallation
+    ? ctx.individuals.find((i) => i.id === activeInstallation.systemComponentId)
+    : individual.installedIn
+    ? ctx.individuals.find((i) => i.id === individual.installedIn)
+    : undefined;
+  const isInstalledInComponent =
+    !!installedTarget &&
+    getEntityTypeIdFromIndividual(installedTarget) === ENTITY_TYPE_IDS.SYSTEM_COMPONENT;
+
+  if (isInstalledInComponent && activeInstallation) {
+    drawRowId = installedTarget.id;
+  }
+
+  const individualNode = svgElement.select("#i" + drawRowId).node();
+  if (!individualNode) return null;
+  const individualElement = individualNode.getBBox();
+
+  const rowLeft = individualElement.x;
+  const rowRight = individualElement.x + individualElement.width;
+  const clippedX = Math.max(x, rowLeft);
+  const clippedRight = Math.min(x + width, rowRight);
+  if (clippedRight <= clippedX) return null;
 
   const y = individualElement.y;
   const height = individualElement.height;
 
   return {
-    x: x,
+    x: clippedX,
     y: y,
-    width: width,
+    width: clippedRight - clippedX,
     height: height,
+    rowId: drawRowId,
   };
 }

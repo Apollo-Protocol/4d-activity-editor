@@ -3,6 +3,13 @@ import Image from "next/image";
 import Link from "next/link";
 import { Col, Container, Row } from "react-bootstrap";
 import styles from "@/styles/Home.module.css";
+import JumpLinks, { JumpLinkItem } from "@/components/JumpLinks";
+
+const managementSections: JumpLinkItem[] = [
+  { id: "management-overview", label: "Overview" },
+  { id: "integration-data-models", label: "Integration data models" },
+  { id: "four-d-data-modelling", label: "4D data modelling" },
+];
 
 export default function Page() {
   return (
@@ -14,22 +21,26 @@ export default function Page() {
       </Head>
       <Container>
       <div className="row">
-    <div className="col mb-5">
-    <h1 className="display-4 font-weight-normal">Integrated Information Management</h1>
+    <div className="col mb-2 mb-lg-5">
+    <h1 id="page-top" className="display-4 font-weight-normal">Integrated Information Management</h1>
     </div>
   </div>
 
-        <Row className="row-cols-1 row-cols-lg-2">
-          <Col className="col-md amrc-text">
+      <div className="doc-page-layout">
+        <JumpLinks items={managementSections} label="Jump to section" />
+        <div className="doc-page-content">
 
-            <p>Running a business, or other organisation, of any size 
+        <Row className="row-cols-1 row-cols-lg-2">
+          <Col id="management-overview" className="col-md amrc-text doc-section-heading">
+
+            <p className="lead">Running a business, or other organisation, of any size 
             means making decisions, all the time, at all levels. For any 
             decision to be a good decision, whether the it is made 
             by a person or by a machine, information is essential; the 
             correct information must be available at the time it is needed
             and of a suitable quality to enable the decision to be made 
             properly.</p>
-            <p>This page gives an overview of what&apos;s involved in ensuring 
+            <p className="lead">This page gives an overview of what&apos;s involved in ensuring 
             that information is fit for the collective decisions in an 
             integrated and well managed managed enterprise. Further information can also be found at: </p>
             <p><Link href="https://www.theiet.org/impact-society/factfiles/built-environment-factfiles/the-apollo-protocol-unifying-digital-twins-across-sectors/">Apollo Protocol</Link></p>
@@ -43,7 +54,7 @@ export default function Page() {
         </Row>
         <Row className="row-cols-1 row-cols-lg-2 mt-5">
           <Col className="amrc-text">
-            <h4>Integration Data Models</h4>
+            <h2 id="integration-data-models" className="doc-section-heading">Integration Data Models</h2>
             <p>An integrated information management framework aims to
             ensure that this requirement for suitable information is
             met, while keeping the costs of managing the required
@@ -94,7 +105,7 @@ export default function Page() {
             from that traditionally taken.</p>
           </Col>
           <Col className="amrc-text">
-            <h4>4D Data Modelling</h4>
+            <h2 id="four-d-data-modelling" className="doc-section-heading">4D Data Modelling</h2>
             <p>One of the more difficult aspects of creating an
             integrated information management framework is reconciling
             the different data models used by the different systems we
@@ -146,6 +157,9 @@ export default function Page() {
             involved in this work.</p>
           </Col>
         </Row>
+        <p className="doc-back-to-top"><a href="#page-top">Back to top</a></p>
+        </div>
+      </div>
       </Container>
     </>
   );

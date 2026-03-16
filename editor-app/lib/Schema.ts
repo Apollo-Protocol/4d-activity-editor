@@ -4,6 +4,7 @@
 
 import type { Maybe } from '@apollo-protocol/hqdm-lib';
 import type { Kind } from './Model';
+import type { EntityCategory } from './entityTypes';
 
 export { Maybe };
 export type Id = string;
@@ -30,12 +31,24 @@ export interface Activity extends STExtent {
   color?: string;
 }
 
+export interface InstallationPeriod {
+  id: Id;
+  systemComponentId: Id;
+  beginning: number;
+  ending: number;
+}
+
 /**
  * An individual is a person, place, or thing that participates in an activity.
  */
 export interface Individual extends STExtent {
   beginsWithParticipant: boolean; //not persisted to HQDM. Indicates that the beginning time should be synchronised to participants.
   endsWithParticipant: boolean; //not persisted to HQDM. Indicates that the ending time should be synchronised to participants.
+  installedIn?: Id; // optional parent system id for system components.
+  installedBeginning?: number; // optional installation window start when installedIn is a system component.
+  installedEnding?: number; // optional installation window end when installedIn is a system component.
+  installations?: InstallationPeriod[]; // optional installation periods for individuals installed in system components.
+  entityType?: EntityCategory; // explicit entity category shown in UI.
 }
 
 /**

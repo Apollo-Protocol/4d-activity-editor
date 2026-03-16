@@ -20,7 +20,7 @@ export default function Home() {
       <div className="col-md-6 p-lg-5 mx-auto my-5">
         <h1 className="display-4 font-weight-normal">Activity Model Development Tool</h1>
         <p className="lead font-weight-normal">Learn and practice planning in a new way. Helping you discover all the information you need for complete decision making and resource planning.</p>
-        <Link className="btn btn-outline-secondary" href="editor">Go To Editor</Link>
+        <Link className="btn btn-outline-secondary" href="editor">Go to Activity Diagram Editor</Link>
       </div>
       <div className="product-device box-shadow d-none d-md-block"></div>
       <div className="product-device product-device-2 box-shadow d-none d-md-block"></div>
@@ -61,6 +61,38 @@ export default function Home() {
     <div className="col-sm">
     </div>
     <div className="col-6 border-bottom pb-3 mb-3">
+    </div>
+    <div className="col-sm">
+    </div>
+  </div>
+</div>
+
+    <div className="col-md text-center align-self-center my-4 my-md-0 d-flex justify-content-center">
+      <picture style={{ width: "100%", display: "flex", justifyContent: "center" }}>
+        <img 
+          src="dynamic_systems.svg" 
+          className="img-fluid border rounded shadow-sm w-100" 
+          alt="System component validaton showing camera installations passing checks"
+          style={{ maxWidth: "90%" }}
+        />
+      </picture>
+    </div>
+    <div className="col-md">
+    <div className="my-3 p-3">
+          <h2 className="display-5">Dynamic Systems</h2>
+          <p className="lead">Real-world equipment changes over time. Your activity models can reflect that history by organizing individuals into parent systems and defining their installation windows. </p>
+          <p>Configure components to validate whether sub-assemblies, maintenance parts, or temporary structures were actually present when the modeled activity occurred.</p>
+          <Link className="btn btn-outline-secondary" href="system-intro">Learn about components</Link>
+        </div>
+    </div>
+
+    <div className="w-100"></div>
+
+    <div className="container">
+  <div className="row">
+    <div className="col-sm">
+    </div>
+    <div className="col-6 border-bottom pb-3 mb-3 mt-4">
     </div>
     <div className="col-sm">
     </div>

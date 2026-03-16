@@ -4,6 +4,7 @@ import "@/styles/sortableList.css";
 import type { AppProps } from "next/app";
 import Navbar from "@/components/NavBar";
 import Footer from "@/components/Footer";
+import Breadcrumbs from "@/components/Breadcrumbs";
 
 export default function App({ Component, pageProps }: AppProps) {
   return (
@@ -25,6 +26,7 @@ export default function App({ Component, pageProps }: AppProps) {
           paddingTop: "100px",
         }}
       >
+        <Breadcrumbs />
         <Component {...pageProps} />
       </main>
       <Footer />

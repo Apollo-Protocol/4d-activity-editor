@@ -34,10 +34,19 @@ function NavItem(props: NavItemProps) {
 
 function CollapsibleExample() {
   const router = useRouter();
+  const isEditorDropdownActive = [
+    "/manual",
+    "/editor",
+    "/terminology",
+  ].includes(router.pathname);
   const isActivityModellingActive = [
     "/intro",
     "/crane",
     "/management",
+  ].includes(router.pathname);
+  const isSystemComponentsActive = [
+    "/system-intro",
+    "/system-example",
   ].includes(router.pathname);
 
   return (
@@ -47,8 +56,8 @@ function CollapsibleExample() {
       variant="light"
       fixed="top"
       style={{
-        backgroundColor: "rgba(255, 255, 255, 0.98)",
-        backdropFilter: "blur(10px)",
+        backgroundColor: "#fff",
+        backdropFilter: "none",
         boxShadow: "0 2px 8px rgba(0, 0, 0, 0.08)",
         zIndex: 1030,
       }}
@@ -62,8 +71,32 @@ function CollapsibleExample() {
         <Navbar.Toggle aria-controls="responsive-navbar-nav" />
         <Navbar.Collapse id="responsive-navbar-nav">
           <Nav className="ms-auto gap-2">
-            <NavItem href="editor">Editor</NavItem>
-            <NavItem href="manual">Guide</NavItem>
+            <NavItem href="/">Home</NavItem>
+            <NavDropdown
+              title="Editor"
+              id="editor-dropdown"
+              className={isEditorDropdownActive ? "active-dropdown" : ""}
+              align="end"
+            >
+              <NavDropdown.Item
+                href="/manual"
+                className={router.pathname === "/manual" ? "active" : ""}
+              >
+                Guide
+              </NavDropdown.Item>
+              <NavDropdown.Item
+                href="/editor"
+                className={router.pathname === "/editor" ? "active" : ""}
+              >
+                Activity Diagram
+              </NavDropdown.Item>
+              <NavDropdown.Item
+                href="/terminology"
+                className={router.pathname === "/terminology" ? "active" : ""}
+              >
+                Terminology
+              </NavDropdown.Item>
+            </NavDropdown>
             <NavDropdown
               title="Activity Modelling"
               id="activity-modelling-dropdown"
@@ -87,6 +120,25 @@ function CollapsibleExample() {
                 className={router.pathname === "/management" ? "active" : ""}
               >
                 Integrated Information Management
+              </NavDropdown.Item>
+            </NavDropdown>
+            <NavDropdown
+              title="System &amp; System Component"
+              id="system-dropdown"
+              className={isSystemComponentsActive ? "active-dropdown" : ""}
+              align="end"
+            >
+              <NavDropdown.Item
+                href="/system-intro"
+                className={router.pathname === "/system-intro" ? "active" : ""}
+              >
+                Introduction
+              </NavDropdown.Item>
+              <NavDropdown.Item
+                href="/system-example"
+                className={router.pathname === "/system-example" ? "active" : ""}
+              >
+                Example Analysis
               </NavDropdown.Item>
             </NavDropdown>
           </Nav>

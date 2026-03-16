@@ -7,6 +7,7 @@ import React, {
 } from "react";
 import Button from "react-bootstrap/Button";
 import Modal from "react-bootstrap/Modal";
+import DraggableModalDialog from "@/components/DraggableModalDialog";
 import Form from "react-bootstrap/Form";
 import ListGroup from "react-bootstrap/ListGroup";
 import Alert from "react-bootstrap/Alert";
@@ -18,6 +19,11 @@ import Select from "react-select";
 import { Individual, Id, Activity, Maybe, Participation } from "@/lib/Schema";
 import { InputGroup } from "react-bootstrap";
 import { Model } from "@/lib/Model";
+import {
+  ENTITY_TYPE_IDS,
+  getEntityTypeIdFromIndividual,
+} from "@/lib/entityTypes";
+import { getInstallationPeriods } from "@/utils/installations";
 
 interface Props {
   show: boolean;
@@ -31,6 +37,14 @@ interface Props {
   setActivityContext: Dispatch<Maybe<Id>>;
   autoActivityColor?: string;
 }
+
+type ParticipationOption = {
+  optionKey: string;
+  individual: Individual;
+  mode: "default" | "outside" | "installed";
+  label: string;
+  group: "System" | "System Component" | "Individual";
+};
 
 const SetActivity = (props: Props) => {
   const {
@@ -88,16 +102,56 @@ const SetActivity = (props: Props) => {
   };
 
   function updateIndividuals(d: Model) {
-    d.individuals.forEach((individual) => {
+    const individualsSnapshot = Array.from(d.individuals.values());
+
+    individualsSnapshot.forEach((individual) => {
+      const periods = getInstallationPeriods(individual);
+      const installedTarget =
+        periods.length > 0
+          ? d.individuals.get(periods[0].systemComponentId)
+          : individual.installedIn
+          ? d.individuals.get(individual.installedIn)
+          : undefined;
+      const isInstalledInComponent =
+        getEntityTypeIdFromIndividual(individual) === ENTITY_TYPE_IDS.INDIVIDUAL &&
+        !!installedTarget &&
+        getEntityTypeIdFromIndividual(installedTarget) ===
+          ENTITY_TYPE_IDS.SYSTEM_COMPONENT;
+
+      if (isInstalledInComponent) {
+        d.individuals.set(individual.id, individual);
+        return;
+      }
+
       const earliestBeginning = d.earliestParticipantBeginning(individual.id);
       const latestEnding = d.lastParticipantEnding(individual.id);
-      if (individual.beginning >= 0) {
-        individual.beginning = earliestBeginning ? earliestBeginning : -1;
+      const hasParticipants = d.hasParticipants(individual.id);
+
+      const inferredBeginSync =
+        hasParticipants &&
+        !individual.beginsWithParticipant &&
+        individual.beginning >= 0 &&
+        individual.beginning === earliestBeginning;
+      const inferredEndSync =
+        hasParticipants &&
+        !individual.endsWithParticipant &&
+        individual.ending < Model.END_OF_TIME &&
+        individual.ending === latestEnding;
+
+      if (inferredBeginSync) {
+        individual.beginsWithParticipant = true;
       }
-      if (individual.ending < Model.END_OF_TIME) {
+      if (inferredEndSync) {
+        individual.endsWithParticipant = true;
+      }
+
+      if (individual.beginsWithParticipant) {
+        individual.beginning = earliestBeginning;
+      }
+      if (individual.endsWithParticipant) {
         individual.ending = latestEnding;
       }
-      d.addIndividual(individual);
+      d.individuals.set(individual.id, individual);
     });
   }
 
@@ -204,7 +258,9 @@ const SetActivity = (props: Props) => {
 
   const handleChangeMultiselect = (e: any) => {
     const participations = new Map<string, Participation>();
-    e.forEach((i: Individual) => {
+    const selectedParticipants: ParticipationOption[] = Array.isArray(e) ? e : [];
+    selectedParticipants.forEach((entry) => {
+      const i = entry.individual;
       const old = inputs.participations.get(i.id)?.role;
       let participation: Participation = {
         individualId: i.id,
@@ -215,21 +271,188 @@ const SetActivity = (props: Props) => {
     updateInputs("participations", participations);
   };
 
-  const getSelectedIndividuals = () => {
-    if (
-      selectedActivity === undefined ||
-      selectedActivity.participations === undefined
-    ) {
-      return [];
+  const getSelectedIndividualIds = () => {
+    if (inputs.participations === undefined) {
+      return new Set<string>();
     }
-    const individualIds = Array.from(
-      selectedActivity.participations,
-      ([key, value]) => key
+    return new Set(Array.from(inputs.participations.keys()));
+  };
+
+  const getParticipantWindow = (individual: Individual) => {
+    const periods = getInstallationPeriods(individual);
+    const installedTarget =
+      periods.length > 0
+        ? dataset.individuals.get(periods[0].systemComponentId)
+        : individual.installedIn
+        ? dataset.individuals.get(individual.installedIn)
+        : undefined;
+    const isInstalledInComponent =
+      getEntityTypeIdFromIndividual(individual) === ENTITY_TYPE_IDS.INDIVIDUAL &&
+      !!installedTarget &&
+      getEntityTypeIdFromIndividual(installedTarget) ===
+        ENTITY_TYPE_IDS.SYSTEM_COMPONENT;
+
+    const overallStart = Number.isFinite(individual.beginning)
+      ? individual.beginning
+      : -1;
+    const overallEnd = Number.isFinite(individual.ending)
+      ? individual.ending
+      : Model.END_OF_TIME;
+    const installStart = periods.length > 0 ? periods[0].beginning : undefined;
+    const installEnd = periods.length > 0 ? periods[0].ending : undefined;
+
+    return {
+      isInstalledInComponent,
+      overallStart,
+      overallEnd,
+      installStart,
+      installEnd,
+      periods,
+      installedTarget,
+    };
+  };
+
+  const participantIsEligibleForMode = (
+    individual: Individual,
+    mode: "default" | "outside" | "installed"
+  ) => {
+    const window = getParticipantWindow(individual);
+
+    if (!window.isInstalledInComponent) {
+      return true;
+    }
+
+    const inInstalledWindow = window.periods.some(
+      (period) =>
+        inputs.beginning >= period.beginning && inputs.ending <= period.ending
     );
-    const participatingIndividuals = individuals.filter((participant) => {
-      return individualIds.includes(participant.id);
+
+    const sortedPeriods = [...window.periods].sort(
+      (first, second) => first.beginning - second.beginning
+    );
+
+    let outsideEligible = false;
+    let cursor = window.overallStart;
+    sortedPeriods.forEach((period) => {
+      if (
+        inputs.beginning >= cursor &&
+        inputs.ending <= period.beginning
+      ) {
+        outsideEligible = true;
+      }
+      cursor = Math.max(cursor, period.ending);
     });
-    return participatingIndividuals;
+    if (inputs.beginning >= cursor && inputs.ending <= window.overallEnd) {
+      outsideEligible = true;
+    }
+
+    if (mode === "installed") return inInstalledWindow;
+    if (mode === "outside") return outsideEligible;
+    return inInstalledWindow || outsideEligible;
+  };
+
+  const selectedParticipantIds = getSelectedIndividualIds();
+
+  const participantOptions = (() => {
+    const options: ParticipationOption[] = [];
+
+    individuals.forEach((individual) => {
+      const window = getParticipantWindow(individual);
+
+      if (window.isInstalledInComponent && window.installedTarget) {
+        const outsideEligible = participantIsEligibleForMode(individual, "outside");
+        const installedEligible = participantIsEligibleForMode(individual, "installed");
+        const isSelected = selectedParticipantIds.has(individual.id);
+
+        if (outsideEligible || isSelected) {
+          options.push({
+            optionKey: `${individual.id}::outside`,
+            individual,
+            mode: "outside",
+            label: individual.name,
+            group: "Individual",
+          });
+        }
+
+        if (installedEligible || isSelected) {
+          const periodsLabel = window.periods
+            .map((period) => `${period.beginning}-${period.ending >= Model.END_OF_TIME ? "∞" : period.ending}`)
+            .join(", ");
+          options.push({
+            optionKey: `${individual.id}::installed`,
+            individual,
+            mode: "installed",
+            label: `${individual.name} [installed in ${window.installedTarget.name} (${periodsLabel})]`,
+            group: "Individual",
+          });
+        }
+
+        return;
+      }
+
+      if (!participantIsEligibleForMode(individual, "default") && !selectedParticipantIds.has(individual.id)) {
+        return;
+      }
+
+      const typeId = getEntityTypeIdFromIndividual(individual);
+      const group: ParticipationOption["group"] =
+        typeId === ENTITY_TYPE_IDS.SYSTEM
+          ? "System"
+          : typeId === ENTITY_TYPE_IDS.SYSTEM_COMPONENT
+          ? "System Component"
+          : "Individual";
+
+      options.push({
+        optionKey: `${individual.id}::default`,
+        individual,
+        mode: "default",
+        label: individual.name,
+        group,
+      });
+    });
+
+    return options;
+  })();
+
+  const groupedParticipantOptions = (() => {
+    const groups = new Map<string, ParticipationOption[]>();
+
+    participantOptions.forEach((option) => {
+      const list = groups.get(option.group);
+      if (list) list.push(option);
+      else groups.set(option.group, [option]);
+    });
+
+    const orderedLabels = [
+      "System",
+      "System Component",
+      "Individual",
+    ];
+
+    return orderedLabels
+      .filter((label) => (groups.get(label)?.length ?? 0) > 0)
+      .map((label) => ({
+        label,
+        options: (groups.get(label) ?? []).sort((a, b) =>
+          a.label.localeCompare(b.label)
+        ),
+      }));
+  })();
+
+  const getSelectedParticipationOptions = () => {
+    const selectedIds = getSelectedIndividualIds();
+    return Array.from(selectedIds)
+      .map((id) => {
+        const matching = participantOptions.filter(
+          (option) => option.individual.id === id
+        );
+        if (matching.length === 0) return undefined;
+        const installed = matching.find((option) => option.mode === "installed");
+        const outside = matching.find((option) => option.mode === "outside");
+        const fallback = matching.find((option) => option.mode === "default");
+        return installed ?? outside ?? fallback ?? matching[0];
+      })
+      .filter((option): option is ParticipationOption => !!option);
   };
 
   const validateInputs = () => {
@@ -243,11 +466,26 @@ const SetActivity = (props: Props) => {
       runningErrors.push("Type field is required");
     }
     //Ending and beginning
-    if (inputs.ending - inputs.beginning <= 0) {
-      runningErrors.push("Ending must be after beginning");
+    if (typeof inputs.beginning !== "number" || isNaN(inputs.beginning)) {
+      runningErrors.push("Beginning time is required");
+    } else if (inputs.beginning < 0) {
+      runningErrors.push("Beginning time cannot be negative");
     }
-    if (inputs.ending >= Model.END_OF_TIME) {
+
+    if (typeof inputs.ending !== "number" || isNaN(inputs.ending)) {
+      runningErrors.push("Ending time is required");
+    } else if (inputs.ending < 0) {
+      runningErrors.push("Ending time cannot be negative");
+    } else if (inputs.ending >= Model.END_OF_TIME) {
       runningErrors.push("Ending cannot be greater than " + Model.END_OF_TIME);
+    }
+
+    if (
+      typeof inputs.beginning === "number" && !isNaN(inputs.beginning) &&
+      typeof inputs.ending === "number" && !isNaN(inputs.ending) &&
+      inputs.ending <= inputs.beginning
+    ) {
+      runningErrors.push("Ending must be after beginning");
     }
     //Participant count
     if (
@@ -256,6 +494,20 @@ const SetActivity = (props: Props) => {
     ) {
       runningErrors.push("Select at least one participant");
     }
+
+    inputs.participations?.forEach((participation) => {
+      const participant = dataset.individuals.get(participation.individualId);
+      if (!participant) {
+        runningErrors.push("A selected participant no longer exists");
+        return;
+      }
+
+      if (!participantIsEligibleForMode(participant, "default")) {
+        runningErrors.push(
+          `Participant \"${participant.name}\" is outside installation window`
+        );
+      }
+    });
 
     if (runningErrors.length == 0) {
       return true;
@@ -426,7 +678,7 @@ const SetActivity = (props: Props) => {
         Add Activity
       </Button>
 
-      <Modal show={show} onHide={handleModalHide} onShow={handleShow}>
+      <Modal dialogAs={DraggableModalDialog} show={show} onHide={handleModalHide} onShow={handleShow}>
         <Modal.Header closeButton>
           <Modal.Title>
             {selectedActivity ? "Edit Activity" : "Add Activity"}
@@ -644,17 +896,18 @@ const SetActivity = (props: Props) => {
                   type="text"
                   name="colorText"
                   value={inputs.color || ""}
-                  placeholder="Default (auto)"
+                  placeholder={autoActivityColor ? `Auto: ${autoActivityColor}` : "Default (auto)"}
                   onChange={(e) =>
                     updateInputs("color", e.target.value || undefined)
                   }
-                  style={{ maxWidth: "140px" }}
+                  style={{ maxWidth: "150px" }}
                 />
                 {inputs.color && (
                   <Button
                     variant="outline-secondary"
                     size="sm"
                     onClick={() => updateInputs("color", undefined)}
+                    title="Reset to auto color"
                   >
                     Reset
                   </Button>
@@ -668,7 +921,7 @@ const SetActivity = (props: Props) => {
                 name="beginning"
                 value={inputs.beginning}
                 onChange={handleChangeNumeric}
-                step="1"
+                step="any"
                 min="0"
                 max={Model.END_OF_TIME - 2}
                 className="form-control"
@@ -679,7 +932,7 @@ const SetActivity = (props: Props) => {
               <Form.Control
                 type="number"
                 name="ending"
-                step="1"
+                step="any"
                 min="1"
                 max={Model.END_OF_TIME - 1}
                 value={inputs.ending}
@@ -690,14 +943,14 @@ const SetActivity = (props: Props) => {
             <Form.Group className="mb-3" controlId="formParticipants">
               <Form.Label>Participants</Form.Label>
               <Select
-                defaultValue={getSelectedIndividuals}
+                value={getSelectedParticipationOptions()}
                 isMulti
                 classNamePrefix="participants-select"
                 // @ts-ignore
-                options={individuals}
-                getOptionLabel={(option) => option.name}
+                options={groupedParticipantOptions}
+                getOptionLabel={(option) => option.label}
                 // @ts-ignore
-                getOptionValue={(option) => option.id}
+                getOptionValue={(option) => option.optionKey}
                 onChange={handleChangeMultiselect}
               />
             </Form.Group>
@@ -752,9 +1005,9 @@ const SetActivity = (props: Props) => {
                   }
                   variant="danger"
                   onClick={openChangeParent}
-                  title="Swap parent (assign as sub-task of another activity)"
+                  title="Change parent (assign as sub-task of another activity)"
                 >
-                  Swap Parent
+                  Change Parent
                 </Button>
               </div>
               <div className="activity-modal-group activity-modal-primary">
@@ -791,7 +1044,7 @@ const SetActivity = (props: Props) => {
       </Modal>
 
       {/* Parent chooser modal */}
-      <Modal show={showParentModal} onHide={() => setShowParentModal(false)}>
+      <Modal dialogAs={DraggableModalDialog} show={showParentModal} onHide={() => setShowParentModal(false)}>
         <Modal.Header closeButton>
           <Modal.Title>Choose parent activity (or None)</Modal.Title>
         </Modal.Header>

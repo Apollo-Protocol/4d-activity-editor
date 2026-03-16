@@ -7,6 +7,7 @@ import React, {
 } from "react";
 import Button from "react-bootstrap/Button";
 import Modal from "react-bootstrap/Modal";
+import DraggableModalDialog from "@/components/DraggableModalDialog";
 import Form from "react-bootstrap/Form";
 import { Activity, Participation } from "@/lib/Schema";
 import { InputGroup } from "react-bootstrap";
@@ -79,6 +80,17 @@ const SetParticipation = (props: Props) => {
     setSelectedActivity(undefined);
     setDirty(false);
   };
+
+  // Prevent closing the Modal while inline "edit role" is active. Backdrop
+  // clicks or mouseup outside the dialog during a text selection can close
+  // the modal — ignore those when `editingRoleId` is set.
+  const handleModalHide = () => {
+    if (editingRoleId) {
+      return; // keep modal open while user is editing a role name
+    }
+    handleClose();
+  };
+
   const handleShow = () => {};
   const handleAdd = (event: any) => {
     event.preventDefault();
@@ -243,7 +255,7 @@ const SetParticipation = (props: Props) => {
 
   return (
     <>
-      <Modal show={show} onHide={handleClose} onShow={handleShow}>
+      <Modal dialogAs={DraggableModalDialog} show={show} onHide={handleModalHide} onShow={handleShow}>
         <Modal.Header closeButton>
           <Modal.Title>Edit Participation</Modal.Title>
         </Modal.Header>

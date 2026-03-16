@@ -7,7 +7,7 @@ import Dropdown from "react-bootstrap/Dropdown";
 
 const pathMap: Record<string, string> = {
   "/": "Home",
-  "/editor": "Diagram Editor",
+  "/editor": "Activity Diagram",
   "/manual": "Editor Guide",
   "/intro": "Introduction to 4D",
   "/system-intro": "System Modelling",

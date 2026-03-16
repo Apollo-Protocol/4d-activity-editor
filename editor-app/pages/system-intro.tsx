@@ -316,7 +316,7 @@ export default function Page({ imageMap }: { imageMap: Record<string, string> })
                 Read the editor guide
               </Link>
               <Link className="btn btn-outline-secondary" href="/editor">
-                Try the editor
+                Try the Activity Diagram Editor
               </Link>
             </div>
             <p className="doc-back-to-top mt-5">

@@ -20,7 +20,7 @@ export default function Home() {
       <div className="col-md-6 p-lg-5 mx-auto my-5">
         <h1 className="display-4 font-weight-normal">Activity Model Development Tool</h1>
         <p className="lead font-weight-normal">Learn and practice planning in a new way. Helping you discover all the information you need for complete decision making and resource planning.</p>
-        <Link className="btn btn-outline-secondary" href="editor">Go To Editor</Link>
+        <Link className="btn btn-outline-secondary" href="editor">Go to Activity Diagram Editor</Link>
       </div>
       <div className="product-device box-shadow d-none d-md-block"></div>
       <div className="product-device product-device-2 box-shadow d-none d-md-block"></div>

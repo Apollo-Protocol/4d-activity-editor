@@ -891,6 +891,51 @@ export function hoverIndividuals(ctx: DrawContext) {
     return rawId.startsWith("i") ? rawId.slice(1) : null;
   };
 
+  const restoreFillForIndividual = (ind: Individual | undefined): string => {
+    if (ind && (getEntityTypeIdFromIndividual(ind) === ENTITY_TYPE_IDS.SYSTEM ||
+        getEntityTypeIdFromIndividual(ind) === ENTITY_TYPE_IDS.SYSTEM_COMPONENT)) {
+      return "white";
+    }
+    return config.presentation.individual.fill;
+  };
+
+  const positionTooltip = (event: MouseEvent, d: any) => {
+    tooltip.html(individualTooltip(d));
+    if (event.pageX < window.innerWidth / 2) {
+      tooltip
+        .style("top", event.pageY + 20 + "px")
+        .style("left", event.pageX + "px");
+    } else {
+      const ttWidth = tooltip?.node().getBoundingClientRect().width;
+      tooltip
+        .style("top", event.pageY + 20 + "px")
+        .style("left", event.pageX - ttWidth + "px");
+    }
+  };
+
+  const hoverMatching = (entityId: string) => (d: any, i: number, nodes: any[]) => {
+    const node = nodes[i] as Element;
+    const installedId = node.getAttribute("data-installed-id");
+    const targetId = node.getAttribute("data-target-id");
+    return installedId === entityId || targetId === entityId;
+  };
+
+  const applyHoverHighlight = (entityId: string) => {
+    svgElement.select(`#i${entityId}`).classed("entity-hover-highlight", true);
+    svgElement.select(`#il${entityId}`).classed("entity-hover-highlight", true);
+    svgElement.selectAll(".installHatch").filter(hoverMatching(entityId)).classed("entity-hover-highlight", true);
+    // Skip ribbon highlighting for system components, matching search behavior
+    const ind = ctx.individuals.find(x => x.id === entityId);
+    const isSystemComponent = ind && getEntityTypeIdFromIndividual(ind) === ENTITY_TYPE_IDS.SYSTEM_COMPONENT;
+    if (!isSystemComponent) {
+      svgElement.selectAll(".installConnectorRibbon").filter(hoverMatching(entityId)).classed("entity-hover-highlight", true);
+    }
+  };
+
+  const removeHoverHighlight = () => {
+    svgElement.selectAll(".entity-hover-highlight").classed("entity-hover-highlight", false);
+  };
+
   svgElement
     .selectAll(".individual")
     .on("mouseover", function (event: MouseEvent, d: any) {
@@ -899,6 +944,7 @@ export function hoverIndividuals(ctx: DrawContext) {
       const entityId = resolveEntityId(d, mouseOverElement);
       if (entityId) {
         highlightInstallationForEntity(svgElement, entityId, true, config);
+        applyHoverHighlight(entityId);
       }
       tooltip.style("display", "block");
     })
@@ -907,34 +953,50 @@ export function hoverIndividuals(ctx: DrawContext) {
       if (entityId) {
         highlightInstallationForEntity(svgElement, entityId, false, config);
       }
+      removeHoverHighlight();
 
       if (mouseOverElement) {
-        // use d if available, else infer from id
         const targetInd = d || ctx.individuals.find(x => "i" + x.id === (mouseOverElement as HTMLElement).getAttribute("id"));
-        
-        let restoreFill = config.presentation.individual.fill;
-        if (targetInd && (getEntityTypeIdFromIndividual(targetInd) === ENTITY_TYPE_IDS.SYSTEM ||
-            getEntityTypeIdFromIndividual(targetInd) === ENTITY_TYPE_IDS.SYSTEM_COMPONENT)) {
-          restoreFill = "white";
-        }
-        
-        mouseOverElement.style.fill = restoreFill;
+        mouseOverElement.style.fill = restoreFillForIndividual(targetInd);
         mouseOverElement = null;
       }
       tooltip.style("display", "none");
     })
     .on("mousemove", function (event: MouseEvent, d: any) {
-      tooltip.html(individualTooltip(d));
-      if (event.pageX < window.innerWidth / 2) {
-        tooltip
-          .style("top", event.pageY + 20 + "px")
-          .style("left", event.pageX + "px");
-      } else {
-        const ttWidth = tooltip?.node().getBoundingClientRect().width;
-        tooltip
-          .style("top", event.pageY + 20 + "px")
-          .style("left", event.pageX - ttWidth + "px");
+      positionTooltip(event, d);
+    });
+
+  // Apply the same hover effect when hovering on the row label text
+  svgElement
+    .selectAll(".individualLabel")
+    .style("cursor", "pointer")
+    .on("mouseover", function (event: MouseEvent, d: any) {
+      const entityId = d?.id;
+      if (!entityId) return;
+      const rowNode = svgElement.select("#i" + entityId).node() as HTMLElement | null;
+      if (rowNode) {
+        mouseOverElement = rowNode;
+        rowNode.style.fill = config.presentation.individual.fillHover;
       }
+      highlightInstallationForEntity(svgElement, entityId, true, config);
+      applyHoverHighlight(entityId);
+      tooltip.style("display", "block");
+    })
+    .on("mouseout", function (event: MouseEvent, d: any) {
+      const entityId = d?.id;
+      if (entityId) {
+        highlightInstallationForEntity(svgElement, entityId, false, config);
+      }
+      removeHoverHighlight();
+      if (mouseOverElement) {
+        const targetInd = d || ctx.individuals.find(x => "i" + x.id === (mouseOverElement as HTMLElement).getAttribute("id"));
+        mouseOverElement.style.fill = restoreFillForIndividual(targetInd);
+        mouseOverElement = null;
+      }
+      tooltip.style("display", "none");
+    })
+    .on("mousemove", function (event: MouseEvent, d: any) {
+      positionTooltip(event, d);
     });
 }
 

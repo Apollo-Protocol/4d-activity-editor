@@ -1251,6 +1251,27 @@ body {
   stroke-width: 2px !important;
 }
 
+/* Hover highlight – same visual as search but without animation */
+.individual.entity-hover-highlight {
+  stroke: #0d6efd !important;
+  stroke-width: 3px !important;
+}
+
+.individualLabel.entity-hover-highlight {
+  fill: #0d6efd !important;
+  font-weight: 700;
+}
+
+.installHatch.entity-hover-highlight {
+  stroke: #0d6efd !important;
+  stroke-width: 2.5px !important;
+}
+
+.installConnectorRibbon.entity-hover-highlight {
+  stroke: #0d6efd !important;
+  stroke-width: 2px !important;
+}
+
 @keyframes entity-search-flash {
   0% {
     filter: brightness(1.45);

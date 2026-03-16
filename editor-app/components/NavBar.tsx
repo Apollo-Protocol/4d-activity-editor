@@ -88,7 +88,7 @@ function CollapsibleExample() {
                 href="/editor"
                 className={router.pathname === "/editor" ? "active" : ""}
               >
-                Diagram Editor
+                Activity Diagram
               </NavDropdown.Item>
               <NavDropdown.Item
                 href="/terminology"

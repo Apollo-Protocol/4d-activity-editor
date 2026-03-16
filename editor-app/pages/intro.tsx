@@ -126,7 +126,7 @@ export default function Page() {
 
         <Link className="btn btn-outline-secondary mr-1" href="crane">See an example</Link>
         <p></p>
-        <Link className="btn btn-outline-secondary" href="editor">Try the editor</Link>
+        <Link className="btn btn-outline-secondary" href="editor">Try the Activity Diagram Editor</Link>
         <p className="doc-back-to-top"><a href="#page-top">Back to top</a></p>
 
         </div>

@@ -243,7 +243,7 @@ export default function Page({ imageMap }: { imageMap: Record<string, string> })
                   constraint before the participation is accepted.
                 </p>
                 <p>
-                  This is the point where system modelling becomes useful rather than decorative.
+                  This is the point where system and system component modelling becomes useful rather than decorative.
                   The activity model and the entity model start checking one another, so the
                   participant options reflect the structure and time bounds already captured in the
                   diagram.

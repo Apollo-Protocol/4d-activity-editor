@@ -101,7 +101,7 @@ export default function Page({ imageMap }: { imageMap: Record<string, string> })
               <Col id="system-example-overview" className="amrc-text doc-section-heading">
                 <p className="lead">
                   This is a suggested walkthrough you can recreate in the editor. The aim is to show
-                  how system modelling complements activity modelling when equipment changes over
+                  how system and system component modelling complements activity modelling when equipment changes over
                   time. In this example, imagine a packaging cell with a controller cabinet, a vision
                   station, and a tool mount that can host different pieces of equipment through the
                   life of the cell.

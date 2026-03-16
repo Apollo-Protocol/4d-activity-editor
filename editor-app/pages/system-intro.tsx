@@ -58,6 +58,20 @@ const ImageComponent = ({
     .join(' ');
   const finalExt = (imageMap && imageMap[filenameBase]) ?? "png";
   const generatedSrc = src ?? `/system-intro/${filenameBase}.${finalExt}`;
+  const isSvg = finalExt.toLowerCase() === "svg";
+
+  if (isSvg) {
+    return (
+      <picture>
+        <img
+          src={generatedSrc}
+          className="img-fluid mb-5 mt-3"
+          alt={modalAlt}
+        />
+      </picture>
+    );
+  }
+
   return (
     <div style={{ width: "100%", maxWidth: maxWidth ?? "300px", margin: "0 auto" }}>
       <ModalImage 
@@ -120,7 +134,7 @@ export default function Page({ imageMap }: { imageMap: Record<string, string> })
                   you create or change activities.
                 </p>
               </Col>
-              <Col className="col-md text-center align-self-center">
+              <Col className="col-md text-center align-self-start">
                 <ImageComponent
                   alt="system overview diagram"
                   imageMap={imageMap}
@@ -147,7 +161,7 @@ export default function Page({ imageMap }: { imageMap: Record<string, string> })
                   to be trimmed or removed.
                 </p>
               </Col>
-              <Col className="col-md text-center align-self-center">
+              <Col className="col-md text-center align-self-start">
                 <ImageComponent
                   alt="creating a system entity"
                   maxWidth="300px"
@@ -175,7 +189,7 @@ export default function Page({ imageMap }: { imageMap: Record<string, string> })
                   structures.
                 </p>
               </Col>
-              <Col className="col-md text-center align-self-center">
+              <Col className="col-md text-center align-self-start">
                 <ImageComponent
                   alt="adding a system component"
                   maxWidth="300px"
@@ -235,7 +249,7 @@ export default function Page({ imageMap }: { imageMap: Record<string, string> })
                   diagram.
                 </p>
               </Col>
-              <Col className="col-md text-center align-self-center">
+              <Col className="col-md text-center align-self-start">
                 <ImageComponent
                   alt="activity validation against entities"
                   maxWidth="300px"
@@ -253,7 +267,7 @@ export default function Page({ imageMap }: { imageMap: Record<string, string> })
                   A system component cannot be saved without a parent system.
                 </p>
               </Col>
-              <Col className="col-md text-center align-self-center mt-4 mt-lg-0">
+              <Col className="col-md text-center align-self-start mt-4 mt-lg-0">
                 <ImageComponent alt="system component parent required" imageMap={imageMap} />
               </Col>
             </Row>
@@ -264,7 +278,7 @@ export default function Page({ imageMap }: { imageMap: Record<string, string> })
                   A system component can only be a component of an entity that is itself a system.
                 </p>
               </Col>
-              <Col className="col-md text-center align-self-center mt-4 mt-lg-0">
+              <Col className="col-md text-center align-self-start mt-4 mt-lg-0">
                 <ImageComponent alt="system component must belong to system" imageMap={imageMap} />
               </Col>
             </Row>
@@ -289,7 +303,7 @@ export default function Page({ imageMap }: { imageMap: Record<string, string> })
                   removed automatically.
                 </p>
               </Col>
-              <Col className="col-md text-center align-self-center mt-4 mt-lg-0">
+              <Col className="col-md text-center align-self-start mt-4 mt-lg-0">
                 <ImageComponent alt="installation bounds validation" maxWidth="500px" imageMap={imageMap} />
               </Col>
             </Row>
@@ -303,7 +317,7 @@ export default function Page({ imageMap }: { imageMap: Record<string, string> })
                   whether to resolve or delete the affected records.
                 </p>
               </Col>
-              <Col className="col-md text-center align-self-center mt-4 mt-lg-0">
+              <Col className="col-md text-center align-self-start mt-4 mt-lg-0">
                 <ImageComponent alt="affected items warning" maxWidth="500px" imageMap={imageMap} />
               </Col>
             </Row>

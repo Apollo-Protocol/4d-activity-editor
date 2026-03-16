@@ -470,7 +470,19 @@ export default function ActivityDiagramWrap() {
                 <div className="container py-3 py-md-4">
                   <div className="empty-state-stage">
                     <div className="empty-state-hero">
-                      <div className="empty-state-board">
+                      <div className="bg-light mr-md-3 pt-3 px-3 pt-md-5 px-md-5 text-center overflow-hidden h-100 empty-state-card">
+                        <div className="my-3 p-3">
+                          <h2 className="display-4">Activity Diagram Editor</h2>
+                          <p className="lead">
+                            Your diagram is empty, but the canvas does not have to stay quiet for long.
+                            Start with an entity, pull in an example, or load a TTL file and bring the model to life.
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="empty-state-illustration" aria-hidden="true">
+                      <div className="empty-state-board empty-state-board-illustration">
                         <span className="empty-state-board-top">Top</span>
                         <span className="empty-state-board-axis empty-state-board-axis-y"></span>
                         <span className="empty-state-board-axis empty-state-board-axis-x"></span>
@@ -482,46 +494,6 @@ export default function ActivityDiagramWrap() {
                           <span className="empty-state-chalk-stick empty-state-chalk-stick-2"></span>
                           <span className="empty-state-chalk-stick empty-state-chalk-stick-3"></span>
                         </div>
-                        <div className="empty-state-board-copy">
-                          <h1 className="display-4 font-weight-normal">Activity Diagram Editor</h1>
-                          <p className="lead font-weight-normal mb-0">
-                            Your diagram is empty, but the canvas does not have to stay quiet for long.
-                            Start with an entity, pull in an example, or load a TTL file and bring the model to life.
-                          </p>
-                        </div>
-                      </div>
-                    </div>
-
-                    <div className="empty-state-illustration" aria-hidden="true">
-                      <div className="empty-state-deco empty-state-deco-left">
-                        <span className="empty-state-star empty-state-star-lg"></span>
-                        <span className="empty-state-clock empty-state-clock-sm"></span>
-                        <span className="empty-state-star empty-state-star-sm"></span>
-                        <span className="empty-state-dot"></span>
-                        <span className="empty-state-dot empty-state-dot-alt"></span>
-                      </div>
-                      <div className="empty-state-deco empty-state-deco-right">
-                        <span className="empty-state-clock empty-state-clock-lg"></span>
-                        <span className="empty-state-star empty-state-star-md"></span>
-                        <span className="empty-state-star empty-state-star-sm"></span>
-                        <span className="empty-state-dot"></span>
-                        <span className="empty-state-dot empty-state-dot-alt"></span>
-                      </div>
-                      <div className="empty-state-bot">
-                        <div className="empty-state-bot-antenna"></div>
-                        <div className="empty-state-bot-head">
-                          <span></span>
-                          <span></span>
-                          <div className="empty-state-bot-nose"></div>
-                          <div className="empty-state-bot-mouth"></div>
-                        </div>
-                        <div className="empty-state-bot-body">
-                          <div className="empty-state-bot-panel"></div>
-                        </div>
-                        <div className="empty-state-bot-arm empty-state-bot-arm-left"></div>
-                        <div className="empty-state-bot-arm empty-state-bot-arm-right"></div>
-                        <div className="empty-state-bot-leg empty-state-bot-leg-left"></div>
-                        <div className="empty-state-bot-leg empty-state-bot-leg-right"></div>
                       </div>
                     </div>
                   </div>

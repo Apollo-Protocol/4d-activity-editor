@@ -45,7 +45,7 @@ function highlightInstallationForEntity(
     .selectAll(".installHatch")
     .filter(matching)
     .attr("opacity", enabled ? 1.0 : 1.0)
-    .attr("fill", "url(#installHatchHighlight)")
+    .attr("fill", enabled ? "url(#installHatchHighlight)" : "url(#installHatch)")
     .attr("stroke-width", enabled ? 2.5 : 2.0);
 
   svgElement
@@ -690,6 +690,11 @@ export function drawInstallationConnectors(ctx: DrawContext) {
       .attr("patternUnits", "userSpaceOnUse")
       .attr("patternTransform", "rotate(45)");
     pattern
+      .append("rect")
+      .attr("width", 8)
+      .attr("height", 8)
+      .attr("fill", "#d3d3d3");
+    pattern
       .append("line")
       .attr("x1", 0)
       .attr("y1", 0)
@@ -707,6 +712,11 @@ export function drawInstallationConnectors(ctx: DrawContext) {
       .attr("height", 8)
       .attr("patternUnits", "userSpaceOnUse")
       .attr("patternTransform", "rotate(45)");
+    pattern
+      .append("rect")
+      .attr("width", 8)
+      .attr("height", 8)
+      .attr("fill", "#d3d3d3");
     pattern
       .append("line")
       .attr("x1", 0)
@@ -802,7 +812,7 @@ export function drawInstallationConnectors(ctx: DrawContext) {
           .append("path")
           .attr("class", "installHatch")
           .attr("d", hatchPath)
-          .attr("fill", "url(#installHatchHighlight)")
+          .attr("fill", "url(#installHatch)")
           .attr("stroke", config.presentation.individual.stroke)
           .attr("stroke-width", 2.0)
           .attr("opacity", 1.0)
@@ -817,7 +827,7 @@ export function drawInstallationConnectors(ctx: DrawContext) {
           .attr("y", targetBox.y)
           .attr("width", Math.max(1, x2 - x1))
           .attr("height", targetBox.height)
-          .attr("fill", "url(#installHatchHighlight)")
+          .attr("fill", "url(#installHatch)")
           .attr("stroke", config.presentation.individual.stroke)
           .attr("stroke-width", 2.0)
           .attr("opacity", 1.0)
@@ -940,8 +950,9 @@ export function hoverIndividuals(ctx: DrawContext) {
     .selectAll(".individual")
     .on("mouseover", function (event: MouseEvent, d: any) {
       mouseOverElement = event.target as HTMLElement;
-      mouseOverElement.style.fill = config.presentation.individual.fillHover;
       const entityId = resolveEntityId(d, mouseOverElement);
+      const hoveredInd = entityId ? ctx.individuals.find((x) => x.id === entityId) : undefined;
+      mouseOverElement.style.fill = restoreFillForIndividual(hoveredInd);
       if (entityId) {
         highlightInstallationForEntity(svgElement, entityId, true, config);
         applyHoverHighlight(entityId);
@@ -976,7 +987,7 @@ export function hoverIndividuals(ctx: DrawContext) {
       const rowNode = svgElement.select("#i" + entityId).node() as HTMLElement | null;
       if (rowNode) {
         mouseOverElement = rowNode;
-        rowNode.style.fill = config.presentation.individual.fillHover;
+        rowNode.style.fill = restoreFillForIndividual(d);
       }
       highlightInstallationForEntity(svgElement, entityId, true, config);
       applyHoverHighlight(entityId);

@@ -492,14 +492,21 @@ body {
 .empty-state-hero {
   text-align: left;
   min-width: 0;
+  display: flex;
 }
 
 .empty-state-illustration {
   position: relative;
   min-height: 20rem;
+  min-width: 0;
   display: flex;
-  align-items: center;
-  justify-content: center;
+  align-items: stretch;
+  justify-content: stretch;
+}
+
+.empty-state-card {
+  width: 100%;
+  border-radius: 0.5rem;
 }
 
 .empty-state-board {
@@ -516,6 +523,13 @@ body {
     inset 0 -14px 30px rgba(0, 0, 0, 0.28),
     0 0.8rem 1.4rem rgba(0, 0, 0, 0.12);
   overflow: hidden;
+}
+
+.empty-state-board-illustration {
+  width: 100%;
+  height: 100%;
+  max-width: none;
+  min-height: 20rem;
 }
 
 .empty-state-board-top {
@@ -641,25 +655,6 @@ body {
 
 .empty-state-chalk-stick-3 {
   transform: rotate(-4deg);
-}
-
-.empty-state-board-copy {
-  position: relative;
-  z-index: 2;
-  color: #000000;
-  max-width: 34rem;
-  padding: 0.25rem 0.1rem 0 0.1rem;
-}
-
-.empty-state-board-copy h1 {
-  color: #000000;
-  margin-bottom: 0.85rem;
-}
-
-.empty-state-board-copy p {
-  color: #000000;
-  font-size: 1.1rem;
-  line-height: 1.55;
 }
 
 /* ── Decorative stars & clocks (space-time theme) ── */
@@ -836,173 +831,6 @@ body {
   right: 2.6rem;
   top: 5.8rem;
 }
-
-.empty-state-bot {
-  position: relative;
-  width: 12rem;
-  height: 15rem;
-  z-index: 1;
-}
-
-.empty-state-bot-antenna {
-  position: absolute;
-  left: 50%;
-  top: 0.35rem;
-  width: 0.18rem;
-  height: 2rem;
-  background: #302620;
-  transform: translateX(-50%);
-}
-
-.empty-state-bot-antenna::before {
-  content: "";
-  position: absolute;
-  top: -0.45rem;
-  left: 50%;
-  width: 0.75rem;
-  height: 0.75rem;
-  border: 2px solid #302620;
-  border-radius: 50%;
-  background: #ffffff;
-  transform: translateX(-50%);
-}
-
-.empty-state-bot-head {
-  position: absolute;
-  top: 2rem;
-  left: 50%;
-  width: 6.2rem;
-  height: 4.7rem;
-  border: 3px solid #302620;
-  border-radius: 0.95rem;
-  background: #ffffff;
-  transform: translateX(-50%);
-  box-shadow: 0 0.75rem 1.25rem rgba(48, 38, 32, 0.08);
-}
-
-.empty-state-bot-head span {
-  position: absolute;
-  top: 2rem;
-  width: 0.55rem;
-  height: 0.55rem;
-  background: #302620;
-  border-radius: 50%;
-}
-
-.empty-state-bot-head span:first-child {
-  left: 1.7rem;
-}
-
-.empty-state-bot-head span:nth-child(2) {
-  right: 1.7rem;
-}
-
-.empty-state-bot-head::before,
-.empty-state-bot-head::after {
-  content: "";
-  position: absolute;
-  top: 1.65rem;
-  width: 1rem;
-  height: 0.18rem;
-  background: #302620;
-}
-
-.empty-state-bot-head::before {
-  left: 1.15rem;
-  transform: rotate(-36deg);
-}
-
-.empty-state-bot-head::after {
-  right: 1.15rem;
-  transform: rotate(36deg);
-}
-
-.empty-state-bot-nose {
-  position: absolute;
-  top: 2.7rem;
-  left: 50%;
-  width: 0.55rem;
-  height: 0.55rem;
-  background: #302620;
-  border-radius: 50%;
-  transform: translateX(-50%);
-}
-
-.empty-state-bot-mouth {
-  position: absolute;
-  top: 3.5rem;
-  left: 50%;
-  width: 1.4rem;
-  height: 0.45rem;
-  border: 2px solid #302620;
-  border-bottom: none;
-  border-radius: 0.45rem 0.45rem 0 0;
-  transform: translateX(-50%);
-}
-
-.empty-state-bot-body {
-  position: absolute;
-  top: 7.05rem;
-  left: 50%;
-  width: 4.8rem;
-  height: 4.6rem;
-  border: 3px solid #302620;
-  border-radius: 0.9rem 0.9rem 1.2rem 1.2rem;
-  background: #ffffff;
-  transform: translateX(-50%);
-}
-
-.empty-state-bot-panel {
-  position: absolute;
-  inset: 0.85rem;
-  border: 2px dashed rgba(48, 38, 32, 0.45);
-  border-radius: 0.7rem;
-}
-
-.empty-state-bot-arm,
-.empty-state-bot-leg {
-  position: absolute;
-  background: #302620;
-  border-radius: 999px;
-}
-
-.empty-state-bot-arm {
-  top: 8rem;
-  width: 0.28rem;
-  height: 3.6rem;
-}
-
-.empty-state-bot-arm-left {
-  left: 2.1rem;
-  transform: rotate(28deg);
-  transform-origin: top center;
-}
-
-.empty-state-bot-arm-right {
-  right: 2.1rem;
-  transform: rotate(-28deg);
-  transform-origin: top center;
-}
-
-.empty-state-bot-leg {
-  top: 11.2rem;
-  width: 0.32rem;
-  height: 3.6rem;
-}
-
-.empty-state-bot-leg-left {
-  left: 4.9rem;
-  transform: rotate(11deg);
-  transform-origin: top center;
-}
-
-.empty-state-bot-leg-right {
-  right: 4.9rem;
-  transform: rotate(-11deg);
-  transform-origin: top center;
-}
-
-
 
 .empty-state-actions {
   display: flex;
@@ -1933,15 +1761,15 @@ body {
 
   .empty-state-hero {
     text-align: center;
-  }
-
-  .empty-state-subcopy {
-    margin-left: auto;
-    margin-right: auto;
+    display: block;
   }
 
   .empty-state-illustration {
     min-height: 14rem;
+  }
+
+  .empty-state-board-illustration {
+    max-width: none;
   }
 }
 

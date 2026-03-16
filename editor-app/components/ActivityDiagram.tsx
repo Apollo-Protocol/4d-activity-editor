@@ -271,8 +271,36 @@ const ActivityDiagram = (props: Props) => {
 
     const svg = d3.select(svgRef.current);
     const rowSelection = svg.selectAll<SVGPathElement, Individual>(".individual");
+    const tooltipSelection = d3.select("#tooltip");
 
     if (rowSelection.empty()) return;
+
+    const updateTooltipDuringDrag = (sourceEvent: any) => {
+      if (tooltipSelection.empty()) {
+        return;
+      }
+
+      if (tooltipSelection.style("display") === "none") {
+        return;
+      }
+
+      const pointerEvent = sourceEvent as MouseEvent | undefined;
+      if (!pointerEvent || pointerEvent.pageX == null || pointerEvent.pageY == null) {
+        return;
+      }
+
+      if (pointerEvent.pageX < window.innerWidth / 2) {
+        tooltipSelection
+          .style("top", pointerEvent.pageY + 20 + "px")
+          .style("left", pointerEvent.pageX + "px");
+      } else {
+        const ttNode = tooltipSelection.node() as HTMLElement | null;
+        const ttWidth = ttNode?.getBoundingClientRect().width ?? 0;
+        tooltipSelection
+          .style("top", pointerEvent.pageY + 20 + "px")
+          .style("left", pointerEvent.pageX - ttWidth + "px");
+      }
+    };
 
     // ── Helpers for system grouping ──
     const isNestedComponent = (ind: Individual | undefined): boolean => {
@@ -755,6 +783,8 @@ L ${sideX} ${lowerTop} Z`;
         const draggedSelection = getDragRowSelection(this, draggedIndividual.id);
         if (draggedSelection.empty()) return;
 
+        updateTooltipDuringDrag(event.sourceEvent);
+
         snapshotActivityBounds();
 
         // Build full snapshot of every .individual element
@@ -787,6 +817,8 @@ L ${sideX} ${lowerTop} Z`;
       .on("drag", function (event, draggedIndividual) {
         const draggedSelection = getDragRowSelection(this, draggedIndividual.id);
         if (draggedSelection.empty()) return;
+
+        updateTooltipDuringDrag(event.sourceEvent);
 
         const accumulatedDrag =
           Number(draggedSelection.attr("data-total-drag") ?? "0") +

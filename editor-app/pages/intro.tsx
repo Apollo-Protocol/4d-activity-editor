@@ -57,7 +57,7 @@ export default function Page() {
             subsequent information system development.</p>
           </Col>
           <Col className="col-md text-center align-self-center">
-            <picture><img src="process-for-identifying-decisions-with-numbers.png" className="img-fluid mb-5 mt-3" alt="The four-step activity modelling 
+            <picture><img src="process-for-identifying-decisions-with-numbers.svg" className="img-fluid mb-5 mt-3" alt="The four-step activity modelling 
             method as a flowchart."></img></picture>
           </Col>
         </Row>

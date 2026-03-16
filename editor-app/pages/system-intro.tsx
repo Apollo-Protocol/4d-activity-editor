@@ -97,7 +97,7 @@ export default function Page({ imageMap }: { imageMap: Record<string, string> })
         <div className="row">
           <div className="col mb-2 mb-lg-5">
             <h1 id="page-top" className="display-4 font-weight-normal">
-              Introduction to System and Component Modelling
+              Introduction to System and System Component Modelling
             </h1>
           </div>
         </div>

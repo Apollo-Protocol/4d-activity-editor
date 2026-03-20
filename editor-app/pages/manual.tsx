@@ -569,7 +569,16 @@ export default function Page({ imageMap }: { imageMap: Record<string, string> })
                   change.
                 </p>
                 <p>
-                  The undo history is fairly short (it keeps up to 50 steps);
+                  <strong>Right-click</strong> either the Undo or Redo
+                  button to open a history list that shows every recorded
+                  change, such as &ldquo;Renamed individual &lsquo;Egg&rsquo;
+                  to &lsquo;Egg 1&rsquo;&rdquo; or &ldquo;Added activity
+                  &lsquo;Boil&rsquo;&rdquo;.  Click any entry in the list
+                  to jump directly to that point in the history, skipping
+                  multiple steps at once.
+                </p>
+                <p>
+                  The undo history keeps up to 50 steps;
                   the button disappears when you can&apos;t undo any more changes.
                   Once a new change is made after an undo, the redo stack for the
                   previous forward path is cleared.

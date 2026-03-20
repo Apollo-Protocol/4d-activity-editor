@@ -675,6 +675,12 @@ html.app-custom-theme a:not(.btn):not(.nav-link):not(.dropdown-item):not(.doc-ju
 }
 
 /* Modal Tabs Styling */
+.nav-tabs .nav-link {
+  color: var(--bs-body-color, #495057);
+}
+.nav-tabs .nav-link:hover {
+  color: var(--bs-body-color, #495057);
+}
 .nav-tabs .nav-link.active {
   color: var(--app-accent, #0d6efd) !important;
   font-weight: 500;
@@ -2563,22 +2569,82 @@ html.app-custom-theme .breadcrumb-wrapper .breadcrumb-item a:hover {
   color: var(--bs-body-color);
 }
 
-/* Accent colour swatches */
-.color-swatch {
-  width: 1.65rem;
-  height: 1.65rem;
-  border-radius: 50%;
-  border: 2px solid transparent;
+/* Color scheme grid */
+.color-scheme-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0.5rem;
+}
+.color-scheme-btn {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.5rem 0.75rem;
+  border: 2px solid var(--bs-border-color-translucent, #dee2e6);
+  border-radius: 0.65rem;
+  background: var(--bs-tertiary-bg, #f8f9fa);
   cursor: pointer;
-  display: inline-block;
-  padding: 0;
-  transition: transform 0.12s, box-shadow 0.15s;
+  transition: border-color 0.15s, box-shadow 0.15s;
 }
-.color-swatch.is-selected {
-  box-shadow: 0 0 0 2px var(--bs-body-bg), 0 0 0 4px currentColor;
+.color-scheme-btn:hover {
+  border-color: var(--bs-secondary-color, #adb5bd);
 }
-.color-swatch:hover {
-  transform: scale(1.15);
+.color-scheme-btn.is-selected {
+  border-color: var(--bs-body-color, #212529);
+  box-shadow: 0 0 0 1px var(--bs-body-color, #212529);
+}
+.color-scheme-circle {
+  width: 1.75rem;
+  height: 1.75rem;
+  min-width: 1.75rem;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+.color-scheme-check {
+  width: 0.9rem;
+  height: 0.9rem;
+}
+.color-scheme-label {
+  font-size: 0.88rem;
+  font-weight: 500;
+  color: var(--bs-body-color);
+  white-space: nowrap;
+}
+/* Custom colour picker row — styled like the grid buttons */
+.color-scheme-custom-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-top: 0.75rem;
+}
+.color-scheme-custom-btn {
+  flex: 0 1 auto;
+  max-width: 220px;
+}
+.color-scheme-native-picker {
+  position: absolute;
+  inset: 0;
+  width: 100% !important;
+  height: 100% !important;
+  opacity: 0;
+  cursor: pointer;
+  border: none !important;
+  padding: 0 !important;
+}
+.color-scheme-custom-btn {
+  cursor: pointer;
+}
+.color-scheme-custom-btn:hover {
+  border-color: var(--bs-secondary-color, #adb5bd);
+}
+.color-scheme-hex-input-standalone {
+  max-width: 100px !important;
+  font-size: 0.88rem !important;
+  padding: 0.25rem 0.5rem !important;
+  border-radius: 0.5rem !important;
 }
 
 @media (max-width: 575.98px) {

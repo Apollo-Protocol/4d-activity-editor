@@ -9,7 +9,7 @@ import Container from "react-bootstrap/Container";
 import DiagramPersistence from "@/components/DiagramPersistence";
 import SortIndividuals from "./SortIndividuals";
 import SetParticipation from "./SetParticipation";
-import Undo from "./Undo";
+import Undo, { HistoryEntry } from "./Undo";
 import { Model } from "@/lib/Model";
 import { Activity, Id, Individual, Maybe, Participation } from "@/lib/Schema";
 import { ENTITY_TYPE_IDS, getEntityTypeIdFromIndividual } from "@/lib/entityTypes";
@@ -87,6 +87,112 @@ const beforeUnloadHandler = (ev: BeforeUnloadEvent) => {
   return;
 };
 
+function generateDescription(oldModel: Model, newModel: Model): string {
+  const oldIndIds = Array.from(oldModel.individuals.keys());
+  const newIndIds = Array.from(newModel.individuals.keys());
+  const oldIndSet = new Set(oldIndIds);
+  const newIndSet = new Set(newIndIds);
+
+  for (let i = 0; i < newIndIds.length; i++) {
+    const id = newIndIds[i];
+    if (!oldIndSet.has(id)) {
+      const ind = newModel.individuals.get(id);
+      return `Added individual "${ind?.name || id}"`;
+    }
+  }
+  for (let i = 0; i < oldIndIds.length; i++) {
+    const id = oldIndIds[i];
+    if (!newIndSet.has(id)) {
+      const ind = oldModel.individuals.get(id);
+      return `Removed individual "${ind?.name || id}"`;
+    }
+  }
+
+  const oldActIds = Array.from(oldModel.activities.keys());
+  const newActIds = Array.from(newModel.activities.keys());
+  const oldActSet = new Set(oldActIds);
+  const newActSet = new Set(newActIds);
+
+  for (let i = 0; i < newActIds.length; i++) {
+    const id = newActIds[i];
+    if (!oldActSet.has(id)) {
+      const act = newModel.activities.get(id);
+      return `Added activity "${act?.name || id}"`;
+    }
+  }
+  for (let i = 0; i < oldActIds.length; i++) {
+    const id = oldActIds[i];
+    if (!newActSet.has(id)) {
+      const act = oldModel.activities.get(id);
+      return `Removed activity "${act?.name || id}"`;
+    }
+  }
+
+  for (let i = 0; i < newIndIds.length; i++) {
+    const id = newIndIds[i];
+    if (oldIndSet.has(id)) {
+      const oldInd = oldModel.individuals.get(id);
+      const newInd = newModel.individuals.get(id);
+      if (oldInd && newInd && oldInd.name !== newInd.name) {
+        return `Renamed individual "${oldInd.name}" to "${newInd.name}"`;
+      }
+    }
+  }
+
+  for (let i = 0; i < newActIds.length; i++) {
+    const id = newActIds[i];
+    if (oldActSet.has(id)) {
+      const oldAct = oldModel.activities.get(id);
+      const newAct = newModel.activities.get(id);
+      if (oldAct && newAct && oldAct.name !== newAct.name) {
+        return `Renamed activity "${oldAct.name}" to "${newAct.name}"`;
+      }
+    }
+  }
+
+  for (let i = 0; i < newActIds.length; i++) {
+    const id = newActIds[i];
+    if (oldActSet.has(id)) {
+      const oldAct = oldModel.activities.get(id);
+      const newAct = newModel.activities.get(id);
+      if (oldAct && newAct) {
+        const oldParts = oldAct.participations.size;
+        const newParts = newAct.participations.size;
+        if (newParts > oldParts) return `Added participation to "${newAct.name}"`;
+        if (newParts < oldParts) return `Removed participation from "${newAct.name}"`;
+      }
+    }
+  }
+
+  for (let i = 0; i < newIndIds.length; i++) {
+    const id = newIndIds[i];
+    if (oldIndSet.has(id)) {
+      const oldInd = oldModel.individuals.get(id);
+      const newInd = newModel.individuals.get(id);
+      if (oldInd && newInd) {
+        if (oldInd.beginning !== newInd.beginning || oldInd.ending !== newInd.ending) {
+          return `Changed timing of "${newInd.name}"`;
+        }
+      }
+    }
+  }
+
+  for (let i = 0; i < newActIds.length; i++) {
+    const id = newActIds[i];
+    if (oldActSet.has(id)) {
+      const oldAct = oldModel.activities.get(id);
+      const newAct = newModel.activities.get(id);
+      if (oldAct && newAct) {
+        if (oldAct.beginning !== newAct.beginning || oldAct.ending !== newAct.ending) {
+          return `Changed timing of activity "${newAct.name}"`;
+        }
+      }
+    }
+  }
+
+  return "Edit diagram";
+}
+
 /* XXX Most of this component needs refactoring into a Controller class,
  * leaving the react component as just the View. */
 export default function ActivityDiagramWrap() {
@@ -96,8 +202,8 @@ export default function ActivityDiagramWrap() {
   const [dataset, setDataset] = useState(model);
   const [dirty, setDirty] = useState(false);
   const [activityContext, setActivityContext] = useState<Maybe<Id>>(undefined);
-  const [undoHistory, setUndoHistory] = useState<Model[]>([]);
-  const [redoHistory, setRedoHistory] = useState<Model[]>([]);
+  const [undoHistory, setUndoHistory] = useState<HistoryEntry<Model>[]>([]);
+  const [redoHistory, setRedoHistory] = useState<HistoryEntry<Model>[]>([]);
   const [showIndividual, setShowIndividual] = useState(false);
   const [selectedIndividual, setSelectedIndividual] = useState<
     Individual | undefined
@@ -181,13 +287,14 @@ export default function ActivityDiagramWrap() {
 
   const updateDataset = useCallback((updater: Dispatch<Model>) => {
     setDataset((prevDataset) => {
-      setUndoHistory((prevHistory) => {
-        if (prevHistory.length > 0 && prevHistory[0] === prevDataset) return prevHistory;
-        return [prevDataset, ...prevHistory.slice(0, 49)];
-      });
-      setRedoHistory([]);
       const d = prevDataset.clone();
       updater(d);
+      const description = generateDescription(prevDataset, d);
+      setUndoHistory((prevHistory) => {
+        if (prevHistory.length > 0 && prevHistory[0].model === prevDataset) return prevHistory;
+        return [{ model: prevDataset, description }, ...prevHistory.slice(0, 49)];
+      });
+      setRedoHistory([]);
       setDirty(true);
       return d;
     });
@@ -201,18 +308,45 @@ export default function ActivityDiagramWrap() {
   };
   const undo = () => {
     if (undoHistory.length === 0) return;
-    const [previousDataset, ...remainingHistory] = undoHistory;
-    setRedoHistory((prevHistory) => [dataset, ...prevHistory.slice(0, 49)]);
-    setDataset(previousDataset);
+    const [entry, ...remainingHistory] = undoHistory;
+    setRedoHistory((prevHistory) => [{ model: dataset, description: entry.description }, ...prevHistory.slice(0, 49)]);
+    setDataset(entry.model);
     setUndoHistory(remainingHistory);
     setDirty(true);
   };
   const redo = () => {
     if (redoHistory.length === 0) return;
-    const [nextDataset, ...remainingHistory] = redoHistory;
-    setUndoHistory((prevHistory) => [dataset, ...prevHistory.slice(0, 49)]);
-    setDataset(nextDataset);
+    const [entry, ...remainingHistory] = redoHistory;
+    setUndoHistory((prevHistory) => [{ model: dataset, description: entry.description }, ...prevHistory.slice(0, 49)]);
+    setDataset(entry.model);
     setRedoHistory(remainingHistory);
+    setDirty(true);
+  };
+  const undoTo = (index: number) => {
+    if (index < 0 || index >= undoHistory.length) return;
+    const newRedoEntries: HistoryEntry<Model>[] = [];
+    let currentModel = dataset;
+    for (let j = 0; j <= index; j++) {
+      newRedoEntries.unshift({ model: currentModel, description: undoHistory[j].description });
+      currentModel = undoHistory[j].model;
+    }
+    setRedoHistory((prev) => [...newRedoEntries, ...prev].slice(0, 50));
+    setDataset(currentModel);
+    setUndoHistory((prev) => prev.slice(index + 1));
+    setDirty(true);
+  };
+  const redoTo = (index: number) => {
+    if (index < 0 || index >= redoHistory.length) return;
+    const newUndoEntries: HistoryEntry<Model>[] = [];
+    let currentModel = dataset;
+    for (let j = 0; j <= index; j++) {
+      newUndoEntries.push({ model: currentModel, description: redoHistory[j].description });
+      currentModel = redoHistory[j].model;
+    }
+    newUndoEntries.reverse();
+    setUndoHistory((prev) => [...newUndoEntries, ...prev].slice(0, 50));
+    setDataset(currentModel);
+    setRedoHistory((prev) => prev.slice(index + 1));
     setDirty(true);
   };
   const clearDiagram = () => {
@@ -641,6 +775,10 @@ export default function ActivityDiagramWrap() {
                 undo={undo}
                 redo={redo}
                 clearDiagram={clearDiagram}
+                undoHistory={undoHistory}
+                redoHistory={redoHistory}
+                undoTo={undoTo}
+                redoTo={redoTo}
               />
               <SetConfig
                 configData={configData}

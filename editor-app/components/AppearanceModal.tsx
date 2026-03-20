@@ -13,16 +13,18 @@ const DEFAULT_NAV_LINK_COLOR = "#6c757d";
 const DEFAULT_JUMP_LINK_COLOR = "#0d6efd";
 
 const THEME_COLORS = [
-  { name: "Blue", value: "#0d6efd" },
-  { name: "Indigo", value: "#6610f2" },
-  { name: "Purple", value: "#6f42c1" },
-  { name: "Pink", value: "#d63384" },
-  { name: "Red", value: "#dc3545" },
-  { name: "Orange", value: "#fd7e14" },
-  { name: "Yellow", value: "#ffc107" },
-  { name: "Green", value: "#198754" },
-  { name: "Teal", value: "#20c997" },
-  { name: "Slate", value: "#6c757d" },
+  { name: "Zinc", value: "#18181b" },
+  { name: "Stone", value: "#78716c" },
+  { name: "Neutral", value: "#a3a3a3" },
+  { name: "Red", value: "#dc2626" },
+  { name: "Rose", value: "#e11d48" },
+  { name: "Orange", value: "#ea580c" },
+  { name: "Green", value: "#16a34a" },
+  { name: "Teal", value: "#0d9488" },
+  { name: "Blue", value: "#2563eb" },
+  { name: "Indigo", value: "#4f46e5" },
+  { name: "Yellow", value: "#eab308" },
+  { name: "Violet", value: "#7c3aed" },
 ];
 
 const THEME_OPTIONS = [
@@ -39,6 +41,22 @@ function hexToRgb(hex: string) {
   const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
   if (!result) return null;
   return `${parseInt(result[1], 16)}, ${parseInt(result[2], 16)}, ${parseInt(result[3], 16)}`;
+}
+
+/** Returns true when a hex colour is grey-ish (low saturation). */
+function isGreyish(hex: string): boolean {
+  const m = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
+  if (!m) return false;
+  const r = parseInt(m[1], 16), g = parseInt(m[2], 16), b = parseInt(m[3], 16);
+  const max = Math.max(r, g, b), min = Math.min(r, g, b);
+  const l = (max + min) / 2 / 255;
+  const sat = max === min ? 0 : (max - min) / (l > 0.5 ? 510 - max - min : max + min);
+  return sat < 0.15;
+}
+
+/** Pick a visible selection ring colour: if the accent is grey use a blue indicator. */
+function selectionBorderColor(accent: string): string {
+  return isGreyish(accent) ? "#2563eb" : accent;
 }
 
 function applyAccent(color: string) {
@@ -218,33 +236,56 @@ export default function AppearanceModal({ show, setShow }: Props) {
           <p className="text-secondary mb-2" style={{ fontSize: "0.88rem" }}>
             Choose a preset or pick a custom colour.
           </p>
-          <div className="d-flex align-items-center flex-wrap gap-2 mb-3">
-            {THEME_COLORS.map((c) => (
-              <button
-                type="button"
-                key={c.value}
-                className={`color-swatch${!isDefaultProfileMode && draftColor === c.value ? " is-selected" : ""}`}
-                style={{ background: c.value }}
-                title={c.name}
-                aria-label={`Select ${c.name}`}
-                onClick={() => {
-                  setDraftColor(c.value);
-                  setIsDefaultProfileMode(false);
-                }}
-              />
-            ))}
+          <div className="color-scheme-grid">
+            {THEME_COLORS.map((c) => {
+              const selected = !isDefaultProfileMode && draftColor === c.value;
+              const ringColor = selectionBorderColor(c.value);
+              return (
+                <button
+                  type="button"
+                  key={c.value}
+                  className={`color-scheme-btn${selected ? " is-selected" : ""}`}
+                  style={selected ? { borderColor: ringColor, boxShadow: `0 0 0 1px ${ringColor}` } : undefined}
+                  aria-label={`Select ${c.name}`}
+                  onClick={() => {
+                    setDraftColor(c.value);
+                    setIsDefaultProfileMode(false);
+                  }}
+                >
+                  <span
+                    className="color-scheme-circle"
+                    style={{ background: c.value }}
+                  >
+                    {selected && (
+                      <svg viewBox="0 0 16 16" className="color-scheme-check" fill="white" aria-hidden>
+                        <path d="M13.485 3.929a1 1 0 0 1 .057 1.414l-6 6.5a1 1 0 0 1-1.452.012l-3-3a1 1 0 1 1 1.414-1.414L6.95 9.88l5.293-5.893a1 1 0 0 1 1.414-.057z" />
+                      </svg>
+                    )}
+                  </span>
+                  <span className="color-scheme-label">{c.name}</span>
+                </button>
+              );
+            })}
           </div>
-          <div className="d-flex align-items-center gap-2">
-            <Form.Control
-              type="color"
-              value={draftColor}
-              onChange={(e) => {
-                setDraftColor(e.target.value);
-                setIsDefaultProfileMode(false);
-              }}
-              style={{ width: "50px", height: "38px", padding: "2px" }}
-              title="Pick a custom colour"
-            />
+          <div className="color-scheme-custom-row">
+            <label className="color-scheme-btn color-scheme-custom-btn">
+              <span className="color-scheme-circle" style={{ background: draftColor, position: "relative" }}>
+                <svg viewBox="0 0 16 16" fill="white" className="color-scheme-check" style={{ opacity: 0.85 }} aria-hidden>
+                  <path d="M12.433 2.626a1 1 0 0 1 .262 1.39l-.009.013-2.1 3.039a4.776 4.776 0 0 1 .46 2.057c0 2.672-2.19 4.875-4.875 4.875S1.296 11.797 1.296 9.125s2.19-4.875 4.875-4.875c.608 0 1.19.112 1.725.316l3.147-2.198a1 1 0 0 1 1.39.258zM6.17 6.25a2.875 2.875 0 1 0 0 5.75 2.875 2.875 0 0 0 0-5.75z" />
+                </svg>
+                <Form.Control
+                  type="color"
+                  value={draftColor}
+                  onChange={(e) => {
+                    setDraftColor(e.target.value);
+                    setIsDefaultProfileMode(false);
+                  }}
+                  className="color-scheme-native-picker"
+                  title="Pick a custom colour"
+                />
+              </span>
+              <span className="color-scheme-label">Custom</span>
+            </label>
             <Form.Control
               type="text"
               value={draftColor}
@@ -254,7 +295,7 @@ export default function AppearanceModal({ show, setShow }: Props) {
                 setIsDefaultProfileMode(false);
               }}
               placeholder="#000000"
-              style={{ maxWidth: "120px" }}
+              className="color-scheme-hex-input-standalone"
             />
             {!isPreset && draftColor !== "#0d6efd" && (
               <Button

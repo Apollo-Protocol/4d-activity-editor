@@ -1,0 +1,25 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="960" height="720" viewBox="0 0 960 720" fill="none">
+  <rect width="960" height="720" rx="24" fill="#F8F9FA"/>
+  <rect x="48" y="48" width="864" height="624" rx="20" fill="#FFFFFF" stroke="#D0D7DE" stroke-width="4" stroke-dasharray="14 10"/>
+  <rect x="96" y="96" width="768" height="72" rx="16" fill="#EEF2F6"/>
+  <circle cx="140" cy="132" r="18" fill="#6C757D"/>
+  <rect x="176" y="116" width="244" height="32" rx="10" fill="#C7D0D9"/>
+  <rect x="96" y="216" width="352" height="176" rx="18" fill="#F8F9FA" stroke="#DCE3EA" stroke-width="3"/>
+  <rect x="120" y="244" width="160" height="20" rx="10" fill="#ADB5BD"/>
+  <rect x="120" y="286" width="280" height="76" rx="16" fill="#E9ECEF"/>
+  <circle cx="144" cy="464" r="22" fill="#0D6EFD"/>
+  <circle cx="212" cy="464" r="22" fill="#6610F2"/>
+  <circle cx="280" cy="464" r="22" fill="#198754"/>
+  <circle cx="348" cy="464" r="22" fill="#FD7E14"/>
+  <rect x="96" y="520" width="312" height="88" rx="18" fill="#F8F9FA" stroke="#DCE3EA" stroke-width="3"/>
+  <rect x="120" y="548" width="184" height="20" rx="10" fill="#ADB5BD"/>
+  <rect x="120" y="580" width="248" height="12" rx="6" fill="#D0D7DE"/>
+  <rect x="496" y="216" width="304" height="56" rx="16" fill="#6C757D"/>
+  <rect x="496" y="296" width="304" height="56" rx="16" fill="#FFFFFF" stroke="#6C757D" stroke-width="4"/>
+  <rect x="496" y="376" width="304" height="56" rx="16" fill="#FFFFFF" stroke="#6C757D" stroke-width="4"/>
+  <rect x="496" y="472" width="304" height="136" rx="18" fill="#F8F9FA" stroke="#DCE3EA" stroke-width="3"/>
+  <path d="M528 540H768" stroke="#D0D7DE" stroke-width="18" stroke-linecap="round"/>
+  <path d="M528 540H658" stroke="#0D6EFD" stroke-width="18" stroke-linecap="round"/>
+  <rect x="96" y="626" width="768" height="16" rx="8" fill="#E9ECEF"/>
+  <text x="480" y="650" fill="#6C757D" font-family="Arial, sans-serif" font-size="28" text-anchor="middle">Appearance screenshot placeholder</text>
+</svg>

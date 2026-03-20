@@ -466,11 +466,11 @@ export default function ActivityDiagramWrap() {
           </div>
           <div className="editor-diagram">
             {isDiagramEmpty ? (
-              <div className="w-100 h-100 bg-white overflow-auto">
+              <div className="editor-empty-shell w-100 h-100 overflow-auto">
                 <div className="container py-3 py-md-4">
                   <div className="empty-state-stage">
                     <div className="empty-state-hero">
-                      <div className="bg-light mr-md-3 pt-3 px-3 pt-md-5 px-md-5 text-center overflow-hidden h-100 empty-state-card">
+                      <div className="empty-state-card empty-state-surface mr-md-3 pt-3 px-3 pt-md-5 px-md-5 text-center overflow-hidden h-100">
                         <div className="my-3 p-3">
                           <h2 className="display-4">Activity Diagram Editor</h2>
                           <p className="lead">
@@ -500,7 +500,7 @@ export default function ActivityDiagramWrap() {
 
                   <div className="row pt-3 pt-md-4">
                     <div className="col-md">
-                      <div className="bg-light mr-md-3 pt-3 px-3 pt-md-5 px-md-5 text-center overflow-hidden h-100">
+                      <div className="empty-state-card empty-state-surface mr-md-3 pt-3 px-3 pt-md-5 px-md-5 text-center overflow-hidden h-100">
                         <div className="my-3 p-3">
                           <h2 className="display-5">Learn</h2>
                           <p className="lead">
@@ -511,11 +511,11 @@ export default function ActivityDiagramWrap() {
                             Open Editor Guide
                           </Link>
                         </div>
-                        <div className="bg-white box-shadow mx-auto"></div>
+                        <div className="empty-state-card-accent box-shadow mx-auto"></div>
                       </div>
                     </div>
                     <div className="col-md">
-                      <div className="bg-light mr-md-3 pt-3 px-3 pt-md-5 px-md-5 text-center overflow-hidden h-100">
+                      <div className="empty-state-card empty-state-surface mr-md-3 pt-3 px-3 pt-md-5 px-md-5 text-center overflow-hidden h-100">
                         <div className="my-3 p-3">
                           <h2 className="display-5">Start Modelling</h2>
                           <p className="lead">
@@ -546,7 +546,7 @@ export default function ActivityDiagramWrap() {
                             />
                           </div>
                         </div>
-                        <div className="bg-white box-shadow mx-auto"></div>
+                        <div className="empty-state-card-accent box-shadow mx-auto"></div>
                       </div>
                     </div>
                   </div>

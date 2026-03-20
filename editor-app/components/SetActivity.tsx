@@ -716,7 +716,7 @@ const SetActivity = (props: Props) => {
 
                 {typeOpen && (
                   <div
-                    className="card mt-1"
+                    className="card mt-1 themed-selector-menu"
                     style={{ maxHeight: 300, overflow: "hidden" }}
                   >
                     <div className="card-body p-2 border-bottom">
@@ -772,7 +772,7 @@ const SetActivity = (props: Props) => {
                             itemRefs.current[idx] = el;
                           }}
                           tabIndex={-1}
-                          className={`d-flex align-items-center justify-content-between px-3 py-2 ${
+                          className={`themed-selector-item d-flex align-items-center justify-content-between px-3 py-2 ${
                             highlightedIndex === idx
                               ? "bg-primary text-white"
                               : ""
@@ -854,7 +854,7 @@ const SetActivity = (props: Props) => {
 
                       {showCreateTypeOption && (
                         <div
-                          className="px-3 py-2 text-primary fw-medium border-top"
+                          className="themed-selector-create px-3 py-2 text-primary fw-medium border-top"
                           style={{ cursor: "pointer" }}
                           onClick={handleCreateTypeFromSearch}
                         >
@@ -863,7 +863,7 @@ const SetActivity = (props: Props) => {
                       )}
 
                       {filteredTypes.length === 0 && !showCreateTypeOption && (
-                        <div className="p-3 text-muted small">
+                        <div className="themed-selector-empty p-3 small">
                           No results found
                         </div>
                       )}

@@ -69,6 +69,7 @@ const manualSections: JumpLinkItem[] = [
     id: "interface-reference",
     label: "Interface Reference",
     children: [
+      { id: "appearance-settings", label: "Appearance" },
       {
         id: "lefthand-toolbar",
         label: "Lefthand Toolbar",
@@ -100,8 +101,8 @@ const manualSections: JumpLinkItem[] = [
           { id: "hide-entities", label: "Hide Entities" },
           { id: "sort-drag", label: "Sorting by Dragging" },
           {
-            id: "settings",
-            label: "Settings",
+            id: "diagram-settings",
+            label: "Diagram Settings",
             children: [
               { id: "settings-presentation", label: "Presentation Styles" },
               { id: "settings-layout", label: "Layout & Configuration" },
@@ -376,8 +377,38 @@ export default function Page({ imageMap }: { imageMap: Record<string, string> })
                 <h2 id="interface-reference" className="border-bottom pb-2 mb-3 doc-section-heading">Interface Reference</h2>
               </Col>
             </Row>
-            {/* Entity Legend */}
+
+            {/* Appearance */}
             <Row className="justify-content-center row-cols-1 row-cols-lg-2 mt-3">
+              <Col>
+                <h3 id="appearance-settings" className="doc-section-heading">Appearance</h3>
+                <p>
+                  Use <strong>Editor → Appearance</strong> to control the look of the application
+                  itself. This is separate from diagram configuration and affects the interface
+                  theme, link colour, highlights, and button styling across the editor.
+                </p>
+                <p>
+                  You can choose a preset accent colour or use the colour picker for a custom one.
+                  When a custom theme colour is saved, links and buttons adopt that colour. When you
+                  use <strong>Reset Defaults</strong>, the interface returns to the neutral default look.
+                </p>
+                <p>
+                  Appearance preferences are stored in local storage, so your chosen theme is restored
+                  the next time you open the editor.
+                </p>
+              </Col>
+              <Col className="col-md text-center align-self-center">
+                <ImageComponent
+                  src="/manual/appearance_settings_placeholder.png"
+                  alt="appearance settings"
+                  maxWidth="380px"
+                  imageMap={imageMap}
+                />
+              </Col>
+            </Row>
+
+            {/* Entity Legend */}
+            <Row className="justify-content-center row-cols-1 row-cols-lg-2 mt-5">
               <Col>
                 <h3 id="entity-legend" className="doc-section-heading">Entity Legend</h3>
                 <p>
@@ -602,22 +633,19 @@ export default function Page({ imageMap }: { imageMap: Record<string, string> })
               </Col>
             </Row>
 
-            {/* Settings */}
+            {/* Diagram Settings */}
             <Row className="justify-content-center row-cols-1 row-cols-lg-2 mt-5">
               <Col>
-                <h3 id="settings" className="doc-section-heading">Changing The Display (Settings)</h3>
+                <h3 id="diagram-settings" className="doc-section-heading">Diagram Settings</h3>
                 <p>
-                  The <strong>Settings</strong> button lets you change how the diagram is displayed. 
-                  The options are mostly fairly self-explanatory, affecting global configuration options that dictate the visual layout.
-                  Changes are applied when you press <strong>Save</strong>.
-                  The dialog is split into two tabs:
-                  <a href="#settings-presentation"> Presentation Styles</a> and
-                  <a href="#settings-layout"> Layout &amp; Configuration</a>.
+                  The <strong>Settings</strong> button controls how the diagram itself is displayed.
+                  These options affect layout, dimensions, labels, colours, and other presentation
+                  choices used when the diagram is drawn.
                 </p>
                 <p>
-                  At the bottom of the dialog you will also find a <strong>Reset Defaults</strong> button, along with 
-                  <strong> Save Settings</strong> to save your settings to a local file, and 
-                  <strong> Load Settings</strong> to load a settings file in again.
+                  Changes are applied when you press <strong>Save</strong>. At the bottom of the
+                  dialog you can also <strong>Reset Defaults</strong>, <strong>Save Settings</strong>
+                  to a local file, or <strong>Load Settings</strong> from a file you saved earlier.
                 </p>
               </Col>
               <Col className="col-md text-center align-self-center">

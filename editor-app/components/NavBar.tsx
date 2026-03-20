@@ -6,6 +6,7 @@ import Nav from "react-bootstrap/Nav";
 import Navbar from "react-bootstrap/Navbar";
 import NavDropdown from "react-bootstrap/NavDropdown";
 
+
 interface NavItemProps {
   href: string;
   /* This disallows creating nav items containing anything but plain
@@ -32,7 +33,11 @@ function NavItem(props: NavItemProps) {
   );
 }
 
-function CollapsibleExample() {
+interface NavBarProps {
+  openAppearanceModal: () => void;
+}
+
+function CollapsibleExample({ openAppearanceModal }: NavBarProps) {
   const router = useRouter();
   const isEditorDropdownActive = [
     "/manual",
@@ -53,10 +58,9 @@ function CollapsibleExample() {
     <Navbar
       collapseOnSelect
       expand="lg"
-      variant="light"
+      className="app-navbar bg-body"
       fixed="top"
       style={{
-        backgroundColor: "#fff",
         backdropFilter: "none",
         boxShadow: "0 2px 8px rgba(0, 0, 0, 0.08)",
         zIndex: 1030,
@@ -64,8 +68,8 @@ function CollapsibleExample() {
     >
       <Container fluid className="px-4">
         <Link className="navbar-brand d-flex align-items-center" href="/">
-          <picture>
-            <img src="Logo_Apollo.png" height="50" alt="Apollo Protocol" />
+          <picture className="brand-image-surface">
+            <img src="Logo_Apollo.png" height="50" alt="Apollo Protocol" className="brand-image" />
           </picture>
         </Link>
         <Navbar.Toggle aria-controls="responsive-navbar-nav" />
@@ -95,6 +99,16 @@ function CollapsibleExample() {
                 className={router.pathname === "/terminology" ? "active" : ""}
               >
                 Terminology
+              </NavDropdown.Item>
+              <NavDropdown.Divider />
+              <NavDropdown.Item
+                as="button"
+                onClick={(event) => {
+                  event.preventDefault();
+                  openAppearanceModal();
+                }}
+              >
+                Appearance
               </NavDropdown.Item>
             </NavDropdown>
             <NavDropdown

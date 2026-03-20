@@ -144,11 +144,11 @@ export function createTooltip() {
     .attr("id", "tooltip")
     .style("position", "absolute")
     .style("display", "none")
-    .style("background", "white")
-    .style("color", "black")
+    .style("background", "var(--bs-body-bg)")
+    .style("color", "var(--bs-body-color)")
     .style("padding", "5px")
     .style("border-radius", "10px")
-    .style("border", "1px solid black");
+    .style("border", "1px solid var(--bs-border-color-translucent)");
 
   return tooltip;
 }

@@ -30,7 +30,7 @@ export default function Home() {
     <div className="container">
   <div className="row pt-5">
     <div className="col-md">
-    <div className="bg-light mr-md-3 pt-3 px-3 pt-md-5 px-md-5 text-center overflow-hidden h-100">
+    <div className="empty-state-card empty-state-surface mr-md-3 pt-3 px-3 pt-md-5 px-md-5 text-center overflow-hidden h-100">
         <div className="my-3 p-3">
           <h2 className="display-5">Why</h2>
           <p className="lead">Knowing what information is needed to support any
@@ -38,11 +38,11 @@ export default function Home() {
             It is crucial that relevant information requirements can be discovered by following a standardised and thorough approach.</p>
             <Link className="btn btn-outline-secondary" href="intro">Learn more</Link>
         </div>
-        <div className="bg-white box-shadow mx-auto"></div>
+        <div className="empty-state-card-accent box-shadow mx-auto"></div>
       </div>
       </div>
     <div className="col-md">
-    <div className="bg-light mr-md-3 pt-3 px-3 pt-md-5 px-md-5 text-center overflow-hidden h-100">
+    <div className="empty-state-card empty-state-surface mr-md-3 pt-3 px-3 pt-md-5 px-md-5 text-center overflow-hidden h-100">
         <div className="my-3 p-3">
           <h2 className="display-5">How</h2>
           <p className="lead">By creating 4D activity diagrams, you are provided with the means to document the information
@@ -51,7 +51,7 @@ export default function Home() {
           information quality management, performance measurement and planning.  </p>
           <Link className="btn btn-outline-secondary" href="crane">See an example</Link>
         </div>
-        <div className="bg-white box-shadow mx-auto"></div>
+        <div className="empty-state-card-accent box-shadow mx-auto"></div>
       </div>
       </div>
     <div className="w-100"></div>
@@ -68,10 +68,10 @@ export default function Home() {
 </div>
 
     <div className="col-md text-center align-self-center my-4 my-md-0 d-flex justify-content-center">
-      <picture style={{ width: "100%", display: "flex", justifyContent: "center" }}>
+      <picture className="content-image-surface" style={{ width: "100%", display: "flex", justifyContent: "center" }}>
         <img 
           src="dynamic_systems.svg" 
-          className="img-fluid border rounded shadow-sm w-100" 
+          className="img-fluid border rounded shadow-sm w-100 themed-content-image" 
           alt="System component validaton showing camera installations passing checks"
           style={{ maxWidth: "90%" }}
         />
@@ -110,8 +110,8 @@ export default function Home() {
         </div>
     </div>
     <div className="col text-center align-self-center">
-      <picture>
-        <img src="CraneLift-20230329b.png" className="img-fluid" alt="
+      <picture className="content-image-surface">
+        <img src="CraneLift-20230329b.png" className="img-fluid themed-content-image" alt="
                 A space-time diagram has two axes, Time horizontally and
                 Space vertically. Resources are displayed as horizontal
                 bars spaced along the Space axis. Activities are displayed

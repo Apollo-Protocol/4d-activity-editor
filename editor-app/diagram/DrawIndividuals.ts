@@ -1075,6 +1075,17 @@ export function labelIndividuals(ctx: DrawContext) {
     else componentsBySystem.set(host.id, [individual]);
   });
 
+  const getLabelFill = (individual: Individual) => {
+    const typeId = getEntityTypeIdFromIndividual(individual);
+    if (
+      typeId === ENTITY_TYPE_IDS.SYSTEM ||
+      typeId === ENTITY_TYPE_IDS.SYSTEM_COMPONENT
+    ) {
+      return "#000000";
+    }
+    return config.labels.individual.color;
+  };
+
   let labels: Label[] = [];
 
   svgElement
@@ -1144,6 +1155,7 @@ export function labelIndividuals(ctx: DrawContext) {
     .attr("text-anchor", "start")
     .attr("font-family", "Roboto, Arial, sans-serif")
     .attr("font-size", config.labels.individual.fontSize)
+    .attr("fill", (d: Individual) => getLabelFill(d))
     .text((d: Individual) => {
       let label = `${getEntityTypeGlyph(
         d.type,

@@ -6,7 +6,10 @@ import DraggableModalDialog from "@/components/DraggableModalDialog";
 
 export interface HistoryEntry<T> {
   model: T;
+  category: string;
   description: string;
+  undoLabel: string;
+  redoLabel: string;
 }
 
 type Props<T> = {
@@ -20,6 +23,53 @@ type Props<T> = {
   undoTo: (index: number) => void;
   redoTo: (index: number) => void;
 };
+
+function getStepText(index: number, mode: "undo" | "redo") {
+  if (mode === "undo") {
+    return index === 0 ? "Most recent change" : `${index + 1} steps back`;
+  }
+  return index === 0 ? "Next change" : `${index + 1} steps forward`;
+}
+
+function renderHistoryList<T>(
+  entries: HistoryEntry<T>[],
+  mode: "undo" | "redo",
+  onSelect: (index: number) => void,
+  emptyText: string
+) {
+  if (entries.length === 0) {
+    return <p className="text-muted mb-0">{emptyText}</p>;
+  }
+
+  return (
+    <ListGroup variant="flush" className="history-list-group">
+      {entries.map((entry, i) => (
+        <ListGroup.Item
+          key={i}
+          action
+          onClick={() => onSelect(i)}
+          className="history-list-item"
+        >
+          <span className="history-index-badge">{i + 1}</span>
+          <div className="history-entry-copy">
+            <div className="history-entry-meta-row">
+              <span className="history-entry-mode">{mode === "undo" ? "Undo" : "Redo"}</span>
+              <span className="history-entry-category">{entry.category}</span>
+            </div>
+            <div className="history-entry-title">
+              {mode === "undo" ? entry.undoLabel : entry.redoLabel}
+            </div>
+            <small className="history-entry-description">{entry.description}</small>
+            <small className="history-entry-step">{getStepText(i, mode)}</small>
+          </div>
+          <span className="history-entry-arrow" aria-hidden>
+            {mode === "undo" ? "↩" : "↪"}
+          </span>
+        </ListGroup.Item>
+      ))}
+    </ListGroup>
+  );
+}
 
 function Undo<T>({
   hasUndo,
@@ -90,39 +140,17 @@ function Undo<T>({
           <Modal.Title>Undo History</Modal.Title>
         </Modal.Header>
         <Modal.Body style={{ maxHeight: "60vh", overflowY: "auto" }}>
-          <p className="text-muted mb-3" style={{ fontSize: "0.85rem" }}>
-            Click an entry to undo back to that point. Most recent change is at the top.
-          </p>
-          {undoHistory.length === 0 ? (
-            <p className="text-muted mb-0">No undo history.</p>
-          ) : (
-            <ListGroup variant="flush">
-              {undoHistory.map((entry, i) => (
-                <ListGroup.Item
-                  key={i}
-                  action
-                  onClick={() => {
-                    undoTo(i);
-                    setShowUndoModal(false);
-                  }}
-                  className="d-flex align-items-center gap-3 py-2"
-                >
-                  <span
-                    className="badge rounded-pill bg-secondary"
-                    style={{ minWidth: "2rem", fontSize: "0.75rem" }}
-                  >
-                    {i + 1}
-                  </span>
-                  <div className="flex-grow-1">
-                    <div style={{ fontSize: "0.92rem" }}>{entry.description}</div>
-                    <small className="text-muted">
-                      {i === 0 ? "Most recent change" : `${i + 1} step${i > 0 ? "s" : ""} back`}
-                    </small>
-                  </div>
-                  <span className="text-muted" style={{ fontSize: "0.8rem" }}>↩</span>
-                </ListGroup.Item>
-              ))}
-            </ListGroup>
+          <div className="history-modal-note">
+            Choose a row to undo directly to that point. Each entry shows both the original change and the exact action that will happen when you click it.
+          </div>
+          {renderHistoryList(
+            undoHistory,
+            "undo",
+            (index) => {
+              undoTo(index);
+              setShowUndoModal(false);
+            },
+            "No undo history."
           )}
         </Modal.Body>
         <Modal.Footer>
@@ -143,39 +171,17 @@ function Undo<T>({
           <Modal.Title>Redo History</Modal.Title>
         </Modal.Header>
         <Modal.Body style={{ maxHeight: "60vh", overflowY: "auto" }}>
-          <p className="text-muted mb-3" style={{ fontSize: "0.85rem" }}>
-            Click an entry to redo forward to that point. Next change to reapply is at the top.
-          </p>
-          {redoHistory.length === 0 ? (
-            <p className="text-muted mb-0">No redo history.</p>
-          ) : (
-            <ListGroup variant="flush">
-              {redoHistory.map((entry, i) => (
-                <ListGroup.Item
-                  key={i}
-                  action
-                  onClick={() => {
-                    redoTo(i);
-                    setShowRedoModal(false);
-                  }}
-                  className="d-flex align-items-center gap-3 py-2"
-                >
-                  <span
-                    className="badge rounded-pill bg-secondary"
-                    style={{ minWidth: "2rem", fontSize: "0.75rem" }}
-                  >
-                    {i + 1}
-                  </span>
-                  <div className="flex-grow-1">
-                    <div style={{ fontSize: "0.92rem" }}>{entry.description}</div>
-                    <small className="text-muted">
-                      {i === 0 ? "Next change" : `${i + 1} step${i > 0 ? "s" : ""} forward`}
-                    </small>
-                  </div>
-                  <span className="text-muted" style={{ fontSize: "0.8rem" }}>↪</span>
-                </ListGroup.Item>
-              ))}
-            </ListGroup>
+          <div className="history-modal-note">
+            Choose a row to redo directly to that point. The first line states exactly what will be reapplied.
+          </div>
+          {renderHistoryList(
+            redoHistory,
+            "redo",
+            (index) => {
+              redoTo(index);
+              setShowRedoModal(false);
+            },
+            "No redo history."
           )}
         </Modal.Body>
         <Modal.Footer>

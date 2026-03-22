@@ -12,7 +12,11 @@ import SetParticipation from "./SetParticipation";
 import Undo, { HistoryEntry } from "./Undo";
 import { Model } from "@/lib/Model";
 import { Activity, Id, Individual, Maybe, Participation } from "@/lib/Schema";
-import { ENTITY_TYPE_IDS, getEntityTypeIdFromIndividual } from "@/lib/entityTypes";
+import {
+  ENTITY_TYPE_IDS,
+  getEntityTypeIdFromIndividual,
+  getEntityTypeLabel,
+} from "@/lib/entityTypes";
 import {
   getInstallationPeriods,
   normalizeEnd,
@@ -27,6 +31,15 @@ import DiagramLegend from "./DiagramLegend";
 import EntityTypeLegend from "./EntityTypeLegend";
 
 const SESSION_KEY = "activity-editor-session";
+const HISTORY_SESSION_KEY = "activity-editor-history";
+
+type SerializedHistoryEntry = {
+  modelTtl: string;
+  category: string;
+  description: string;
+  undoLabel: string;
+  redoLabel: string;
+};
 
 const normalizeConfigData = (storedConfig: Partial<typeof config>) => ({
   ...config,
@@ -87,7 +100,147 @@ const beforeUnloadHandler = (ev: BeforeUnloadEvent) => {
   return;
 };
 
-function generateDescription(oldModel: Model, newModel: Model): string {
+function createHistoryDetails(
+  category: string,
+  description: string,
+  undoLabel: string,
+  redoLabel: string
+): Omit<HistoryEntry<Model>, "model"> {
+  return {
+    category,
+    description,
+    undoLabel,
+    redoLabel,
+  };
+}
+
+function getActivityLabel(model: Model, activityId: string | undefined) {
+  if (!activityId) return "top level";
+  return model.activities.get(activityId)?.name || activityId;
+}
+
+function getIndividualLabel(model: Model, individualId: string | undefined) {
+  if (!individualId) return "Unknown individual";
+  return model.individuals.get(individualId)?.name || individualId;
+}
+
+function getEntityHistoryCopy(individual: Individual | undefined, fallbackId: string) {
+  const typeLabel = getEntityTypeLabel(
+    individual?.type,
+    individual?.installedIn,
+    individual?.entityType
+  );
+  const typeNoun = typeLabel.toLowerCase();
+
+  return {
+    category: typeLabel,
+    noun: typeNoun,
+    name: individual?.name || fallbackId,
+  };
+}
+
+function formatRange(beginning: number, ending: number) {
+  const normalizedBeginning = normalizeStart(beginning);
+  const normalizedEnding = normalizeEnd(ending);
+  return `${normalizedBeginning}-${
+    normalizedEnding >= Model.END_OF_TIME ? "∞" : normalizedEnding
+  }`;
+}
+
+function summarizeInstallationChange(oldModel: Model, newModel: Model) {
+  const commonIndividualIds = Array.from(newModel.individuals.keys()).filter((id) =>
+    oldModel.individuals.has(id)
+  );
+
+  for (let i = 0; i < commonIndividualIds.length; i++) {
+    const id = commonIndividualIds[i];
+    const oldIndividual = oldModel.individuals.get(id);
+    const newIndividual = newModel.individuals.get(id);
+    if (!oldIndividual || !newIndividual) continue;
+
+    const oldPeriods = getInstallationPeriods(oldIndividual);
+    const newPeriods = getInstallationPeriods(newIndividual);
+    const oldById = new Map(oldPeriods.map((period) => [period.id, period]));
+    const newById = new Map(newPeriods.map((period) => [period.id, period]));
+    const added = newPeriods.filter((period) => !oldById.has(period.id));
+    const removed = oldPeriods.filter((period) => !newById.has(period.id));
+    const changed = newPeriods
+      .map((period) => {
+        const previous = oldById.get(period.id);
+        if (!previous) return undefined;
+        if (
+          previous.systemComponentId === period.systemComponentId &&
+          previous.beginning === period.beginning &&
+          previous.ending === period.ending
+        ) {
+          return undefined;
+        }
+        return { previous, next: period };
+      })
+      .filter((item): item is { previous: ReturnType<typeof getInstallationPeriods>[number]; next: ReturnType<typeof getInstallationPeriods>[number] } => !!item);
+
+    const individualName = newIndividual.name || oldIndividual.name || id;
+
+    if (added.length === 1 && removed.length === 0 && changed.length === 0) {
+      const period = added[0];
+      const componentName = getIndividualLabel(newModel, period.systemComponentId);
+      return createHistoryDetails(
+        "Installation",
+        `Added installation for "${individualName}" in "${componentName}" (${formatRange(period.beginning, period.ending)})`,
+        `Remove installation for "${individualName}" from "${componentName}"`,
+        `Add installation for "${individualName}" in "${componentName}"`
+      );
+    }
+
+    if (removed.length === 1 && added.length === 0 && changed.length === 0) {
+      const period = removed[0];
+      const componentName = getIndividualLabel(oldModel, period.systemComponentId);
+      return createHistoryDetails(
+        "Installation",
+        `Removed installation for "${individualName}" from "${componentName}" (${formatRange(period.beginning, period.ending)})`,
+        `Restore installation for "${individualName}" in "${componentName}"`,
+        `Remove installation for "${individualName}" from "${componentName}"`
+      );
+    }
+
+    if (changed.length === 1 && added.length === 0 && removed.length === 0) {
+      const { previous, next } = changed[0];
+      const previousComponentName = getIndividualLabel(oldModel, previous.systemComponentId);
+      const nextComponentName = getIndividualLabel(newModel, next.systemComponentId);
+      if (previous.systemComponentId !== next.systemComponentId) {
+        return createHistoryDetails(
+          "Installation",
+          `Moved installation for "${individualName}" from "${previousComponentName}" to "${nextComponentName}"`,
+          `Move installation for "${individualName}" back to "${previousComponentName}"`,
+          `Move installation for "${individualName}" to "${nextComponentName}"`
+        );
+      }
+      return createHistoryDetails(
+        "Installation",
+        `Changed installation timing for "${individualName}" in "${nextComponentName}" (${formatRange(previous.beginning, previous.ending)} → ${formatRange(next.beginning, next.ending)})`,
+        `Restore previous installation timing for "${individualName}"`,
+        `Apply new installation timing for "${individualName}"`
+      );
+    }
+
+    if (added.length > 0 || removed.length > 0 || changed.length > 0) {
+      const parts: string[] = [];
+      if (added.length > 0) parts.push(`${added.length} added`);
+      if (removed.length > 0) parts.push(`${removed.length} removed`);
+      if (changed.length > 0) parts.push(`${changed.length} updated`);
+      return createHistoryDetails(
+        "Installation",
+        `Updated installations for "${individualName}" (${parts.join(", ")})`,
+        `Restore previous installations for "${individualName}"`,
+        `Reapply installation updates for "${individualName}"`
+      );
+    }
+  }
+
+  return undefined;
+}
+
+function generateHistoryDetails(oldModel: Model, newModel: Model): Omit<HistoryEntry<Model>, "model"> {
   const oldIndIds = Array.from(oldModel.individuals.keys());
   const newIndIds = Array.from(newModel.individuals.keys());
   const oldIndSet = new Set(oldIndIds);
@@ -97,14 +250,26 @@ function generateDescription(oldModel: Model, newModel: Model): string {
     const id = newIndIds[i];
     if (!oldIndSet.has(id)) {
       const ind = newModel.individuals.get(id);
-      return `Added individual "${ind?.name || id}"`;
+      const entityCopy = getEntityHistoryCopy(ind, id);
+      return createHistoryDetails(
+        entityCopy.category,
+        `Added ${entityCopy.noun} "${entityCopy.name}"`,
+        `Remove ${entityCopy.noun} "${entityCopy.name}"`,
+        `Add ${entityCopy.noun} "${entityCopy.name}"`
+      );
     }
   }
   for (let i = 0; i < oldIndIds.length; i++) {
     const id = oldIndIds[i];
     if (!newIndSet.has(id)) {
       const ind = oldModel.individuals.get(id);
-      return `Removed individual "${ind?.name || id}"`;
+      const entityCopy = getEntityHistoryCopy(ind, id);
+      return createHistoryDetails(
+        entityCopy.category,
+        `Removed ${entityCopy.noun} "${entityCopy.name}"`,
+        `Restore ${entityCopy.noun} "${entityCopy.name}"`,
+        `Remove ${entityCopy.noun} "${entityCopy.name}"`
+      );
     }
   }
 
@@ -117,14 +282,42 @@ function generateDescription(oldModel: Model, newModel: Model): string {
     const id = newActIds[i];
     if (!oldActSet.has(id)) {
       const act = newModel.activities.get(id);
-      return `Added activity "${act?.name || id}"`;
+      const parentName = getActivityLabel(newModel, act?.partOf as string | undefined);
+      if (act?.partOf) {
+        return createHistoryDetails(
+          "Sub-activity",
+          `Added sub-activity "${act?.name || id}" under "${parentName}"`,
+          `Remove sub-activity "${act?.name || id}"`,
+          `Add sub-activity "${act?.name || id}" under "${parentName}"`
+        );
+      }
+      return createHistoryDetails(
+        "Activity",
+        `Added activity "${act?.name || id}"`,
+        `Remove activity "${act?.name || id}"`,
+        `Add activity "${act?.name || id}"`
+      );
     }
   }
   for (let i = 0; i < oldActIds.length; i++) {
     const id = oldActIds[i];
     if (!newActSet.has(id)) {
       const act = oldModel.activities.get(id);
-      return `Removed activity "${act?.name || id}"`;
+      const parentName = getActivityLabel(oldModel, act?.partOf as string | undefined);
+      if (act?.partOf) {
+        return createHistoryDetails(
+          "Sub-activity",
+          `Removed sub-activity "${act?.name || id}" from "${parentName}"`,
+          `Restore sub-activity "${act?.name || id}" under "${parentName}"`,
+          `Remove sub-activity "${act?.name || id}" from "${parentName}"`
+        );
+      }
+      return createHistoryDetails(
+        "Activity",
+        `Removed activity "${act?.name || id}"`,
+        `Restore activity "${act?.name || id}"`,
+        `Remove activity "${act?.name || id}"`
+      );
     }
   }
 
@@ -134,7 +327,13 @@ function generateDescription(oldModel: Model, newModel: Model): string {
       const oldInd = oldModel.individuals.get(id);
       const newInd = newModel.individuals.get(id);
       if (oldInd && newInd && oldInd.name !== newInd.name) {
-        return `Renamed individual "${oldInd.name}" to "${newInd.name}"`;
+        const entityCopy = getEntityHistoryCopy(newInd, id);
+        return createHistoryDetails(
+          entityCopy.category,
+          `Renamed ${entityCopy.noun} "${oldInd.name}" to "${newInd.name}"`,
+          `Rename ${entityCopy.noun} "${newInd.name}" back to "${oldInd.name}"`,
+          `Rename ${entityCopy.noun} "${oldInd.name}" to "${newInd.name}"`
+        );
       }
     }
   }
@@ -145,10 +344,44 @@ function generateDescription(oldModel: Model, newModel: Model): string {
       const oldAct = oldModel.activities.get(id);
       const newAct = newModel.activities.get(id);
       if (oldAct && newAct && oldAct.name !== newAct.name) {
-        return `Renamed activity "${oldAct.name}" to "${newAct.name}"`;
+        return createHistoryDetails(
+          "Activity",
+          `Renamed activity "${oldAct.name}" to "${newAct.name}"`,
+          `Rename activity "${newAct.name}" back to "${oldAct.name}"`,
+          `Rename activity "${oldAct.name}" to "${newAct.name}"`
+        );
+      }
+      if (oldAct && newAct && oldAct.partOf !== newAct.partOf) {
+        const oldParentName = getActivityLabel(oldModel, oldAct.partOf as string | undefined);
+        const newParentName = getActivityLabel(newModel, newAct.partOf as string | undefined);
+        if (!oldAct.partOf && newAct.partOf) {
+          return createHistoryDetails(
+            "Sub-activity",
+            `Nested activity "${newAct.name}" under "${newParentName}"`,
+            `Move activity "${newAct.name}" back to top level`,
+            `Nest activity "${newAct.name}" under "${newParentName}"`
+          );
+        }
+        if (oldAct.partOf && !newAct.partOf) {
+          return createHistoryDetails(
+            "Sub-activity",
+            `Moved sub-activity "${newAct.name}" out of "${oldParentName}"`,
+            `Move sub-activity "${newAct.name}" back under "${oldParentName}"`,
+            `Move activity "${newAct.name}" to top level`
+          );
+        }
+        return createHistoryDetails(
+          "Sub-activity",
+          `Moved sub-activity "${newAct.name}" from "${oldParentName}" to "${newParentName}"`,
+          `Move sub-activity "${newAct.name}" back to "${oldParentName}"`,
+          `Move sub-activity "${newAct.name}" to "${newParentName}"`
+        );
       }
     }
   }
+
+  const installationChange = summarizeInstallationChange(oldModel, newModel);
+  if (installationChange) return installationChange;
 
   for (let i = 0; i < newActIds.length; i++) {
     const id = newActIds[i];
@@ -156,10 +389,32 @@ function generateDescription(oldModel: Model, newModel: Model): string {
       const oldAct = oldModel.activities.get(id);
       const newAct = newModel.activities.get(id);
       if (oldAct && newAct) {
-        const oldParts = oldAct.participations.size;
-        const newParts = newAct.participations.size;
-        if (newParts > oldParts) return `Added participation to "${newAct.name}"`;
-        if (newParts < oldParts) return `Removed participation from "${newAct.name}"`;
+        const oldParticipantIds = new Set(oldAct.participations.keys());
+        const newParticipantIds = new Set(newAct.participations.keys());
+        const addedParticipantId = Array.from(newParticipantIds).find(
+          (participantId) => !oldParticipantIds.has(participantId)
+        );
+        if (addedParticipantId) {
+          const participantName = getIndividualLabel(newModel, addedParticipantId);
+          return createHistoryDetails(
+            "Participation",
+            `Added participant "${participantName}" to "${newAct.name}"`,
+            `Remove participant "${participantName}" from "${newAct.name}"`,
+            `Add participant "${participantName}" to "${newAct.name}"`
+          );
+        }
+        const removedParticipantId = Array.from(oldParticipantIds).find(
+          (participantId) => !newParticipantIds.has(participantId)
+        );
+        if (removedParticipantId) {
+          const participantName = getIndividualLabel(oldModel, removedParticipantId);
+          return createHistoryDetails(
+            "Participation",
+            `Removed participant "${participantName}" from "${oldAct.name}"`,
+            `Restore participant "${participantName}" in "${oldAct.name}"`,
+            `Remove participant "${participantName}" from "${oldAct.name}"`
+          );
+        }
       }
     }
   }
@@ -171,7 +426,13 @@ function generateDescription(oldModel: Model, newModel: Model): string {
       const newInd = newModel.individuals.get(id);
       if (oldInd && newInd) {
         if (oldInd.beginning !== newInd.beginning || oldInd.ending !== newInd.ending) {
-          return `Changed timing of "${newInd.name}"`;
+          const entityCopy = getEntityHistoryCopy(newInd, id);
+          return createHistoryDetails(
+            "Timing",
+            `Changed timing of ${entityCopy.noun} "${entityCopy.name}"`,
+            `Restore previous timing for ${entityCopy.noun} "${entityCopy.name}"`,
+            `Apply timing change for ${entityCopy.noun} "${entityCopy.name}"`
+          );
         }
       }
     }
@@ -184,13 +445,49 @@ function generateDescription(oldModel: Model, newModel: Model): string {
       const newAct = newModel.activities.get(id);
       if (oldAct && newAct) {
         if (oldAct.beginning !== newAct.beginning || oldAct.ending !== newAct.ending) {
-          return `Changed timing of activity "${newAct.name}"`;
+          return createHistoryDetails(
+            "Timing",
+            `Changed timing of activity "${newAct.name}"`,
+            `Restore previous timing for activity "${newAct.name}"`,
+            `Apply timing change for activity "${newAct.name}"`
+          );
         }
       }
     }
   }
 
-  return "Edit diagram";
+  return createHistoryDetails(
+    "Diagram",
+    "Edited diagram",
+    "Restore previous diagram state",
+    "Reapply diagram edit"
+  );
+}
+
+function serializeHistoryEntry(entry: HistoryEntry<Model>): SerializedHistoryEntry {
+  return {
+    modelTtl: saveTTL(entry.model),
+    category: entry.category,
+    description: entry.description,
+    undoLabel: entry.undoLabel,
+    redoLabel: entry.redoLabel,
+  };
+}
+
+function deserializeHistoryEntry(entry: SerializedHistoryEntry): HistoryEntry<Model> | undefined {
+  const restored = loadTTL(entry.modelTtl);
+  if (restored instanceof Error) {
+    console.warn("Failed to restore history entry:", restored);
+    return undefined;
+  }
+
+  return {
+    model: restored,
+    category: entry.category,
+    description: entry.description,
+    undoLabel: entry.undoLabel,
+    redoLabel: entry.redoLabel,
+  };
 }
 
 /* XXX Most of this component needs refactoring into a Controller class,
@@ -246,6 +543,22 @@ export default function ActivityDiagramWrap() {
           setDataset(restored);
         }
       }
+
+      const storedHistory = sessionStorage.getItem(HISTORY_SESSION_KEY);
+      if (storedHistory) {
+        const parsed = JSON.parse(storedHistory) as {
+          undoHistory?: SerializedHistoryEntry[];
+          redoHistory?: SerializedHistoryEntry[];
+        };
+        const restoredUndoHistory = (parsed.undoHistory || [])
+          .map(deserializeHistoryEntry)
+          .filter((entry): entry is HistoryEntry<Model> => !!entry);
+        const restoredRedoHistory = (parsed.redoHistory || [])
+          .map(deserializeHistoryEntry)
+          .filter((entry): entry is HistoryEntry<Model> => !!entry);
+        setUndoHistory(restoredUndoHistory);
+        setRedoHistory(restoredRedoHistory);
+      }
     } catch (e) {
       console.warn("Failed to read session storage:", e);
     }
@@ -277,6 +590,21 @@ export default function ActivityDiagramWrap() {
   }, [configData]);
 
   useEffect(() => {
+    if (typeof window === "undefined") return;
+    try {
+      sessionStorage.setItem(
+        HISTORY_SESSION_KEY,
+        JSON.stringify({
+          undoHistory: undoHistory.map(serializeHistoryEntry),
+          redoHistory: redoHistory.map(serializeHistoryEntry),
+        })
+      );
+    } catch (e) {
+      console.warn("Failed to save history session storage:", e);
+    }
+  }, [undoHistory, redoHistory]);
+
+  useEffect(() => {
     if (dirty) window.addEventListener("beforeunload", beforeUnloadHandler);
     else window.removeEventListener("beforeunload", beforeUnloadHandler);
   }, [dirty]);
@@ -289,10 +617,10 @@ export default function ActivityDiagramWrap() {
     setDataset((prevDataset) => {
       const d = prevDataset.clone();
       updater(d);
-      const description = generateDescription(prevDataset, d);
+      const details = generateHistoryDetails(prevDataset, d);
       setUndoHistory((prevHistory) => {
         if (prevHistory.length > 0 && prevHistory[0].model === prevDataset) return prevHistory;
-        return [{ model: prevDataset, description }, ...prevHistory.slice(0, 49)];
+        return [{ model: prevDataset, ...details }, ...prevHistory.slice(0, 49)];
       });
       setRedoHistory([]);
       setDirty(true);
@@ -309,7 +637,7 @@ export default function ActivityDiagramWrap() {
   const undo = () => {
     if (undoHistory.length === 0) return;
     const [entry, ...remainingHistory] = undoHistory;
-    setRedoHistory((prevHistory) => [{ model: dataset, description: entry.description }, ...prevHistory.slice(0, 49)]);
+    setRedoHistory((prevHistory) => [{ ...entry, model: dataset }, ...prevHistory.slice(0, 49)]);
     setDataset(entry.model);
     setUndoHistory(remainingHistory);
     setDirty(true);
@@ -317,7 +645,7 @@ export default function ActivityDiagramWrap() {
   const redo = () => {
     if (redoHistory.length === 0) return;
     const [entry, ...remainingHistory] = redoHistory;
-    setUndoHistory((prevHistory) => [{ model: dataset, description: entry.description }, ...prevHistory.slice(0, 49)]);
+    setUndoHistory((prevHistory) => [{ ...entry, model: dataset }, ...prevHistory.slice(0, 49)]);
     setDataset(entry.model);
     setRedoHistory(remainingHistory);
     setDirty(true);
@@ -327,7 +655,7 @@ export default function ActivityDiagramWrap() {
     const newRedoEntries: HistoryEntry<Model>[] = [];
     let currentModel = dataset;
     for (let j = 0; j <= index; j++) {
-      newRedoEntries.unshift({ model: currentModel, description: undoHistory[j].description });
+      newRedoEntries.unshift({ ...undoHistory[j], model: currentModel });
       currentModel = undoHistory[j].model;
     }
     setRedoHistory((prev) => [...newRedoEntries, ...prev].slice(0, 50));
@@ -340,7 +668,7 @@ export default function ActivityDiagramWrap() {
     const newUndoEntries: HistoryEntry<Model>[] = [];
     let currentModel = dataset;
     for (let j = 0; j <= index; j++) {
-      newUndoEntries.push({ model: currentModel, description: redoHistory[j].description });
+      newUndoEntries.push({ ...redoHistory[j], model: currentModel });
       currentModel = redoHistory[j].model;
     }
     newUndoEntries.reverse();
@@ -351,7 +679,10 @@ export default function ActivityDiagramWrap() {
   };
   const clearDiagram = () => {
     replaceDataset(new Model());
-    try { sessionStorage.removeItem(SESSION_KEY); } catch (e) { /* ignore */ }
+    try {
+      sessionStorage.removeItem(SESSION_KEY);
+      sessionStorage.removeItem(HISTORY_SESSION_KEY);
+    } catch (e) { /* ignore */ }
   };
 
   const svgRef = useRef<SVGSVGElement>(null);
@@ -585,7 +916,7 @@ export default function ActivityDiagramWrap() {
               <EntityTypeLegend />
               <DiagramLegend
                 activities={activitiesInView}
-                activityColors={config.presentation.activity.fill}
+                activityColors={configData.presentation.activity.fill}
                 partsCount={partsCountMap}
                 onOpenActivity={(a) => {
                   setSelectedActivity(a);

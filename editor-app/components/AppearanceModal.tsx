@@ -303,6 +303,7 @@ export default function AppearanceModal({ show, setShow }: Props) {
                 size="sm"
                 onClick={() => setDraftColor(DEFAULT_ACCENT)}
                 title="Reset to default"
+                className="color-scheme-reset-btn"
               >
                 Reset
               </Button>

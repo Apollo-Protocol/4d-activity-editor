@@ -1,4 +1,4 @@
-import React, { Dispatch, SetStateAction, useState } from "react";
+import React, { Dispatch, SetStateAction, useEffect, useState } from "react";
 import Button from "react-bootstrap/Button";
 import Modal from "react-bootstrap/Modal";
 import Form from "react-bootstrap/Form";
@@ -13,6 +13,192 @@ import { config, ConfigData } from "@/diagram/config";
 import { saveFile, loadFile } from "./save_load";
 
 const _ = require("lodash");
+
+const HEX_COLOR_PATTERN = /^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/;
+
+const COLOR_FIELD_GROUPS = [
+  {
+    label: "Individuals",
+    options: [
+      {
+        label: "Individual Border",
+        path: "presentation.individual.stroke",
+        kind: "single",
+      },
+      {
+        label: "Individual Fill",
+        path: "presentation.individual.fill",
+        kind: "single",
+      },
+      {
+        label: "Individual Fill Hover",
+        path: "presentation.individual.fillHover",
+        kind: "single",
+      },
+      {
+        label: "Individual Label Color",
+        path: "labels.individual.color",
+        kind: "single",
+      },
+    ],
+  },
+  {
+    label: "Activities",
+    options: [
+      {
+        label: "Activity Borders",
+        path: "presentation.activity.stroke",
+        kind: "array",
+      },
+      {
+        label: "Activity Fills",
+        path: "presentation.activity.fill",
+        kind: "array",
+      },
+      {
+        label: "Activity Label Color",
+        path: "labels.activity.color",
+        kind: "single",
+      },
+    ],
+  },
+  {
+    label: "Participations",
+    options: [
+      {
+        label: "Participation Border",
+        path: "presentation.participation.stroke",
+        kind: "single",
+      },
+      {
+        label: "Participation Fill",
+        path: "presentation.participation.fill",
+        kind: "single",
+      },
+    ],
+  },
+  {
+    label: "Axis",
+    options: [
+      {
+        label: "Axis Color",
+        path: "presentation.axis.colour",
+        kind: "single",
+      },
+    ],
+  },
+] as const;
+
+type ColorFieldOption = (typeof COLOR_FIELD_GROUPS)[number]["options"][number];
+type ColorFieldPath = ColorFieldOption["path"];
+const COLOR_FIELD_OPTIONS: ColorFieldOption[] = [];
+
+for (const group of COLOR_FIELD_GROUPS) {
+  for (const option of group.options) {
+    COLOR_FIELD_OPTIONS.push(option as ColorFieldOption);
+  }
+}
+
+const CSS_VAR_PATTERN = /^var\(\s*(--[^,\s)]+)\s*,\s*(.+)\s*\)$/;
+
+function resolveCssValue(value: string): string {
+  const match = value.match(CSS_VAR_PATTERN);
+  if (!match) return value;
+
+  const [, variableName, fallback] = match;
+  if (typeof window === "undefined") {
+    return fallback.trim();
+  }
+
+  const computed = window
+    .getComputedStyle(document.documentElement)
+    .getPropertyValue(variableName)
+    .trim();
+
+  return computed || fallback.trim();
+}
+
+function resolveConfigDataForForm(source: ConfigData): ConfigData {
+  return {
+    ...source,
+    presentation: {
+      ...source.presentation,
+      individual: {
+        ...source.presentation.individual,
+        stroke: resolveCssValue(source.presentation.individual.stroke),
+        fill: resolveCssValue(source.presentation.individual.fill),
+        fillHover: resolveCssValue(source.presentation.individual.fillHover),
+      },
+      activity: {
+        ...source.presentation.activity,
+        stroke: source.presentation.activity.stroke.map((value) => resolveCssValue(value)),
+        fill: source.presentation.activity.fill.map((value) => resolveCssValue(value)),
+        opacity: resolveCssValue(source.presentation.activity.opacity),
+        opacityHover: resolveCssValue(source.presentation.activity.opacityHover),
+      },
+      participation: {
+        ...source.presentation.participation,
+        stroke: resolveCssValue(source.presentation.participation.stroke),
+        fill: resolveCssValue(source.presentation.participation.fill),
+        opacity: resolveCssValue(source.presentation.participation.opacity),
+        opacityHover: resolveCssValue(source.presentation.participation.opacityHover),
+      },
+      axis: {
+        ...source.presentation.axis,
+        colour: resolveCssValue(source.presentation.axis.colour),
+      },
+    },
+    labels: {
+      ...source.labels,
+      individual: {
+        ...source.labels.individual,
+        color: resolveCssValue(source.labels.individual.color),
+      },
+      activity: {
+        ...source.labels.activity,
+        color: resolveCssValue(source.labels.activity.color),
+      },
+    },
+  };
+}
+
+function normalizePickerHex(color: string): string {
+  if (HEX_COLOR_PATTERN.test(color)) {
+    if (color.length === 4) {
+      return `#${color[1]}${color[1]}${color[2]}${color[2]}${color[3]}${color[3]}`.toLowerCase();
+    }
+    return color.toLowerCase();
+  }
+
+  if (typeof window === "undefined") {
+    return "#000000";
+  }
+
+  const canvas = document.createElement("canvas");
+  const context = canvas.getContext("2d");
+  if (!context) {
+    return "#000000";
+  }
+
+  context.fillStyle = "#000000";
+  context.fillStyle = color;
+  const normalizedColor = context.fillStyle;
+
+  if (HEX_COLOR_PATTERN.test(normalizedColor)) {
+    if (normalizedColor.length === 4) {
+      return `#${normalizedColor[1]}${normalizedColor[1]}${normalizedColor[2]}${normalizedColor[2]}${normalizedColor[3]}${normalizedColor[3]}`.toLowerCase();
+    }
+    return normalizedColor.toLowerCase();
+  }
+
+  const rgbMatch = normalizedColor.match(/^rgb\((\d+),\s*(\d+),\s*(\d+)\)$/);
+  if (rgbMatch) {
+    const toHex = (channel: string) => Number(channel).toString(16).padStart(2, "0");
+    return `#${toHex(rgbMatch[1])}${toHex(rgbMatch[2])}${toHex(rgbMatch[3])}`;
+  }
+
+  return "#000000";
+}
 
 const normalizeConfigData = (storedConfig: Partial<ConfigData>): ConfigData => ({
   ...config,
@@ -80,6 +266,36 @@ const SetConfig = (props: Props) => {
 
   const [inputs, setInputs] = useState(configData);
   const [uploadError, setUploadError] = useState("");
+  const [selectedColorPath, setSelectedColorPath] = useState<ColorFieldPath>(
+    COLOR_FIELD_OPTIONS[0].path
+  );
+  const [selectedColorIndex, setSelectedColorIndex] = useState(0);
+  const [hexInputValue, setHexInputValue] = useState("#000000");
+
+  const selectedColorTarget: ColorFieldOption =
+    COLOR_FIELD_OPTIONS.find((option) => option.path === selectedColorPath) ||
+    COLOR_FIELD_OPTIONS[0];
+
+  const selectedColorArray =
+    selectedColorTarget.kind === "array"
+      ? ((_.get(inputs, selectedColorTarget.path, []) as string[]) || [])
+      : [];
+
+  const activeColorIndex =
+    selectedColorTarget.kind === "array"
+      ? Math.max(0, Math.min(selectedColorIndex, Math.max(selectedColorArray.length - 1, 0)))
+      : 0;
+
+  const selectedColorRaw =
+    selectedColorTarget.kind === "array"
+      ? selectedColorArray[activeColorIndex] || "#000000"
+      : (_.get(inputs, selectedColorTarget.path, "#000000") as string);
+
+  const selectedColorValue = normalizePickerHex(selectedColorRaw);
+
+  useEffect(() => {
+    setHexInputValue(selectedColorValue);
+  }, [selectedColorValue]);
 
   function downloadConfig() {
     saveFile(JSON.stringify(inputs),
@@ -90,7 +306,9 @@ const SetConfig = (props: Props) => {
     loadFile("application/json,.json")
       .then((f: File) => f.text())
       .then((json: string) => {
-        const loadedConfig = normalizeConfigData(JSON.parse(json));
+        const loadedConfig = resolveConfigDataForForm(
+          normalizeConfigData(JSON.parse(json))
+        );
         setInputs(loadedConfig);
         setUploadError("");
       })
@@ -106,7 +324,9 @@ const SetConfig = (props: Props) => {
     setShowConfigModal(false);
   };
   const handleShow = () => {
-    setInputs(normalizeConfigData(configData));
+    setInputs(resolveConfigDataForForm(normalizeConfigData(configData)));
+    setSelectedColorPath(COLOR_FIELD_OPTIONS[0].path);
+    setSelectedColorIndex(0);
   };
   const handleAdd = (event: any) => {
     event.preventDefault();
@@ -120,7 +340,7 @@ const SetConfig = (props: Props) => {
     // Deep copy to ensure fresh object references for React state
     const defaultConfig = JSON.parse(JSON.stringify(config));
     setConfigData(defaultConfig);
-    setInputs(defaultConfig);
+    setInputs(resolveConfigDataForForm(defaultConfig));
     handleClose();
   };
 
@@ -149,6 +369,77 @@ const SetConfig = (props: Props) => {
     setInputs(localInputs);
   };
 
+  const handleColorPickerChange = (e: any) => {
+    const selectedColor = e.target.value;
+    let localInputs = { ...inputs };
+
+    if (selectedColorTarget.kind === "array") {
+      const localArray = [...selectedColorArray];
+      if (localArray.length === 0) {
+        localArray.push(selectedColor);
+        setSelectedColorIndex(0);
+      } else {
+        localArray[activeColorIndex] = selectedColor;
+      }
+      _.set(localInputs, selectedColorTarget.path, localArray);
+    } else {
+      _.set(localInputs, selectedColorTarget.path, selectedColor);
+    }
+
+    setInputs(localInputs);
+    setHexInputValue(selectedColor);
+  };
+
+  const handleHexInputChange = (e: any) => {
+    const nextHex = e.target.value;
+    setHexInputValue(nextHex);
+
+    if (!HEX_COLOR_PATTERN.test(nextHex)) {
+      return;
+    }
+
+    const normalizedHex = normalizePickerHex(nextHex);
+    let localInputs = { ...inputs };
+
+    if (selectedColorTarget.kind === "array") {
+      const localArray = [...selectedColorArray];
+      if (localArray.length === 0) {
+        localArray.push(normalizedHex);
+        setSelectedColorIndex(0);
+      } else {
+        localArray[activeColorIndex] = normalizedHex;
+      }
+      _.set(localInputs, selectedColorTarget.path, localArray);
+    } else {
+      _.set(localInputs, selectedColorTarget.path, normalizedHex);
+    }
+
+    setInputs(localInputs);
+  };
+
+  const handleAddColorToArray = () => {
+    if (selectedColorTarget.kind !== "array") return;
+    let localInputs = { ...inputs };
+    const localArray = [...selectedColorArray, selectedColorValue];
+    _.set(localInputs, selectedColorTarget.path, localArray);
+    setInputs(localInputs);
+    setSelectedColorIndex(localArray.length - 1);
+  };
+
+  const handleRemoveColorFromArray = () => {
+    if (selectedColorTarget.kind !== "array" || selectedColorArray.length === 0) {
+      return;
+    }
+
+    let localInputs = { ...inputs };
+    const localArray = selectedColorArray.filter((_, index) => index !== activeColorIndex);
+    const nextArray = localArray.length ? localArray : ["#000000"];
+
+    _.set(localInputs, selectedColorTarget.path, nextArray);
+    setInputs(localInputs);
+    setSelectedColorIndex(Math.max(0, Math.min(activeColorIndex, nextArray.length - 1)));
+  };
+
   return (
     <>
       <Button
@@ -173,34 +464,110 @@ const SetConfig = (props: Props) => {
           <Form onSubmit={handleAdd}>
             <Tabs defaultActiveKey="presentation" id="settings-tabs" className="mb-4" justify>
               <Tab eventKey="presentation" title="Presentation Styles">
+                <Row className="mt-3 mb-3">
+                  <Col xs={12}>
+                    <h5 className="mb-3">Color Editor</h5>
+                    <Row className="align-items-end">
+                      <Col xs={12} lg={4}>
+                        <Form.Group className="mb-2" controlId="formColorTarget">
+                          <Form.Label>Field</Form.Label>
+                          <Form.Select
+                            value={selectedColorPath}
+                            onChange={(e) => {
+                              setSelectedColorPath(e.target.value as ColorFieldPath);
+                              setSelectedColorIndex(0);
+                            }}
+                            className="form-control"
+                          >
+                            {COLOR_FIELD_GROUPS.map((group) => (
+                              <optgroup key={group.label} label={group.label}>
+                                {group.options.map((option) => (
+                                  <option key={option.path} value={option.path}>
+                                    {option.label}
+                                  </option>
+                                ))}
+                              </optgroup>
+                            ))}
+                          </Form.Select>
+                        </Form.Group>
+                      </Col>
+                      {selectedColorTarget.kind === "array" && (
+                        <Col xs={12} lg={4}>
+                          <Form.Group className="mb-2" controlId="formColorTargetIndex">
+                            <Form.Label>Color Slot</Form.Label>
+                            <div className="d-flex gap-2 align-items-center">
+                              <Form.Select
+                                value={activeColorIndex}
+                                onChange={(e) => setSelectedColorIndex(Number(e.target.value))}
+                                className="form-control"
+                              >
+                                {selectedColorArray.map((_, index) => (
+                                  <option key={`${selectedColorTarget.path}-${index}`} value={index}>
+                                    {`Color ${index + 1}`}
+                                  </option>
+                                ))}
+                              </Form.Select>
+                              <Button
+                                variant="primary"
+                                onClick={handleAddColorToArray}
+                                aria-label="Add color slot"
+                                title="Add color slot"
+                                className="config-color-slot-action-btn d-flex align-items-center justify-content-center"
+                              >
+                                Add
+                              </Button>
+                              <Button
+                                variant="danger"
+                                onClick={handleRemoveColorFromArray}
+                                aria-label="Remove color slot"
+                                title="Remove color slot"
+                                className="config-color-slot-action-btn d-flex align-items-center justify-content-center"
+                              >
+                                Remove
+                              </Button>
+                            </div>
+                          </Form.Group>
+                        </Col>
+                      )}
+                      <Col xs={12} lg={selectedColorTarget.kind === "array" ? 4 : 4}>
+                        <Form.Group className="mb-2" controlId="formSharedColorPicker">
+                          <Form.Label>Custom Color</Form.Label>
+                          <div className="config-color-custom-row">
+                            <label className="config-color-picker-btn mb-0">
+                              <span className="color-scheme-circle" style={{ background: selectedColorValue, position: "relative" }}>
+                                <svg viewBox="0 0 16 16" fill="white" className="color-scheme-check" style={{ opacity: 0.85 }} aria-hidden>
+                                  <path d="M12.433 2.626a1 1 0 0 1 .262 1.39l-.009.013-2.1 3.039a4.776 4.776 0 0 1 .46 2.057c0 2.672-2.19 4.875-4.875 4.875S1.296 11.797 1.296 9.125s2.19-4.875 4.875-4.875c.608 0 1.19.112 1.725.316l3.147-2.198a1 1 0 0 1 1.39.258zM6.17 6.25a2.875 2.875 0 1 0 0 5.75 2.875 2.875 0 0 0 0-5.75z" />
+                                </svg>
+                                <Form.Control
+                                  type="color"
+                                  value={selectedColorValue}
+                                  onChange={handleColorPickerChange}
+                                  className="color-scheme-native-picker"
+                                  title="Pick a custom colour"
+                                />
+                              </span>
+                              <span className="config-color-picker-label">Custom</span>
+                            </label>
+                            <Form.Control
+                              type="text"
+                              value={hexInputValue}
+                              onChange={handleHexInputChange}
+                              onBlur={() => setHexInputValue(selectedColorValue)}
+                              placeholder="#000000"
+                              className="config-color-hex-input"
+                            />
+                          </div>
+                        </Form.Group>
+                      </Col>
+                    </Row>
+                  </Col>
+                </Row>
                 <Row className="mt-3">
                   <Col xs={12} lg={4}>
                     <h5 className="mb-3">Activities</h5>
                     <Row>
-                      <Col xs={6}>
-                        <Form.Group className="mb-2" controlId="formActivityFill">
-                          <Form.Label>Fill Colour List</Form.Label>
-                          <Form.Control
-                            type="text"
-                            name="presentation.activity.fill"
-                            value={inputs?.presentation?.activity?.fill}
-                            onChange={handleChangeArray}
-                            className="form-control"
-                          />
-                        </Form.Group>
-                      </Col>
-                      <Col xs={6}>
-                        <Form.Group className="mb-2" controlId="formActivityStroke">
-                          <Form.Label>Border Colour List</Form.Label>
-                          <Form.Control
-                            type="text"
-                            name="presentation.activity.stroke"
-                            value={inputs?.presentation?.activity?.stroke}
-                            onChange={handleChangeArray}
-                            className="form-control"
-                          />
-                        </Form.Group>
-                      </Col>
+                      
+                      
                       <Col xs={6}>
                         <Form.Group className="mb-2" controlId="formActivityOpacity">
                           <Form.Label>Opacity</Form.Label>
@@ -256,30 +623,8 @@ const SetConfig = (props: Props) => {
                   <Col xs={12} lg={4}>
                     <h5 className="mb-3">Participations</h5>
                     <Row>
-                      <Col xs={6}>
-                        <Form.Group className="mb-2" controlId="formParticipationsFill">
-                          <Form.Label>Fill Colour</Form.Label>
-                          <Form.Control
-                            type="text"
-                            name="presentation.participation.fill"
-                            value={inputs?.presentation?.participation?.fill}
-                            onChange={handleChangeString}
-                            className="form-control"
-                          />
-                        </Form.Group>
-                      </Col>
-                      <Col xs={6}>
-                        <Form.Group className="mb-2" controlId="formParticipationsStroke">
-                          <Form.Label>Border Colour</Form.Label>
-                          <Form.Control
-                            type="text"
-                            name="presentation.participation.stroke"
-                            value={inputs?.presentation?.participation?.stroke}
-                            onChange={handleChangeString}
-                            className="form-control"
-                          />
-                        </Form.Group>
-                      </Col>
+                      
+                      
                       <Col xs={6}>
                         <Form.Group className="mb-2" controlId="formParticipationsOpacity">
                           <Form.Label>Opacity</Form.Label>
@@ -335,42 +680,9 @@ const SetConfig = (props: Props) => {
                   <Col xs={12} lg={4}>
                     <h5 className="mb-3">Individuals</h5>
                     <Row>
-                      <Col xs={6}>
-                        <Form.Group className="mb-2" controlId="formIndividualFill">
-                          <Form.Label>Fill Colour</Form.Label>
-                          <Form.Control
-                            type="text"
-                            name="presentation.individual.fill"
-                            value={inputs?.presentation?.individual?.fill}
-                            onChange={handleChangeString}
-                            className="form-control"
-                          />
-                        </Form.Group>
-                      </Col>
-                      <Col xs={6}>
-                        <Form.Group className="mb-2" controlId="formIndividualFillHover">
-                          <Form.Label>Fill Hover Colour</Form.Label>
-                          <Form.Control
-                            type="text"
-                            name="presentation.individual.fillHover"
-                            value={inputs?.presentation?.individual?.fillHover}
-                            onChange={handleChangeString}
-                            className="form-control"
-                          />
-                        </Form.Group>
-                      </Col>
-                      <Col xs={6}>
-                        <Form.Group className="mb-2" controlId="formIndividualStroke">
-                          <Form.Label>Border Colour</Form.Label>
-                          <Form.Control
-                            type="text"
-                            name="presentation.individual.stroke"
-                            value={inputs?.presentation?.individual?.stroke}
-                            onChange={handleChangeString}
-                            className="form-control"
-                          />
-                        </Form.Group>
-                      </Col>
+                      
+                      
+                      
                       <Col xs={6}>
                         <Form.Group className="mb-2" controlId="formIndividualStrokeWidth">
                           <Form.Label>Border Width</Form.Label>

@@ -114,8 +114,11 @@ const manualSections: JumpLinkItem[] = [
   },
 ];
 
+const getManualImageFilenameBase = (alt: string) =>
+  alt.toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '');
+
 const ImageComponent = ({ alt, src, maxWidth, imageMap }: { alt: string, src?: string, maxWidth?: string, imageMap?: Record<string, string> }) => {
-  const filenameBase = alt.toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '');
+  const filenameBase = getManualImageFilenameBase(alt);
   const modalAlt = filenameBase
     .split(/[_-]+/)
     .filter(Boolean)
@@ -262,6 +265,13 @@ export default function Page({ imageMap }: { imageMap: Record<string, string> })
                 <p>
                   You can choose an activity color during creation or editing. The selected color is
                   reflected on the activity block, participation shading, and activity legend.
+                </p>
+                <p>
+                  Color priority works like this: if an activity has its own
+                  custom color, that custom value is used first. If no custom
+                  activity color is set, the editor uses the current
+                  <strong> Activity Fills</strong> palette from Diagram
+                  Settings based on the activity&apos;s position.
                 </p>
               </Col>
               <Col className="col-md text-center align-self-center">
@@ -556,8 +566,8 @@ export default function Page({ imageMap }: { imageMap: Record<string, string> })
             </Row>
 
             {/* Undo, Redo and Clear Diagram */}
-            <Row className="justify-content-center row-cols-1 row-cols-lg-2 mt-5">
-              <Col>
+            <section className="manual-undo-redo-grid mt-5">
+              <div className="manual-undo-redo-copy manual-undo-redo-copy-intro">
                 <h3 id="undo-redo" className="doc-section-heading">Undo, Redo and Clear Diagram</h3>
                 <p>
                   Every change you make to the model (adding, editing or
@@ -568,14 +578,26 @@ export default function Page({ imageMap }: { imageMap: Record<string, string> })
                   Press <strong>Redo</strong> to reapply an undone
                   change.
                 </p>
+              </div>
+              <div className="manual-undo-redo-visual manual-undo-redo-visual-buttons">
+                <ImageComponent alt="undo / redo buttons" imageMap={imageMap} />
+              </div>
+              <div className="manual-undo-redo-copy manual-undo-redo-copy-history">
                 <p>
                   <strong>Right-click</strong> either the Undo or Redo
                   button to open a history list that shows every recorded
-                  change, such as &ldquo;Renamed individual &lsquo;Egg&rsquo;
-                  to &lsquo;Egg 1&rsquo;&rdquo; or &ldquo;Added activity
-                  &lsquo;Boil&rsquo;&rdquo;.  Click any entry in the list
-                  to jump directly to that point in the history, skipping
-                  multiple steps at once.
+                  change. The list now spells out both the original edit and
+                  the exact action that clicking the row will perform, so it
+                  is easier to distinguish cases such as adding or removing an
+                  installation, nesting or removing a sub-activity, renaming an
+                  item, or changing timing. Click any entry in the list to jump
+                  directly to that point in the history, skipping multiple
+                  steps at once.
+                </p>
+                <p>
+                  The first bold line in each history card is the action that
+                  will happen if you click that row. Beneath it, a smaller line
+                  summarises the original edit that created the history entry.
                 </p>
                 <p>
                   The undo history keeps up to 50 steps;
@@ -583,14 +605,24 @@ export default function Page({ imageMap }: { imageMap: Record<string, string> })
                   Once a new change is made after an undo, the redo stack for the
                   previous forward path is cleared.
                 </p>
+              </div>
+              <div className="manual-undo-redo-visual manual-undo-redo-visual-history">
+                <ImageComponent alt="undo redo modal" imageMap={imageMap} maxWidth="440px" />
+              </div>
+              <div className="manual-undo-redo-copy manual-undo-redo-copy-clear">
                 <p>
                   The <strong>Clear diagram</strong> button will start again with a completely clean diagram.
                 </p>
-              </Col>
-              <Col className="col-md text-center align-self-center">
-                <ImageComponent alt="undo / redo buttons" imageMap={imageMap} />
-              </Col>
-            </Row>
+              </div>
+              <div className="manual-undo-redo-visual manual-undo-redo-visual-clear">
+                <ImageComponent
+                  src="/manual/new-diagram.gif"
+                  alt="clear diagram result"
+                  imageMap={imageMap}
+                  maxWidth="420px"
+                />
+              </div>
+            </section>
 
             {/* Hide Entities */}
             <Row className="justify-content-center row-cols-1 row-cols-lg-2 mt-5">
@@ -668,23 +700,58 @@ export default function Page({ imageMap }: { imageMap: Record<string, string> })
                 <h4 id="settings-presentation" className="doc-section-heading">Presentation Styles</h4>
                 <p>
                   The Presentation Styles tab controls the visual appearance
-                  of diagram elements.  It is split into three sections:
+                  of diagram elements. At the top of this tab there is a
+                  shared <strong>Color Editor</strong> that lets you update
+                  all color fields without showing a separate color picker
+                  for each setting.
                 </p>
                 <ul>
                   <li>
-                    <strong>Activities</strong> - fill colour list, border
-                    colour list, opacity, opacity on hover, border width,
-                    and border dash array.
+                    Use <strong>Field</strong> to choose which color property
+                    to edit. Options are grouped by type (Individuals,
+                    Activities, Participations, and Axis).
                   </li>
                   <li>
-                    <strong>Participations</strong> - fill colour, border
-                    colour, opacity, opacity on hover, border width, and
-                    border dash array.
+                    For activity color lists, use <strong>Color Slot </strong>
+                    to select a list entry, then use the <strong>Add </strong>
+                    and <strong>Remove</strong> buttons to manage slots.
                   </li>
                   <li>
-                    <strong>Individuals</strong> - fill colour, fill hover
-                    colour, border colour, border width, font size, and max
-                    label characters.
+                    Use <strong>Custom Color</strong> to pick via the color
+                    picker button or type a hex value directly (for example,
+                    <code>#981f92</code>).
+                  </li>
+                </ul>
+                <p>
+                  Below the Color Editor, the rest of the tab is split into
+                  three sections:
+                </p>
+                <ul>
+                  <li>
+                    <strong>Activities:</strong>
+                    <ul>
+                      <li><small>Opacity:</small> Base transparency of activity blocks.</li>
+                      <li><small>Opacity on Hover:</small> Transparency used when hovering an activity.</li>
+                      <li><small>Border Width:</small> Stroke thickness around activity blocks.</li>
+                      <li><small>Border DashArray:</small> Dash pattern used for activity borders (for example <code>5,3</code>).</li>
+                    </ul>
+                  </li>
+                  <li>
+                    <strong>Participations:</strong>
+                    <ul>
+                      <li><small>Opacity:</small> Base transparency for participation overlays.</li>
+                      <li><small>Opacity on Hover:</small> Transparency used when hovering participations.</li>
+                      <li><small>Border Width:</small> Stroke thickness around participation shapes.</li>
+                      <li><small>Border DashArray:</small> Dash pattern used for participation borders.</li>
+                    </ul>
+                  </li>
+                  <li>
+                    <strong>Individuals:</strong>
+                    <ul>
+                      <li><small>Border Width:</small> Stroke thickness around individual rows.</li>
+                      <li><small>Font Size:</small> Size of individual name labels.</li>
+                      <li><small>Max Label Characters:</small> Maximum number of visible characters before label truncation.</li>
+                    </ul>
                   </li>
                 </ul>
               </Col>

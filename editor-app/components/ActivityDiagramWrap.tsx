@@ -94,12 +94,6 @@ const normalizeConfigData = (storedConfig: Partial<typeof config>) => ({
   },
 });
 
-const beforeUnloadHandler = (ev: BeforeUnloadEvent) => {
-  ev.returnValue = "";
-  ev.preventDefault();
-  return;
-};
-
 function createHistoryDetails(
   category: string,
   description: string,
@@ -605,11 +599,6 @@ export default function ActivityDiagramWrap() {
   }, [undoHistory, redoHistory]);
 
   useEffect(() => {
-    if (dirty) window.addEventListener("beforeunload", beforeUnloadHandler);
-    else window.removeEventListener("beforeunload", beforeUnloadHandler);
-  }, [dirty]);
-
-  useEffect(() => {
     setHighlightedActivityId(null);
   }, [activityContext]);
 
@@ -678,11 +667,22 @@ export default function ActivityDiagramWrap() {
     setDirty(true);
   };
   const clearDiagram = () => {
-    replaceDataset(new Model());
-    try {
-      sessionStorage.removeItem(SESSION_KEY);
-      sessionStorage.removeItem(HISTORY_SESSION_KEY);
-    } catch (e) { /* ignore */ }
+    if (dataset.individuals.size === 0 && dataset.activities.size === 0) return;
+
+    const clearedModel = new Model();
+    const clearedAt = new Date().toLocaleString();
+    const details = createHistoryDetails(
+      "Clear Diagram",
+      `Cleared at ${clearedAt} (${dataset.individuals.size} ${dataset.individuals.size === 1 ? "entity" : "entities"}, ${dataset.activities.size} ${dataset.activities.size === 1 ? "activity" : "activities"})`,
+      `Restore diagram cleared at ${clearedAt}`,
+      `Apply clear from ${clearedAt}`
+    );
+
+    setUndoHistory((prevHistory) => [{ model: dataset, ...details }, ...prevHistory.slice(0, 49)]);
+    setRedoHistory([]);
+    setActivityContext(undefined);
+    setDataset(clearedModel);
+    setDirty(true);
   };
 
   const svgRef = useRef<SVGSVGElement>(null);

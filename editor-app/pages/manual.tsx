@@ -585,19 +585,20 @@ export default function Page({ imageMap }: { imageMap: Record<string, string> })
               <div className="manual-undo-redo-copy manual-undo-redo-copy-history">
                 <p>
                   <strong>Right-click</strong> either the Undo or Redo
-                  button to open a history list that shows every recorded
-                  change. The list now spells out both the original edit and
-                  the exact action that clicking the row will perform, so it
+                  button to open a history table that shows every recorded
+                  change. The table spells out both the original edit and
+                  the exact action available in that row, so it
                   is easier to distinguish cases such as adding or removing an
                   installation, nesting or removing a sub-activity, renaming an
-                  item, or changing timing. Click any entry in the list to jump
-                  directly to that point in the history, skipping multiple
-                  steps at once.
+                  item, or changing timing. Use the <strong> Undo to Here </strong>
+                  or <strong>Redo to Here</strong> action button in the row to jump
+                  directly to that point in history, skipping multiple steps at once.
                 </p>
                 <p>
-                  The first bold line in each history card is the action that
-                  will happen if you click that row. Beneath it, a smaller line
-                  summarises the original edit that created the history entry.
+                  Each row shows the action label (<strong>Will Undo</strong> or
+                  <strong> Will Redo</strong>), the <strong>Category</strong>, the
+                  <strong> Recorded Change</strong>, and the row&apos;s
+                  <strong> Position</strong> in the current stack.
                 </p>
                 <p>
                   The undo history keeps up to 50 steps;
@@ -612,6 +613,9 @@ export default function Page({ imageMap }: { imageMap: Record<string, string> })
               <div className="manual-undo-redo-copy manual-undo-redo-copy-clear">
                 <p>
                   The <strong>Clear diagram</strong> button will start again with a completely clean diagram.
+                  Clearing is now part of the undo history, so you can use
+                  <strong> Undo</strong> to restore the diagram immediately after a clear,
+                  or <strong>Redo</strong> to apply the clear again.
                 </p>
               </div>
               <div className="manual-undo-redo-visual manual-undo-redo-visual-clear">

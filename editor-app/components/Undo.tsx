@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import Button from "react-bootstrap/Button";
 import Modal from "react-bootstrap/Modal";
-import ListGroup from "react-bootstrap/ListGroup";
+import Table from "react-bootstrap/Table";
 import DraggableModalDialog from "@/components/DraggableModalDialog";
 
 export interface HistoryEntry<T> {
@@ -31,7 +31,7 @@ function getStepText(index: number, mode: "undo" | "redo") {
   return index === 0 ? "Next change" : `${index + 1} steps forward`;
 }
 
-function renderHistoryList<T>(
+function renderHistoryTable<T>(
   entries: HistoryEntry<T>[],
   mode: "undo" | "redo",
   onSelect: (index: number) => void,
@@ -42,34 +42,54 @@ function renderHistoryList<T>(
   }
 
   return (
-    <ListGroup variant="flush" className="history-list-group">
-      {entries.map((entry, i) => (
-        <ListGroup.Item
-          key={i}
-          action
-          onClick={() => onSelect(i)}
-          className="history-list-item"
-        >
-          <span className="history-index-badge">{i + 1}</span>
-          <div className="history-entry-copy">
-            <div className="history-entry-meta-row">
-              <span className="history-entry-mode">{mode === "undo" ? "Undo" : "Redo"}</span>
-              <span className="history-entry-category">{entry.category}</span>
-            </div>
-            <div className="history-entry-title">
-              {mode === "undo" ? entry.undoLabel : entry.redoLabel}
-            </div>
-            <small className="history-entry-description">{entry.description}</small>
-            <small className="history-entry-step">{getStepText(i, mode)}</small>
-          </div>
-          <span className="history-entry-arrow" aria-hidden>
-            {mode === "undo" ? "↩" : "↪"}
-          </span>
-        </ListGroup.Item>
-      ))}
-    </ListGroup>
+    <div className="history-table-wrap">
+      <Table bordered responsive className="history-table mb-0 align-middle">
+        <thead>
+          <tr>
+            <th>#</th>
+            <th>{mode === "undo" ? "Will Undo" : "Will Redo"}</th>
+            <th>Category</th>
+            <th>Recorded Change</th>
+            <th>Position</th>
+            <th>Action</th>
+          </tr>
+        </thead>
+        <tbody>
+          {entries.map((entry, i) => (
+            <tr key={i}>
+              <td className="history-table-index">{i + 1}</td>
+              <td>
+                <div className="history-entry-title">
+                  {mode === "undo" ? entry.undoLabel : entry.redoLabel}
+                </div>
+              </td>
+              <td>
+                <div className="history-entry-category-text">{entry.category}</div>
+              </td>
+              <td>
+                <div className="history-entry-description">{entry.description}</div>
+              </td>
+              <td>
+                <div className="history-entry-step">{getStepText(i, mode)}</div>
+              </td>
+              <td className="history-table-action-cell">
+                <Button
+                  variant="outline-primary"
+                  size="sm"
+                  className="history-table-action-btn"
+                  onClick={() => onSelect(i)}
+                >
+                  {mode === "undo" ? "Undo to Here" : "Redo to Here"}
+                </Button>
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </Table>
+    </div>
   );
 }
+
 
 function Undo<T>({
   hasUndo,
@@ -140,10 +160,7 @@ function Undo<T>({
           <Modal.Title>Undo History</Modal.Title>
         </Modal.Header>
         <Modal.Body style={{ maxHeight: "60vh", overflowY: "auto" }}>
-          <div className="history-modal-note">
-            Choose a row to undo directly to that point. Each entry shows both the original change and the exact action that will happen when you click it.
-          </div>
-          {renderHistoryList(
+          {renderHistoryTable(
             undoHistory,
             "undo",
             (index) => {
@@ -171,10 +188,7 @@ function Undo<T>({
           <Modal.Title>Redo History</Modal.Title>
         </Modal.Header>
         <Modal.Body style={{ maxHeight: "60vh", overflowY: "auto" }}>
-          <div className="history-modal-note">
-            Choose a row to redo directly to that point. The first line states exactly what will be reapplied.
-          </div>
-          {renderHistoryList(
+          {renderHistoryTable(
             redoHistory,
             "redo",
             (index) => {

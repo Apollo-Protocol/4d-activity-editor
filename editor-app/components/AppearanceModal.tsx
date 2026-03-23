@@ -194,6 +194,8 @@ export default function AppearanceModal({ show, setShow }: Props) {
   if (!mounted) return null;
 
   const isPreset = THEME_COLORS.some((c) => c.value === draftColor);
+  const isCustomSelected = !isDefaultProfileMode && !isPreset;
+  const customRingColor = selectionBorderColor(draftColor);
 
   return (
     <Modal
@@ -268,11 +270,17 @@ export default function AppearanceModal({ show, setShow }: Props) {
             })}
           </div>
           <div className="color-scheme-custom-row">
-            <label className="color-scheme-btn color-scheme-custom-btn">
+            <label
+              className={`color-scheme-btn color-scheme-custom-btn${isCustomSelected ? " is-selected" : ""}`}
+              style={isCustomSelected ? { borderColor: customRingColor, boxShadow: `0 0 0 1px ${customRingColor}` } : undefined}
+              aria-label="Pick a custom colour"
+            >
               <span className="color-scheme-circle" style={{ background: draftColor, position: "relative" }}>
-                <svg viewBox="0 0 16 16" fill="white" className="color-scheme-check" style={{ opacity: 0.85 }} aria-hidden>
-                  <path d="M12.433 2.626a1 1 0 0 1 .262 1.39l-.009.013-2.1 3.039a4.776 4.776 0 0 1 .46 2.057c0 2.672-2.19 4.875-4.875 4.875S1.296 11.797 1.296 9.125s2.19-4.875 4.875-4.875c.608 0 1.19.112 1.725.316l3.147-2.198a1 1 0 0 1 1.39.258zM6.17 6.25a2.875 2.875 0 1 0 0 5.75 2.875 2.875 0 0 0 0-5.75z" />
-                </svg>
+                {isCustomSelected && (
+                  <svg viewBox="0 0 16 16" className="color-scheme-check" fill="white" aria-hidden>
+                    <path d="M13.485 3.929a1 1 0 0 1 .057 1.414l-6 6.5a1 1 0 0 1-1.452.012l-3-3a1 1 0 1 1 1.414-1.414L6.95 9.88l5.293-5.893a1 1 0 0 1 1.414-.057z" />
+                  </svg>
+                )}
                 <Form.Control
                   type="color"
                   value={draftColor}
@@ -284,19 +292,18 @@ export default function AppearanceModal({ show, setShow }: Props) {
                   title="Pick a custom colour"
                 />
               </span>
-              <span className="color-scheme-label">Custom</span>
+              <Form.Control
+                type="text"
+                value={draftColor}
+                onChange={(e) => {
+                  const v = e.target.value;
+                  setDraftColor(v);
+                  setIsDefaultProfileMode(false);
+                }}
+                placeholder="#000000"
+                className="color-scheme-custom-hex-inline"
+              />
             </label>
-            <Form.Control
-              type="text"
-              value={draftColor}
-              onChange={(e) => {
-                const v = e.target.value;
-                setDraftColor(v);
-                setIsDefaultProfileMode(false);
-              }}
-              placeholder="#000000"
-              className="color-scheme-hex-input-standalone"
-            />
             {!isPreset && draftColor !== "#0d6efd" && (
               <Button
                 variant="outline-secondary"

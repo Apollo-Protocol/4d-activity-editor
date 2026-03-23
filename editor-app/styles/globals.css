@@ -2707,8 +2707,29 @@ html.app-custom-theme .breadcrumb-wrapper .breadcrumb-item a:hover {
   margin-top: 0.75rem;
 }
 .color-scheme-custom-btn {
-  flex: 0 1 auto;
-  max-width: 220px;
+  flex: 0 0 calc((100% - 1rem) / 3);
+  max-width: calc((100% - 1rem) / 3);
+  min-height: calc(1.75rem + 1rem + 4px);
+}
+
+.color-scheme-custom-hex-inline {
+  border: 1px solid var(--bs-border-color-translucent, #dee2e6) !important;
+  background: #fff !important;
+  box-shadow: none !important;
+  padding: 0.32rem 0.5rem !important;
+  height: auto !important;
+  min-height: 0 !important;
+  font-size: 0.88rem !important;
+  font-weight: 500;
+  color: var(--bs-body-color);
+  line-height: 1.2;
+  border-radius: 0.45rem !important;
+}
+
+.color-scheme-custom-hex-inline:focus {
+  border-color: rgba(var(--app-accent-rgb, 13, 110, 253), 0.55) !important;
+  background: #fff !important;
+  box-shadow: 0 0 0 0.12rem rgba(var(--app-accent-rgb, 13, 110, 253), 0.16) !important;
 }
 .color-scheme-native-picker {
   position: absolute;
@@ -2726,22 +2747,14 @@ html.app-custom-theme .breadcrumb-wrapper .breadcrumb-item a:hover {
 .color-scheme-custom-btn:hover {
   border-color: var(--bs-secondary-color, #adb5bd);
 }
-.color-scheme-hex-input-standalone {
-  height: calc(1.75rem + 1rem + 4px) !important;
-  min-height: calc(1.75rem + 1rem + 4px) !important;
-  max-width: 100px !important;
-  font-size: 0.88rem !important;
-  padding: 0.5rem 0.5rem !important;
-  border-radius: 0.5rem !important;
-}
 .color-scheme-reset-btn {
   height: calc(1.75rem + 1rem + 4px) !important;
   min-height: calc(1.75rem + 1rem + 4px) !important;
   display: flex !important;
   align-items: center !important;
   justify-content: center !important;
-  padding: 0 1rem !important;
-  border-radius: 0.5rem !important;
+  padding: 0.5rem 0.75rem !important;
+  border-radius: 0.65rem !important;
 }
 
 @media (max-width: 1599.98px) and (min-width: 992px) {
@@ -2803,19 +2816,17 @@ html.app-custom-theme .breadcrumb-wrapper .breadcrumb-item a:hover {
     font-size: 0.82rem;
   }
 
-  .color-scheme-hex-input-standalone {
-    height: calc(1.5rem + 0.8rem + 4px) !important;
-    min-height: calc(1.5rem + 0.8rem + 4px) !important;
-    max-width: 92px !important;
+  .color-scheme-custom-hex-inline {
     font-size: 0.82rem !important;
-    padding: 0.35rem 0.45rem !important;
+    padding: 0.28rem 0.42rem !important;
   }
 
   .color-scheme-reset-btn {
     height: calc(1.5rem + 0.8rem + 4px) !important;
     min-height: calc(1.5rem + 0.8rem + 4px) !important;
-    padding: 0 0.8rem !important;
+    padding: 0.4rem 0.6rem !important;
     font-size: 0.82rem !important;
+    border-radius: 0.55rem !important;
   }
 }
 
@@ -2833,6 +2844,15 @@ html.app-custom-theme .breadcrumb-wrapper .breadcrumb-item a:hover {
 
   .color-scheme-btn {
     padding: 0.35rem 0.5rem;
+  }
+
+  .color-scheme-custom-btn {
+    flex-basis: calc((100% - 1rem) / 3);
+    max-width: calc((100% - 1rem) / 3);
+  }
+
+  .color-scheme-reset-btn {
+    padding: 0.35rem 0.5rem !important;
   }
 }
 
@@ -2864,6 +2884,20 @@ html.app-custom-theme .breadcrumb-wrapper .breadcrumb-item a:hover {
   border-radius: var(--bs-border-radius, 0.375rem);
   background: var(--bs-tertiary-bg, #f8f9fa);
   cursor: pointer;
+}
+
+.config-color-picker-btn-swatch {
+  display: block;
+  padding: 0.25rem;
+}
+
+.config-color-picker-rect {
+  position: relative;
+  display: block;
+  width: 100%;
+  height: calc(2.25rem - 0.5rem);
+  border-radius: var(--bs-border-radius, 0.375rem);
+  border: 1px solid var(--bs-border-color-translucent, #dee2e6);
 }
 
 .config-color-picker-label {

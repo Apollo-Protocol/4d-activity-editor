@@ -531,13 +531,10 @@ const SetConfig = (props: Props) => {
                       )}
                       <Col xs={12} lg={selectedColorTarget.kind === "array" ? 4 : 4}>
                         <Form.Group className="mb-2" controlId="formSharedColorPicker">
-                          <Form.Label>Custom Color</Form.Label>
+                          <Form.Label>Edit custom color</Form.Label>
                           <div className="config-color-custom-row">
-                            <label className="config-color-picker-btn mb-0">
-                              <span className="color-scheme-circle" style={{ background: selectedColorValue, position: "relative" }}>
-                                <svg viewBox="0 0 16 16" fill="white" className="color-scheme-check" style={{ opacity: 0.85 }} aria-hidden>
-                                  <path d="M12.433 2.626a1 1 0 0 1 .262 1.39l-.009.013-2.1 3.039a4.776 4.776 0 0 1 .46 2.057c0 2.672-2.19 4.875-4.875 4.875S1.296 11.797 1.296 9.125s2.19-4.875 4.875-4.875c.608 0 1.19.112 1.725.316l3.147-2.198a1 1 0 0 1 1.39.258zM6.17 6.25a2.875 2.875 0 1 0 0 5.75 2.875 2.875 0 0 0 0-5.75z" />
-                                </svg>
+                            <label className="config-color-picker-btn config-color-picker-btn-swatch mb-0" aria-label="Pick a custom colour">
+                              <span className="config-color-picker-rect" style={{ background: selectedColorValue }}>
                                 <Form.Control
                                   type="color"
                                   value={selectedColorValue}
@@ -546,7 +543,6 @@ const SetConfig = (props: Props) => {
                                   title="Pick a custom colour"
                                 />
                               </span>
-                              <span className="config-color-picker-label">Custom</span>
                             </label>
                             <Form.Control
                               type="text"

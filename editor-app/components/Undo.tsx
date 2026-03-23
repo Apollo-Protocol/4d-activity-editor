@@ -43,7 +43,7 @@ function renderHistoryTable<T>(
 
   return (
     <div className="history-table-wrap">
-      <Table bordered responsive className="history-table mb-0 align-middle">
+      <Table bordered className="history-table mb-0 align-middle">
         <thead>
           <tr>
             <th>#</th>
@@ -155,6 +155,7 @@ function Undo<T>({
         show={showUndoModal}
         onHide={() => setShowUndoModal(false)}
         size="lg"
+        dialogClassName="history-modal-dialog"
       >
         <Modal.Header closeButton>
           <Modal.Title>Undo History</Modal.Title>
@@ -183,6 +184,7 @@ function Undo<T>({
         show={showRedoModal}
         onHide={() => setShowRedoModal(false)}
         size="lg"
+        dialogClassName="history-modal-dialog"
       >
         <Modal.Header closeButton>
           <Modal.Title>Redo History</Modal.Title>

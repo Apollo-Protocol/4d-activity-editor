@@ -1269,6 +1269,36 @@ body.modal-open {
   margin: 0;
 }
 
+@media (max-width: 1599.98px) and (min-width: 992px) {
+  .empty-state-actions {
+    gap: 0.7rem;
+    margin-top: 1.1rem;
+  }
+
+  .empty-state-actions .btn,
+  .empty-state-actions .dropdown-toggle,
+  .empty-persistence .btn,
+  .empty-persistence .dropdown-toggle {
+    font-size: 0.9rem;
+    padding: 0.4rem 0.8rem;
+    border-radius: 0.45rem;
+  }
+
+  .empty-persistence {
+    gap: 0.7rem !important;
+  }
+}
+
+@media (max-width: 1199.98px) and (min-width: 992px) {
+  .empty-state-actions .btn,
+  .empty-state-actions .dropdown-toggle,
+  .empty-persistence .btn,
+  .empty-persistence .dropdown-toggle {
+    font-size: 0.85rem;
+    padding: 0.35rem 0.7rem;
+  }
+}
+
 .editor-legend {
   grid-area: legend;
   width: var(--legend-width);
@@ -2449,6 +2479,62 @@ html.app-custom-theme .breadcrumb-wrapper .breadcrumb-item a:hover {
   transition: transform 0.05s ease-out !important;
 }
 
+/* Make all modals scale down progressively on laptop/smaller screens */
+@media (max-width: 1599.98px) {
+  .modal .modal-dialog {
+    width: calc(100vw - 2rem);
+    max-width: min(
+      calc(100vw - 2rem),
+      calc(var(--bs-modal-width, 500px) * 0.88)
+    );
+  }
+
+  .modal .modal-content {
+    font-size: 0.94rem;
+  }
+
+  .modal .modal-title {
+    font-size: 1.1rem;
+  }
+
+  .modal .modal-header,
+  .modal .modal-body,
+  .modal .modal-footer {
+    padding: 0.8rem 1rem;
+  }
+
+  .modal .btn,
+  .modal .form-control,
+  .modal .form-select,
+  .modal .form-check-label,
+  .modal .input-group-text,
+  .modal .table {
+    font-size: 0.92rem;
+  }
+}
+
+@media (max-width: 1199.98px) {
+  .modal .modal-dialog {
+    width: calc(100vw - 1.5rem);
+    max-width: calc(100vw - 1.5rem);
+    margin: 0.75rem auto;
+  }
+
+  .modal .modal-content {
+    font-size: 0.9rem;
+  }
+
+  .modal .modal-title {
+    font-size: 1rem;
+  }
+
+  .modal .modal-header,
+  .modal .modal-body,
+  .modal .modal-footer {
+    padding: 0.7rem 0.85rem;
+  }
+}
+
 /* Make header and footer scale smoothly for laptops */
 @media (max-width: 1599px) and (min-width: 992px) {
   .navbar,
@@ -2658,6 +2744,98 @@ html.app-custom-theme .breadcrumb-wrapper .breadcrumb-item a:hover {
   border-radius: 0.5rem !important;
 }
 
+@media (max-width: 1599.98px) and (min-width: 992px) {
+  a.btn.btn-outline-secondary,
+  a.btn.btn-outline-primary {
+    font-size: 0.9rem;
+    padding: 0.4rem 0.8rem;
+    border-radius: 0.45rem;
+  }
+
+  .doc-jump-links-toggle {
+    padding: 0.7rem 0.85rem;
+    border-radius: 0.65rem;
+  }
+
+  .doc-jump-links-toggle-label {
+    font-size: 0.8rem;
+  }
+
+  .doc-jump-links-toggle-value {
+    font-size: 0.92rem;
+  }
+
+  .theme-cards {
+    gap: 0.75rem;
+  }
+
+  .theme-card-preview {
+    padding: 0.4rem;
+    border-radius: 0.55rem;
+  }
+
+  .theme-card-label {
+    font-size: 0.82rem;
+  }
+
+  .color-scheme-grid {
+    gap: 0.4rem;
+  }
+
+  .color-scheme-btn {
+    gap: 0.5rem;
+    padding: 0.4rem 0.6rem;
+    border-radius: 0.55rem;
+  }
+
+  .color-scheme-circle {
+    width: 1.5rem;
+    height: 1.5rem;
+    min-width: 1.5rem;
+  }
+
+  .color-scheme-check {
+    width: 0.8rem;
+    height: 0.8rem;
+  }
+
+  .color-scheme-label {
+    font-size: 0.82rem;
+  }
+
+  .color-scheme-hex-input-standalone {
+    height: calc(1.5rem + 0.8rem + 4px) !important;
+    min-height: calc(1.5rem + 0.8rem + 4px) !important;
+    max-width: 92px !important;
+    font-size: 0.82rem !important;
+    padding: 0.35rem 0.45rem !important;
+  }
+
+  .color-scheme-reset-btn {
+    height: calc(1.5rem + 0.8rem + 4px) !important;
+    min-height: calc(1.5rem + 0.8rem + 4px) !important;
+    padding: 0 0.8rem !important;
+    font-size: 0.82rem !important;
+  }
+}
+
+@media (max-width: 1199.98px) and (min-width: 992px) {
+  a.btn.btn-outline-secondary,
+  a.btn.btn-outline-primary {
+    font-size: 0.85rem;
+    padding: 0.35rem 0.7rem;
+  }
+
+  .theme-card-label,
+  .color-scheme-label {
+    font-size: 0.78rem;
+  }
+
+  .color-scheme-btn {
+    padding: 0.35rem 0.5rem;
+  }
+}
+
 /* Diagram settings: shared color editor controls */
 .config-color-slot-action-btn {
   height: calc(1.5em + 0.75rem + 2px);
@@ -2714,12 +2892,33 @@ html.app-custom-theme .breadcrumb-wrapper .breadcrumb-item a:hover {
   line-height: 1.45;
 }
 
+.history-modal-dialog {
+  width: max-content;
+  min-width: min(1100px, calc(100vw - 0.75rem));
+  max-width: calc(100vw - 0.75rem);
+}
+
+@media (max-width: 1599.98px) and (min-width: 992px) {
+  .history-modal-dialog {
+    width: max-content;
+    min-width: min(1100px, calc(100vw - 0.75rem));
+    max-width: calc(100vw - 0.75rem);
+  }
+}
+
 .history-table-wrap {
   width: 100%;
 }
 
 .history-table {
-  font-size: 1rem;
+  font-size: 0.9rem;
+  width: max-content;
+  min-width: 100%;
+}
+
+.history-table th,
+.history-table td {
+  padding: 0.45rem 0.55rem;
 }
 
 .history-table thead th {
@@ -2742,9 +2941,10 @@ html.app-custom-theme .breadcrumb-wrapper .breadcrumb-item a:hover {
 }
 
 .history-entry-category-text {
-  font-size: 0.95rem;
+  font-size: 0.9rem;
   font-weight: 500;
   color: var(--bs-body-color, #212529);
+  white-space: nowrap;
 }
 
 .history-table-action-cell {
@@ -2758,9 +2958,10 @@ html.app-custom-theme .breadcrumb-wrapper .breadcrumb-item a:hover {
 
 .history-entry-title {
   color: var(--bs-emphasis-color, #212529);
-  font-size: 1rem;
+  font-size: 0.95rem;
   font-weight: 600;
-  line-height: 1.4;
+  line-height: 1.25;
+  white-space: nowrap;
 }
 
 .history-entry-description,
@@ -2770,11 +2971,19 @@ html.app-custom-theme .breadcrumb-wrapper .breadcrumb-item a:hover {
 }
 
 .history-entry-description {
-  font-size: 0.95rem;
+  font-size: 0.9rem;
+  white-space: nowrap;
 }
 
 .history-entry-step {
-  font-size: 0.95rem;
+  font-size: 0.9rem;
+  white-space: nowrap;
+}
+
+.history-table td {
+  white-space: nowrap;
+  overflow-wrap: normal;
+  word-break: normal;
 }
 
 @media (max-width: 575.98px) {

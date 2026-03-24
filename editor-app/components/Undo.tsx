@@ -31,6 +31,98 @@ function getStepText(index: number, mode: "undo" | "redo") {
   return index === 0 ? "Next change" : `${index + 1} steps forward`;
 }
 
+function renderHistoryTextWithColorSwatches(text: string) {
+  const tokenRegex = /(#[0-9a-fA-F]{3,8}|\bdefault\b)/g;
+  const matches = Array.from(text.matchAll(tokenRegex));
+
+  const nodes: React.ReactNode[] = [];
+  let cursor = 0;
+
+  const processText = (str: string) => {
+    // Bold text inside parentheses: (0-10) -> (<b>0-10</b>)
+    // AND bold text inside quotes: "Activity 1" -> "<b>Activity 1</b>"
+    const segments = str.split(/(\([^)]+\)|"[^"]+")/g);
+    return segments.map((seg, i) => {
+      if ((seg.startsWith("(") && seg.endsWith(")")) || (seg.startsWith("\"") && seg.endsWith("\""))) {
+        return <strong key={i}>{seg}</strong>;
+      }
+      return seg;
+    });
+  };
+
+  if (matches.length === 0) {
+    return processText(text);
+  }
+
+  matches.forEach((match, index) => {
+    const token = match[0];
+    const start = match.index ?? 0;
+    const end = start + token.length;
+
+    if (start > cursor) {
+      nodes.push(...processText(text.slice(cursor, start)));
+    }
+
+    const isDefault = token.toLowerCase() === "default";
+    const swatchColor = isDefault ? "transparent" : token;
+
+    nodes.push(
+      <span
+        key={`${token}-${index}-${start}`}
+        style={{
+          display: "inline-flex",
+          alignItems: "center",
+          gap: "0.3rem",
+          whiteSpace: "nowrap",
+        }}
+      >
+        <span
+          aria-hidden="true"
+          style={{
+            width: "0.9rem",
+            height: "0.9rem",
+            borderRadius: "0.2rem",
+            border: "1px solid #6c757d",
+            backgroundColor: swatchColor,
+            backgroundImage: isDefault
+              ? "linear-gradient(45deg, #dee2e6 25%, transparent 25%, transparent 50%, #dee2e6 50%, #dee2e6 75%, transparent 75%, transparent)"
+              : "none",
+            backgroundSize: isDefault ? "0.5rem 0.5rem" : undefined,
+          }}
+        />
+        <span>{token}</span>
+      </span>
+    );
+
+    cursor = end;
+  });
+
+  if (cursor < text.length) {
+    nodes.push(...processText(text.slice(cursor)));
+  }
+
+  return nodes;
+}
+
+function renderHistoryDescription(text: string) {
+  const items = text
+    .split(/;\s+(?=[A-Z])/)
+    .map((item) => item.trim())
+    .filter((item) => item.length > 0);
+
+  if (items.length <= 1) {
+    return renderHistoryTextWithColorSwatches(text);
+  }
+
+  return (
+    <ul className="history-entry-description-list mb-0">
+      {items.map((item, index) => (
+        <li key={`${item}-${index}`}>{renderHistoryTextWithColorSwatches(item)}</li>
+      ))}
+    </ul>
+  );
+}
+
 function renderHistoryTable<T>(
   entries: HistoryEntry<T>[],
   mode: "undo" | "redo",
@@ -59,15 +151,27 @@ function renderHistoryTable<T>(
             <tr key={i}>
               <td className="history-table-index">{i + 1}</td>
               <td>
-                <div className="history-entry-title">
-                  {mode === "undo" ? entry.undoLabel : entry.redoLabel}
+                <div
+                  className="history-entry-title"
+                  style={{ fontWeight: "normal" }}
+                >
+                  {renderHistoryTextWithColorSwatches(
+                    mode === "undo" ? entry.undoLabel : entry.redoLabel
+                  )}
                 </div>
               </td>
               <td>
-                <div className="history-entry-category-text">{entry.category}</div>
+                <div
+                  className="history-entry-category-text"
+                  style={{ fontWeight: "normal" }}
+                >
+                  {entry.category}
+                </div>
               </td>
-              <td>
-                <div className="history-entry-description">{entry.description}</div>
+              <td className="history-table-change-cell">
+                <div className="history-entry-description">
+                  {renderHistoryDescription(entry.description)}
+                </div>
               </td>
               <td>
                 <div className="history-entry-step">{getStepText(i, mode)}</div>

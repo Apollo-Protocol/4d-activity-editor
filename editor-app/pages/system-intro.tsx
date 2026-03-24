@@ -89,7 +89,7 @@ export default function Page({ imageMap }: { imageMap: Record<string, string> })
   return (
     <>
       <Head>
-        <title>System and Component Modelling | Activity Diagram Editor</title>
+        <title>System and System Component Modelling | Activity Diagram Editor</title>
         <meta name="viewport" content="width=device-width, initial-scale=1" />
         <link rel="icon" href="favicon.ico" />
       </Head>

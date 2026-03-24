@@ -2976,8 +2976,8 @@ html.app-custom-theme .breadcrumb-wrapper .breadcrumb-item a:hover {
 
 .history-entry-category-text {
   font-size: 0.9rem;
-  font-weight: 500;
-  color: var(--bs-body-color, #212529);
+  font-weight: 400;
+  color: var(--bs-secondary-color, #6c757d);
   white-space: nowrap;
 }
 
@@ -2991,10 +2991,10 @@ html.app-custom-theme .breadcrumb-wrapper .breadcrumb-item a:hover {
 }
 
 .history-entry-title {
-  color: var(--bs-emphasis-color, #212529);
-  font-size: 0.95rem;
-  font-weight: 600;
-  line-height: 1.25;
+  color: var(--bs-secondary-color, #6c757d);
+  font-size: 0.9rem;
+  font-weight: 400;
+  line-height: 1.35;
   white-space: nowrap;
 }
 
@@ -3007,6 +3007,28 @@ html.app-custom-theme .breadcrumb-wrapper .breadcrumb-item a:hover {
 .history-entry-description {
   font-size: 0.9rem;
   white-space: nowrap;
+}
+
+.history-table-change-cell {
+  width: 100%;
+  min-width: 20rem;
+  max-width: 42rem;
+  white-space: normal !important;
+}
+
+.history-table-change-cell .history-entry-description {
+  white-space: normal;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+.history-entry-description-list {
+  margin: 0;
+  padding-left: 1.1rem;
+}
+
+.history-entry-description-list li + li {
+  margin-top: 0.2rem;
 }
 
 .history-entry-step {

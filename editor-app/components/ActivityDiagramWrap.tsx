@@ -133,6 +133,35 @@ function getEntityHistoryCopy(individual: Individual | undefined, fallbackId: st
   };
 }
 
+function formatExtentRange(beginning: number, ending: number) {
+  return `(${formatRange(beginning, ending)})`;
+}
+
+function getIndividualPlacementCopy(model: Model, individual: Individual | undefined) {
+  if (!individual) return "";
+
+  if (
+    getEntityTypeIdFromIndividual(individual) === ENTITY_TYPE_IDS.SYSTEM_COMPONENT &&
+    individual.installedIn
+  ) {
+    return ` in system "${getIndividualLabel(model, individual.installedIn)}"`;
+  }
+
+  return "";
+}
+
+function getActivityParticipantsCopy(model: Model, activity: Activity | undefined) {
+  if (!activity || activity.participations.size === 0) {
+    return "with no participants";
+  }
+
+  const participantNames = Array.from(activity.participations.keys()).map((participantId) =>
+    `"${getIndividualLabel(model, participantId)}"`
+  );
+
+  return `with participants ${participantNames.join(", ")}`;
+}
+
 function formatRange(beginning: number, ending: number) {
   const normalizedBeginning = normalizeStart(beginning);
   const normalizedEnding = normalizeEnd(ending);
@@ -141,7 +170,310 @@ function formatRange(beginning: number, ending: number) {
   }`;
 }
 
-function summarizeInstallationChange(oldModel: Model, newModel: Model) {
+function formatInstallationPeriodSummary(
+  model: Model,
+  period: ReturnType<typeof getInstallationPeriods>[number]
+) {
+  const componentName = getIndividualLabel(model, period.systemComponentId);
+  return `"${componentName}" (${formatRange(period.beginning, period.ending)})`;
+}
+
+function summarizePeriodsByComponent(
+  model: Model,
+  periods: ReturnType<typeof getInstallationPeriods>
+) {
+  const rangesByComponent = new Map<string, string[]>();
+
+  periods.forEach((period) => {
+    const componentName = getIndividualLabel(model, period.systemComponentId);
+    const ranges = rangesByComponent.get(componentName) || [];
+    ranges.push(formatRange(period.beginning, period.ending));
+    rangesByComponent.set(componentName, ranges);
+  });
+
+  return Array.from(rangesByComponent.entries()).map(
+    ([componentName, ranges]) => `"${componentName}" (${ranges.join(", ")})`
+  );
+}
+
+function getEffectiveActivityColor(model: Model, activityId: string) {
+  const activity = model.activities.get(activityId);
+  if (!activity) return config.presentation.activity.fill[0] || "#440099";
+  if (activity.color) return activity.color;
+
+  const palette = config.presentation.activity.fill;
+  if (palette.length === 0) return "#440099";
+
+  const siblingIds = Array.from(model.activities.values())
+    .filter((candidate) => candidate.partOf === activity.partOf)
+    .map((candidate) => candidate.id);
+  const index = siblingIds.indexOf(activityId);
+  if (index < 0) return palette[0];
+  return palette[index % palette.length];
+}
+
+function describeEntityReorder(oldModel: Model, newModel: Model) {
+  const oldIds = Array.from(oldModel.individuals.keys());
+  const newIds = Array.from(newModel.individuals.keys());
+
+  if (oldIds.length !== newIds.length) return undefined;
+
+  const oldSet = new Set(oldIds);
+  if (newIds.some((id) => !oldSet.has(id))) return undefined;
+  if (oldIds.every((id, index) => id === newIds[index])) return undefined;
+
+  const oldIndexById = new Map(oldIds.map((id, index) => [id, index]));
+  const arraysEqual = (left: string[], right: string[]) =>
+    left.length === right.length && left.every((id, index) => id === right[index]);
+
+  let movedId: string | undefined;
+  let fromIndex: number | undefined;
+  let toIndex: number | undefined;
+
+  for (let i = 0; i < oldIds.length; i++) {
+    const candidateId = oldIds[i];
+    const candidateNewIndex = newIds.indexOf(candidateId);
+    if (candidateNewIndex < 0 || candidateNewIndex === i) continue;
+
+    const withoutCandidate = oldIds.filter((id) => id !== candidateId);
+    const simulated = [...withoutCandidate];
+    simulated.splice(candidateNewIndex, 0, candidateId);
+
+    if (arraysEqual(simulated, newIds)) {
+      movedId = candidateId;
+      fromIndex = i;
+      toIndex = candidateNewIndex;
+      break;
+    }
+  }
+
+  if (!movedId || fromIndex === undefined || toIndex === undefined) {
+    movedId = newIds.find((id, newIndex) => oldIndexById.get(id) !== newIndex);
+    if (!movedId) return undefined;
+    fromIndex = oldIndexById.get(movedId);
+    toIndex = newIds.indexOf(movedId);
+    if (fromIndex === undefined || toIndex < 0) return undefined;
+  }
+
+  const movedName = getIndividualLabel(newModel, movedId);
+
+  const movedOld = oldModel.individuals.get(movedId);
+  const movedNew = newModel.individuals.get(movedId);
+  const movedType = movedNew
+    ? getEntityTypeIdFromIndividual(movedNew)
+    : movedOld
+      ? getEntityTypeIdFromIndividual(movedOld)
+      : undefined;
+
+  const getCollapsedPositionIds = (model: Model, ids: string[]) => {
+    const systemIds = new Set(
+      ids.filter((id) => {
+        const individual = model.individuals.get(id);
+        return !!individual && getEntityTypeIdFromIndividual(individual) === ENTITY_TYPE_IDS.SYSTEM;
+      })
+    );
+
+    return ids.filter((id) => {
+      const individual = model.individuals.get(id);
+      if (!individual) return false;
+      if (getEntityTypeIdFromIndividual(individual) !== ENTITY_TYPE_IDS.SYSTEM_COMPONENT) {
+        return true;
+      }
+      return !individual.installedIn || !systemIds.has(individual.installedIn);
+    });
+  };
+
+  if (
+    movedType === ENTITY_TYPE_IDS.SYSTEM_COMPONENT &&
+    movedNew?.installedIn &&
+    movedOld?.installedIn === movedNew.installedIn
+  ) {
+    const systemId = movedNew.installedIn;
+    const systemName = getIndividualLabel(newModel, systemId);
+
+    const oldWithinSystemIds = oldIds.filter((id) => {
+      const individual = oldModel.individuals.get(id);
+      return (
+        !!individual &&
+        getEntityTypeIdFromIndividual(individual) === ENTITY_TYPE_IDS.SYSTEM_COMPONENT &&
+        individual.installedIn === systemId
+      );
+    });
+
+    const newWithinSystemIds = newIds.filter((id) => {
+      const individual = newModel.individuals.get(id);
+      return (
+        !!individual &&
+        getEntityTypeIdFromIndividual(individual) === ENTITY_TYPE_IDS.SYSTEM_COMPONENT &&
+        individual.installedIn === systemId
+      );
+    });
+
+    const fromWithinIndex = oldWithinSystemIds.indexOf(movedId);
+    const toWithinIndex = newWithinSystemIds.indexOf(movedId);
+
+    if (fromWithinIndex >= 0 && toWithinIndex >= 0) {
+      return createHistoryDetails(
+        "Sort Entities",
+        `Reordered system component "${movedName}" in system "${systemName}" from position ${fromWithinIndex + 1} to ${toWithinIndex + 1}`,
+        `Move "${movedName}" back to position ${fromWithinIndex + 1} in system "${systemName}"`,
+        `Move "${movedName}" to position ${toWithinIndex + 1} in system "${systemName}"`
+      );
+    }
+  }
+
+  const oldCollapsedIds = getCollapsedPositionIds(oldModel, oldIds);
+  const newCollapsedIds = getCollapsedPositionIds(newModel, newIds);
+  const fromCollapsedIndex = oldCollapsedIds.indexOf(movedId);
+  const toCollapsedIndex = newCollapsedIds.indexOf(movedId);
+
+  if (fromCollapsedIndex >= 0 && toCollapsedIndex >= 0) {
+    return createHistoryDetails(
+      "Sort Entities",
+      `Reordered entity "${movedName}" from position ${fromCollapsedIndex + 1} to ${toCollapsedIndex + 1}`,
+      `Move "${movedName}" back to position ${fromCollapsedIndex + 1}`,
+      `Move "${movedName}" to position ${toCollapsedIndex + 1}`
+    );
+  }
+
+  return createHistoryDetails(
+    "Sort Entities",
+    `Reordered entity "${movedName}" from position ${fromIndex + 1} to ${toIndex + 1}`,
+    `Move "${movedName}" back to position ${fromIndex + 1}`,
+    `Move "${movedName}" to position ${toIndex + 1}`
+  );
+}
+
+function summarizeInstallationChangeForIndividual(
+  oldModel: Model,
+  newModel: Model,
+  individualId: string
+) {
+  const oldIndividual = oldModel.individuals.get(individualId);
+  const newIndividual = newModel.individuals.get(individualId);
+  if (!oldIndividual || !newIndividual) return undefined;
+
+  const oldPeriods = getInstallationPeriods(oldIndividual);
+  const newPeriods = getInstallationPeriods(newIndividual);
+  const oldById = new Map(oldPeriods.map((period) => [period.id, period]));
+  const newById = new Map(newPeriods.map((period) => [period.id, period]));
+  const added = newPeriods.filter((period) => !oldById.has(period.id));
+  const removed = oldPeriods.filter((period) => !newById.has(period.id));
+  const changed = newPeriods
+    .map((period) => {
+      const previous = oldById.get(period.id);
+      if (!previous) return undefined;
+      if (
+        previous.systemComponentId === period.systemComponentId &&
+        previous.beginning === period.beginning &&
+        previous.ending === period.ending
+      ) {
+        return undefined;
+      }
+      return { previous, next: period };
+    })
+    .filter((item): item is { previous: ReturnType<typeof getInstallationPeriods>[number]; next: ReturnType<typeof getInstallationPeriods>[number] } => !!item);
+
+  const individualName = newIndividual.name || oldIndividual.name || individualId;
+
+  if (added.length === 1 && removed.length === 0 && changed.length === 0) {
+    const period = added[0];
+    const componentName = getIndividualLabel(newModel, period.systemComponentId);
+    return createHistoryDetails(
+      "Installation",
+      `Added installation for "${individualName}" in "${componentName}" (${formatRange(period.beginning, period.ending)})`,
+      `Remove installation for "${individualName}" from "${componentName}"`,
+      `Add installation for "${individualName}" in "${componentName}"`
+    );
+  }
+
+  if (removed.length === 1 && added.length === 0 && changed.length === 0) {
+    const period = removed[0];
+    const componentName = getIndividualLabel(oldModel, period.systemComponentId);
+    return createHistoryDetails(
+      "Installation",
+      `Removed installation for "${individualName}" from "${componentName}" (${formatRange(period.beginning, period.ending)})`,
+      `Restore installation for "${individualName}" in "${componentName}"`,
+      `Remove installation for "${individualName}" from "${componentName}"`
+    );
+  }
+
+  if (changed.length === 1 && added.length === 0 && removed.length === 0) {
+    const { previous, next } = changed[0];
+    const previousComponentName = getIndividualLabel(oldModel, previous.systemComponentId);
+    const nextComponentName = getIndividualLabel(newModel, next.systemComponentId);
+    if (previous.systemComponentId !== next.systemComponentId) {
+      return createHistoryDetails(
+        "Installation",
+        `Moved installation for "${individualName}" from "${previousComponentName}" (${formatRange(previous.beginning, previous.ending)}) to "${nextComponentName}" (${formatRange(next.beginning, next.ending)})`,
+        `Move installation for "${individualName}" back to "${previousComponentName}" (${formatRange(previous.beginning, previous.ending)})`,
+        `Move installation for "${individualName}" to "${nextComponentName}" (${formatRange(next.beginning, next.ending)})`
+      );
+    }
+
+    const beginningChanged = previous.beginning !== next.beginning;
+    const endingChanged = previous.ending !== next.ending;
+    if (beginningChanged && !endingChanged) {
+      return createHistoryDetails(
+        "Installation",
+        `Changed installation beginning for "${individualName}" in "${nextComponentName}" (${normalizeStart(previous.beginning)} → ${normalizeStart(next.beginning)})`,
+        `Restore installation beginning for "${individualName}" to ${normalizeStart(previous.beginning)}`,
+        `Set installation beginning for "${individualName}" to ${normalizeStart(next.beginning)}`
+      );
+    }
+    if (!beginningChanged && endingChanged) {
+      return createHistoryDetails(
+        "Installation",
+        `Changed installation ending for "${individualName}" in "${nextComponentName}" (${normalizeEnd(previous.ending) >= Model.END_OF_TIME ? "∞" : normalizeEnd(previous.ending)} → ${normalizeEnd(next.ending) >= Model.END_OF_TIME ? "∞" : normalizeEnd(next.ending)})`,
+        `Restore installation ending for "${individualName}" to ${normalizeEnd(previous.ending) >= Model.END_OF_TIME ? "∞" : normalizeEnd(previous.ending)}`,
+        `Set installation ending for "${individualName}" to ${normalizeEnd(next.ending) >= Model.END_OF_TIME ? "∞" : normalizeEnd(next.ending)}`
+      );
+    }
+
+    return createHistoryDetails(
+      "Installation",
+      `Changed installation timing for "${individualName}" in "${nextComponentName}" (beginning ${normalizeStart(previous.beginning)} → ${normalizeStart(next.beginning)}, ending ${normalizeEnd(previous.ending) >= Model.END_OF_TIME ? "∞" : normalizeEnd(previous.ending)} → ${normalizeEnd(next.ending) >= Model.END_OF_TIME ? "∞" : normalizeEnd(next.ending)})`,
+      `Restore previous installation timing for "${individualName}"`,
+      `Apply new installation timing for "${individualName}"`
+    );
+  }
+
+  if (added.length > 0 || removed.length > 0 || changed.length > 0) {
+    const parts: string[] = [];
+    if (added.length > 0) parts.push(`${added.length} added`);
+    if (removed.length > 0) parts.push(`${removed.length} removed`);
+    if (changed.length > 0) parts.push(`${changed.length} updated`);
+
+    const detailParts: string[] = [];
+    const groupedAdded = summarizePeriodsByComponent(newModel, added);
+    if (groupedAdded.length > 0) {
+      detailParts.push(`added ${groupedAdded.join("; ")}`);
+    }
+
+    const groupedRemoved = summarizePeriodsByComponent(oldModel, removed);
+    if (groupedRemoved.length > 0) {
+      detailParts.push(`removed ${groupedRemoved.join("; ")}`);
+    }
+
+    changed.forEach(({ previous, next }) => {
+      detailParts.push(
+        `updated ${formatInstallationPeriodSummary(oldModel, previous)} → ${formatInstallationPeriodSummary(newModel, next)}`
+      );
+    });
+
+    const detailsText = detailParts.length > 0 ? `: ${detailParts.join("; ")}` : "";
+    return createHistoryDetails(
+      "Installation",
+      `Updated installations for "${individualName}" (${parts.join(", ")})${detailsText}`,
+      `Restore previous installations for "${individualName}"`,
+      `Reapply installation updates for "${individualName}"`
+    );
+  }
+
+  return undefined;
+}
+
+function summarizeCombinedIndividualChange(oldModel: Model, newModel: Model) {
   const commonIndividualIds = Array.from(newModel.individuals.keys()).filter((id) =>
     oldModel.individuals.has(id)
   );
@@ -152,83 +484,49 @@ function summarizeInstallationChange(oldModel: Model, newModel: Model) {
     const newIndividual = newModel.individuals.get(id);
     if (!oldIndividual || !newIndividual) continue;
 
-    const oldPeriods = getInstallationPeriods(oldIndividual);
-    const newPeriods = getInstallationPeriods(newIndividual);
-    const oldById = new Map(oldPeriods.map((period) => [period.id, period]));
-    const newById = new Map(newPeriods.map((period) => [period.id, period]));
-    const added = newPeriods.filter((period) => !oldById.has(period.id));
-    const removed = oldPeriods.filter((period) => !newById.has(period.id));
-    const changed = newPeriods
-      .map((period) => {
-        const previous = oldById.get(period.id);
-        if (!previous) return undefined;
-        if (
-          previous.systemComponentId === period.systemComponentId &&
-          previous.beginning === period.beginning &&
-          previous.ending === period.ending
-        ) {
-          return undefined;
-        }
-        return { previous, next: period };
-      })
-      .filter((item): item is { previous: ReturnType<typeof getInstallationPeriods>[number]; next: ReturnType<typeof getInstallationPeriods>[number] } => !!item);
+    const fragments: string[] = [];
 
-    const individualName = newIndividual.name || oldIndividual.name || id;
-
-    if (added.length === 1 && removed.length === 0 && changed.length === 0) {
-      const period = added[0];
-      const componentName = getIndividualLabel(newModel, period.systemComponentId);
-      return createHistoryDetails(
-        "Installation",
-        `Added installation for "${individualName}" in "${componentName}" (${formatRange(period.beginning, period.ending)})`,
-        `Remove installation for "${individualName}" from "${componentName}"`,
-        `Add installation for "${individualName}" in "${componentName}"`
+    if (oldIndividual.name !== newIndividual.name) {
+      const entityCopy = getEntityHistoryCopy(newIndividual, id);
+      fragments.push(
+        `Renamed ${entityCopy.noun} "${oldIndividual.name}" to "${newIndividual.name}"`
       );
     }
 
-    if (removed.length === 1 && added.length === 0 && changed.length === 0) {
-      const period = removed[0];
-      const componentName = getIndividualLabel(oldModel, period.systemComponentId);
-      return createHistoryDetails(
-        "Installation",
-        `Removed installation for "${individualName}" from "${componentName}" (${formatRange(period.beginning, period.ending)})`,
-        `Restore installation for "${individualName}" in "${componentName}"`,
-        `Remove installation for "${individualName}" from "${componentName}"`
+    const installationChange = summarizeInstallationChangeForIndividual(oldModel, newModel, id);
+    if (installationChange) {
+      fragments.push(installationChange.description);
+    }
+
+    if (oldIndividual.beginning !== newIndividual.beginning || oldIndividual.ending !== newIndividual.ending) {
+      const entityCopy = getEntityHistoryCopy(newIndividual, id);
+      fragments.push(
+        `Changed timing of ${entityCopy.noun} "${entityCopy.name}" (${formatRange(oldIndividual.beginning, oldIndividual.ending)} → ${formatRange(newIndividual.beginning, newIndividual.ending)})`
       );
     }
 
-    if (changed.length === 1 && added.length === 0 && removed.length === 0) {
-      const { previous, next } = changed[0];
-      const previousComponentName = getIndividualLabel(oldModel, previous.systemComponentId);
-      const nextComponentName = getIndividualLabel(newModel, next.systemComponentId);
-      if (previous.systemComponentId !== next.systemComponentId) {
-        return createHistoryDetails(
-          "Installation",
-          `Moved installation for "${individualName}" from "${previousComponentName}" to "${nextComponentName}"`,
-          `Move installation for "${individualName}" back to "${previousComponentName}"`,
-          `Move installation for "${individualName}" to "${nextComponentName}"`
-        );
-      }
+    if (fragments.length >= 2) {
+      const entityCopy = getEntityHistoryCopy(newIndividual, id);
       return createHistoryDetails(
-        "Installation",
-        `Changed installation timing for "${individualName}" in "${nextComponentName}" (${formatRange(previous.beginning, previous.ending)} → ${formatRange(next.beginning, next.ending)})`,
-        `Restore previous installation timing for "${individualName}"`,
-        `Apply new installation timing for "${individualName}"`
+        entityCopy.category,
+        fragments.join("; "),
+        `Restore previous edits for "${entityCopy.name}"`,
+        `Reapply edits for "${entityCopy.name}"`
       );
     }
+  }
 
-    if (added.length > 0 || removed.length > 0 || changed.length > 0) {
-      const parts: string[] = [];
-      if (added.length > 0) parts.push(`${added.length} added`);
-      if (removed.length > 0) parts.push(`${removed.length} removed`);
-      if (changed.length > 0) parts.push(`${changed.length} updated`);
-      return createHistoryDetails(
-        "Installation",
-        `Updated installations for "${individualName}" (${parts.join(", ")})`,
-        `Restore previous installations for "${individualName}"`,
-        `Reapply installation updates for "${individualName}"`
-      );
-    }
+  return undefined;
+}
+
+function summarizeInstallationChange(oldModel: Model, newModel: Model) {
+  const commonIndividualIds = Array.from(newModel.individuals.keys()).filter((id) =>
+    oldModel.individuals.has(id)
+  );
+
+  for (let i = 0; i < commonIndividualIds.length; i++) {
+    const change = summarizeInstallationChangeForIndividual(oldModel, newModel, commonIndividualIds[i]);
+    if (change) return change;
   }
 
   return undefined;
@@ -247,7 +545,7 @@ function generateHistoryDetails(oldModel: Model, newModel: Model): Omit<HistoryE
       const entityCopy = getEntityHistoryCopy(ind, id);
       return createHistoryDetails(
         entityCopy.category,
-        `Added ${entityCopy.noun} "${entityCopy.name}"`,
+        `Added ${entityCopy.noun} "${entityCopy.name}" ${formatExtentRange(ind?.beginning ?? 0, ind?.ending ?? Model.END_OF_TIME)}${getIndividualPlacementCopy(newModel, ind)}`,
         `Remove ${entityCopy.noun} "${entityCopy.name}"`,
         `Add ${entityCopy.noun} "${entityCopy.name}"`
       );
@@ -280,14 +578,14 @@ function generateHistoryDetails(oldModel: Model, newModel: Model): Omit<HistoryE
       if (act?.partOf) {
         return createHistoryDetails(
           "Sub-activity",
-          `Added sub-activity "${act?.name || id}" under "${parentName}"`,
+          `Added sub-activity "${act?.name || id}" under "${parentName}" ${formatExtentRange(act?.beginning ?? 0, act?.ending ?? Model.END_OF_TIME)} ${getActivityParticipantsCopy(newModel, act)}`,
           `Remove sub-activity "${act?.name || id}"`,
           `Add sub-activity "${act?.name || id}" under "${parentName}"`
         );
       }
       return createHistoryDetails(
         "Activity",
-        `Added activity "${act?.name || id}"`,
+        `Added activity "${act?.name || id}" ${formatExtentRange(act?.beginning ?? 0, act?.ending ?? Model.END_OF_TIME)} ${getActivityParticipantsCopy(newModel, act)}`,
         `Remove activity "${act?.name || id}"`,
         `Add activity "${act?.name || id}"`
       );
@@ -314,6 +612,9 @@ function generateHistoryDetails(oldModel: Model, newModel: Model): Omit<HistoryE
       );
     }
   }
+
+  const combinedIndividualChange = summarizeCombinedIndividualChange(oldModel, newModel);
+  if (combinedIndividualChange) return combinedIndividualChange;
 
   for (let i = 0; i < newIndIds.length; i++) {
     const id = newIndIds[i];
@@ -377,12 +678,26 @@ function generateHistoryDetails(oldModel: Model, newModel: Model): Omit<HistoryE
   const installationChange = summarizeInstallationChange(oldModel, newModel);
   if (installationChange) return installationChange;
 
+  const reorderChange = describeEntityReorder(oldModel, newModel);
+  if (reorderChange) return reorderChange;
+
   for (let i = 0; i < newActIds.length; i++) {
     const id = newActIds[i];
     if (oldActSet.has(id)) {
       const oldAct = oldModel.activities.get(id);
       const newAct = newModel.activities.get(id);
       if (oldAct && newAct) {
+        if ((oldAct.color || "") !== (newAct.color || "")) {
+          const oldColor = getEffectiveActivityColor(oldModel, id);
+          const newColor = getEffectiveActivityColor(newModel, id);
+          return createHistoryDetails(
+            "Activity Color",
+            `Changed activity color for "${newAct.name}" (${oldColor} → ${newColor})`,
+            `Restore activity color for "${newAct.name}" to ${oldColor}`,
+            `Set activity color for "${newAct.name}" to ${newColor}`
+          );
+        }
+
         const oldParticipantIds = new Set(oldAct.participations.keys());
         const newParticipantIds = new Set(newAct.participations.keys());
         const addedParticipantId = Array.from(newParticipantIds).find(

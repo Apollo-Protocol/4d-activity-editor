@@ -351,7 +351,7 @@ export default function Page({ imageMap }: { imageMap: Record<string, string> })
                   The &lsquo;boil an egg&rsquo; example is relatively simple, if perhaps analysed to a rather excessive
                   level of detail. The &lsquo;crane lift&rsquo; example is the full diagram from <Link href="crane">the example analysis</Link>.
                   The &lsquo;packaging cell&rsquo; example provides a complete system hierarchy showing equipment swap-outs 
-                  over time, which accompanies <Link href="system-example">the system and component analysis</Link>.
+                  over time, which accompanies <Link href="system-example">the system and system component analysis</Link>.
                 </p>
               </Col>
               <Col className="col-md text-center align-self-center mt-4 mt-lg-0">
@@ -587,10 +587,9 @@ export default function Page({ imageMap }: { imageMap: Record<string, string> })
                   <strong>Right-click</strong> either the Undo or Redo
                   button to open a history table that shows every recorded
                   change. The table spells out both the original edit and
-                  the exact action available in that row, so it
-                  is easier to distinguish cases such as adding or removing an
-                  installation, nesting or removing a sub-activity, renaming an
-                  item, or changing timing. Use the <strong> Undo to Here </strong>
+                  the exact action available in that row, so each entry clearly
+                  describes what changed and what Undo or Redo will do next.
+                  Use the <strong> Undo to Here </strong>
                   or <strong>Redo to Here</strong> action button in the row to jump
                   directly to that point in history, skipping multiple steps at once.
                 </p>

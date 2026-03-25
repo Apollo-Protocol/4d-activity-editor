@@ -108,6 +108,10 @@ function createHistoryDetails(
   };
 }
 
+function getKindLabel(name: string | undefined) {
+  return name || "Unknown type";
+}
+
 function getActivityLabel(model: Model, activityId: string | undefined) {
   if (!activityId) return "top level";
   return model.activities.get(activityId)?.name || activityId;
@@ -160,6 +164,118 @@ function getActivityParticipantsCopy(model: Model, activity: Activity | undefine
   );
 
   return `with participants ${participantNames.join(", ")}`;
+}
+
+function formatQuotedList(items: string[]) {
+  return items.map((item) => `"${item}"`).join(", ");
+}
+
+function formatEntityWithExtent(model: Model, individualId: string) {
+  const individual = model.individuals.get(individualId);
+  const name = getIndividualLabel(model, individualId);
+  return `"${name}" ${formatExtentRange(
+    individual?.beginning ?? 0,
+    individual?.ending ?? Model.END_OF_TIME
+  )}`;
+}
+
+function summarizeRemovedInstallations(
+  model: Model,
+  removedInstallations: ReturnType<typeof getRemovalCascadeCopy>["removedInstallations"]
+) {
+  const installationsByIndividual = new Map<string, string[]>();
+
+  removedInstallations.forEach((installation) => {
+    const ownerName = getIndividualLabel(model, installation.individualId);
+    const componentName = getIndividualLabel(model, installation.systemComponentId);
+    const existing = installationsByIndividual.get(ownerName) || [];
+    existing.push(
+      `"${componentName}" (${formatRange(installation.beginning, installation.ending)})`
+    );
+    installationsByIndividual.set(ownerName, existing);
+  });
+
+  return Array.from(installationsByIndividual.entries()).map(
+    ([ownerName, installations]) =>
+      `Removed installations for "${ownerName}": ${installations.join(", ")}`
+  );
+}
+
+function getRemovalCascadeCopy(model: Model, removedId: string) {
+  const cascade = model.getIndividualRemovalCascade(removedId);
+  const removedIndividual = model.individuals.get(removedId);
+
+  const removedComponentNames = cascade.deletedIndividualIds
+    .filter((id) => id !== removedId)
+    .filter((id) => {
+      const individual = model.individuals.get(id);
+      return (
+        !!individual &&
+        getEntityTypeIdFromIndividual(individual) === ENTITY_TYPE_IDS.SYSTEM_COMPONENT
+      );
+    })
+    .map((id) => formatEntityWithExtent(model, id));
+
+  const removedActivities = cascade.removedActivityIds.map((activityId) =>
+    getActivityLabel(model, activityId)
+  );
+
+  const removedInstallations = cascade.removedInstallations.filter((installation) => {
+    const owner = model.individuals.get(installation.individualId);
+    return (
+      !!owner &&
+      getEntityTypeIdFromIndividual(owner) === ENTITY_TYPE_IDS.INDIVIDUAL
+    );
+  });
+
+  return {
+    removedIndividual,
+    removedComponentNames,
+    removedInstallations,
+    removedActivities,
+  };
+}
+
+function buildRemovalHistoryDetails(model: Model, removedId: string) {
+  const entityCopy = getEntityHistoryCopy(model.individuals.get(removedId), removedId);
+  const cascade = getRemovalCascadeCopy(model, removedId);
+  const detailParts = [
+    `Removed ${entityCopy.noun} ${formatEntityWithExtent(model, removedId)}`,
+  ];
+  const summaryParts: string[] = [];
+
+  if (cascade.removedComponentNames.length > 0) {
+    detailParts.push(
+      `Removed system components ${formatQuotedList(cascade.removedComponentNames)}`
+    );
+    summaryParts.push(
+      `${cascade.removedComponentNames.length} system component${cascade.removedComponentNames.length === 1 ? "" : "s"}`
+    );
+  }
+
+  if (cascade.removedInstallations.length > 0) {
+    detailParts.push(...summarizeRemovedInstallations(model, cascade.removedInstallations));
+    summaryParts.push(
+      `${cascade.removedInstallations.length} installation${cascade.removedInstallations.length === 1 ? "" : "s"}`
+    );
+  }
+
+  if (cascade.removedActivities.length > 0) {
+    detailParts.push(`Removed activities ${formatQuotedList(cascade.removedActivities)}`);
+    summaryParts.push(
+      `${cascade.removedActivities.length} activit${cascade.removedActivities.length === 1 ? "y" : "ies"}`
+    );
+  }
+
+  const summaryText =
+    summaryParts.length > 0 ? ` and ${summaryParts.join(", ")}` : "";
+
+  return createHistoryDetails(
+    entityCopy.category,
+    detailParts.join("; "),
+    `Restore ${entityCopy.noun} "${entityCopy.name}"${summaryText}`,
+    `Remove ${entityCopy.noun} "${entityCopy.name}"${summaryText}`
+  );
 }
 
 function formatRange(beginning: number, ending: number) {
@@ -353,6 +469,10 @@ function summarizeInstallationChangeForIndividual(
   const newIndividual = newModel.individuals.get(individualId);
   if (!oldIndividual || !newIndividual) return undefined;
 
+  if (getEntityTypeIdFromIndividual(newIndividual) !== ENTITY_TYPE_IDS.INDIVIDUAL) {
+    return undefined;
+  }
+
   const oldPeriods = getInstallationPeriods(oldIndividual);
   const newPeriods = getInstallationPeriods(newIndividual);
   const oldById = new Map(oldPeriods.map((period) => [period.id, period]));
@@ -493,6 +613,13 @@ function summarizeCombinedIndividualChange(oldModel: Model, newModel: Model) {
       );
     }
 
+    if ((oldIndividual.type?.id || "") !== (newIndividual.type?.id || "")) {
+      const entityCopy = getEntityHistoryCopy(newIndividual, id);
+      fragments.push(
+        `Changed type of ${entityCopy.noun} "${entityCopy.name}" from "${getKindLabel(oldIndividual.type?.name)}" to "${getKindLabel(newIndividual.type?.name)}"`
+      );
+    }
+
     const installationChange = summarizeInstallationChangeForIndividual(oldModel, newModel, id);
     if (installationChange) {
       fragments.push(installationChange.description);
@@ -505,6 +632,8 @@ function summarizeCombinedIndividualChange(oldModel: Model, newModel: Model) {
       );
     }
 
+    fragments.push(...getParticipationChangeFragmentsForIndividual(oldModel, newModel, id));
+
     if (fragments.length >= 2) {
       const entityCopy = getEntityHistoryCopy(newIndividual, id);
       return createHistoryDetails(
@@ -514,6 +643,222 @@ function summarizeCombinedIndividualChange(oldModel: Model, newModel: Model) {
         `Reapply edits for "${entityCopy.name}"`
       );
     }
+  }
+
+  return undefined;
+}
+
+function getParticipationEffectiveRange(
+  activity: Activity,
+  participation: Participation | undefined
+) {
+  return {
+    beginning: participation?.beginning ?? activity.beginning,
+    ending: participation?.ending ?? activity.ending,
+  };
+}
+
+function hasExplicitParticipationTiming(participation: Participation | undefined) {
+  return participation?.beginning !== undefined || participation?.ending !== undefined;
+}
+
+function getParticipationChangeFragmentsForIndividual(
+  oldModel: Model,
+  newModel: Model,
+  individualId: string
+) {
+  const fragments: string[] = [];
+  const oldIndividual = oldModel.individuals.get(individualId);
+  const newIndividual = newModel.individuals.get(individualId);
+  const individualName = newIndividual?.name || oldIndividual?.name || individualId;
+
+  const activityIds = Array.from(
+    new Set([
+      ...Array.from(oldModel.activities.keys()),
+      ...Array.from(newModel.activities.keys()),
+    ])
+  );
+
+  activityIds.forEach((activityId) => {
+    const oldActivity = oldModel.activities.get(activityId);
+    const newActivity = newModel.activities.get(activityId);
+    const oldParticipation = oldActivity?.participations.get(individualId);
+    const newParticipation = newActivity?.participations.get(individualId);
+    const activityName = newActivity?.name || oldActivity?.name || activityId;
+
+    if (oldParticipation && !newParticipation) {
+      if (!oldActivity) {
+        return;
+      }
+      const oldRange = getParticipationEffectiveRange(oldActivity, oldParticipation);
+      fragments.push(
+        `Removed participant "${individualName}" from "${activityName}" (${formatRange(oldRange.beginning, oldRange.ending)})`
+      );
+      return;
+    }
+
+    if (!oldParticipation && newParticipation) {
+      fragments.push(`Added participant "${individualName}" to "${activityName}"`);
+      return;
+    }
+
+    if (!oldParticipation || !newParticipation || !oldActivity || !newActivity) {
+      return;
+    }
+
+    const oldHasExplicitTiming = hasExplicitParticipationTiming(oldParticipation);
+    const newHasExplicitTiming = hasExplicitParticipationTiming(newParticipation);
+
+    if (
+      !oldHasExplicitTiming &&
+      !newHasExplicitTiming &&
+      (
+        oldActivity.beginning !== newActivity.beginning ||
+        oldActivity.ending !== newActivity.ending
+      )
+    ) {
+      return;
+    }
+
+    const oldRange = getParticipationEffectiveRange(oldActivity, oldParticipation);
+    const newRange = getParticipationEffectiveRange(newActivity, newParticipation);
+
+    if (
+      oldRange.beginning !== newRange.beginning ||
+      oldRange.ending !== newRange.ending
+    ) {
+      fragments.push(
+        `Changed participation timing for "${individualName}" in "${activityName}" (${formatRange(oldRange.beginning, oldRange.ending)} → ${formatRange(newRange.beginning, newRange.ending)})`
+      );
+    }
+  });
+
+  return fragments;
+}
+
+function summarizeParticipationTimingChange(oldModel: Model, newModel: Model) {
+  const commonIndividualIds = Array.from(newModel.individuals.keys()).filter((id) =>
+    oldModel.individuals.has(id)
+  );
+
+  for (let i = 0; i < commonIndividualIds.length; i++) {
+    const individualId = commonIndividualIds[i];
+    const fragments = getParticipationChangeFragmentsForIndividual(
+      oldModel,
+      newModel,
+      individualId
+    );
+    const timingFragment = fragments.find((fragment) =>
+      fragment.startsWith("Changed participation timing")
+    );
+
+    if (!timingFragment) continue;
+
+    const individualName = getIndividualLabel(newModel, individualId);
+    return createHistoryDetails(
+      "Participation",
+      timingFragment,
+      `Restore previous participation timing for "${individualName}"`,
+      `Apply participation timing change for "${individualName}"`
+    );
+  }
+
+  return undefined;
+}
+
+function describeAsCausedBySystemComponentMove(
+  description: string,
+  componentName: string,
+  oldParentName: string,
+  newParentName: string
+) {
+  return `${description} because system component "${componentName}" moved from system "${oldParentName}" to system "${newParentName}"`;
+}
+
+function summarizeSystemComponentParentChange(oldModel: Model, newModel: Model) {
+  const commonIndividualIds = Array.from(newModel.individuals.keys()).filter((id) =>
+    oldModel.individuals.has(id)
+  );
+
+  for (let i = 0; i < commonIndividualIds.length; i++) {
+    const id = commonIndividualIds[i];
+    const oldIndividual = oldModel.individuals.get(id);
+    const newIndividual = newModel.individuals.get(id);
+    if (!oldIndividual || !newIndividual) continue;
+
+    if (
+      getEntityTypeIdFromIndividual(newIndividual) !== ENTITY_TYPE_IDS.SYSTEM_COMPONENT ||
+      oldIndividual.installedIn === newIndividual.installedIn
+    ) {
+      continue;
+    }
+
+    const oldParentName = oldIndividual.installedIn
+      ? getIndividualLabel(oldModel, oldIndividual.installedIn)
+      : "No system";
+    const newParentName = newIndividual.installedIn
+      ? getIndividualLabel(newModel, newIndividual.installedIn)
+      : "No system";
+    const entityCopy = getEntityHistoryCopy(newIndividual, id);
+    const fragments: string[] = [
+      `Moved system component "${entityCopy.name}" from system "${oldParentName}" to system "${newParentName}" ${formatExtentRange(newIndividual.beginning, newIndividual.ending)}`,
+    ];
+
+    if (
+      oldIndividual.beginning !== newIndividual.beginning ||
+      oldIndividual.ending !== newIndividual.ending
+    ) {
+      fragments.push(
+        `Changed timing of ${entityCopy.noun} "${entityCopy.name}" (${formatRange(oldIndividual.beginning, oldIndividual.ending)} → ${formatRange(newIndividual.beginning, newIndividual.ending)})`
+      );
+    }
+
+    commonIndividualIds.forEach((otherId) => {
+      if (otherId === id) return;
+
+      const installationChange = summarizeInstallationChangeForIndividual(
+        oldModel,
+        newModel,
+        otherId
+      );
+      if (installationChange) {
+        fragments.push(
+          describeAsCausedBySystemComponentMove(
+            installationChange.description,
+            entityCopy.name,
+            oldParentName,
+            newParentName
+          )
+        );
+      }
+
+      fragments.push(
+        ...getParticipationChangeFragmentsForIndividual(oldModel, newModel, otherId).map(
+          (fragment) =>
+            describeAsCausedBySystemComponentMove(
+              fragment,
+              entityCopy.name,
+              oldParentName,
+              newParentName
+            )
+        )
+      );
+    });
+
+    const uniqueFragments = fragments.filter(
+      (fragment, index) => fragments.indexOf(fragment) === index
+    );
+
+    return createHistoryDetails(
+      entityCopy.category,
+      uniqueFragments.join("; "),
+      uniqueFragments.length > 1
+        ? `Restore previous edits for "${entityCopy.name}"`
+        : `Move system component "${entityCopy.name}" back to system "${oldParentName}"`,
+      uniqueFragments.length > 1
+        ? `Reapply edits for "${entityCopy.name}"`
+        : `Move system component "${entityCopy.name}" to system "${newParentName}"`
+    );
   }
 
   return undefined;
@@ -554,14 +899,7 @@ function generateHistoryDetails(oldModel: Model, newModel: Model): Omit<HistoryE
   for (let i = 0; i < oldIndIds.length; i++) {
     const id = oldIndIds[i];
     if (!newIndSet.has(id)) {
-      const ind = oldModel.individuals.get(id);
-      const entityCopy = getEntityHistoryCopy(ind, id);
-      return createHistoryDetails(
-        entityCopy.category,
-        `Removed ${entityCopy.noun} "${entityCopy.name}"`,
-        `Restore ${entityCopy.noun} "${entityCopy.name}"`,
-        `Remove ${entityCopy.noun} "${entityCopy.name}"`
-      );
+      return buildRemovalHistoryDetails(oldModel, id);
     }
   }
 
@@ -578,9 +916,9 @@ function generateHistoryDetails(oldModel: Model, newModel: Model): Omit<HistoryE
       if (act?.partOf) {
         return createHistoryDetails(
           "Sub-activity",
-          `Added sub-activity "${act?.name || id}" under "${parentName}" ${formatExtentRange(act?.beginning ?? 0, act?.ending ?? Model.END_OF_TIME)} ${getActivityParticipantsCopy(newModel, act)}`,
-          `Remove sub-activity "${act?.name || id}"`,
-          `Add sub-activity "${act?.name || id}" under "${parentName}"`
+          `Created sub-task "${act?.name || id}" under "${parentName}" ${formatExtentRange(act?.beginning ?? 0, act?.ending ?? Model.END_OF_TIME)} ${getActivityParticipantsCopy(newModel, act)}`,
+          `Delete sub-task "${act?.name || id}" from "${parentName}"`,
+          `Create sub-task "${act?.name || id}" under "${parentName}"`
         );
       }
       return createHistoryDetails(
@@ -599,9 +937,9 @@ function generateHistoryDetails(oldModel: Model, newModel: Model): Omit<HistoryE
       if (act?.partOf) {
         return createHistoryDetails(
           "Sub-activity",
-          `Removed sub-activity "${act?.name || id}" from "${parentName}"`,
-          `Restore sub-activity "${act?.name || id}" under "${parentName}"`,
-          `Remove sub-activity "${act?.name || id}" from "${parentName}"`
+          `Deleted sub-task "${act?.name || id}" from "${parentName}" ${formatExtentRange(act?.beginning ?? 0, act?.ending ?? Model.END_OF_TIME)}`,
+          `Restore sub-task "${act?.name || id}" under "${parentName}"`,
+          `Delete sub-task "${act?.name || id}" from "${parentName}"`
         );
       }
       return createHistoryDetails(
@@ -616,11 +954,23 @@ function generateHistoryDetails(oldModel: Model, newModel: Model): Omit<HistoryE
   const combinedIndividualChange = summarizeCombinedIndividualChange(oldModel, newModel);
   if (combinedIndividualChange) return combinedIndividualChange;
 
+  const systemComponentParentChange = summarizeSystemComponentParentChange(oldModel, newModel);
+  if (systemComponentParentChange) return systemComponentParentChange;
+
   for (let i = 0; i < newIndIds.length; i++) {
     const id = newIndIds[i];
     if (oldIndSet.has(id)) {
       const oldInd = oldModel.individuals.get(id);
       const newInd = newModel.individuals.get(id);
+      if (oldInd && newInd && (oldInd.type?.id || "") !== (newInd.type?.id || "")) {
+        const entityCopy = getEntityHistoryCopy(newInd, id);
+        return createHistoryDetails(
+          entityCopy.category,
+          `Changed type of ${entityCopy.noun} "${entityCopy.name}" from "${getKindLabel(oldInd.type?.name)}" to "${getKindLabel(newInd.type?.name)}"`,
+          `Restore type of ${entityCopy.noun} "${entityCopy.name}" to "${getKindLabel(oldInd.type?.name)}"`,
+          `Set type of ${entityCopy.noun} "${entityCopy.name}" to "${getKindLabel(newInd.type?.name)}"`
+        );
+      }
       if (oldInd && newInd && oldInd.name !== newInd.name) {
         const entityCopy = getEntityHistoryCopy(newInd, id);
         return createHistoryDetails(
@@ -638,6 +988,14 @@ function generateHistoryDetails(oldModel: Model, newModel: Model): Omit<HistoryE
     if (oldActSet.has(id)) {
       const oldAct = oldModel.activities.get(id);
       const newAct = newModel.activities.get(id);
+      if (oldAct && newAct && (oldAct.type?.id || "") !== (newAct.type?.id || "")) {
+        return createHistoryDetails(
+          "Activity",
+          `Changed type of activity "${newAct.name}" from "${getKindLabel(oldAct.type?.name)}" to "${getKindLabel(newAct.type?.name)}"`,
+          `Restore type of activity "${newAct.name}" to "${getKindLabel(oldAct.type?.name)}"`,
+          `Set type of activity "${newAct.name}" to "${getKindLabel(newAct.type?.name)}"`
+        );
+      }
       if (oldAct && newAct && oldAct.name !== newAct.name) {
         return createHistoryDetails(
           "Activity",
@@ -652,24 +1010,24 @@ function generateHistoryDetails(oldModel: Model, newModel: Model): Omit<HistoryE
         if (!oldAct.partOf && newAct.partOf) {
           return createHistoryDetails(
             "Sub-activity",
-            `Nested activity "${newAct.name}" under "${newParentName}"`,
+            `Changed parent of activity "${newAct.name}" to "${newParentName}" as a sub-task`,
             `Move activity "${newAct.name}" back to top level`,
-            `Nest activity "${newAct.name}" under "${newParentName}"`
+            `Move activity "${newAct.name}" under "${newParentName}" as a sub-task`
           );
         }
         if (oldAct.partOf && !newAct.partOf) {
           return createHistoryDetails(
             "Sub-activity",
-            `Moved sub-activity "${newAct.name}" out of "${oldParentName}"`,
-            `Move sub-activity "${newAct.name}" back under "${oldParentName}"`,
-            `Move activity "${newAct.name}" to top level`
+            `Promoted sub-task "${newAct.name}" from "${oldParentName}" to top level`,
+            `Move sub-task "${newAct.name}" back under "${oldParentName}"`,
+            `Promote sub-task "${newAct.name}" to top level`
           );
         }
         return createHistoryDetails(
           "Sub-activity",
-          `Moved sub-activity "${newAct.name}" from "${oldParentName}" to "${newParentName}"`,
-          `Move sub-activity "${newAct.name}" back to "${oldParentName}"`,
-          `Move sub-activity "${newAct.name}" to "${newParentName}"`
+          `Changed parent of sub-task "${newAct.name}" from "${oldParentName}" to "${newParentName}"`,
+          `Move sub-task "${newAct.name}" back to "${oldParentName}"`,
+          `Move sub-task "${newAct.name}" to "${newParentName}"`
         );
       }
     }
@@ -680,6 +1038,9 @@ function generateHistoryDetails(oldModel: Model, newModel: Model): Omit<HistoryE
 
   const reorderChange = describeEntityReorder(oldModel, newModel);
   if (reorderChange) return reorderChange;
+
+  const participationTimingChange = summarizeParticipationTimingChange(oldModel, newModel);
+  if (participationTimingChange) return participationTimingChange;
 
   for (let i = 0; i < newActIds.length; i++) {
     const id = newActIds[i];
@@ -717,9 +1078,11 @@ function generateHistoryDetails(oldModel: Model, newModel: Model): Omit<HistoryE
         );
         if (removedParticipantId) {
           const participantName = getIndividualLabel(oldModel, removedParticipantId);
+          const oldParticipation = oldAct.participations.get(removedParticipantId);
+          const oldRange = getParticipationEffectiveRange(oldAct, oldParticipation);
           return createHistoryDetails(
             "Participation",
-            `Removed participant "${participantName}" from "${oldAct.name}"`,
+            `Removed participant "${participantName}" from "${oldAct.name}" (${formatRange(oldRange.beginning, oldRange.ending)})`,
             `Restore participant "${participantName}" in "${oldAct.name}"`,
             `Remove participant "${participantName}" from "${oldAct.name}"`
           );
@@ -738,7 +1101,7 @@ function generateHistoryDetails(oldModel: Model, newModel: Model): Omit<HistoryE
           const entityCopy = getEntityHistoryCopy(newInd, id);
           return createHistoryDetails(
             "Timing",
-            `Changed timing of ${entityCopy.noun} "${entityCopy.name}"`,
+            `Changed timing of ${entityCopy.noun} "${entityCopy.name}" (${formatRange(oldInd.beginning, oldInd.ending)} → ${formatRange(newInd.beginning, newInd.ending)})`,
             `Restore previous timing for ${entityCopy.noun} "${entityCopy.name}"`,
             `Apply timing change for ${entityCopy.noun} "${entityCopy.name}"`
           );
@@ -756,7 +1119,7 @@ function generateHistoryDetails(oldModel: Model, newModel: Model): Omit<HistoryE
         if (oldAct.beginning !== newAct.beginning || oldAct.ending !== newAct.ending) {
           return createHistoryDetails(
             "Timing",
-            `Changed timing of activity "${newAct.name}"`,
+            `Changed timing of activity "${newAct.name}" (${formatRange(oldAct.beginning, oldAct.ending)} → ${formatRange(newAct.beginning, newAct.ending)})`,
             `Restore previous timing for activity "${newAct.name}"`,
             `Apply timing change for activity "${newAct.name}"`
           );

@@ -3,7 +3,11 @@ import { HQDM_NS } from "@apollo-protocol/hqdm-lib";
 import type { Activity, Id, Individual, Maybe } from "./Schema.js";
 import { EPOCH_END } from "./ActivityLib";
 import { ENTITY_TYPE_IDS, getEntityTypeIdFromIndividual } from "./entityTypes";
-import { getInstallationPeriods, syncLegacyInstallationFields } from "@/utils/installations";
+import {
+  getActiveInstallationForActivity,
+  getInstallationPeriods,
+  syncLegacyInstallationFields,
+} from "@/utils/installations";
 
 /**
  * A class used to list the types needed for drop-downs in the UI.
@@ -214,12 +218,7 @@ export class Model {
     });
   }
 
-  /**
-   * Removes an individual from the model.
-   *
-   * @param id The id of the individual to remove.
-   */
-  removeIndividual(id: string): void {
+  private collectDeletedIndividualIds(id: string): Set<string> {
     const queue: string[] = [id];
     const deleted = new Set<string>();
 
@@ -243,9 +242,100 @@ export class Model {
           }
         });
       }
-
-      this.individuals.delete(nextId);
     }
+
+    return deleted;
+  }
+
+  getIndividualRemovalCascade(id: string) {
+    const deletedIndividualIds = this.collectDeletedIndividualIds(id);
+    const removedInstallations: Array<{
+      individualId: string;
+      systemComponentId: string;
+      beginning: number;
+      ending: number;
+    }> = [];
+    const removedActivityIds = new Set<string>();
+    const removedParticipations: Array<{
+      activityId: string;
+      individualId: string;
+    }> = [];
+
+    this.individuals.forEach((individual) => {
+      const periods = getInstallationPeriods(individual);
+      periods.forEach((period) => {
+        if (
+          deletedIndividualIds.has(individual.id) ||
+          deletedIndividualIds.has(period.systemComponentId)
+        ) {
+          removedInstallations.push({
+            individualId: individual.id,
+            systemComponentId: period.systemComponentId,
+            beginning: period.beginning,
+            ending: period.ending,
+          });
+        }
+      });
+    });
+
+    this.activities.forEach((activity) => {
+      const participantIds = Array.from(activity.participations.keys());
+      const affectedParticipantIds = participantIds.filter((participantId) => {
+        if (deletedIndividualIds.has(participantId)) {
+          return true;
+        }
+
+        const individual = this.individuals.get(participantId);
+        if (!individual) return false;
+
+        const activeInstallation = getActiveInstallationForActivity(
+          individual,
+          activity
+        );
+
+        return (
+          !!activeInstallation &&
+          deletedIndividualIds.has(activeInstallation.systemComponentId)
+        );
+      });
+
+      if (affectedParticipantIds.length === 0) {
+        return;
+      }
+
+      if (affectedParticipantIds.length === participantIds.length) {
+        removedActivityIds.add(activity.id);
+        return;
+      }
+
+      affectedParticipantIds.forEach((participantId) => {
+        removedParticipations.push({
+          activityId: activity.id,
+          individualId: participantId,
+        });
+      });
+    });
+
+    return {
+      deletedIndividualIds: Array.from(deletedIndividualIds),
+      removedInstallations,
+      removedActivityIds: Array.from(removedActivityIds),
+      removedParticipations,
+    };
+  }
+
+  /**
+   * Removes an individual from the model.
+   *
+   * @param id The id of the individual to remove.
+   */
+  removeIndividual(id: string): void {
+    const cascade = this.getIndividualRemovalCascade(id);
+    const deleted = new Set(cascade.deletedIndividualIds);
+
+    deleted.forEach((deletedId) => {
+      this.individuals.delete(deletedId);
+    });
 
     this.individuals.forEach((individual) => {
       const filteredPeriods = getInstallationPeriods(individual).filter(
@@ -261,12 +351,21 @@ export class Model {
       }
     });
 
-    this.activities.forEach((a) => {
-      a.participations?.forEach((p) => {
-        if (deleted.has(p.individualId)) {
-          a.participations?.delete(p.individualId);
+    cascade.removedActivityIds.forEach((activityId) => {
+      this.activities.delete(activityId);
+    });
+
+    this.activities.forEach((activity) => {
+      activity.participations?.forEach((participation) => {
+        if (deleted.has(participation.individualId)) {
+          activity.participations?.delete(participation.individualId);
         }
       });
+    });
+
+    cascade.removedParticipations.forEach(({ activityId, individualId }) => {
+      const activity = this.activities.get(activityId);
+      activity?.participations?.delete(individualId);
     });
   }
 

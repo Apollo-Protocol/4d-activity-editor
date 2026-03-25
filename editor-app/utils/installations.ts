@@ -73,9 +73,17 @@ export function getActiveInstallationForActivity(
   activity: Activity
 ): InstallationPeriod | undefined {
   const periods = getInstallationPeriods(individual);
+  const participation = activity.participations.get(individual.id);
+  const participationBeginning = normalizeStart(
+    participation?.beginning ?? activity.beginning
+  );
+  const participationEnding = normalizeEnd(
+    participation?.ending ?? activity.ending
+  );
+
   return periods.find(
     (period) =>
-      activity.beginning >= period.beginning && activity.ending <= period.ending
+      participationBeginning >= period.beginning && participationEnding <= period.ending
   );
 }
 

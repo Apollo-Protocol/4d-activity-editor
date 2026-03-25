@@ -261,10 +261,12 @@ const SetActivity = (props: Props) => {
     const selectedParticipants: ParticipationOption[] = Array.isArray(e) ? e : [];
     selectedParticipants.forEach((entry) => {
       const i = entry.individual;
-      const old = inputs.participations.get(i.id)?.role;
+      const previousParticipation = inputs.participations.get(i.id);
       let participation: Participation = {
         individualId: i.id,
-        role: old ?? dataset.defaultRole,
+        role: previousParticipation?.role ?? dataset.defaultRole,
+        beginning: previousParticipation?.beginning,
+        ending: previousParticipation?.ending,
       };
       participations.set(i.id, participation);
     });

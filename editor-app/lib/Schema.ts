@@ -57,4 +57,6 @@ export interface Individual extends STExtent {
 export interface Participation {
   individualId: Id;
   role: Maybe<Kind>;
+  beginning?: number;
+  ending?: number;
 }

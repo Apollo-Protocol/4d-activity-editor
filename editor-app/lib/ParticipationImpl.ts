@@ -7,9 +7,13 @@ import type { Participation } from './Schema.js';
 export class ParticipationImpl implements Participation {
   individualId: string;
   role: Kind;
+  beginning?: number;
+  ending?: number;
 
-  constructor(individualId: string, role: Kind) {
+  constructor(individualId: string, role: Kind, beginning?: number, ending?: number) {
     this.individualId = individualId;
     this.role = role;
+    this.beginning = beginning;
+    this.ending = ending;
   }
 }

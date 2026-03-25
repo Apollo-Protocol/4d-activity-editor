@@ -257,8 +257,9 @@ const SetIndividual = (props: Props) => {
     const result: AffectedActivity[] = [];
     for (const act of Array.from(dataset.activities.values())) {
       if (!act.participations.has(entityId)) continue;
-      const actStart = normalizeStart(act.beginning);
-      const actEnd = normalizeEnd(act.ending);
+      const participation = act.participations.get(entityId);
+      const actStart = normalizeStart(participation?.beginning ?? act.beginning);
+      const actEnd = normalizeEnd(participation?.ending ?? act.ending);
       const clampedStart = Math.max(actStart, newStart);
       const clampedEnd = Math.min(actEnd, newEnd);
 
@@ -278,8 +279,8 @@ const SetIndividual = (props: Props) => {
           activityName: act.name,
           individualId: entityId,
           individualName: entityName,
-          fromBeginning: act.beginning,
-          fromEnding: act.ending,
+          fromBeginning: participation?.beginning ?? act.beginning,
+          fromEnding: participation?.ending ?? act.ending,
           action: "drop",
         });
       } else if (clampedStart !== actStart || clampedEnd !== actEnd) {
@@ -288,8 +289,8 @@ const SetIndividual = (props: Props) => {
           activityName: act.name,
           individualId: entityId,
           individualName: entityName,
-          fromBeginning: act.beginning,
-          fromEnding: act.ending,
+          fromBeginning: participation?.beginning ?? act.beginning,
+          fromEnding: participation?.ending ?? act.ending,
           toBeginning: clampedStart,
           toEnding: clampedEnd,
           action: "trim",
@@ -297,6 +298,67 @@ const SetIndividual = (props: Props) => {
       }
     }
     return result;
+  };
+
+  const applyAffectedActivityChanges = (
+    model: Model,
+    affectedActivities: AffectedActivity[]
+  ) => {
+    const trimBoundsByParticipation = new Map<
+      string,
+      { beginning: number; ending: number }
+    >();
+
+    affectedActivities.forEach((affectedActivity) => {
+      const activity = model.activities.get(affectedActivity.activityId);
+      if (!activity) return;
+
+      if (affectedActivity.action === "drop") {
+        activity.participations.delete(affectedActivity.individualId);
+        return;
+      }
+
+      if (
+        affectedActivity.toBeginning === undefined ||
+        affectedActivity.toEnding === undefined
+      ) {
+        return;
+      }
+
+      const trimKey = `${affectedActivity.activityId}:${affectedActivity.individualId}`;
+      const existing = trimBoundsByParticipation.get(trimKey);
+      if (!existing) {
+        trimBoundsByParticipation.set(trimKey, {
+          beginning: affectedActivity.toBeginning,
+          ending: affectedActivity.toEnding,
+        });
+        return;
+      }
+
+      trimBoundsByParticipation.set(trimKey, {
+        beginning: Math.max(existing.beginning, affectedActivity.toBeginning),
+        ending: Math.min(existing.ending, affectedActivity.toEnding),
+      });
+    });
+
+    trimBoundsByParticipation.forEach((bounds, trimKey) => {
+      const [activityId, individualId] = trimKey.split(":");
+      const activity = model.activities.get(activityId);
+      if (!activity || bounds.ending <= bounds.beginning) return;
+      const participation = activity.participations.get(individualId);
+      if (!participation) return;
+
+      activity.participations.set(individualId, {
+        ...participation,
+        beginning: bounds.beginning,
+        ending: bounds.ending,
+      });
+
+      model.addActivity({
+        ...activity,
+        participations: new Map(activity.participations),
+      });
+    });
   };
 
   const parseBoundary = (text: string, isBeginning: boolean) => {
@@ -1108,12 +1170,7 @@ const SetIndividual = (props: Props) => {
                   }));
                 });
 
-                // Remove participations for affected activities (drop only)
-                for (const aa of affectedActivities) {
-                  if (aa.action !== "drop") continue;
-                  const act = d.activities.get(aa.activityId);
-                  if (act) act.participations.delete(aa.individualId);
-                }
+                applyAffectedActivityChanges(d, affectedActivities);
 
                 return d;
               });
@@ -1330,12 +1387,7 @@ const SetIndividual = (props: Props) => {
                   }));
                 });
 
-                // Remove participations for affected activities (drop only)
-                for (const aa of dedupedCompActivities) {
-                  if (aa.action !== "drop") continue;
-                  const act = d.activities.get(aa.activityId);
-                  if (act) act.participations.delete(aa.individualId);
-                }
+                applyAffectedActivityChanges(d, dedupedCompActivities);
 
                 return d;
               });
@@ -1398,12 +1450,7 @@ const SetIndividual = (props: Props) => {
     if (pendingAffectedActivities.length > 0) {
       updateDataset((d: Model) => {
         d.addIndividual(pendingSaveIndividual);
-        // Remove participations for affected activities (drop only)
-        for (const aa of pendingAffectedActivities) {
-          if (aa.action !== "drop") continue;
-          const act = d.activities.get(aa.activityId);
-          if (act) act.participations.delete(aa.individualId);
-        }
+        applyAffectedActivityChanges(d, pendingAffectedActivities);
       });
       handleClose();
     } else {

@@ -121,6 +121,26 @@ function getPositionOfParticipation(
 
   const x = activityElement.x;
   const width = activityElement.width;
+  const participation = activity.participations.get(individualId);
+  const effectiveBeginning = Math.max(
+    activity.beginning,
+    participation?.beginning ?? activity.beginning
+  );
+  const effectiveEnding = Math.min(
+    activity.ending,
+    participation?.ending ?? activity.ending
+  );
+
+  if (effectiveEnding <= effectiveBeginning) return null;
+
+  const activityDuration = activity.ending - activity.beginning;
+  const participationOffset = activityDuration > 0
+    ? ((effectiveBeginning - activity.beginning) / activityDuration) * width
+    : 0;
+  const participationWidth = activityDuration > 0
+    ? ((effectiveEnding - effectiveBeginning) / activityDuration) * width
+    : width;
+  const effectiveX = x + participationOffset;
 
   const individual = ctx.individuals.find((i) => i.id === individualId);
   if (!individual) return null;
@@ -146,8 +166,8 @@ function getPositionOfParticipation(
 
   const rowLeft = individualElement.x;
   const rowRight = individualElement.x + individualElement.width;
-  const clippedX = Math.max(x, rowLeft);
-  const clippedRight = Math.min(x + width, rowRight);
+  const clippedX = Math.max(effectiveX, rowLeft);
+  const clippedRight = Math.min(effectiveX + participationWidth, rowRight);
   if (clippedRight <= clippedX) return null;
 
   const y = individualElement.y;

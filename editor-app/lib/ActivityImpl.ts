@@ -44,7 +44,12 @@ export class ActivityImpl implements Activity {
    * @param individual A participant
    * @returns The updated activity, meaning this function can be chained
    */
-  addParticipation(individual: Individual, role: Kind): Activity {
+  addParticipation(
+    individual: Individual,
+    role: Kind,
+    beginning?: number,
+    ending?: number
+  ): Activity {
     if (!individual.id) {
       console.error(
         'Cannot add a participation to an activity when the pariticipant id is null or undefined: ',
@@ -54,6 +59,8 @@ export class ActivityImpl implements Activity {
       const participation: Participation = {
         individualId: individual.id,
         role,
+        beginning,
+        ending,
       };
       this.participations.set(participation.individualId, participation);
     }

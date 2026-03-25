@@ -450,6 +450,14 @@ export const toModel = (hqdm: HQDMModel): Model => {
       // Get the role of the participant.
       const participantRole = hqdm.getRole(p).first();
       const roleType = kindOrDefault(participantRole, participantKind);
+      const participationFromEvent = hqdm.getBeginning(p);
+      const participationToEvent = hqdm.getEnding(p);
+      const participationBeginning = participationFromEvent
+        ? getTimeValue(hqdm, participationFromEvent)
+        : undefined;
+      const participationEnding = participationToEvent
+        ? getTimeValue(hqdm, participationToEvent)
+        : undefined;
 
       // Get the participant whole life object for this temporal part.
       const participantThing = hqdm.getTemporalWhole(p);
@@ -468,7 +476,12 @@ export const toModel = (hqdm: HQDMModel): Model => {
             false
           );
       if (indiv) {
-        newA.addParticipation(indiv, roleType);
+        newA.addParticipation(
+          indiv,
+          roleType,
+          participationBeginning !== beginning ? participationBeginning : undefined,
+          participationEnding !== ending ? participationEnding : undefined
+        );
       }
     });
   });
@@ -791,9 +804,23 @@ export const toHQDM = (model: Model): HQDMModel => {
       hqdm.addAsTemporalPartOf(participation, new Thing(BASE + p.individualId));
       hqdm.addParticipant(participation, act);
 
-      // Make the participant have gthe same temporal bounds as the activity.
-      hqdm.beginning(participation, activityFrom);
-      hqdm.ending(participation, activityTo);
+      const participationFrom =
+        typeof p.beginning === "number" && Number.isFinite(p.beginning)
+          ? p.beginning
+          : a.beginning;
+      const participationTo =
+        typeof p.ending === "number" && Number.isFinite(p.ending)
+          ? p.ending
+          : a.ending;
+
+      hqdm.beginning(
+        participation,
+        createTimeValue(hqdm, modelWorld, participationFrom)
+      );
+      hqdm.ending(
+        participation,
+        createTimeValue(hqdm, modelWorld, participationTo)
+      );
     });
   });
   return hqdm;

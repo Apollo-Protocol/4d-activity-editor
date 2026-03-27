@@ -2602,7 +2602,9 @@ const SetIndividual = (props: Props) => {
                     {aa.action === "trim"
                       ? ` → ${formatBound(aa.toBeginning ?? aa.fromBeginning, true)}-${formatBound(aa.toEnding ?? aa.fromEnding, false)} (would be trimmed)`
                       : " → would be removed (no overlap)"}
-                    {aa.activityOutcomeText && ` — ${aa.activityOutcomeText}`}
+                    {aa.activityOutcomeText && (
+                      <span className="text-danger">{` — ${aa.activityOutcomeText}`}</span>
+                    )}
                   </div>
                 ))}
               </div>
@@ -2711,7 +2713,9 @@ const SetIndividual = (props: Props) => {
                     {aa.action === "trim"
                       ? ` → ${formatBound(aa.toBeginning ?? aa.fromBeginning, true)}-${formatBound(aa.toEnding ?? aa.fromEnding, false)} (would be trimmed)`
                       : " → would be removed (no overlap)"}
-                    {aa.activityOutcomeText && ` — ${aa.activityOutcomeText}`}
+                    {aa.activityOutcomeText && (
+                      <span className="text-danger">{` — ${aa.activityOutcomeText}`}</span>
+                    )}
                   </div>
                 ))}
               </div>

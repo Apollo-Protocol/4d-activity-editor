@@ -132,6 +132,29 @@ function isCascadeDriverFragment(fragment: string) {
   );
 }
 
+function isTimingCascadeDriverFragment(fragment: string) {
+  return fragment.startsWith("Changed timing of ");
+}
+
+function isInstallationCascadeDriverFragment(fragment: string) {
+  return (
+    fragment.startsWith("Added installation ") ||
+    fragment.startsWith("Removed installation ") ||
+    fragment.startsWith("Moved installation ") ||
+    fragment.startsWith("Changed installation ") ||
+    fragment.startsWith("Updated installations ")
+  );
+}
+
+function getPreferredCascadeDriverFragment(fragments: string[]) {
+  const timingFragment = fragments.find(isTimingCascadeDriverFragment);
+  if (timingFragment) {
+    return timingFragment;
+  }
+
+  return fragments.length === 1 ? fragments[0] : undefined;
+}
+
 function getKindLabel(name: string | undefined) {
   return name || "Unknown type";
 }
@@ -743,12 +766,23 @@ function summarizeCombinedIndividualChange(oldModel: Model, newModel: Model) {
 
     const cascadeDriverFragments = primaryDirectFragments.filter(isCascadeDriverFragment);
 
-    if (cascadeDriverFragments.length === 1) {
-      const primaryFragment = cascadeDriverFragments[0];
-      const prefixFragments = primaryDirectFragments.filter((fragment) => fragment !== primaryFragment);
-      const sideEffectFragments = combinedFragments.filter(
-        (fragment) => !primaryDirectFragments.includes(fragment)
+    const primaryFragment = getPreferredCascadeDriverFragment(cascadeDriverFragments);
+
+    if (primaryFragment) {
+      const installationSideEffects = isTimingCascadeDriverFragment(primaryFragment)
+        ? primaryDirectFragments.filter(
+            (fragment) =>
+              fragment !== primaryFragment && isInstallationCascadeDriverFragment(fragment)
+          )
+        : [];
+
+      const prefixFragments = primaryDirectFragments.filter(
+        (fragment) => fragment !== primaryFragment && !installationSideEffects.includes(fragment)
       );
+      const sideEffectFragments = [
+        ...installationSideEffects,
+        ...combinedFragments.filter((fragment) => !primaryDirectFragments.includes(fragment)),
+      ].filter((fragment, index, list) => list.indexOf(fragment) === index);
 
       if (sideEffectFragments.length > 0) {
         return createHistoryDetails(

@@ -7,24 +7,15 @@ import { useTheme } from "next-themes";
 
 const APPEARANCE_THEME_KEY = "app-theme";
 const APPEARANCE_NAV_STYLE_KEY = "app-nav-style";
-const DEFAULT_ACCENT = "#0d6efd";
+const DEFAULT_ACCENT = "#007fff";
 const DEFAULT_THEME = "light" as const;
-const DEFAULT_NAV_LINK_COLOR = "#6c757d";
-const DEFAULT_JUMP_LINK_COLOR = "#0d6efd";
+const DEFAULT_NAV_LINK_COLOR = "#909091";
+const DEFAULT_JUMP_LINK_COLOR = "#007fff";
 
 const THEME_COLORS = [
-  { name: "Zinc", value: "#18181b" },
-  { name: "Stone", value: "#78716c" },
-  { name: "Neutral", value: "#a3a3a3" },
-  { name: "Red", value: "#dc2626" },
-  { name: "Rose", value: "#e11d48" },
-  { name: "Orange", value: "#ea580c" },
-  { name: "Green", value: "#16a34a" },
-  { name: "Teal", value: "#0d9488" },
-  { name: "Blue", value: "#2563eb" },
-  { name: "Indigo", value: "#4f46e5" },
-  { name: "Yellow", value: "#eab308" },
-  { name: "Violet", value: "#7c3aed" },
+  { name: "Dark Tangerine", value: "#f29f11" },
+  { name: "Endeavour", value: "#007fff" },
+  { name: "Dark Gray Blue", value: "#909091" },
 ];
 
 const THEME_OPTIONS = [
@@ -56,7 +47,7 @@ function isGreyish(hex: string): boolean {
 
 /** Pick a visible selection ring colour: if the accent is grey use a blue indicator. */
 function selectionBorderColor(accent: string): string {
-  return isGreyish(accent) ? "#2563eb" : accent;
+  return isGreyish(accent) ? "#007fff" : accent;
 }
 
 function applyAccent(color: string) {
@@ -65,6 +56,12 @@ function applyAccent(color: string) {
   const rgb = hexToRgb(color);
   if (rgb) {
     document.documentElement.style.setProperty("--app-accent-rgb", rgb);
+  }
+  // When the accent is grey, override secondary buttons to blue
+  if (isGreyish(color)) {
+    document.documentElement.classList.add("app-grey-accent");
+  } else {
+    document.documentElement.classList.remove("app-grey-accent");
   }
   localStorage.setItem("app-accent-color", color);
 }
@@ -77,29 +74,22 @@ function applyDefaultNavStyle() {
   document.documentElement.style.setProperty("--app-nav-dropdown-item-light-hover-bg", "#f8f9fa");
   document.documentElement.style.setProperty("--app-jump-link-hover", DEFAULT_JUMP_LINK_COLOR);
   document.documentElement.style.setProperty("--app-jump-link-active", DEFAULT_JUMP_LINK_COLOR);
-  document.documentElement.style.setProperty("--app-jump-link-hover-bg", "rgba(13, 110, 253, 0.06)");
-  document.documentElement.style.setProperty("--app-jump-link-active-bg", "rgba(13, 110, 253, 0.08)");
+  document.documentElement.style.setProperty("--app-jump-link-hover-bg", "rgba(0, 127, 255, 0.06)");
+  document.documentElement.style.setProperty("--app-jump-link-active-bg", "rgba(0, 127, 255, 0.08)");
   localStorage.setItem(APPEARANCE_NAV_STYLE_KEY, "default");
 }
 
 function applyCustomNavStyle() {
   document.documentElement.classList.add("app-custom-theme");
-  document.documentElement.style.setProperty("--app-nav-link-light-hover", "var(--app-accent, #0d6efd)");
-  document.documentElement.style.setProperty("--app-nav-link-light-underline", "var(--app-accent, #0d6efd)");
-  document.documentElement.style.setProperty("--app-nav-dropdown-item-light-hover-color", "var(--app-accent, #0d6efd)");
-  document.documentElement.style.setProperty("--app-nav-dropdown-item-light-hover-bg", "rgba(var(--app-accent-rgb, 13, 110, 253), 0.12)");
-  document.documentElement.style.setProperty("--app-jump-link-hover", "var(--app-accent, #0d6efd)");
-  document.documentElement.style.setProperty("--app-jump-link-active", "var(--app-accent, #0d6efd)");
-  document.documentElement.style.setProperty("--app-jump-link-hover-bg", "rgba(var(--app-accent-rgb, 13, 110, 253), 0.06)");
-  document.documentElement.style.setProperty("--app-jump-link-active-bg", "rgba(var(--app-accent-rgb, 13, 110, 253), 0.08)");
+  document.documentElement.style.setProperty("--app-nav-link-light-hover", "var(--app-accent, #007fff)");
+  document.documentElement.style.setProperty("--app-nav-link-light-underline", "var(--app-accent, #007fff)");
+  document.documentElement.style.setProperty("--app-nav-dropdown-item-light-hover-color", "var(--app-accent, #007fff)");
+  document.documentElement.style.setProperty("--app-nav-dropdown-item-light-hover-bg", "rgba(var(--app-accent-rgb, 0, 127, 255), 0.12)");
+  document.documentElement.style.setProperty("--app-jump-link-hover", "var(--app-accent, #007fff)");
+  document.documentElement.style.setProperty("--app-jump-link-active", "var(--app-accent, #007fff)");
+  document.documentElement.style.setProperty("--app-jump-link-hover-bg", "rgba(var(--app-accent-rgb, 0, 127, 255), 0.06)");
+  document.documentElement.style.setProperty("--app-jump-link-active-bg", "rgba(var(--app-accent-rgb, 0, 127, 255), 0.08)");
   localStorage.setItem(APPEARANCE_NAV_STYLE_KEY, "custom");
-}
-
-function applyDefaultAppearance(setTheme: (theme: string) => void) {
-  applyAccent(DEFAULT_ACCENT);
-  applyDefaultNavStyle();
-  setTheme(DEFAULT_THEME);
-  localStorage.setItem(APPEARANCE_THEME_KEY, DEFAULT_THEME);
 }
 
 interface Props {
@@ -123,6 +113,7 @@ export default function AppearanceModal({ show, setShow }: Props) {
     if (stored && isValidHex(stored)) {
       setSavedColor(stored);
       setDraftColor(stored);
+      applyAccent(stored);
     }
     const storedTheme = localStorage.getItem(APPEARANCE_THEME_KEY);
     if (storedTheme && THEME_OPTIONS.some((option) => option.key === storedTheme)) {
@@ -182,20 +173,7 @@ export default function AppearanceModal({ show, setShow }: Props) {
     setShow(false);
   }
 
-  function handleResetDefaults() {
-    applyDefaultAppearance(setTheme);
-    setSavedColor(DEFAULT_ACCENT);
-    setDraftColor(DEFAULT_ACCENT);
-    setPendingTheme(DEFAULT_THEME);
-    setIsDefaultProfileMode(true);
-    setShow(false);
-  }
-
   if (!mounted) return null;
-
-  const isPreset = THEME_COLORS.some((c) => c.value === draftColor);
-  const isCustomSelected = !isDefaultProfileMode && !isPreset;
-  const customRingColor = selectionBorderColor(draftColor);
 
   return (
     <Modal
@@ -235,10 +213,36 @@ export default function AppearanceModal({ show, setShow }: Props) {
 
         <Form.Group className="mb-3">
           <Form.Label className="fw-semibold">Accent Colour</Form.Label>
-          <p className="text-secondary mb-2" style={{ fontSize: "0.88rem" }}>
-            Choose a preset or pick a custom colour.
-          </p>
           <div className="color-scheme-grid">
+            {(() => {
+              const selected = isDefaultProfileMode;
+              const ringColor = selectionBorderColor(DEFAULT_ACCENT);
+              return (
+                <button
+                  type="button"
+                  key="default-profile"
+                  className={`color-scheme-btn${selected ? " is-selected" : ""}`}
+                  style={selected ? { borderColor: ringColor, boxShadow: `0 0 0 1px ${ringColor}` } : undefined}
+                  aria-label="Select default appearance"
+                  onClick={() => {
+                    setDraftColor(DEFAULT_ACCENT);
+                    setIsDefaultProfileMode(true);
+                  }}
+                >
+                  <span
+                    className="color-scheme-circle"
+                    style={{ background: "linear-gradient(90deg, #007fff 0 50%, #909091 50% 100%)" }}
+                  >
+                    {selected && (
+                      <svg viewBox="0 0 16 16" className="color-scheme-check" fill="white" aria-hidden>
+                        <path d="M13.485 3.929a1 1 0 0 1 .057 1.414l-6 6.5a1 1 0 0 1-1.452.012l-3-3a1 1 0 1 1 1.414-1.414L6.95 9.88l5.293-5.893a1 1 0 0 1 1.414-.057z" />
+                      </svg>
+                    )}
+                  </span>
+                  <span className="color-scheme-label">Default</span>
+                </button>
+              );
+            })()}
             {THEME_COLORS.map((c) => {
               const selected = !isDefaultProfileMode && draftColor === c.value;
               const ringColor = selectionBorderColor(c.value);
@@ -269,59 +273,9 @@ export default function AppearanceModal({ show, setShow }: Props) {
               );
             })}
           </div>
-          <div className="color-scheme-custom-row">
-            <label
-              className={`color-scheme-btn color-scheme-custom-btn${isCustomSelected ? " is-selected" : ""}`}
-              style={isCustomSelected ? { borderColor: customRingColor, boxShadow: `0 0 0 1px ${customRingColor}` } : undefined}
-              aria-label="Pick a custom colour"
-            >
-              <span className="color-scheme-circle" style={{ background: draftColor, position: "relative" }}>
-                {isCustomSelected && (
-                  <svg viewBox="0 0 16 16" className="color-scheme-check" fill="white" aria-hidden>
-                    <path d="M13.485 3.929a1 1 0 0 1 .057 1.414l-6 6.5a1 1 0 0 1-1.452.012l-3-3a1 1 0 1 1 1.414-1.414L6.95 9.88l5.293-5.893a1 1 0 0 1 1.414-.057z" />
-                  </svg>
-                )}
-                <Form.Control
-                  type="color"
-                  value={draftColor}
-                  onChange={(e) => {
-                    setDraftColor(e.target.value);
-                    setIsDefaultProfileMode(false);
-                  }}
-                  className="color-scheme-native-picker"
-                  title="Pick a custom colour"
-                />
-              </span>
-              <Form.Control
-                type="text"
-                value={draftColor}
-                onChange={(e) => {
-                  const v = e.target.value;
-                  setDraftColor(v);
-                  setIsDefaultProfileMode(false);
-                }}
-                placeholder="#000000"
-                className="color-scheme-custom-hex-inline"
-              />
-            </label>
-            {!isPreset && draftColor !== "#0d6efd" && (
-              <Button
-                variant="outline-secondary"
-                size="sm"
-                onClick={() => setDraftColor(DEFAULT_ACCENT)}
-                title="Reset to default"
-                className="color-scheme-reset-btn"
-              >
-                Reset
-              </Button>
-            )}
-          </div>
         </Form.Group>
       </Modal.Body>
       <Modal.Footer>
-        <Button variant="outline-secondary" onClick={handleResetDefaults}>
-          Reset Defaults
-        </Button>
         <Button variant="secondary" onClick={handleClose}>
           Close
         </Button>

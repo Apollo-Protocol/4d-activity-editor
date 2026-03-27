@@ -19,28 +19,38 @@ export default function App({ Component, pageProps }: AppProps) {
       document.documentElement.style.setProperty("--app-accent", stored);
       const m = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(stored);
       if (m) {
+        const r = parseInt(m[1], 16), g = parseInt(m[2], 16), b = parseInt(m[3], 16);
         document.documentElement.style.setProperty(
           "--app-accent-rgb",
-          `${parseInt(m[1], 16)}, ${parseInt(m[2], 16)}, ${parseInt(m[3], 16)}`
+          `${r}, ${g}, ${b}`
         );
+        // Detect grey accent: compute HSL saturation
+        const max = Math.max(r, g, b), min = Math.min(r, g, b);
+        const l = (max + min) / 2 / 255;
+        const sat = max === min ? 0 : (max - min) / (l > 0.5 ? 510 - max - min : max + min);
+        if (sat < 0.15) {
+          document.documentElement.classList.add("app-grey-accent");
+        } else {
+          document.documentElement.classList.remove("app-grey-accent");
+        }
       }
     }
 
     const navStyle = localStorage.getItem("app-nav-style");
     if (navStyle === "custom") {
       document.documentElement.classList.add("app-custom-theme");
-      document.documentElement.style.setProperty("--app-nav-link-light-hover", "var(--app-accent, #0d6efd)");
-      document.documentElement.style.setProperty("--app-nav-link-light-underline", "var(--app-accent, #0d6efd)");
-      document.documentElement.style.setProperty("--app-nav-dropdown-item-light-hover-color", "var(--app-accent, #0d6efd)");
-      document.documentElement.style.setProperty("--app-nav-dropdown-item-light-hover-bg", "rgba(var(--app-accent-rgb, 13, 110, 253), 0.12)");
-      document.documentElement.style.setProperty("--app-jump-link-hover", "var(--app-accent, #0d6efd)");
-      document.documentElement.style.setProperty("--app-jump-link-active", "var(--app-accent, #0d6efd)");
-      document.documentElement.style.setProperty("--app-jump-link-hover-bg", "rgba(var(--app-accent-rgb, 13, 110, 253), 0.06)");
-      document.documentElement.style.setProperty("--app-jump-link-active-bg", "rgba(var(--app-accent-rgb, 13, 110, 253), 0.08)");
+      document.documentElement.style.setProperty("--app-nav-link-light-hover", "var(--app-accent, #007fff)");
+      document.documentElement.style.setProperty("--app-nav-link-light-underline", "var(--app-accent, #007fff)");
+      document.documentElement.style.setProperty("--app-nav-dropdown-item-light-hover-color", "var(--app-accent, #007fff)");
+      document.documentElement.style.setProperty("--app-nav-dropdown-item-light-hover-bg", "rgba(var(--app-accent-rgb, 0, 127, 255), 0.12)");
+      document.documentElement.style.setProperty("--app-jump-link-hover", "var(--app-accent, #007fff)");
+      document.documentElement.style.setProperty("--app-jump-link-active", "var(--app-accent, #007fff)");
+      document.documentElement.style.setProperty("--app-jump-link-hover-bg", "rgba(var(--app-accent-rgb, 0, 127, 255), 0.06)");
+      document.documentElement.style.setProperty("--app-jump-link-active-bg", "rgba(var(--app-accent-rgb, 0, 127, 255), 0.08)");
     } else {
       document.documentElement.classList.remove("app-custom-theme");
-      document.documentElement.style.setProperty("--app-nav-link-light-hover", "#6c757d");
-      document.documentElement.style.setProperty("--app-nav-link-light-underline", "#6c757d");
+      document.documentElement.style.setProperty("--app-nav-link-light-hover", "#909091");
+      document.documentElement.style.setProperty("--app-nav-link-light-underline", "#909091");
       document.documentElement.style.setProperty("--app-nav-dropdown-item-light-hover-color", "#495057");
       document.documentElement.style.setProperty("--app-nav-dropdown-item-light-hover-bg", "#f8f9fa");
     }

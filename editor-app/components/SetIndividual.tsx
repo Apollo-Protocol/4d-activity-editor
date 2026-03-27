@@ -99,6 +99,7 @@ type AffectedActivity = {
   toBeginning?: number;
   toEnding?: number;
   action: "trim" | "drop";
+  activityOutcomeText?: string;
 };
 
 type CascadeWarning = {
@@ -300,10 +301,116 @@ const SetIndividual = (props: Props) => {
     return result;
   };
 
+  const annotateActivityOutcomes = (
+    affectedActivities: AffectedActivity[]
+  ): AffectedActivity[] => {
+    const affectedByActivity = new Map<string, AffectedActivity[]>();
+
+    affectedActivities.forEach((affectedActivity) => {
+      const items = affectedByActivity.get(affectedActivity.activityId) ?? [];
+      items.push(affectedActivity);
+      affectedByActivity.set(affectedActivity.activityId, items);
+    });
+
+    return affectedActivities.map((affectedActivity) => {
+      const activity = dataset.activities.get(affectedActivity.activityId);
+      const relatedChanges = affectedByActivity.get(affectedActivity.activityId);
+      if (!activity || !relatedChanges) return affectedActivity;
+
+      const remainingParticipations = new Map(activity.participations);
+
+      relatedChanges.forEach((change) => {
+        if (change.action === "drop") {
+          remainingParticipations.delete(change.individualId);
+          return;
+        }
+
+        if (
+          change.toBeginning === undefined ||
+          change.toEnding === undefined
+        ) {
+          return;
+        }
+
+        const participation = remainingParticipations.get(change.individualId);
+        if (!participation) return;
+
+        remainingParticipations.set(change.individualId, {
+          ...participation,
+          beginning: change.toBeginning,
+          ending: change.toEnding,
+        });
+      });
+
+      if (remainingParticipations.size === 0) {
+        return {
+          ...affectedActivity,
+          activityOutcomeText:
+            "Activity itself would be removed (no remaining participants)",
+        };
+      }
+
+      let earliestParticipationStart = Infinity;
+      let latestParticipationEnd = -Infinity;
+
+      remainingParticipations.forEach((participation) => {
+        const effectiveStart = normalizeStart(
+          participation.beginning ?? activity.beginning
+        );
+        const effectiveEnd = normalizeEnd(
+          participation.ending ?? activity.ending
+        );
+
+        earliestParticipationStart = Math.min(
+          earliestParticipationStart,
+          effectiveStart
+        );
+        latestParticipationEnd = Math.max(
+          latestParticipationEnd,
+          effectiveEnd
+        );
+      });
+
+      if (
+        !Number.isFinite(earliestParticipationStart) ||
+        !Number.isFinite(latestParticipationEnd) ||
+        latestParticipationEnd <= earliestParticipationStart
+      ) {
+        return {
+          ...affectedActivity,
+          activityOutcomeText:
+            "Activity itself would be removed (no remaining participants)",
+        };
+      }
+
+      const currentActivityStart = normalizeStart(activity.beginning);
+      const currentActivityEnd = normalizeEnd(activity.ending);
+
+      if (
+        earliestParticipationStart > currentActivityStart ||
+        latestParticipationEnd < currentActivityEnd
+      ) {
+        return {
+          ...affectedActivity,
+          activityOutcomeText: `Activity itself would be trimmed to ${formatBound(
+            earliestParticipationStart,
+            true
+          )}-${formatBound(latestParticipationEnd, false)}`,
+        };
+      }
+
+      return affectedActivity;
+    });
+  };
+
   const applyAffectedActivityChanges = (
     model: Model,
     affectedActivities: AffectedActivity[]
   ) => {
+    const affectedActivityIds = new Set(
+      affectedActivities.map((affectedActivity) => affectedActivity.activityId)
+    );
+
     const trimBoundsByParticipation = new Map<
       string,
       { beginning: number; ending: number }
@@ -358,6 +465,76 @@ const SetIndividual = (props: Props) => {
         ...activity,
         participations: new Map(activity.participations),
       });
+    });
+
+    shrinkActivitiesToRemainingParticipants(model, affectedActivityIds);
+  };
+
+  const shrinkActivitiesToRemainingParticipants = (
+    model: Model,
+    activityIds: Iterable<string>
+  ) => {
+    Array.from(activityIds).forEach((activityId) => {
+      const activity = model.activities.get(activityId);
+      if (!activity) return;
+      if (activity.participations.size === 0) {
+        model.activities.delete(activityId);
+        return;
+      }
+
+      let earliestParticipationStart = Infinity;
+      let latestParticipationEnd = -Infinity;
+
+      activity.participations.forEach((participation) => {
+        const effectiveStart = normalizeStart(
+          participation.beginning ?? activity.beginning
+        );
+        const effectiveEnd = normalizeEnd(
+          participation.ending ?? activity.ending
+        );
+
+        earliestParticipationStart = Math.min(
+          earliestParticipationStart,
+          effectiveStart
+        );
+        latestParticipationEnd = Math.max(
+          latestParticipationEnd,
+          effectiveEnd
+        );
+      });
+
+      if (
+        !Number.isFinite(earliestParticipationStart) ||
+        !Number.isFinite(latestParticipationEnd) ||
+        latestParticipationEnd <= earliestParticipationStart
+      ) {
+        return;
+      }
+
+      const currentActivityStart = normalizeStart(activity.beginning);
+      const currentActivityEnd = normalizeEnd(activity.ending);
+      let changed = false;
+      let nextBeginning = activity.beginning;
+      let nextEnding = activity.ending;
+
+      if (earliestParticipationStart > currentActivityStart) {
+        nextBeginning = earliestParticipationStart;
+        changed = true;
+      }
+
+      if (latestParticipationEnd < currentActivityEnd) {
+        nextEnding = latestParticipationEnd;
+        changed = true;
+      }
+
+      if (changed) {
+        model.addActivity({
+          ...activity,
+          beginning: nextBeginning,
+          ending: nextEnding,
+          participations: new Map(activity.participations),
+        });
+      }
     });
   };
 
@@ -792,7 +969,7 @@ const SetIndividual = (props: Props) => {
         setPendingTrimCount(trimmedCount);
         setPendingDroppedCount(droppedCount);
         setPendingBoundsChanges(boundsChanges);
-        setPendingAffectedActivities(indAffectedActivities);
+        setPendingAffectedActivities(annotateActivityOutcomes(indAffectedActivities));
         setShowBoundsWarningModal(true);
         return;
       }
@@ -813,7 +990,7 @@ const SetIndividual = (props: Props) => {
           setPendingTrimCount(0);
           setPendingDroppedCount(0);
           setPendingBoundsChanges([]);
-          setPendingAffectedActivities(indAffectedActivities);
+          setPendingAffectedActivities(annotateActivityOutcomes(indAffectedActivities));
           setShowBoundsWarningModal(true);
           return;
         }
@@ -1107,7 +1284,7 @@ const SetIndividual = (props: Props) => {
             entityName: next.name,
             affectedComponents: affectedComps,
             affectedInstallations: affectedInstalls,
-            affectedActivities: dedupedActivities,
+            affectedActivities: annotateActivityOutcomes(dedupedActivities),
             pendingIndividual: pending,
             applyTrim: () => {
               // Do everything in one atomic updateDataset call
@@ -1216,10 +1393,14 @@ const SetIndividual = (props: Props) => {
                 }
 
                 // Remove all affected participations
+                const affectedActivityIds = new Set<string>();
                 for (const aa of affectedActivities) {
                   const act = d.activities.get(aa.activityId);
                   if (act) act.participations.delete(aa.individualId);
+                  affectedActivityIds.add(aa.activityId);
                 }
+
+                shrinkActivitiesToRemainingParticipants(d, affectedActivityIds);
 
                 return d;
               });
@@ -1350,7 +1531,7 @@ const SetIndividual = (props: Props) => {
             entityName: next.name,
             affectedComponents: [],
             affectedInstallations: affectedInstalls,
-            affectedActivities: dedupedCompActivities,
+            affectedActivities: annotateActivityOutcomes(dedupedCompActivities),
             pendingIndividual: pending,
             applyTrim: () => {
               updateDataset((d: Model) => {
@@ -1419,10 +1600,14 @@ const SetIndividual = (props: Props) => {
                 }
 
                 // Remove all affected participations
+                const affectedActivityIds = new Set<string>();
                 for (const aa of dedupedCompActivities) {
                   const act = d.activities.get(aa.activityId);
                   if (act) act.participations.delete(aa.individualId);
+                  affectedActivityIds.add(aa.activityId);
                 }
+
+                shrinkActivitiesToRemainingParticipants(d, affectedActivityIds);
 
                 return d;
               });
@@ -1467,11 +1652,14 @@ const SetIndividual = (props: Props) => {
     if (pendingAffectedActivities.length > 0) {
       updateDataset((d: Model) => {
         d.addIndividual(pendingRemoveIndividual);
+        const affectedActivityIds = new Set<string>();
         // Remove all affected participations
         for (const aa of pendingAffectedActivities) {
           const act = d.activities.get(aa.activityId);
           if (act) act.participations.delete(aa.individualId);
+          affectedActivityIds.add(aa.activityId);
         }
+        shrinkActivitiesToRemainingParticipants(d, affectedActivityIds);
       });
       handleClose();
     } else {
@@ -2414,6 +2602,7 @@ const SetIndividual = (props: Props) => {
                     {aa.action === "trim"
                       ? ` → ${formatBound(aa.toBeginning ?? aa.fromBeginning, true)}-${formatBound(aa.toEnding ?? aa.fromEnding, false)} (would be trimmed)`
                       : " → would be removed (no overlap)"}
+                    {aa.activityOutcomeText && ` — ${aa.activityOutcomeText}`}
                   </div>
                 ))}
               </div>
@@ -2522,6 +2711,7 @@ const SetIndividual = (props: Props) => {
                     {aa.action === "trim"
                       ? ` → ${formatBound(aa.toBeginning ?? aa.fromBeginning, true)}-${formatBound(aa.toEnding ?? aa.fromEnding, false)} (would be trimmed)`
                       : " → would be removed (no overlap)"}
+                    {aa.activityOutcomeText && ` — ${aa.activityOutcomeText}`}
                   </div>
                 ))}
               </div>

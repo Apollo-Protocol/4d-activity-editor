@@ -14,7 +14,11 @@ import {
   Label,
   removeLabelIfItOverlaps,
 } from "./DrawHelpers";
-import { getInstallationPeriods, isInstalledInSystemComponent } from "@/utils/installations";
+import {
+  getInstallationPeriods,
+  isInstalledInSystemComponent,
+  normalizeStart,
+} from "@/utils/installations";
 
 let mouseOverElement: any | null = null;
 
@@ -1075,14 +1079,41 @@ export function labelIndividuals(ctx: DrawContext) {
     else componentsBySystem.set(host.id, [individual]);
   });
 
+  const isDarkMode =
+    typeof document !== "undefined" &&
+    document.documentElement.getAttribute("data-bs-theme") === "dark";
+
   const getLabelFill = (individual: Individual) => {
     const typeId = getEntityTypeIdFromIndividual(individual);
+
+    if (isDarkMode && typeId === ENTITY_TYPE_IDS.INDIVIDUAL) {
+      return "#ffffff";
+    }
+
     if (
       typeId === ENTITY_TYPE_IDS.SYSTEM ||
       typeId === ENTITY_TYPE_IDS.SYSTEM_COMPONENT
     ) {
+      if (isDarkMode) {
+        const hostSystem =
+          typeId === ENTITY_TYPE_IDS.SYSTEM
+            ? individual
+            : individual.installedIn
+              ? individualsById.get(individual.installedIn)
+              : undefined;
+
+        if (
+          hostSystem &&
+          getEntityTypeIdFromIndividual(hostSystem) === ENTITY_TYPE_IDS.SYSTEM &&
+          normalizeStart(hostSystem.beginning) !== 0
+        ) {
+          return "#ffffff";
+        }
+      }
+
       return "#000000";
     }
+
     return config.labels.individual.color;
   };
 

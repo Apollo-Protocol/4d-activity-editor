@@ -108,9 +108,9 @@ export const config: ConfigData = {
   presentation: {
     individual: {
       strokeWidth: "1px",
-      stroke: "var(--diagram-individual-stroke, #7F7F7F)",
-      fill: "var(--diagram-individual-fill, #B1B1B0)",
-      fillHover: "var(--diagram-individual-fill-hover, #8d8d8b)",
+      stroke: "var(--diagram-individual-stroke, #707071)",
+      fill: "var(--diagram-individual-fill, #909091)",
+      fillHover: "var(--diagram-individual-fill-hover, #787879)",
     },
     activity: {
       strokeWidth: "1px",

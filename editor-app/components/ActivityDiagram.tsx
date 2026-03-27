@@ -56,6 +56,11 @@ const ActivityDiagram = (props: Props) => {
   const [interactionMode, setInteractionMode] = useState<"pointer" | "zoom">("pointer");
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
+  const [themeAttribute, setThemeAttribute] = useState<string>(() =>
+    typeof document !== "undefined"
+      ? document.documentElement.getAttribute("data-bs-theme") || ""
+      : ""
+  );
 
   const searchHighlightTimerRef = useRef<number | null>(null);
 
@@ -95,6 +100,24 @@ const ActivityDiagram = (props: Props) => {
   useEffect(() => {
     setHighlightedSearchIndex(-1);
   }, [filteredSearchResults]);
+
+  useEffect(() => {
+    if (typeof document === "undefined") return;
+
+    const root = document.documentElement;
+    const observer = new MutationObserver(() => {
+      setThemeAttribute(root.getAttribute("data-bs-theme") || "");
+    });
+
+    observer.observe(root, {
+      attributes: true,
+      attributeFilter: ["data-bs-theme"],
+    });
+
+    setThemeAttribute(root.getAttribute("data-bs-theme") || "");
+
+    return () => observer.disconnect();
+  }, []);
 
   const clearSearchHighlight = () => {
     if (!svgRef.current) return;
@@ -187,6 +210,7 @@ const ActivityDiagram = (props: Props) => {
     dataset,
     configData,
     activityContext,
+    themeAttribute,
     svgRef,
     clickIndividual,
     clickActivity,

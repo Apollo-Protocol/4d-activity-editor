@@ -60,6 +60,42 @@ const getActiveSection = (ids: string[]) => {
   return currentId;
 };
 
+const getScrollOffset = () => {
+  if (typeof window === "undefined") return 12;
+
+  const obstructionSelectors = [".app-navbar", ".breadcrumb-wrapper"];
+  if (window.innerWidth <= 991.98) {
+    obstructionSelectors.push(".doc-jump-links");
+  }
+
+  const obstructionBottom = obstructionSelectors.reduce((maxBottom, selector) => {
+    const element = document.querySelector(selector) as HTMLElement | null;
+    if (!element) return maxBottom;
+
+    const rect = element.getBoundingClientRect();
+    if (rect.height <= 0 || rect.bottom <= 0) return maxBottom;
+
+    return Math.max(maxBottom, rect.bottom);
+  }, 0);
+
+  return obstructionBottom + 12;
+};
+
+const scrollToSection = (id: string) => {
+  const section = document.getElementById(id);
+  if (!section) return;
+
+  const targetTop = section.getBoundingClientRect().top + window.scrollY - getScrollOffset();
+  window.scrollTo({
+    top: Math.max(0, targetTop),
+    behavior: "smooth",
+  });
+
+  if (window.location.hash !== `#${id}`) {
+    window.history.replaceState(null, "", `#${id}`);
+  }
+};
+
 export default function JumpLinks({
   items,
   label = "Jump to section",
@@ -91,6 +127,18 @@ export default function JumpLinks({
   const activeLabel =
     findItemById(items, activeId)?.label ?? items[0]?.label ?? label;
 
+  const handleLinkClick = (event: React.MouseEvent<HTMLAnchorElement>, id: string) => {
+    event.preventDefault();
+    setActiveId(id);
+    setMobileOpen(false);
+
+    window.requestAnimationFrame(() => {
+      window.requestAnimationFrame(() => {
+        scrollToSection(id);
+      });
+    });
+  };
+
   const renderItems = (linkItems: JumpLinkItem[], depth = 0) => (
     <ul className={`doc-jump-links-list${depth > 0 ? " is-nested" : ""}`}>
       {linkItems.map((item) => {
@@ -103,10 +151,7 @@ export default function JumpLinks({
               href={`#${item.id}`}
               className={`doc-jump-links-link${isActive ? " is-active" : ""}${depth > 0 ? " is-subsection" : ""}`}
               aria-current={isActive ? "location" : undefined}
-              onClick={() => {
-                setActiveId(item.id);
-                setMobileOpen(false);
-              }}
+              onClick={(event) => handleLinkClick(event, item.id)}
             >
               {item.label}
             </a>

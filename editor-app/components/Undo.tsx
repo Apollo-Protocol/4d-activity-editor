@@ -105,6 +105,40 @@ function renderHistoryTextWithColorSwatches(text: string) {
 }
 
 function renderHistoryDescription(text: string) {
+  const lines = text.split("\n");
+  const causalHeaderIndex = lines.findIndex((line) => line.trim().endsWith(" which:"));
+  if (causalHeaderIndex >= 0) {
+    const prefixLines = lines
+      .slice(0, causalHeaderIndex)
+      .map((line) => line.trim())
+      .filter((line) => line.length > 0);
+    const header = lines[causalHeaderIndex].trim().replace(/ which:$/, "");
+    const items = lines
+      .slice(causalHeaderIndex + 1)
+      .map((item) => item.trim())
+      .filter((item) => item.startsWith("- "))
+      .map((item) => item.slice(2).trim())
+      .filter((item) => item.length > 0);
+
+    if (items.length > 0) {
+      return (
+        <>
+          {prefixLines.map((line, index) => (
+            <div className="mb-1" key={`${line}-${index}`}>
+              {renderHistoryTextWithColorSwatches(line)}
+            </div>
+          ))}
+          <div className="mb-1">{renderHistoryTextWithColorSwatches(header)} which:</div>
+          <ul className="history-entry-description-list mb-0">
+            {items.map((item, index) => (
+              <li key={`${item}-${index}`}>{renderHistoryTextWithColorSwatches(item)}</li>
+            ))}
+          </ul>
+        </>
+      );
+    }
+  }
+
   const items = text
     .split(/;\s+(?=[A-Z])/)
     .map((item) => item.trim())

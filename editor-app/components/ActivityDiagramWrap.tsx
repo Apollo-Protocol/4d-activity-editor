@@ -108,6 +108,30 @@ function createHistoryDetails(
   };
 }
 
+function buildCascadingHistoryDescription(
+  prefixFragments: string[],
+  primaryFragment: string,
+  sideEffectFragments: string[]
+) {
+  if (sideEffectFragments.length === 0) {
+    return [...prefixFragments, primaryFragment].join("; ");
+  }
+
+  const prefixText = prefixFragments.length > 0 ? `${prefixFragments.join("\n")}\n` : "";
+  return `${prefixText}${primaryFragment} which:\n- ${sideEffectFragments.join("\n- ")}`;
+}
+
+function isCascadeDriverFragment(fragment: string) {
+  return (
+    fragment.startsWith("Changed timing of ") ||
+    fragment.startsWith("Added installation ") ||
+    fragment.startsWith("Removed installation ") ||
+    fragment.startsWith("Moved installation ") ||
+    fragment.startsWith("Changed installation ") ||
+    fragment.startsWith("Updated installations ")
+  );
+}
+
 function getKindLabel(name: string | undefined) {
   return name || "Unknown type";
 }
@@ -594,9 +618,47 @@ function summarizeInstallationChangeForIndividual(
 }
 
 function summarizeCombinedIndividualChange(oldModel: Model, newModel: Model) {
+  const activitySideEffectFragments: string[] = [];
+
+  // Detect activity timing changes
+  for (const id of Array.from(newModel.activities.keys())) {
+    if (!oldModel.activities.has(id)) continue;
+    const oldActivity = oldModel.activities.get(id);
+    const newActivity = newModel.activities.get(id);
+    if (!oldActivity || !newActivity) continue;
+    if (
+      oldActivity.beginning !== newActivity.beginning ||
+      oldActivity.ending !== newActivity.ending
+    ) {
+      activitySideEffectFragments.push(
+        `Changed timing of activity "${newActivity.name}" (${formatRange(oldActivity.beginning, oldActivity.ending)} → ${formatRange(newActivity.beginning, newActivity.ending)})`
+      );
+    }
+  }
+
+  // Detect activity removals (e.g. deleted because zero remaining participants)
+  for (const id of Array.from(oldModel.activities.keys())) {
+    if (!newModel.activities.has(id)) {
+      const act = oldModel.activities.get(id);
+      activitySideEffectFragments.push(
+        `Removed activity "${act?.name || id}" (${formatRange(act?.beginning ?? 0, act?.ending ?? Model.END_OF_TIME)})`
+      );
+    }
+  }
+
   const commonIndividualIds = Array.from(newModel.individuals.keys()).filter((id) =>
     oldModel.individuals.has(id)
   );
+
+  const combinedFragments: string[] = [];
+  let primaryEntity:
+    | {
+        category: string;
+        name: string;
+        priority: number;
+        directFragments: string[];
+      }
+    | undefined;
 
   for (let i = 0; i < commonIndividualIds.length; i++) {
     const id = commonIndividualIds[i];
@@ -605,44 +667,116 @@ function summarizeCombinedIndividualChange(oldModel: Model, newModel: Model) {
     if (!oldIndividual || !newIndividual) continue;
 
     const fragments: string[] = [];
+    const directFragments: string[] = [];
+    let priority = 3;
 
     if (oldIndividual.name !== newIndividual.name) {
       const entityCopy = getEntityHistoryCopy(newIndividual, id);
-      fragments.push(
-        `Renamed ${entityCopy.noun} "${oldIndividual.name}" to "${newIndividual.name}"`
-      );
+      const fragment = `Renamed ${entityCopy.noun} "${oldIndividual.name}" to "${newIndividual.name}"`;
+      fragments.push(fragment);
+      directFragments.push(fragment);
+      priority = Math.min(priority, 0);
     }
 
     if ((oldIndividual.type?.id || "") !== (newIndividual.type?.id || "")) {
       const entityCopy = getEntityHistoryCopy(newIndividual, id);
-      fragments.push(
-        `Changed type of ${entityCopy.noun} "${entityCopy.name}" from "${getKindLabel(oldIndividual.type?.name)}" to "${getKindLabel(newIndividual.type?.name)}"`
-      );
+      const fragment = `Changed type of ${entityCopy.noun} "${entityCopy.name}" from "${getKindLabel(oldIndividual.type?.name)}" to "${getKindLabel(newIndividual.type?.name)}"`;
+      fragments.push(fragment);
+      directFragments.push(fragment);
+      priority = Math.min(priority, 0);
     }
 
     const installationChange = summarizeInstallationChangeForIndividual(oldModel, newModel, id);
     if (installationChange) {
       fragments.push(installationChange.description);
+      directFragments.push(installationChange.description);
+      priority = Math.min(priority, 1);
     }
 
     if (oldIndividual.beginning !== newIndividual.beginning || oldIndividual.ending !== newIndividual.ending) {
       const entityCopy = getEntityHistoryCopy(newIndividual, id);
-      fragments.push(
-        `Changed timing of ${entityCopy.noun} "${entityCopy.name}" (${formatRange(oldIndividual.beginning, oldIndividual.ending)} → ${formatRange(newIndividual.beginning, newIndividual.ending)})`
-      );
+      const fragment = `Changed timing of ${entityCopy.noun} "${entityCopy.name}" (${formatRange(oldIndividual.beginning, oldIndividual.ending)} → ${formatRange(newIndividual.beginning, newIndividual.ending)})`;
+      fragments.push(fragment);
+      directFragments.push(fragment);
+      priority = Math.min(priority, 0);
     }
 
-    fragments.push(...getParticipationChangeFragmentsForIndividual(oldModel, newModel, id));
+    const participationFragments = getParticipationChangeFragmentsForIndividual(oldModel, newModel, id);
+    if (participationFragments.length > 0) {
+      priority = Math.min(priority, 2);
+      fragments.push(...participationFragments);
+    }
 
-    if (fragments.length >= 2) {
+    if (fragments.length === 0) {
+      continue;
+    }
+
+    fragments.forEach((fragment) => {
+      if (!combinedFragments.includes(fragment)) {
+        combinedFragments.push(fragment);
+      }
+    });
+
+    if (!primaryEntity || priority < primaryEntity.priority) {
       const entityCopy = getEntityHistoryCopy(newIndividual, id);
+      primaryEntity = {
+        category: entityCopy.category,
+        name: entityCopy.name,
+        priority,
+        directFragments,
+      };
+    }
+  }
+
+  if (combinedFragments.length >= 1) {
+    activitySideEffectFragments.forEach((fragment) => {
+      if (!combinedFragments.includes(fragment)) {
+        combinedFragments.push(fragment);
+      }
+    });
+  }
+
+  if (primaryEntity && combinedFragments.length >= 2) {
+    const primaryDirectFragments = primaryEntity.directFragments.filter((fragment) =>
+      combinedFragments.includes(fragment)
+    );
+
+    const cascadeDriverFragments = primaryDirectFragments.filter(isCascadeDriverFragment);
+
+    if (cascadeDriverFragments.length === 1) {
+      const primaryFragment = cascadeDriverFragments[0];
+      const prefixFragments = primaryDirectFragments.filter((fragment) => fragment !== primaryFragment);
+      const sideEffectFragments = combinedFragments.filter(
+        (fragment) => !primaryDirectFragments.includes(fragment)
+      );
+
+      if (sideEffectFragments.length > 0) {
+        return createHistoryDetails(
+          primaryEntity.category,
+          buildCascadingHistoryDescription(prefixFragments, primaryFragment, sideEffectFragments),
+          `Restore previous edits for "${primaryEntity.name}"`,
+          `Reapply edits for "${primaryEntity.name}"`
+        );
+      }
+    }
+
+    if (primaryDirectFragments.length === 1) {
+      const primaryFragment = primaryDirectFragments[0];
+      const sideEffectFragments = combinedFragments.filter((fragment) => fragment !== primaryFragment);
       return createHistoryDetails(
-        entityCopy.category,
-        fragments.join("; "),
-        `Restore previous edits for "${entityCopy.name}"`,
-        `Reapply edits for "${entityCopy.name}"`
+        primaryEntity.category,
+        buildCascadingHistoryDescription([], primaryFragment, sideEffectFragments),
+        `Restore previous edits for "${primaryEntity.name}"`,
+        `Reapply edits for "${primaryEntity.name}"`
       );
     }
+
+    return createHistoryDetails(
+      primaryEntity.category,
+      combinedFragments.join("; "),
+      `Restore previous edits for "${primaryEntity.name}"`,
+      `Reapply edits for "${primaryEntity.name}"`
+    );
   }
 
   return undefined;
@@ -903,6 +1037,9 @@ function generateHistoryDetails(oldModel: Model, newModel: Model): Omit<HistoryE
     }
   }
 
+  const combinedIndividualChange = summarizeCombinedIndividualChange(oldModel, newModel);
+  if (combinedIndividualChange) return combinedIndividualChange;
+
   const oldActIds = Array.from(oldModel.activities.keys());
   const newActIds = Array.from(newModel.activities.keys());
   const oldActSet = new Set(oldActIds);
@@ -944,15 +1081,12 @@ function generateHistoryDetails(oldModel: Model, newModel: Model): Omit<HistoryE
       }
       return createHistoryDetails(
         "Activity",
-        `Removed activity "${act?.name || id}"`,
+        `Removed activity "${act?.name || id}" ${formatExtentRange(act?.beginning ?? 0, act?.ending ?? Model.END_OF_TIME)}`,
         `Restore activity "${act?.name || id}"`,
         `Remove activity "${act?.name || id}"`
       );
     }
   }
-
-  const combinedIndividualChange = summarizeCombinedIndividualChange(oldModel, newModel);
-  if (combinedIndividualChange) return combinedIndividualChange;
 
   const systemComponentParentChange = summarizeSystemComponentParentChange(oldModel, newModel);
   if (systemComponentParentChange) return systemComponentParentChange;

@@ -398,9 +398,9 @@ export default function Page({ imageMap }: { imageMap: Record<string, string> })
                   theme, link colour, highlights, and button styling across the editor.
                 </p>
                 <p>
-                  You can choose a preset accent colour or use the colour picker for a custom one.
-                  When a custom theme colour is saved, links and buttons adopt that colour. When you
-                  use <strong>Reset Defaults</strong>, the interface returns to the neutral default look.
+                  The colour cards include a <strong>Default</strong> profile card (half blue and half grey),
+                  which is selected by default. Selecting this keeps the neutral interface profile, while
+                  the other preset cards apply a custom accent profile for links, highlights and button styling.
                 </p>
                 <p>
                   Appearance preferences are stored in local storage, so your chosen theme is restored
@@ -504,6 +504,12 @@ export default function Page({ imageMap }: { imageMap: Record<string, string> })
                 <p>
                   The editor also supports copying and deleting activities. Changes apply to the
                   diagram immediately, so you can iterate quickly.
+                </p>
+                <p>
+                  When time bounds edits have cascade effects, the editor preserves consistency automatically.
+                  For example, tightening a system timeline can trim installation endings, trim participation
+                  timing, and in some cases remove an activity that no longer has valid participation.
+    
                 </p>
               </Col>
               <Col className="col-md text-center align-self-center">

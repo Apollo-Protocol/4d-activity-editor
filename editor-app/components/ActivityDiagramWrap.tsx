@@ -1368,6 +1368,7 @@ export default function ActivityDiagramWrap() {
   const [showSortIndividuals, setShowSortIndividuals] = useState(false);
   const [highlightedActivityId, setHighlightedActivityId] = useState<string | null>(null);
   const [collapseStateResetToken, setCollapseStateResetToken] = useState(0);
+  const [mobileMinimapHost, setMobileMinimapHost] = useState<HTMLDivElement | null>(null);
 
   // Restore from sessionStorage on mount
   const didRestore = useRef(false);
@@ -1885,11 +1886,13 @@ export default function ActivityDiagramWrap() {
                 onReorderIndividuals={reorderIndividuals}
                 renameIndividual={renameIndividual}
                 collapseStateResetToken={collapseStateResetToken}
+                minimapPortalTarget={mobileMinimapHost}
               />
             )}
           </div>
 
           <div className={`editor-toolbar ${isDiagramEmpty ? "d-none" : ""}`}>
+            <div className="toolbar-mobile-minimap-host" ref={setMobileMinimapHost} />
             <div className="toolbar-group">
             {!isDiagramEmpty && (
               <SetIndividual

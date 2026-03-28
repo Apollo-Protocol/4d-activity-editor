@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useMemo, MutableRefObject, JSX, Dispatch, SetStateAction } from "react";
+import { createPortal } from "react-dom";
 import Breadcrumb from "react-bootstrap/Breadcrumb";
 import Button from "react-bootstrap/Button";
 import Draggable from "react-draggable";
@@ -28,6 +29,7 @@ interface Props {
   onReorderIndividuals?: (orderedIds: string[]) => void;
   renameIndividual?: (id: string, newName: string) => void;
   collapseStateResetToken?: number;
+  minimapPortalTarget?: HTMLElement | null;
 }
 
 const COLLAPSED_SYSTEMS_STORAGE_KEY = "4d-collapsed-systems";
@@ -50,6 +52,7 @@ const ActivityDiagram = (props: Props) => {
     onReorderIndividuals,
     renameIndividual,
     collapseStateResetToken = 0,
+    minimapPortalTarget,
   } = props;
 
   const [plot, setPlot] = useState({
@@ -73,22 +76,19 @@ const ActivityDiagram = (props: Props) => {
   const [highlightedSearchIndex, setHighlightedSearchIndex] = useState(-1);
   const searchResultsRef = useRef<HTMLDivElement>(null);
   const searchDragRef = useRef<HTMLDivElement>(null);
+  const [viewportWidth, setViewportWidth] = useState(
+    typeof window !== "undefined" ? window.innerWidth : 1440
+  );
+
+  const getResponsiveDefaultMinimapScale = () => (viewportWidth <= 1599 ? 0.75 : 1);
 
   const zoomRef = useRef<d3.ZoomBehavior<SVGSVGElement, unknown> | null>(null);
   const zoomTransformRef = useRef(d3.zoomIdentity);
 
-  const [collapsedSystems, setCollapsedSystems] = useState<Set<string>>(() => {
-    if (typeof window === "undefined") return new Set<string>();
-    try {
-      const stored = sessionStorage.getItem(COLLAPSED_SYSTEMS_STORAGE_KEY);
-      if (stored) return new Set<string>(JSON.parse(stored));
-    } catch {
-      // ignore storage errors
-    }
-    return new Set<string>();
-  });
+  const [collapsedSystems, setCollapsedSystems] = useState<Set<string>>(new Set());
+  const [hasRestoredCollapsedSystems, setHasRestoredCollapsedSystems] = useState(false);
   const [showMinimap, setShowMinimap] = useState(true);
-  const [minimapScale, setMinimapScale] = useState(1);
+  const [minimapScale, setMinimapScale] = useState(() => getResponsiveDefaultMinimapScale());
   const [minimapPos, setMinimapPos] = useState<{ left: number; top: number } | null>(null);
   const [minimapHoveredEntityId, setMinimapHoveredEntityId] = useState<string | null>(null);
   const minimapRef = useRef<SVGSVGElement>(null);
@@ -125,6 +125,22 @@ const ActivityDiagram = (props: Props) => {
   };
 
   useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    try {
+      const stored = sessionStorage.getItem(COLLAPSED_SYSTEMS_STORAGE_KEY);
+      if (stored) {
+        setCollapsedSystems(new Set<string>(JSON.parse(stored)));
+      }
+    } catch {
+      // ignore storage errors
+    } finally {
+      setHasRestoredCollapsedSystems(true);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!hasRestoredCollapsedSystems) return;
     try {
       sessionStorage.setItem(
         COLLAPSED_SYSTEMS_STORAGE_KEY,
@@ -133,23 +149,25 @@ const ActivityDiagram = (props: Props) => {
     } catch {
       // ignore storage errors
     }
-  }, [collapsedSystems]);
+  }, [collapsedSystems, hasRestoredCollapsedSystems]);
 
-  // Prune any stored collapsed IDs that no longer exist in the current dataset
+  // Prune any stored collapsed IDs that no longer exist in the current dataset.
+  // Skip when systemsWithComponents is empty — that means the dataset hasn't
+  // loaded yet and pruning would incorrectly wipe the restored collapse state.
   useEffect(() => {
+    if (!hasRestoredCollapsedSystems) return;
+    if (systemsWithComponents.length === 0) return;
     const validIds = new Set(systemsWithComponents.map((s) => s.id));
     setCollapsedSystems((prev) => {
       const pruned = new Set(Array.from(prev).filter((id) => validIds.has(id)));
       return pruned.size === prev.size ? prev : pruned;
     });
-  }, [systemsWithComponents]);
+  }, [systemsWithComponents, hasRestoredCollapsedSystems]);
 
-  const collapseResetInitializedRef = useRef(false);
+  const prevCollapseResetTokenRef = useRef(collapseStateResetToken);
   useEffect(() => {
-    if (!collapseResetInitializedRef.current) {
-      collapseResetInitializedRef.current = true;
-      return;
-    }
+    if (prevCollapseResetTokenRef.current === collapseStateResetToken) return;
+    prevCollapseResetTokenRef.current = collapseStateResetToken;
 
     setCollapsedSystems(new Set());
     try {
@@ -158,6 +176,18 @@ const ActivityDiagram = (props: Props) => {
       // ignore storage errors
     }
   }, [collapseStateResetToken]);
+
+  const responsiveDefaultMinimapScale = getResponsiveDefaultMinimapScale();
+  const previousResponsiveMinimapScaleRef = useRef(responsiveDefaultMinimapScale);
+  useEffect(() => {
+    setMinimapScale((current) => {
+      const previousResponsiveScale = previousResponsiveMinimapScaleRef.current;
+      previousResponsiveMinimapScaleRef.current = responsiveDefaultMinimapScale;
+      return current === previousResponsiveScale ? responsiveDefaultMinimapScale : current;
+    });
+  }, [responsiveDefaultMinimapScale]);
+
+  const isMobileLegendLayout = viewportWidth <= 767.98;
 
   const searchableEntities = useMemo(() => {
     return Array.from(dataset.individuals.values())
@@ -425,7 +455,7 @@ const ActivityDiagram = (props: Props) => {
     minimapViewportRef.current = minimapSvg
       .select<SVGRectElement>(".diagram-minimap-viewport")
       .node();
-  }, [plot, showMinimap, svgRef, collapsedSystems]);
+  }, [plot, showMinimap, svgRef, collapsedSystems, isMobileLegendLayout, minimapPortalTarget, viewportWidth]);
 
   // Track scroll / zoom and update minimap viewport rectangle
   useEffect(() => {
@@ -473,7 +503,15 @@ const ActivityDiagram = (props: Props) => {
       window.removeEventListener("resize", update);
       updateMinimapViewportRef.current = null;
     };
-  }, [plot, showMinimap, svgRef]);
+  }, [plot, showMinimap, svgRef, isMobileLegendLayout, minimapPortalTarget, viewportWidth]);
+
+  useEffect(() => {
+    if (!showMinimap) return;
+    const timer = window.setTimeout(() => {
+      updateMinimapViewportRef.current?.();
+    }, 0);
+    return () => window.clearTimeout(timer);
+  }, [showMinimap, isMobileLegendLayout, minimapPortalTarget, viewportWidth]);
 
   // Apply highlighting when highlightedActivityId changes
   useEffect(() => {
@@ -1567,7 +1605,7 @@ L ${sideX} ${lowerTop} Z`;
     if (clone) {
       lSvg.appendChild(clone.cloneNode(true));
     }
-  }, [plot, showMinimap, collapsedSystems]);
+  }, [plot, showMinimap, collapsedSystems, isMobileLegendLayout, minimapPortalTarget, viewportWidth]);
 
   const hitTestMinimapEntity = (e: React.PointerEvent<SVGSVGElement>): string | null => {
     if (!minimapRef.current) return null;
@@ -1686,6 +1724,7 @@ L ${sideX} ${lowerTop} Z`;
 
   useEffect(() => {
     const onResize = () => {
+      setViewportWidth(window.innerWidth);
       setMinimapPos((current) => getClampedMinimapSizeAndPosition(current).pos);
     };
 
@@ -1717,6 +1756,79 @@ L ${sideX} ${lowerTop} Z`;
   };
   const crumbs: JSX.Element[] = buildCrumbs();
   const isDiagramEmpty = dataset.individuals.size === 0 && dataset.activities.size === 0;
+
+  const minimapPanel = showMinimap && !isDiagramEmpty && plot.width > 0 ? (
+    <div
+      className="diagram-minimap"
+      style={
+        isMobileLegendLayout
+          ? { position: "static", width: "100%", maxWidth: "100%" }
+          : clampedMinimapPos
+            ? { position: "fixed", width: minimapPanelWidth + "px", left: clampedMinimapPos.left, top: clampedMinimapPos.top, bottom: "auto", right: "auto" }
+            : { position: "absolute", width: minimapPanelWidth + "px", maxWidth: "calc(100vw - 24px)" }
+      }
+    >
+      <div
+        className="diagram-minimap-header"
+        onPointerDown={onMinimapHeaderPointerDown}
+        onPointerMove={onMinimapHeaderPointerMove}
+        onPointerUp={onMinimapHeaderPointerUp}
+      >
+        <span className="diagram-minimap-grip" aria-hidden="true">⠿</span>
+        <span className="diagram-minimap-controls">
+          <button
+            type="button"
+            className="diagram-minimap-btn"
+            title="Zoom out minimap"
+            onClick={() => setMinimapScale((s) => Math.max(0.5, +(s - 0.25).toFixed(2)))}
+            disabled={minimapScale <= 0.5}
+          >−</button>
+          <button
+            type="button"
+            className="diagram-minimap-btn"
+            title="Reset minimap size"
+            onClick={() => { setMinimapScale(responsiveDefaultMinimapScale); setMinimapPos(null); }}
+          >⟳</button>
+          <button
+            type="button"
+            className="diagram-minimap-btn"
+            title="Zoom in minimap"
+            onClick={() => setMinimapScale((s) => Math.min(3, +(s + 0.25).toFixed(2)))}
+            disabled={minimapScale >= 3}
+          >+</button>
+        </span>
+      </div>
+      <div className="diagram-minimap-canvas">
+        <svg
+          ref={minimapRef}
+          viewBox={`0 0 ${plot.width} ${plot.height}`}
+          preserveAspectRatio="xMidYMid meet"
+          onPointerDown={(e) => {
+            e.preventDefault();
+            minimapRef.current?.setPointerCapture(e.pointerId);
+            const entityId = hitTestMinimapEntity(e);
+            if (entityId) {
+              focusEntityFromSearch(entityId);
+            } else {
+              navigateFromMinimap(e);
+            }
+          }}
+          onPointerMove={(e) => {
+            setMinimapHoveredEntityId(hitTestMinimapEntity(e));
+            updateMinimapLens(e);
+            if (e.buttons > 0) navigateFromMinimap(e);
+          }}
+          onPointerLeave={hideMinimapLens}
+        />
+      </div>
+      <div ref={minimapLensRef} className="diagram-minimap-lens" style={{ display: "none", width: LENS_SIZE, height: LENS_SIZE }}>
+        <svg
+          ref={minimapLensSvgRef}
+          viewBox={`0 0 ${plot.width} ${plot.height}`}
+        />
+      </div>
+    </div>
+  ) : null;
 
   return (
     <>
@@ -2027,77 +2139,7 @@ L ${sideX} ${lowerTop} Z`;
             }}
           />
         </div>
-        {showMinimap && !isDiagramEmpty && plot.width > 0 && (
-          <div
-            className="diagram-minimap"
-            style={
-              clampedMinimapPos
-                ? { position: "fixed", width: minimapPanelWidth + "px", left: clampedMinimapPos.left, top: clampedMinimapPos.top, bottom: "auto", right: "auto" }
-                : { position: "absolute", width: minimapPanelWidth + "px", maxWidth: "calc(100vw - 24px)" }
-            }
-          >
-            <div
-              className="diagram-minimap-header"
-              onPointerDown={onMinimapHeaderPointerDown}
-              onPointerMove={onMinimapHeaderPointerMove}
-              onPointerUp={onMinimapHeaderPointerUp}
-            >
-              <span className="diagram-minimap-grip" aria-hidden="true">⠿</span>
-              <span className="diagram-minimap-controls">
-                <button
-                  type="button"
-                  className="diagram-minimap-btn"
-                  title="Zoom out minimap"
-                  onClick={() => setMinimapScale((s) => Math.max(0.5, +(s - 0.25).toFixed(2)))}
-                  disabled={minimapScale <= 0.5}
-                >−</button>
-                <button
-                  type="button"
-                  className="diagram-minimap-btn"
-                  title="Reset minimap size"
-                  onClick={() => { setMinimapScale(1); setMinimapPos(null); }}
-                >⟳</button>
-                <button
-                  type="button"
-                  className="diagram-minimap-btn"
-                  title="Zoom in minimap"
-                  onClick={() => setMinimapScale((s) => Math.min(3, +(s + 0.25).toFixed(2)))}
-                  disabled={minimapScale >= 3}
-                >+</button>
-              </span>
-            </div>
-            <div className="diagram-minimap-canvas">
-              <svg
-                ref={minimapRef}
-                viewBox={`0 0 ${plot.width} ${plot.height}`}
-                preserveAspectRatio="xMidYMid meet"
-                onPointerDown={(e) => {
-                  e.preventDefault();
-                  minimapRef.current?.setPointerCapture(e.pointerId);
-                  // Highlight entity under cursor
-                  const entityId = hitTestMinimapEntity(e);
-                  if (entityId) {
-                    focusEntityFromSearch(entityId);
-                  } else {
-                    navigateFromMinimap(e);
-                  }
-                }}
-                onPointerMove={(e) => {
-                  setMinimapHoveredEntityId(hitTestMinimapEntity(e));
-                  updateMinimapLens(e);
-                  if (e.buttons > 0) navigateFromMinimap(e);
-                }}
-                onPointerLeave={hideMinimapLens}
-              />
-            </div>
-            <div ref={minimapLensRef} className="diagram-minimap-lens" style={{ display: "none", width: LENS_SIZE, height: LENS_SIZE }}>
-              <svg
-                ref={minimapLensSvgRef}
-                viewBox={`0 0 ${plot.width} ${plot.height}`}
-              />
-            </div>
-          </div>
-        )}
+        {isMobileLegendLayout && minimapPortalTarget ? createPortal(minimapPanel, minimapPortalTarget) : minimapPanel}
       </div>
     </>
   );

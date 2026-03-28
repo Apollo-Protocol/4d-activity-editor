@@ -3513,3 +3513,67 @@ html.app-custom-theme .breadcrumb-wrapper .breadcrumb-item a:hover {
   top: 0;
   left: 0;
 }
+
+.toolbar-mobile-minimap-host {
+  display: none;
+}
+
+@media (max-width: 767.98px) {
+  .editor-layout,
+  .editor-layout.is-empty {
+    grid-template-columns: minmax(0, 1.12fr) minmax(0, 0.88fr);
+    grid-template-areas:
+      "diagram diagram"
+      "legend toolbar";
+    align-items: start;
+  }
+
+  .editor-layout.is-empty {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-areas:
+      "diagram"
+      "legend";
+  }
+
+  .editor-toolbar {
+    align-self: start;
+  }
+
+  .editor-legend .legend-card:first-child {
+    margin-bottom: 0.75rem;
+  }
+
+  .toolbar-mobile-minimap-host {
+    display: block;
+    grid-column: 1 / -1;
+    min-width: 0;
+  }
+
+  .toolbar-mobile-minimap-host:empty {
+    display: none;
+  }
+
+  .toolbar-mobile-minimap-host .diagram-minimap {
+    position: static !important;
+    left: auto !important;
+    top: auto !important;
+    right: auto !important;
+    bottom: auto !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    margin: 0;
+  }
+
+  .toolbar-mobile-minimap-host .diagram-minimap-header {
+    padding: 2px 4px;
+  }
+
+  .toolbar-mobile-minimap-host .diagram-minimap-grip {
+    display: none;
+  }
+
+  .legend-sticky {
+    display: flex;
+    flex-direction: column;
+  }
+}

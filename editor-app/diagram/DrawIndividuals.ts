@@ -19,8 +19,10 @@ import {
   isInstalledInSystemComponent,
   normalizeStart,
 } from "@/utils/installations";
+import { getDiagramFontFamily } from "@/utils/appearance";
 
 let mouseOverElement: any | null = null;
+const DIAGRAM_FONT_FAMILY = getDiagramFontFamily;
 
 interface Span {
   x: number;
@@ -1184,7 +1186,7 @@ export function labelIndividuals(ctx: DrawContext) {
       return startY + height / 2 + config.labels.individual.topMargin;
     })
     .attr("text-anchor", "start")
-    .attr("font-family", "Roboto, Arial, sans-serif")
+    .attr("font-family", DIAGRAM_FONT_FAMILY())
     .attr("font-size", config.labels.individual.fontSize)
     .attr("fill", (d: Individual) => getLabelFill(d))
     .text((d: Individual) => {

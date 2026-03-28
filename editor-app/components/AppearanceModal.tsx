@@ -4,6 +4,11 @@ import Modal from "react-bootstrap/Modal";
 import Form from "react-bootstrap/Form";
 import DraggableModalDialog from "@/components/DraggableModalDialog";
 import { useTheme } from "next-themes";
+import {
+  applyTypographyProfile,
+  getStoredTypographyProfile,
+  TypographyProfileKey,
+} from "@/utils/appearance";
 
 const APPEARANCE_THEME_KEY = "app-theme";
 const APPEARANCE_NAV_STYLE_KEY = "app-nav-style";
@@ -23,6 +28,32 @@ const THEME_OPTIONS = [
   { key: "dark", label: "Dark" },
   { key: "system", label: "System" },
 ] as const;
+
+const TYPOGRAPHY_OPTIONS: Array<{
+  key: TypographyProfileKey;
+  label: string;
+  heading: string;
+  subheading: string;
+  body: string;
+  description: string;
+}> = [
+  {
+    key: "default",
+    label: "Default",
+    heading: "Roboto",
+    subheading: "Roboto",
+    body: "Roboto",
+    description: "Uses the standard editor type style across headings, labels, and body text.",
+  },
+  {
+    key: "apollo",
+    label: "Apollo Forum",
+    heading: "Jost Medium",
+    subheading: "Merriweather Regular",
+    body: "Source Sans 3 Variable",
+    description: "Applies an editorial mix: Jost for headings, Merriweather for subheadings, and Source Sans 3 for body copy.",
+  },
+];
 
 function isValidHex(hex: string) {
   return /^#([0-9a-fA-F]{3}){1,2}$/.test(hex);
@@ -105,6 +136,10 @@ export default function AppearanceModal({ show, setShow }: Props) {
   const [savedColor, setSavedColor] = useState(DEFAULT_ACCENT);
   const [draftColor, setDraftColor] = useState(DEFAULT_ACCENT);
   const [pendingTheme, setPendingTheme] = useState<string>("system");
+  const [savedTypography, setSavedTypography] =
+    useState<TypographyProfileKey>("default");
+  const [draftTypography, setDraftTypography] =
+    useState<TypographyProfileKey>("default");
   const [isDefaultProfileMode, setIsDefaultProfileMode] = useState(false);
 
   useEffect(() => {
@@ -120,6 +155,10 @@ export default function AppearanceModal({ show, setShow }: Props) {
       setPendingTheme(storedTheme);
       setTheme(storedTheme);
     }
+    const typographyProfile = getStoredTypographyProfile();
+    setSavedTypography(typographyProfile);
+    setDraftTypography(typographyProfile);
+    applyTypographyProfile(typographyProfile);
     const navStyle = localStorage.getItem(APPEARANCE_NAV_STYLE_KEY);
     if (navStyle === "custom") {
       applyCustomNavStyle();
@@ -144,6 +183,9 @@ export default function AppearanceModal({ show, setShow }: Props) {
         setSavedColor(stored);
         setDraftColor(stored);
       }
+      const typographyProfile = getStoredTypographyProfile();
+      setSavedTypography(typographyProfile);
+      setDraftTypography(typographyProfile);
       const navStyle = localStorage.getItem(APPEARANCE_NAV_STYLE_KEY);
       setIsDefaultProfileMode(navStyle !== "custom");
     }
@@ -153,6 +195,7 @@ export default function AppearanceModal({ show, setShow }: Props) {
     // Revert draft to saved on cancel
     setDraftColor(savedColor);
     setPendingTheme(theme || "system");
+    setDraftTypography(savedTypography);
     setIsDefaultProfileMode(localStorage.getItem(APPEARANCE_NAV_STYLE_KEY) !== "custom");
     setShow(false);
   }
@@ -161,6 +204,8 @@ export default function AppearanceModal({ show, setShow }: Props) {
     const colorToApply = isValidHex(draftColor) ? draftColor : DEFAULT_ACCENT;
     applyAccent(colorToApply);
     setSavedColor(colorToApply);
+    applyTypographyProfile(draftTypography);
+    setSavedTypography(draftTypography);
     if (isDefaultProfileMode) {
       applyDefaultNavStyle();
       setIsDefaultProfileMode(true);
@@ -269,6 +314,57 @@ export default function AppearanceModal({ show, setShow }: Props) {
                     )}
                   </span>
                   <span className="color-scheme-label">{c.name}</span>
+                </button>
+              );
+            })}
+          </div>
+        </Form.Group>
+
+        <Form.Group className="mb-0">
+          <Form.Label className="fw-semibold">Typography</Form.Label>
+          <div className="typography-cards">
+            {TYPOGRAPHY_OPTIONS.map((option) => {
+              const isActive = draftTypography === option.key;
+              return (
+                <button
+                  type="button"
+                  key={option.key}
+                  className={`typography-card${isActive ? " is-active" : ""}`}
+                  onClick={() => setDraftTypography(option.key)}
+                  aria-label={`Select ${option.label} typography`}
+                >
+                  <div className="typography-card-header">
+                    <span className="typography-card-label">{option.label}</span>
+                    <span className="typography-card-badge">
+                      {option.key === "apollo" ? "Guideline" : "Original"}
+                    </span>
+                  </div>
+                  <div className="typography-card-preview-block">
+                    <div
+                      className="typography-card-heading"
+                      style={{ fontFamily: option.key === "apollo" ? '"Jost", "Segoe UI", sans-serif' : '"Roboto", Arial, sans-serif' }}
+                    >
+                      Titles &amp; Headers
+                    </div>
+                    <div
+                      className="typography-card-subheading"
+                      style={{ fontFamily: option.key === "apollo" ? '"Merriweather", Georgia, serif' : '"Roboto", Arial, sans-serif' }}
+                    >
+                      Sub Headers &amp; Emphasis
+                    </div>
+                    <div
+                      className="typography-card-body"
+                      style={{ fontFamily: option.key === "apollo" ? '"Source Sans 3", "Segoe UI", sans-serif' : '"Roboto", Arial, sans-serif' }}
+                    >
+                      Body copy stays readable across the editor, docs, and diagram labels.
+                    </div>
+                  </div>
+                  <div className="typography-card-meta">
+                    <span>{option.heading}</span>
+                    <span>{option.subheading}</span>
+                    <span>{option.body}</span>
+                  </div>
+                  <div className="typography-card-description">{option.description}</div>
                 </button>
               );
             })}

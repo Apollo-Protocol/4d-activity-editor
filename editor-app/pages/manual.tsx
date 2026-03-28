@@ -403,6 +403,12 @@ export default function Page({ imageMap }: { imageMap: Record<string, string> })
                   the other preset cards apply a custom accent profile for links, highlights and button styling.
                 </p>
                 <p>
+                  The <strong>Typography</strong> cards let you switch text styling across the editor and exports.
+                  <strong> Default</strong> keeps the standard Roboto-based look. <strong>Apollo Forum</strong> applies
+                  an editorial profile with Jost for headings, Merriweather for subheadings, and Source Sans 3
+                  for body copy and diagram labels.
+                </p>
+                <p>
                   Appearance preferences are stored in local storage, so your chosen theme is restored
                   the next time you open the editor.
                 </p>

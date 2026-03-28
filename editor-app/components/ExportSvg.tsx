@@ -1,6 +1,7 @@
 import React from "react";
 import Button from "react-bootstrap/Button";
 import { Activity } from "@/lib/Schema";
+import { getDiagramFontFamily, getHeadingFontFamily } from "@/utils/appearance";
 
 const ExportSvg = (props: any) => {
   const { dataset, svgRef } = props;
@@ -12,6 +13,8 @@ const ExportSvg = (props: any) => {
 
   function addExportLabels(svgNode: SVGSVGElement) {
     const svgCopy = svgNode.cloneNode(true) as SVGSVGElement;
+    const diagramFontFamily = getDiagramFontFamily();
+    const headingFontFamily = getHeadingFontFamily();
     const activities = new Map<string, Activity>(
       Array.from(dataset.activities.values() as Iterable<Activity>).map((a) => [
         a.id,
@@ -44,7 +47,7 @@ const ExportSvg = (props: any) => {
       text.setAttribute("x", `${x + width / 2}`);
       text.setAttribute("y", `${y + height / 2 + 4}`);
       text.setAttribute("text-anchor", "middle");
-      text.setAttribute("font-family", "Roboto, Arial, sans-serif");
+      text.setAttribute("font-family", diagramFontFamily);
       text.setAttribute("font-size", "0.7em");
       text.setAttribute("fill", "#441d62");
       text.textContent = activity.name || "";
@@ -213,7 +216,7 @@ const ExportSvg = (props: any) => {
     const title = document.createElementNS(NS, "text");
     title.setAttribute("x", `${legendPadding}`);
     title.setAttribute("y", `${legendPadding + 9}`);
-    title.setAttribute("font-family", "Roboto, Arial, sans-serif");
+    title.setAttribute("font-family", headingFontFamily);
     title.setAttribute("font-size", "9");
     title.setAttribute("font-weight", "500");
     title.setAttribute("fill", "#212529");
@@ -233,7 +236,7 @@ const ExportSvg = (props: any) => {
       const label = document.createElementNS(NS, "text");
       label.setAttribute("x", `${legendPadding + 14}`);
       label.setAttribute("y", `${rowY + 3}`);
-      label.setAttribute("font-family", "Roboto, Arial, sans-serif");
+      label.setAttribute("font-family", diagramFontFamily);
       label.setAttribute("font-size", "7.5");
       label.setAttribute("fill", "#111827");
       label.textContent = item.label;

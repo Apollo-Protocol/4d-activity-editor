@@ -1,8 +1,10 @@
 import { ConfigData } from "./config";
 import { DrawContext } from "./DrawHelpers";
+import { getDiagramFontFamily } from "@/utils/appearance";
 
 export function drawAxisArrows(ctx: DrawContext, viewPortHeight: number) {
   const { config, svgElement } = ctx;
+  const diagramFontFamily = getDiagramFontFamily();
   //Define arrow head
   svgElement
     .append("svg:defs")
@@ -56,7 +58,7 @@ export function drawAxisArrows(ctx: DrawContext, viewPortHeight: number) {
     .attr("font-size", "0.8em")
     .attr("font-weight", "200")
     .attr("text-anchor", "start")
-    .attr("font-family", "Roboto, Arial, sans-serif")
+    .attr("font-family", diagramFontFamily)
     .text("Time");
 
   //Y Axis arrow
@@ -90,7 +92,7 @@ export function drawAxisArrows(ctx: DrawContext, viewPortHeight: number) {
     .attr("font-size", "0.8em")
     .attr("font-weight", "200")
     .attr("text-anchor", "middle")
-    .attr("font-family", "Roboto, Arial, sans-serif")
+    .attr("font-family", diagramFontFamily)
     .attr(
       "transform",
       "rotate(270 " +

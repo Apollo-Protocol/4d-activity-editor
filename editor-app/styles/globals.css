@@ -575,10 +575,6 @@ html {
 }
 
 /* Body base styling */
-body {
-  font-family: "Roboto", sans-serif;
-}
-
 :root {
   --app-accent: #007fff;
   --app-accent-rgb: 0, 127, 255;
@@ -586,6 +582,44 @@ body {
   --app-jump-link-active: #007fff;
   --app-jump-link-hover-bg: rgba(0, 127, 255, 0.06);
   --app-jump-link-active-bg: rgba(0, 127, 255, 0.08);
+  --app-font-heading: "Roboto", Arial, sans-serif;
+  --app-font-subheading: "Roboto", Arial, sans-serif;
+  --app-font-body: "Roboto", Arial, sans-serif;
+  --app-font-diagram: "Roboto", Arial, sans-serif;
+}
+
+body,
+button,
+input,
+textarea,
+select {
+  font-family: var(--app-font-body, "Roboto", Arial, sans-serif);
+}
+
+h1,
+.display-4,
+.display-5,
+.modal-title {
+  font-family: var(--app-font-heading, "Roboto", Arial, sans-serif);
+}
+
+h2,
+h3,
+h4,
+h5,
+h6,
+dt.doc-section-heading,
+h2.doc-section-heading,
+h3.doc-section-heading,
+h4.doc-section-heading,
+.doc-jump-links-title {
+  font-family: var(--app-font-subheading, "Roboto", Arial, sans-serif);
+}
+
+.individualLabel,
+.activityLabel,
+.axisLable {
+  font-family: var(--app-font-diagram, "Roboto", Arial, sans-serif) !important;
 }
 
 .text-primary {
@@ -2737,6 +2771,114 @@ html.app-custom-theme .breadcrumb-wrapper .breadcrumb-item a:hover {
   color: var(--bs-body-color);
 }
 
+.typography-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 0.85rem;
+}
+
+.typography-card {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  padding: 1rem;
+  border: 2px solid var(--bs-border-color-translucent, #dee2e6);
+  border-radius: 1rem;
+  background: var(--bs-body-bg);
+  color: var(--bs-body-color);
+  text-align: left;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease, transform 0.15s ease;
+}
+
+.typography-card:hover {
+  border-color: rgba(var(--app-accent-rgb, 0, 127, 255), 0.35);
+  box-shadow: 0 14px 30px rgba(15, 23, 42, 0.08);
+  transform: translateY(-1px);
+}
+
+.typography-card.is-active {
+  border-color: var(--app-accent, #007fff);
+  box-shadow: 0 0 0 2px var(--app-accent, #007fff);
+}
+
+.typography-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-bottom: 0.8rem;
+}
+
+.typography-card-label {
+  font-size: 0.98rem;
+  font-weight: 600;
+}
+
+.typography-card-badge {
+  padding: 0.18rem 0.55rem;
+  border-radius: 999px;
+  background: rgba(var(--app-accent-rgb, 0, 127, 255), 0.1);
+  color: var(--app-accent, #007fff);
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.typography-card-preview-block {
+  display: grid;
+  align-content: start;
+  grid-template-rows: minmax(1.45rem, auto) minmax(1.35rem, auto) 1fr;
+  gap: 0.35rem;
+  padding: 0.9rem;
+  min-height: 8.6rem;
+  border-radius: 0.8rem;
+  background: color-mix(in srgb, var(--bs-body-bg) 82%, var(--app-accent, #007fff) 6%);
+  border: 1px solid rgba(var(--app-accent-rgb, 0, 127, 255), 0.08);
+}
+
+.typography-card-heading {
+  font-size: 1.35rem;
+  line-height: 1.05;
+  margin: 0;
+}
+
+.typography-card-subheading {
+  font-size: 1rem;
+  line-height: 1.3;
+  margin: 0;
+}
+
+.typography-card-body {
+  font-size: 0.92rem;
+  line-height: 1.45;
+  color: var(--bs-secondary-color);
+  margin: 0;
+}
+
+.typography-card-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+  margin-top: 0.8rem;
+}
+
+.typography-card-meta span {
+  padding: 0.18rem 0.45rem;
+  border-radius: 999px;
+  background: var(--bs-tertiary-bg);
+  font-size: 0.76rem;
+  color: var(--bs-secondary-color);
+}
+
+.typography-card-description {
+  margin-top: 0.7rem;
+  font-size: 0.84rem;
+  line-height: 1.4;
+  color: var(--bs-secondary-color);
+  margin-bottom: 0;
+}
+
 /* Color scheme grid */
 .color-scheme-grid {
   display: grid;
@@ -2871,6 +3013,26 @@ html.app-custom-theme .breadcrumb-wrapper .breadcrumb-item a:hover {
 
   .theme-card-label {
     font-size: 0.82rem;
+  }
+
+  .typography-cards {
+    grid-template-columns: 1fr;
+  }
+
+  .typography-card {
+    padding: 0.9rem;
+  }
+
+  .typography-card-heading {
+    font-size: 1.2rem;
+  }
+
+  .typography-card-subheading {
+    font-size: 0.95rem;
+  }
+
+  .typography-card-preview-block {
+    min-height: 8rem;
   }
 
   .color-scheme-grid {

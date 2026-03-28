@@ -8,6 +8,7 @@ import Footer from "@/components/Footer";
 import Breadcrumbs from "@/components/Breadcrumbs";
 import AppearanceModal from "@/components/AppearanceModal";
 import { ThemeProvider } from "next-themes";
+import { applyTypographyProfile, getStoredTypographyProfile } from "@/utils/appearance";
 
 export default function App({ Component, pageProps }: AppProps) {
   const [showAppearanceModal, setShowAppearanceModal] = useState(false);
@@ -54,6 +55,8 @@ export default function App({ Component, pageProps }: AppProps) {
       document.documentElement.style.setProperty("--app-nav-dropdown-item-light-hover-color", "#495057");
       document.documentElement.style.setProperty("--app-nav-dropdown-item-light-hover-bg", "#f8f9fa");
     }
+
+    applyTypographyProfile(getStoredTypographyProfile());
   }, []);
 
   return (

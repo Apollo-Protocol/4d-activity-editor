@@ -177,6 +177,8 @@ const SetIndividual = (props: Props) => {
   const [pendingDroppedCount, setPendingDroppedCount] = useState(0);
   const [pendingBoundsChanges, setPendingBoundsChanges] = useState<PendingBoundsChange[]>([]);
   const [pendingAffectedActivities, setPendingAffectedActivities] = useState<AffectedActivity[]>([]);
+  const [pendingChangeScope, setPendingChangeScope] =
+    useState<"bounds" | "installations" | "both">("bounds");
 
   const [showCascadeWarningModal, setShowCascadeWarningModal] = useState(false);
   const [cascadeWarning, setCascadeWarning] = useState<CascadeWarning | null>(null);
@@ -299,6 +301,161 @@ const SetIndividual = (props: Props) => {
       }
     }
     return result;
+  };
+
+  const findAffectedActivitiesForInstallationPeriods = (
+    entityId: string,
+    entityName: string,
+    oldPeriods: InstallationPeriod[],
+    newPeriods: InstallationPeriod[]
+  ): AffectedActivity[] => {
+    const result: AffectedActivity[] = [];
+
+    for (const activity of Array.from(dataset.activities.values())) {
+      if (!activity.participations.has(entityId)) continue;
+
+      const participation = activity.participations.get(entityId);
+      const activityStart = normalizeStart(
+        participation?.beginning ?? activity.beginning
+      );
+      const activityEnd = normalizeEnd(participation?.ending ?? activity.ending);
+
+      const oldActiveInstallation = oldPeriods.find(
+        (period) =>
+          activityStart >= period.beginning && activityEnd <= period.ending
+      );
+
+      if (!oldActiveInstallation) continue;
+
+      const newActiveInstallation = newPeriods.find(
+        (period) =>
+          activityStart >= period.beginning && activityEnd <= period.ending
+      );
+
+      if (newActiveInstallation) continue;
+
+      const bestOverlap = newPeriods
+        .map((period) => {
+          const overlapBeginning = Math.max(activityStart, period.beginning);
+          const overlapEnding = Math.min(activityEnd, period.ending);
+          return {
+            period,
+            overlapBeginning,
+            overlapEnding,
+            overlapDuration: overlapEnding - overlapBeginning,
+          };
+        })
+        .filter((candidate) => candidate.overlapDuration > 0)
+        .sort((left, right) => {
+          if (right.overlapDuration !== left.overlapDuration) {
+            return right.overlapDuration - left.overlapDuration;
+          }
+          if (left.overlapBeginning !== right.overlapBeginning) {
+            return left.overlapBeginning - right.overlapBeginning;
+          }
+          return left.overlapEnding - right.overlapEnding;
+        })[0];
+
+      const previousComponent = dataset.individuals.get(
+        oldActiveInstallation.systemComponentId
+      );
+      const previousSystem = previousComponent?.installedIn
+        ? dataset.individuals.get(previousComponent.installedIn)
+        : undefined;
+
+      if (!bestOverlap) {
+        result.push({
+          activityId: activity.id,
+          activityName: activity.name,
+          individualId: entityId,
+          individualName: entityName,
+          systemName: previousSystem?.name,
+          systemComponentName: previousComponent?.name,
+          fromBeginning: participation?.beginning ?? activity.beginning,
+          fromEnding: participation?.ending ?? activity.ending,
+          action: "drop",
+        });
+        continue;
+      }
+
+      const nextComponent = dataset.individuals.get(bestOverlap.period.systemComponentId);
+      const nextSystem = nextComponent?.installedIn
+        ? dataset.individuals.get(nextComponent.installedIn)
+        : undefined;
+
+      result.push({
+        activityId: activity.id,
+        activityName: activity.name,
+        individualId: entityId,
+        individualName: entityName,
+        systemName: nextSystem?.name ?? previousSystem?.name,
+        systemComponentName: nextComponent?.name ?? previousComponent?.name,
+        fromBeginning: participation?.beginning ?? activity.beginning,
+        fromEnding: participation?.ending ?? activity.ending,
+        toBeginning: bestOverlap.overlapBeginning,
+        toEnding: bestOverlap.overlapEnding,
+        action: "trim",
+      });
+    }
+
+    return result;
+  };
+
+  const mergeAffectedActivities = (
+    ...activityGroups: AffectedActivity[][]
+  ): AffectedActivity[] => {
+    const merged = new Map<string, AffectedActivity>();
+
+    activityGroups.flat().forEach((candidate) => {
+      const key = `${candidate.activityId}:${candidate.individualId}`;
+      const existing = merged.get(key);
+
+      if (!existing) {
+        merged.set(key, candidate);
+        return;
+      }
+
+      if (existing.action === "drop" || candidate.action === "drop") {
+        merged.set(key, {
+          ...existing,
+          ...candidate,
+          action: "drop",
+          toBeginning: undefined,
+          toEnding: undefined,
+        });
+        return;
+      }
+
+      const mergedBeginning = Math.max(
+        existing.toBeginning ?? existing.fromBeginning,
+        candidate.toBeginning ?? candidate.fromBeginning
+      );
+      const mergedEnding = Math.min(
+        existing.toEnding ?? existing.fromEnding,
+        candidate.toEnding ?? candidate.fromEnding
+      );
+
+      if (mergedEnding <= mergedBeginning) {
+        merged.set(key, {
+          ...existing,
+          ...candidate,
+          action: "drop",
+          toBeginning: undefined,
+          toEnding: undefined,
+        });
+        return;
+      }
+
+      merged.set(key, {
+        ...existing,
+        ...candidate,
+        action: "trim",
+        toBeginning: mergedBeginning,
+        toEnding: mergedEnding,
+      });
+    });
+
+    return Array.from(merged.values());
   };
 
   const annotateActivityOutcomes = (
@@ -578,6 +735,7 @@ const SetIndividual = (props: Props) => {
     setPendingDroppedCount(0);
     setPendingBoundsChanges([]);
     setPendingAffectedActivities([]);
+    setPendingChangeScope("bounds");
     setShowCascadeWarningModal(false);
     setCascadeWarning(null);
     
@@ -885,6 +1043,7 @@ const SetIndividual = (props: Props) => {
       const existingInd = dataset.individuals.get(next.id);
       const oldOwnStart = existingInd ? normalizeStart(existingInd.beginning) : ownStart;
       const oldOwnEnd = existingInd ? normalizeEnd(existingInd.ending) : ownEnd;
+      const oldPeriods = existingInd ? getInstallationPeriods(existingInd) : [];
       let trimmedCount = 0;
       let droppedCount = 0;
       const boundsChanges: PendingBoundsChange[] = [];
@@ -938,9 +1097,31 @@ const SetIndividual = (props: Props) => {
         .filter((period): period is InstallationPeriod => !!period);
 
       if (trimmedCount > 0 || droppedCount > 0) {
-
-        // Also check activities that participate this individual
-        const indAffectedActivities = findAffectedActivities(next.id, next.name, ownStart, ownEnd, oldOwnStart, oldOwnEnd);
+        const boundsAffectedActivities = findAffectedActivities(
+          next.id,
+          next.name,
+          ownStart,
+          ownEnd,
+          oldOwnStart,
+          oldOwnEnd
+        );
+        const installationAffectedActivities =
+          findAffectedActivitiesForInstallationPeriods(
+            next.id,
+            next.name,
+            oldPeriods,
+            periods
+          );
+        const indAffectedActivities = mergeAffectedActivities(
+          boundsAffectedActivities,
+          installationAffectedActivities
+        );
+        const warningScope =
+          boundsAffectedActivities.length > 0 && installationAffectedActivities.length > 0
+            ? "both"
+            : installationAffectedActivities.length > 0
+            ? "installations"
+            : "bounds";
 
         const pending = syncLegacyInstallationFields({
           ...next,
@@ -970,14 +1151,40 @@ const SetIndividual = (props: Props) => {
         setPendingDroppedCount(droppedCount);
         setPendingBoundsChanges(boundsChanges);
         setPendingAffectedActivities(annotateActivityOutcomes(indAffectedActivities));
+        setPendingChangeScope(warningScope);
         setShowBoundsWarningModal(true);
         return;
       }
 
+      const installationAffectedActivities =
+        findAffectedActivitiesForInstallationPeriods(
+          next.id,
+          next.name,
+          oldPeriods,
+          periods
+        );
+
       // Even without installation changes, check for affected activities
       {
-        const indAffectedActivities = findAffectedActivities(next.id, next.name, ownStart, ownEnd, oldOwnStart, oldOwnEnd);
+        const boundsAffectedActivities = findAffectedActivities(
+          next.id,
+          next.name,
+          ownStart,
+          ownEnd,
+          oldOwnStart,
+          oldOwnEnd
+        );
+        const indAffectedActivities = mergeAffectedActivities(
+          boundsAffectedActivities,
+          installationAffectedActivities
+        );
         if (indAffectedActivities.length > 0) {
+          const warningScope =
+            boundsAffectedActivities.length > 0 && installationAffectedActivities.length > 0
+              ? "both"
+              : installationAffectedActivities.length > 0
+              ? "installations"
+              : "bounds";
           const pending = syncLegacyInstallationFields({
             ...next,
             installedIn: undefined,
@@ -991,6 +1198,7 @@ const SetIndividual = (props: Props) => {
           setPendingDroppedCount(0);
           setPendingBoundsChanges([]);
           setPendingAffectedActivities(annotateActivityOutcomes(indAffectedActivities));
+          setPendingChangeScope(warningScope);
           setShowBoundsWarningModal(true);
           return;
         }
@@ -2008,6 +2216,12 @@ const SetIndividual = (props: Props) => {
     pendingAffectedActivities.some((aa) => aa.action === "trim");
   const hasPendingDropAction = pendingBoundsChanges.some((change) => change.action === "drop") ||
     pendingAffectedActivities.some((aa) => aa.action === "drop");
+  const boundsWarningLeadText =
+    pendingChangeScope === "installations"
+      ? "Changing the installation periods for"
+      : pendingChangeScope === "both"
+      ? "Changing the bounds or installation periods for"
+      : "Changing the bounds of";
   const cascadeHasTrimAction =
     !!cascadeWarning &&
     (
@@ -2562,7 +2776,7 @@ const SetIndividual = (props: Props) => {
         </Modal.Header>
         <Modal.Body>
           <p>
-            Changing the bounds of <strong>{inputs.name || "Entity"}</strong> will
+            {boundsWarningLeadText} <strong>{inputs.name || "Entity"}</strong> will
             affect the following items:
           </p>
           {pendingBoundsChanges.length > 0 && (

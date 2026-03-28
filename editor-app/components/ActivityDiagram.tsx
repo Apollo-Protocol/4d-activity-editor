@@ -1551,7 +1551,7 @@ L ${sideX} ${lowerTop} Z`;
   };
 
   const LENS_SIZE = 160;
-  const LENS_ZOOM = 3;
+  const LENS_ZOOM = 5;
 
   const updateMinimapLens = (e: React.PointerEvent<SVGSVGElement>) => {
     const lens = minimapLensRef.current;

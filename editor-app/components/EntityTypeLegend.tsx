@@ -43,6 +43,18 @@ const DashedIcon = () => (
   </svg>
 );
 
+const CollapsedSystemIcon = () => (
+  <svg width="1em" height="1em" viewBox="0 0 16 16" style={{ verticalAlign: "middle" }}>
+    <path
+      d="M 1 3 L 13 3 L 15 8 L 13 13 L 1 13 L 3 8 Z"
+      fill="white"
+      stroke="#212529"
+      strokeWidth="1.5"
+      strokeLinejoin="round"
+    />
+  </svg>
+);
+
 const entityTypes = [
   { icon: "▣", label: "System" },
   { icon: "◇", label: "System Component" },
@@ -65,6 +77,12 @@ const EntityTypeLegend = () => {
             <HatchedIcon />
           </span>
           <span className="legend-label">Installation Period</span>
+        </div>
+        <div className="legend-item">
+          <span className="legend-icon">
+            <CollapsedSystemIcon />
+          </span>
+          <span className="legend-label">System Collapsed</span>
         </div>
         <div className="legend-item">
           <span className="legend-icon">

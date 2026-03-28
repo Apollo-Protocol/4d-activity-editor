@@ -17,6 +17,7 @@ export interface DrawContext {
   dataset: Model;
   activities: Activity[];
   individuals: Individual[];
+  collapsedSystems?: ReadonlySet<string>;
 }
 
 export interface Label {

@@ -1367,6 +1367,7 @@ export default function ActivityDiagramWrap() {
   const [showConfigModal, setShowConfigModal] = useState(false);
   const [showSortIndividuals, setShowSortIndividuals] = useState(false);
   const [highlightedActivityId, setHighlightedActivityId] = useState<string | null>(null);
+  const [collapseStateResetToken, setCollapseStateResetToken] = useState(0);
 
   // Restore from sessionStorage on mount
   const didRestore = useRef(false);
@@ -1467,6 +1468,7 @@ export default function ActivityDiagramWrap() {
     setUndoHistory([]);
     setRedoHistory([]);
     setActivityContext(undefined);
+    setCollapseStateResetToken((prev) => prev + 1);
     setDataset(d);
   };
   const undo = () => {
@@ -1527,6 +1529,7 @@ export default function ActivityDiagramWrap() {
     setUndoHistory((prevHistory) => [{ model: dataset, ...details }, ...prevHistory.slice(0, 49)]);
     setRedoHistory([]);
     setActivityContext(undefined);
+    setCollapseStateResetToken((prev) => prev + 1);
     setDataset(clearedModel);
     setDirty(true);
   };
@@ -1881,6 +1884,7 @@ export default function ActivityDiagramWrap() {
                 highlightedActivityId={highlightedActivityId}
                 onReorderIndividuals={reorderIndividuals}
                 renameIndividual={renameIndividual}
+                collapseStateResetToken={collapseStateResetToken}
               />
             )}
           </div>

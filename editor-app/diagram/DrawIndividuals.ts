@@ -613,9 +613,38 @@ export function drawIndividuals(ctx: DrawContext) {
  * the installation window.
  */
 export function drawInstallationConnectors(ctx: DrawContext) {
-  const { config, svgElement, individuals, activities } = ctx;
+  const { config, svgElement, individuals, activities, collapsedSystems, dataset } = ctx;
   const openEndAlignmentPadding =
     config.layout.individual.openEndAlignmentPadding ?? 12;
+
+  const getFilledVerticalBoundsAtX = (
+    node: SVGGraphicsElement,
+    x: number,
+    fallbackTop: number,
+    fallbackBottom: number
+  ) => {
+    const geometry = node as SVGGeometryElement;
+    if (typeof geometry.isPointInFill !== "function") {
+      return { top: fallbackTop, bottom: fallbackBottom };
+    }
+
+    const bbox = node.getBBox();
+    const clampedX = Math.max(bbox.x + 0.5, Math.min(bbox.x + bbox.width - 0.5, x));
+    let top: number | null = null;
+    let bottom: number | null = null;
+
+    for (let y = Math.floor(bbox.y); y <= Math.ceil(bbox.y + bbox.height); y += 1) {
+      if (geometry.isPointInFill(new DOMPoint(clampedX, y + 0.5))) {
+        if (top === null) top = y;
+        bottom = y + 1;
+      }
+    }
+
+    return {
+      top: top ?? fallbackTop,
+      bottom: bottom ?? fallbackBottom,
+    };
+  };
 
   svgElement
     .selectAll(".installHatch,.installConnectorRibbon")
@@ -751,15 +780,32 @@ export function drawInstallationConnectors(ctx: DrawContext) {
     const lowerHeight = indBox.height > 0 ? indBox.height : config.layout.individual.height;
     const periods = getInstallationPeriods(ind);
     periods.forEach((period, index) => {
-      const target = individualsById.get(period.systemComponentId);
+      let target = individualsById.get(period.systemComponentId);
+      let resolvedTargetId = period.systemComponentId;
+
+      // When target component is not visible (collapsed system), resolve to the system row
+      if (!target && collapsedSystems && collapsedSystems.size > 0 && dataset) {
+        const fullComponent = dataset.individuals.get(period.systemComponentId);
+        if (
+          fullComponent &&
+          getEntityTypeIdFromIndividual(fullComponent) === ENTITY_TYPE_IDS.SYSTEM_COMPONENT &&
+          fullComponent.installedIn &&
+          collapsedSystems.has(fullComponent.installedIn)
+        ) {
+          target = individualsById.get(fullComponent.installedIn);
+          resolvedTargetId = fullComponent.installedIn;
+        }
+      }
+
       if (
         !target ||
-        getEntityTypeIdFromIndividual(target) !== ENTITY_TYPE_IDS.SYSTEM_COMPONENT
+        (getEntityTypeIdFromIndividual(target) !== ENTITY_TYPE_IDS.SYSTEM_COMPONENT &&
+         getEntityTypeIdFromIndividual(target) !== ENTITY_TYPE_IDS.SYSTEM)
       ) {
         return;
       }
 
-      const targetNode = svgElement.select("#i" + target.id).node() as SVGGraphicsElement;
+      const targetNode = svgElement.select("#i" + resolvedTargetId).node() as SVGGraphicsElement;
       if (!targetNode) return;
 
       const targetBox = targetNode.getBBox();
@@ -785,11 +831,35 @@ export function drawInstallationConnectors(ctx: DrawContext) {
 
       const lowerTop = lowerTopBase;
       const lowerBottom = lowerTopBase + lowerHeight;
-      const upperTop = targetBox.y;
-      const upperBottom = targetBox.y + targetBox.height;
+      const ribbonEdgeInset = Math.max(1, (Number(config.presentation.individual.strokeWidth) || 1.5) / 2 + 0.5);
+      const insetBounds = (top: number, bottom: number) => {
+        const nextTop = top + ribbonEdgeInset;
+        const nextBottom = bottom - ribbonEdgeInset;
+        if (nextBottom <= nextTop) {
+          return { top, bottom };
+        }
+        return { top: nextTop, bottom: nextBottom };
+      };
+
+      const rawStartTargetBounds = getFilledVerticalBoundsAtX(
+        targetNode,
+        x1,
+        targetBox.y,
+        targetBox.y + targetBox.height
+      );
+      const rawEndTargetBounds = getFilledVerticalBoundsAtX(
+        targetNode,
+        x2,
+        targetBox.y,
+        targetBox.y + targetBox.height
+      );
+      const startTargetBounds = insetBounds(rawStartTargetBounds.top, rawStartTargetBounds.bottom);
+      const endTargetBounds = insetBounds(rawEndTargetBounds.top, rawEndTargetBounds.bottom);
+      const upperTop = startTargetBounds.top;
+      const upperBottom = startTargetBounds.bottom;
 
       const targetPathD = targetNode.getAttribute("d") || "";
-      const clipId = `installClip-${target.id}`;
+      const clipId = `installClip-${resolvedTargetId}`;
       const clipSelector = `#${clipId}`;
       if (defs.select(clipSelector).empty()) {
         defs
@@ -824,7 +894,7 @@ export function drawInstallationConnectors(ctx: DrawContext) {
           .attr("opacity", 1.0)
           .attr("clip-path", `url(#${clipId})`)
           .attr("data-installed-id", ind.id)
-          .attr("data-target-id", target.id);
+          .attr("data-target-id", resolvedTargetId);
       } else {
         svgElement
           .append("rect")
@@ -839,7 +909,7 @@ export function drawInstallationConnectors(ctx: DrawContext) {
           .attr("opacity", 1.0)
           .attr("clip-path", `url(#${clipId})`)
           .attr("data-installed-id", ind.id)
-          .attr("data-target-id", target.id);
+          .attr("data-target-id", resolvedTargetId);
       }
 
       const startLiftDx = INSTALL_RIBBON_RUN_PX;
@@ -859,6 +929,7 @@ L ${x1} ${upperTop} Z`;
           .attr("fill-opacity", 1)
           .attr("stroke", config.presentation.individual.stroke)
           .attr("stroke-width", 1.5)
+          .attr("stroke-linejoin", "round")
           .attr("data-ribbon-kind", "start")
           .attr("data-main-x", x1)
           .attr("data-side-x", x1 - startLiftDx)
@@ -867,12 +938,14 @@ L ${x1} ${upperTop} Z`;
           .attr("data-upper-top", upperTop)
           .attr("data-upper-bottom", upperBottom)
           .attr("data-installed-id", ind.id)
-          .attr("data-target-id", target.id);
+          .attr("data-target-id", resolvedTargetId);
       }
 
       if (installEnd <= endOfTime && !isOpenEnd(period.ending)) {
-        const pathData = `M ${x2} ${upperTop}
-L ${x2} ${upperBottom}
+        const endUpperTop = endTargetBounds.top;
+        const endUpperBottom = endTargetBounds.bottom;
+        const pathData = `M ${x2} ${endUpperTop}
+L ${x2} ${endUpperBottom}
 L ${x2 + endDropDx} ${lowerBottom}
 L ${x2 + endDropDx} ${lowerTop} Z`;
 
@@ -884,15 +957,16 @@ L ${x2 + endDropDx} ${lowerTop} Z`;
           .attr("fill-opacity", 1)
           .attr("stroke", config.presentation.individual.stroke)
           .attr("stroke-width", 1.5)
+          .attr("stroke-linejoin", "round")
           .attr("data-ribbon-kind", "end")
           .attr("data-main-x", x2)
           .attr("data-side-x", x2 + endDropDx)
           .attr("data-lower-top", lowerTop)
           .attr("data-lower-bottom", lowerBottom)
-          .attr("data-upper-top", upperTop)
-          .attr("data-upper-bottom", upperBottom)
+          .attr("data-upper-top", endUpperTop)
+          .attr("data-upper-bottom", endUpperBottom)
           .attr("data-installed-id", ind.id)
-          .attr("data-target-id", target.id);
+          .attr("data-target-id", resolvedTargetId);
       }
     });
   });

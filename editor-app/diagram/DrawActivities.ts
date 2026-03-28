@@ -18,7 +18,7 @@ import {
 let mouseOverElement: any | null = null;
 
 export function drawActivities(ctx: DrawContext) {
-  const { config, svgElement, activities, individuals, dataset } = ctx;
+  const { config, svgElement, activities, individuals, dataset, collapsedSystems } = ctx;
 
   if (activities.length === 0) {
     return svgElement;
@@ -92,7 +92,7 @@ export function drawActivities(ctx: DrawContext) {
     })
     .attr("y", (a: Activity) => {
       return (
-        calculateTopPositionOfNewActivity(svgElement, a, individuals) -
+        calculateTopPositionOfNewActivity(svgElement, a, individuals, dataset, collapsedSystems) -
         config.layout.individual.gap * 0.3
       );
     })
@@ -100,8 +100,8 @@ export function drawActivities(ctx: DrawContext) {
       return (a.ending - a.beginning) * timeInterval;
     })
     .attr("height", (a: Activity) => {
-      const bottomY = calculateLengthOfNewActivity(svgElement, a, individuals);
-      const topY = calculateTopPositionOfNewActivity(svgElement, a, individuals);
+      const bottomY = calculateLengthOfNewActivity(svgElement, a, individuals, dataset, collapsedSystems);
+      const topY = calculateTopPositionOfNewActivity(svgElement, a, individuals, dataset, collapsedSystems);
       return bottomY
         ? bottomY - topY + config.layout.individual.gap * 0.6
         : 0;
@@ -123,12 +123,12 @@ export function drawActivities(ctx: DrawContext) {
   // small helper functions to reuse computations
   const xOf = (a: Activity) => x + timeInterval * (a.beginning - startOfTime);
   const yOf = (a: Activity) =>
-    calculateTopPositionOfNewActivity(svgElement, a, individuals) -
+    calculateTopPositionOfNewActivity(svgElement, a, individuals, dataset, collapsedSystems) -
     config.layout.individual.gap * 0.3;
   const widthOf = (a: Activity) => (a.ending - a.beginning) * timeInterval;
   const heightOf = (a: Activity) => {
-    const bottomY = calculateLengthOfNewActivity(svgElement, a, individuals);
-    const topY = calculateTopPositionOfNewActivity(svgElement, a, individuals);
+    const bottomY = calculateLengthOfNewActivity(svgElement, a, individuals, dataset, collapsedSystems);
+    const topY = calculateTopPositionOfNewActivity(svgElement, a, individuals, dataset, collapsedSystems);
     return bottomY ? bottomY - topY + config.layout.individual.gap * 0.6 : 0;
   };
 
@@ -221,15 +221,19 @@ export function clickActivities(
 function calculateLengthOfNewActivity(
   svgElement: any,
   activity: Activity,
-  individuals: Individual[]
+  individuals: Individual[],
+  dataset?: Model,
+  collapsedSystems?: ReadonlySet<string>
 ) {
-  return calculateActivityBottom(svgElement, activity, individuals);
+  return calculateActivityBottom(svgElement, activity, individuals, dataset, collapsedSystems);
 }
 
 function resolveParticipationRowId(
   activity: Activity,
   individual: Individual,
-  individuals: Individual[]
+  individuals: Individual[],
+  dataset?: Model,
+  collapsedSystems?: ReadonlySet<string>
 ) {
   const activeInstallation = getActiveInstallationForActivity(individual, activity);
   const installedTarget = activeInstallation
@@ -241,7 +245,27 @@ function resolveParticipationRowId(
     !!installedTarget &&
     getEntityTypeIdFromIndividual(installedTarget) === ENTITY_TYPE_IDS.SYSTEM_COMPONENT;
 
-  if (!isInstalledInComponent) return individual.id;
+  if (!isInstalledInComponent) {
+    // Component not in the filtered individuals list — it may have been hidden
+    // because its parent system is collapsed. Look up the full dataset to find
+    // the component's host system and resolve to that system row instead.
+    if (collapsedSystems && collapsedSystems.size > 0 && dataset) {
+      const componentId = activeInstallation?.systemComponentId
+        ?? individual.installedIn;
+      if (componentId) {
+        const fullComponent = dataset.individuals.get(componentId);
+        if (
+          fullComponent &&
+          getEntityTypeIdFromIndividual(fullComponent) === ENTITY_TYPE_IDS.SYSTEM_COMPONENT &&
+          fullComponent.installedIn &&
+          collapsedSystems.has(fullComponent.installedIn)
+        ) {
+          return fullComponent.installedIn;
+        }
+      }
+    }
+    return individual.id;
+  }
 
   if (!activeInstallation) {
     return individual.id;
@@ -260,13 +284,15 @@ function resolveParticipationRowId(
 function calculateActivityBottom(
   svgElement: any,
   activity: Activity,
-  individuals: Individual[]
+  individuals: Individual[],
+  dataset?: Model,
+  collapsedSystems?: ReadonlySet<string>
 ) {
   let maxBottom = 0;
   activity?.participations?.forEach((a: Participation) => {
     const individual = individuals.find((i) => i.id === a.individualId);
     if (!individual) return;
-    const rowId = resolveParticipationRowId(activity, individual, individuals);
+    const rowId = resolveParticipationRowId(activity, individual, individuals, dataset, collapsedSystems);
     const node = svgElement.select("#i" + rowId).node();
     if (node) {
       const bbox = node.getBBox();
@@ -279,21 +305,25 @@ function calculateActivityBottom(
 function calculateTopPositionOfNewActivity(
   svgElement: any,
   activity: Activity,
-  individuals: Individual[]
+  individuals: Individual[],
+  dataset?: Model,
+  collapsedSystems?: ReadonlySet<string>
 ) {
-  return calculateActivityTop(svgElement, activity, individuals);
+  return calculateActivityTop(svgElement, activity, individuals, dataset, collapsedSystems);
 }
 
 function calculateActivityTop(
   svgElement: any,
   activity: Activity,
-  individuals: Individual[]
+  individuals: Individual[],
+  dataset?: Model,
+  collapsedSystems?: ReadonlySet<string>
 ) {
   let lowestY = Number.MAX_VALUE;
   activity?.participations?.forEach((a: Participation) => {
     const individual = individuals.find((i) => i.id === a.individualId);
     if (!individual) return;
-    const rowId = resolveParticipationRowId(activity, individual, individuals);
+    const rowId = resolveParticipationRowId(activity, individual, individuals, dataset, collapsedSystems);
     const node = svgElement.select("#i" + rowId).node();
     if (!node) return;
     const element = node.getBBox();

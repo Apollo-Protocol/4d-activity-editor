@@ -336,7 +336,7 @@ export default function AppearanceModal({ show, setShow }: Props) {
                   <div className="typography-card-header">
                     <span className="typography-card-label">{option.label}</span>
                     <span className="typography-card-badge">
-                      {option.key === "apollo" ? "Guideline" : "Original"}
+                      {option.key === "apollo" ? "Guideline" : "Legacy"}
                     </span>
                   </div>
                   <div className="typography-card-preview-block">

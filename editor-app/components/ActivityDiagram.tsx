@@ -27,7 +27,10 @@ interface Props {
   highlightedActivityId?: string | null;
   onReorderIndividuals?: (orderedIds: string[]) => void;
   renameIndividual?: (id: string, newName: string) => void;
+  collapseStateResetToken?: number;
 }
+
+const COLLAPSED_SYSTEMS_STORAGE_KEY = "4d-collapsed-systems";
 
 const ActivityDiagram = (props: Props) => {
   const {
@@ -46,6 +49,7 @@ const ActivityDiagram = (props: Props) => {
     highlightedActivityId,
     onReorderIndividuals,
     renameIndividual,
+    collapseStateResetToken = 0,
   } = props;
 
   const [plot, setPlot] = useState({
@@ -72,6 +76,88 @@ const ActivityDiagram = (props: Props) => {
 
   const zoomRef = useRef<d3.ZoomBehavior<SVGSVGElement, unknown> | null>(null);
   const zoomTransformRef = useRef(d3.zoomIdentity);
+
+  const [collapsedSystems, setCollapsedSystems] = useState<Set<string>>(() => {
+    if (typeof window === "undefined") return new Set<string>();
+    try {
+      const stored = sessionStorage.getItem(COLLAPSED_SYSTEMS_STORAGE_KEY);
+      if (stored) return new Set<string>(JSON.parse(stored));
+    } catch {
+      // ignore storage errors
+    }
+    return new Set<string>();
+  });
+  const [showMinimap, setShowMinimap] = useState(true);
+  const [minimapScale, setMinimapScale] = useState(1);
+  const [minimapPos, setMinimapPos] = useState<{ left: number; top: number } | null>(null);
+  const [minimapHoveredEntityId, setMinimapHoveredEntityId] = useState<string | null>(null);
+  const minimapRef = useRef<SVGSVGElement>(null);
+  const minimapViewportRef = useRef<SVGRectElement>(null);
+  const updateMinimapViewportRef = useRef<(() => void) | null>(null);
+  const minimapDragRef = useRef<{ startX: number; startY: number; startLeft: number; startTop: number } | null>(null);
+  const minimapLensRef = useRef<HTMLDivElement>(null);
+  const minimapLensSvgRef = useRef<SVGSVGElement>(null);
+
+  const systemsWithComponents = useMemo(() => {
+    return Array.from(dataset.individuals.values()).filter((ind) => {
+      if (getEntityTypeIdFromIndividual(ind) !== ENTITY_TYPE_IDS.SYSTEM) return false;
+      return Array.from(dataset.individuals.values()).some(
+        (c) =>
+          c.installedIn === ind.id &&
+          getEntityTypeIdFromIndividual(c) === ENTITY_TYPE_IDS.SYSTEM_COMPONENT
+      );
+    });
+  }, [dataset]);
+
+  const resolveVisibleEntityId = (entityId: string): string => {
+    const entity = dataset.individuals.get(entityId);
+    if (!entity) return entityId;
+
+    if (
+      getEntityTypeIdFromIndividual(entity) === ENTITY_TYPE_IDS.SYSTEM_COMPONENT &&
+      entity.installedIn &&
+      collapsedSystems.has(entity.installedIn)
+    ) {
+      return entity.installedIn;
+    }
+
+    return entityId;
+  };
+
+  useEffect(() => {
+    try {
+      sessionStorage.setItem(
+        COLLAPSED_SYSTEMS_STORAGE_KEY,
+        JSON.stringify(Array.from(collapsedSystems))
+      );
+    } catch {
+      // ignore storage errors
+    }
+  }, [collapsedSystems]);
+
+  // Prune any stored collapsed IDs that no longer exist in the current dataset
+  useEffect(() => {
+    const validIds = new Set(systemsWithComponents.map((s) => s.id));
+    setCollapsedSystems((prev) => {
+      const pruned = new Set(Array.from(prev).filter((id) => validIds.has(id)));
+      return pruned.size === prev.size ? prev : pruned;
+    });
+  }, [systemsWithComponents]);
+
+  const collapseResetInitializedRef = useRef(false);
+  useEffect(() => {
+    if (!collapseResetInitializedRef.current) {
+      collapseResetInitializedRef.current = true;
+      return;
+    }
+
+    setCollapsedSystems(new Set());
+    try {
+      sessionStorage.removeItem(COLLAPSED_SYSTEMS_STORAGE_KEY);
+    } catch {
+      // ignore storage errors
+    }
+  }, [collapseStateResetToken]);
 
   const searchableEntities = useMemo(() => {
     return Array.from(dataset.individuals.values())
@@ -132,7 +218,8 @@ const ActivityDiagram = (props: Props) => {
     if (!svgRef.current) return;
 
     const svg = d3.select(svgRef.current);
-    const rowNode = svg.select(`#i${entityId}`).node() as SVGGraphicsElement | null;
+    const visibleEntityId = resolveVisibleEntityId(entityId);
+    const rowNode = svg.select(`#i${visibleEntityId}`).node() as SVGGraphicsElement | null;
     if (!rowNode) return;
 
     const scrollContainer = document.getElementById("activity-diagram-scrollable-div");
@@ -150,23 +237,30 @@ const ActivityDiagram = (props: Props) => {
 
     clearSearchHighlight();
 
-    svg.select(`#i${entityId}`).classed("search-result-highlight", true);
-    svg.select(`#il${entityId}`).classed("search-result-highlight", true);
+    svg.select(`#i${visibleEntityId}`).classed("search-result-highlight", true);
+    svg.select(`#il${visibleEntityId}`).classed("search-result-highlight", true);
 
     const entity = dataset.individuals.get(entityId);
     const entityType = entity ? getEntityTypeIdFromIndividual(entity) : null;
     const isSystemComponent = entityType === ENTITY_TYPE_IDS.SYSTEM_COMPONENT;
+    const highlightEntityIds = new Set([entityId, visibleEntityId]);
 
     svg.selectAll(".installHatch").each(function () {
       const el = this as Element;
-      if (el.getAttribute("data-installed-id") === entityId || el.getAttribute("data-target-id") === entityId) {
+      if (
+        highlightEntityIds.has(el.getAttribute("data-installed-id") ?? "") ||
+        highlightEntityIds.has(el.getAttribute("data-target-id") ?? "")
+      ) {
         d3.select(el).classed("search-result-highlight", true);
       }
     });
-    if (!isSystemComponent) {
+    if (!isSystemComponent || visibleEntityId !== entityId) {
       svg.selectAll(".installConnectorRibbon").each(function () {
         const el = this as Element;
-        if (el.getAttribute("data-installed-id") === entityId || el.getAttribute("data-target-id") === entityId) {
+        if (
+          highlightEntityIds.has(el.getAttribute("data-installed-id") ?? "") ||
+          highlightEntityIds.has(el.getAttribute("data-target-id") ?? "")
+        ) {
           d3.select(el).classed("search-result-highlight", true);
         }
       });
@@ -203,7 +297,8 @@ const ActivityDiagram = (props: Props) => {
         rightClickIndividual,
         rightClickActivity,
         rightClickParticipation,
-        hideNonParticipating
+        hideNonParticipating,
+        collapsedSystems
       )
     );
   }, [
@@ -219,6 +314,7 @@ const ActivityDiagram = (props: Props) => {
     rightClickActivity,
     rightClickParticipation,
     hideNonParticipating,
+    collapsedSystems,
   ]);
 
   useEffect(() => {
@@ -243,6 +339,7 @@ const ActivityDiagram = (props: Props) => {
             .select("#activity-diagram-group")
             .attr("transform", event.transform.toString());
           zoomTransformRef.current = event.transform;
+          updateMinimapViewportRef.current?.();
         });
 
       zoomRef.current = zoomBehavior;
@@ -250,6 +347,133 @@ const ActivityDiagram = (props: Props) => {
       svg.call(zoomBehavior.transform, zoomTransformRef.current);
     }
   }, [plot, svgRef, interactionMode]);
+
+  // Attach right-click collapse/expand on system rows that have components
+  useEffect(() => {
+    if (!svgRef.current || plot.width === 0) return;
+    const svg = d3.select(svgRef.current);
+    // Remove any leftover chevron toggles
+    svg.select("#activity-diagram-group").selectAll(".system-collapse-toggle").remove();
+
+    const systemIds = new Set(systemsWithComponents.map((s) => s.id));
+
+    systemsWithComponents.forEach((system) => {
+      const handler = (event: any) => {
+        event.preventDefault();
+        event.stopPropagation();
+        setCollapsedSystems((prev) => {
+          const next = new Set(prev);
+          if (next.has(system.id)) next.delete(system.id);
+          else next.add(system.id);
+          return next;
+        });
+      };
+      svg.select(`#i${system.id}`).on("contextmenu.collapse", handler);
+      svg.select(`#il${system.id}`).on("contextmenu.collapse", handler);
+    });
+
+    return () => {
+      systemsWithComponents.forEach((system) => {
+        svg.select(`#i${system.id}`).on("contextmenu.collapse", null);
+        svg.select(`#il${system.id}`).on("contextmenu.collapse", null);
+      });
+    };
+  }, [plot, dataset, collapsedSystems, systemsWithComponents, svgRef]);
+
+  useEffect(() => {
+    if (!svgRef.current || plot.width === 0) return;
+    const svg = d3.select(svgRef.current);
+
+    svg.selectAll(".system-collapsed-highlight").classed("system-collapsed-highlight", false);
+
+    systemsWithComponents.forEach((system) => {
+      if (!collapsedSystems.has(system.id)) return;
+      svg.select(`#i${system.id}`).classed("system-collapsed-highlight", true);
+      svg.select(`#il${system.id}`).classed("system-collapsed-highlight", true);
+    });
+  }, [plot, collapsedSystems, systemsWithComponents, svgRef]);
+
+  // Clone diagram content into minimap
+  useEffect(() => {
+    if (!svgRef.current || !minimapRef.current || !showMinimap) return;
+    if (plot.width === 0 || plot.height === 0) return;
+
+    const mainGroup = d3
+      .select(svgRef.current)
+      .select("#activity-diagram-group")
+      .node() as SVGGElement | null;
+    if (!mainGroup) return;
+
+    const minimapSvg = d3.select(minimapRef.current);
+    minimapSvg.selectAll("*").remove();
+
+    const clone = mainGroup.cloneNode(true) as SVGGElement;
+    clone.removeAttribute("transform");
+    clone.id = "minimap-content";
+    d3.select(clone).selectAll(".system-collapse-toggle").remove();
+    minimapRef.current.appendChild(clone);
+
+    minimapSvg
+      .append("rect")
+      .attr("class", "diagram-minimap-viewport")
+      .attr("x", 0)
+      .attr("y", 0)
+      .attr("width", plot.width)
+      .attr("height", plot.height)
+      .attr("rx", 2);
+
+    minimapViewportRef.current = minimapSvg
+      .select<SVGRectElement>(".diagram-minimap-viewport")
+      .node();
+  }, [plot, showMinimap, svgRef, collapsedSystems]);
+
+  // Track scroll / zoom and update minimap viewport rectangle
+  useEffect(() => {
+    if (!showMinimap) return;
+    const scrollContainer = document.getElementById(
+      "activity-diagram-scrollable-div"
+    );
+    if (!scrollContainer || !svgRef.current) return;
+
+    const update = () => {
+      const vpRect = minimapViewportRef.current;
+      if (!vpRect || plot.width === 0 || plot.height === 0) return;
+      const svgEl = svgRef.current!;
+      const svgRect = svgEl.getBoundingClientRect();
+      if (svgRect.width === 0) return;
+      const pixelScale = svgRect.width / plot.width;
+      const t = zoomTransformRef.current;
+      const svgLeft = scrollContainer.scrollLeft / pixelScale;
+      const svgTop = scrollContainer.scrollTop / pixelScale;
+      const svgW = scrollContainer.clientWidth / pixelScale;
+      const svgH = scrollContainer.clientHeight / pixelScale;
+      const dLeft = (svgLeft - t.x) / t.k;
+      const dTop = (svgTop - t.y) / t.k;
+      const dW = svgW / t.k;
+      const dH = svgH / t.k;
+      vpRect.setAttribute("x", String(Math.max(0, dLeft)));
+      vpRect.setAttribute("y", String(Math.max(0, dTop)));
+      vpRect.setAttribute(
+        "width",
+        String(Math.min(plot.width - Math.max(0, dLeft), dW))
+      );
+      vpRect.setAttribute(
+        "height",
+        String(Math.min(plot.height - Math.max(0, dTop), dH))
+      );
+    };
+
+    updateMinimapViewportRef.current = update;
+    scrollContainer.addEventListener("scroll", update, { passive: true });
+    window.addEventListener("resize", update);
+    update();
+
+    return () => {
+      scrollContainer.removeEventListener("scroll", update);
+      window.removeEventListener("resize", update);
+      updateMinimapViewportRef.current = null;
+    };
+  }, [plot, showMinimap, svgRef]);
 
   // Apply highlighting when highlightedActivityId changes
   useEffect(() => {
@@ -1235,6 +1459,241 @@ L ${sideX} ${lowerTop} Z`;
     };
   }, []);
 
+  const minimapBaseWidth = useMemo(() => {
+    if (plot.width === 0 || plot.height === 0) return 280;
+    const aspect = plot.width / plot.height;
+    return Math.min(360, Math.max(220, 180 * aspect));
+  }, [plot]);
+
+  const effectiveMinimapWidth = Math.round(minimapBaseWidth * minimapScale);
+
+  const getClampedMinimapSizeAndPosition = (requestedPos: { left: number; top: number } | null) => {
+    const viewportWidth = window.innerWidth;
+    const viewportHeight = window.innerHeight;
+    const panelWidth = Math.min(effectiveMinimapWidth, Math.max(180, viewportWidth - 24));
+    const panelHeight = plot.width > 0 && plot.height > 0
+      ? Math.min(260, Math.max(90, Math.round((panelWidth / plot.width) * plot.height) + 28))
+      : 180;
+
+    if (!requestedPos) {
+      return {
+        width: panelWidth,
+        pos: null as { left: number; top: number } | null,
+        panelHeight,
+      };
+    }
+
+    return {
+      width: panelWidth,
+      panelHeight,
+      pos: {
+        left: Math.max(0, Math.min(requestedPos.left, Math.max(0, viewportWidth - panelWidth))),
+        top: Math.max(0, Math.min(requestedPos.top, Math.max(0, viewportHeight - panelHeight))),
+      },
+    };
+  };
+
+  const { width: minimapPanelWidth, pos: clampedMinimapPos } = getClampedMinimapSizeAndPosition(minimapPos);
+
+  const navigateFromMinimap = (e: React.PointerEvent<SVGSVGElement>) => {
+    const scrollContainer = document.getElementById("activity-diagram-scrollable-div");
+    if (!scrollContainer || !svgRef.current || !minimapRef.current) return;
+    const rect = minimapRef.current.getBoundingClientRect();
+    if (rect.width === 0 || rect.height === 0) return;
+    const diagX = Math.max(0, Math.min(plot.width, ((e.clientX - rect.left) / rect.width) * plot.width));
+    const diagY = Math.max(0, Math.min(plot.height, ((e.clientY - rect.top) / rect.height) * plot.height));
+    const svgRect = svgRef.current.getBoundingClientRect();
+    if (svgRect.width === 0) return;
+    const pixelScale = svgRect.width / plot.width;
+    const t = zoomTransformRef.current;
+    const svgX = diagX * t.k + t.x;
+    const svgY = diagY * t.k + t.y;
+    scrollContainer.scrollLeft = svgX * pixelScale - scrollContainer.clientWidth / 2;
+    scrollContainer.scrollTop = svgY * pixelScale - scrollContainer.clientHeight / 2;
+  };
+
+  const LENS_SIZE = 160;
+  const LENS_ZOOM = 3;
+
+  const updateMinimapLens = (e: React.PointerEvent<SVGSVGElement>) => {
+    const lens = minimapLensRef.current;
+    const lensSvg = minimapLensSvgRef.current;
+    if (!lens || !lensSvg || !minimapRef.current) return;
+    const mmSvgRect = minimapRef.current.getBoundingClientRect();
+    if (mmSvgRect.width === 0 || mmSvgRect.height === 0) return;
+    // Fraction of minimap where cursor is
+    const fracX = (e.clientX - mmSvgRect.left) / mmSvgRect.width;
+    const fracY = (e.clientY - mmSvgRect.top) / mmSvgRect.height;
+    // Position lens relative to the minimap container
+    const mmParent = minimapRef.current.closest(".diagram-minimap") as HTMLElement | null;
+    if (!mmParent) return;
+    const mmParentRect = mmParent.getBoundingClientRect();
+    const relX = e.clientX - mmParentRect.left;
+    const relY = e.clientY - mmParentRect.top;
+    // Offset lens so it doesn't occlude the cursor
+    let lensLeft = relX - LENS_SIZE - 12;
+    let lensTop = relY - LENS_SIZE - 12;
+    if (lensLeft < 0) lensLeft = relX + 16;
+    if (lensTop < 0) lensTop = relY + 16;
+    lens.style.left = lensLeft + "px";
+    lens.style.top = lensTop + "px";
+    lens.style.display = "block";
+    // Scale the lens SVG to LENS_ZOOM × the minimap SVG size and translate
+    // so the cursor position is centered in the lens window.
+    const scaledW = mmSvgRect.width * LENS_ZOOM;
+    const scaledH = mmSvgRect.height * LENS_ZOOM;
+    lensSvg.style.width = scaledW + "px";
+    lensSvg.style.height = scaledH + "px";
+    const unclampedTranslateX = LENS_SIZE / 2 - fracX * scaledW;
+    const unclampedTranslateY = LENS_SIZE / 2 - fracY * scaledH;
+    const translateX = Math.min(0, Math.max(LENS_SIZE - scaledW, unclampedTranslateX));
+    const translateY = Math.min(0, Math.max(LENS_SIZE - scaledH, unclampedTranslateY));
+    lensSvg.style.transformOrigin = "top left";
+    lensSvg.style.transform = `translate(${translateX}px, ${translateY}px)`;
+  };
+
+  const hideMinimapLens = () => {
+    setMinimapHoveredEntityId(null);
+    if (minimapLensRef.current) minimapLensRef.current.style.display = "none";
+  };
+
+  // Clone minimap content into the lens SVG whenever minimap redraws
+  useEffect(() => {
+    if (!minimapRef.current || !minimapLensSvgRef.current || !showMinimap) return;
+    const lSvg = minimapLensSvgRef.current;
+    // Remove old content except viewport
+    while (lSvg.firstChild) lSvg.removeChild(lSvg.firstChild);
+    const clone = minimapRef.current.querySelector("#minimap-content");
+    if (clone) {
+      lSvg.appendChild(clone.cloneNode(true));
+    }
+  }, [plot, showMinimap, collapsedSystems]);
+
+  const hitTestMinimapEntity = (e: React.PointerEvent<SVGSVGElement>): string | null => {
+    if (!minimapRef.current) return null;
+
+    const elements = document.elementsFromPoint(e.clientX, e.clientY);
+    for (const element of elements) {
+      if (!minimapRef.current.contains(element)) continue;
+
+      const installedId = element.getAttribute("data-installed-id");
+      if (installedId) return resolveVisibleEntityId(installedId);
+
+      const targetId = element.getAttribute("data-target-id");
+      if (targetId) return resolveVisibleEntityId(targetId);
+
+      let cursor: Element | null = element;
+      while (cursor && cursor !== minimapRef.current) {
+        const cursorInstalledId = cursor.getAttribute("data-installed-id");
+        if (cursorInstalledId) return resolveVisibleEntityId(cursorInstalledId);
+
+        const cursorTargetId = cursor.getAttribute("data-target-id");
+        if (cursorTargetId) return resolveVisibleEntityId(cursorTargetId);
+
+        const rawId = cursor.getAttribute("id") ?? "";
+        if (rawId.startsWith("il")) return resolveVisibleEntityId(rawId.slice(2));
+        if (rawId.startsWith("i")) return resolveVisibleEntityId(rawId.slice(1));
+        cursor = cursor.parentElement;
+      }
+    }
+
+    const rect = minimapRef.current.getBoundingClientRect();
+    if (rect.width === 0 || rect.height === 0) return null;
+    const diagY = ((e.clientY - rect.top) / rect.height) * plot.height;
+    const individuals = Array.from(dataset.individuals.values());
+    const svg = svgRef.current ? d3.select(svgRef.current) : null;
+    if (!svg) return null;
+    for (const ind of individuals) {
+      const rowNode = svg.select(`#i${ind.id}`).node() as SVGGraphicsElement | null;
+      if (!rowNode) continue;
+      const box = rowNode.getBBox();
+      if (diagY >= box.y && diagY <= box.y + box.height) {
+        return resolveVisibleEntityId(ind.id);
+      }
+    }
+    return null;
+  };
+
+  const applyEntityHighlightToMinimap = (svgNode: SVGSVGElement | null, entityId: string | null) => {
+    if (!svgNode) return;
+    const svg = d3.select(svgNode);
+    svg.selectAll(".entity-hover-highlight").classed("entity-hover-highlight", false);
+    if (!entityId) return;
+
+    const visibleEntityId = resolveVisibleEntityId(entityId);
+    const highlightEntityIds = new Set([entityId, visibleEntityId]);
+
+    svg.select(`#i${visibleEntityId}`).classed("entity-hover-highlight", true);
+    svg.select(`#il${visibleEntityId}`).classed("entity-hover-highlight", true);
+    svg.selectAll(".installHatch").each(function () {
+      const el = this as Element;
+      if (
+        highlightEntityIds.has(el.getAttribute("data-installed-id") ?? "") ||
+        highlightEntityIds.has(el.getAttribute("data-target-id") ?? "")
+      ) {
+        d3.select(el).classed("entity-hover-highlight", true);
+      }
+    });
+
+    const entity = dataset.individuals.get(entityId);
+    const isSystemComponent = entity && getEntityTypeIdFromIndividual(entity) === ENTITY_TYPE_IDS.SYSTEM_COMPONENT;
+    if (!isSystemComponent || visibleEntityId !== entityId) {
+      svg.selectAll(".installConnectorRibbon").each(function () {
+        const el = this as Element;
+        if (
+          highlightEntityIds.has(el.getAttribute("data-installed-id") ?? "") ||
+          highlightEntityIds.has(el.getAttribute("data-target-id") ?? "")
+        ) {
+          d3.select(el).classed("entity-hover-highlight", true);
+        }
+      });
+    }
+  };
+
+  useEffect(() => {
+    applyEntityHighlightToMinimap(minimapRef.current, minimapHoveredEntityId);
+    applyEntityHighlightToMinimap(minimapLensSvgRef.current, minimapHoveredEntityId);
+  }, [minimapHoveredEntityId, plot, showMinimap, collapsedSystems]);
+
+  const onMinimapHeaderPointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    (e.target as HTMLElement).setPointerCapture(e.pointerId);
+    const minimapEl = (e.target as HTMLElement).closest(".diagram-minimap") as HTMLElement | null;
+    if (!minimapEl) return;
+    const mmRect = minimapEl.getBoundingClientRect();
+    minimapDragRef.current = {
+      startX: e.clientX,
+      startY: e.clientY,
+      startLeft: mmRect.left,
+      startTop: mmRect.top,
+    };
+  };
+
+  const onMinimapHeaderPointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (!minimapDragRef.current) return;
+    const dx = e.clientX - minimapDragRef.current.startX;
+    const dy = e.clientY - minimapDragRef.current.startY;
+    const requested = {
+      left: minimapDragRef.current.startLeft + dx,
+      top: minimapDragRef.current.startTop + dy,
+    };
+    setMinimapPos(getClampedMinimapSizeAndPosition(requested).pos);
+  };
+
+  const onMinimapHeaderPointerUp = () => {
+    minimapDragRef.current = null;
+  };
+
+  useEffect(() => {
+    const onResize = () => {
+      setMinimapPos((current) => getClampedMinimapSizeAndPosition(current).pos);
+    };
+
+    window.addEventListener("resize", onResize);
+    onResize();
+    return () => window.removeEventListener("resize", onResize);
+  }, [effectiveMinimapWidth, plot.width, plot.height]);
+
   const buildCrumbs = () => {
     const context = [];
     let id: string | undefined = activityContext;
@@ -1534,6 +1993,20 @@ L ${sideX} ${lowerTop} Z`;
               </Draggable>
             )}
           </div>
+
+          <Button
+            variant={showMinimap ? "primary" : "secondary"}
+            size="sm"
+            onClick={() => setShowMinimap((prev) => !prev)}
+            aria-pressed={showMinimap}
+            title="Toggle minimap"
+            style={{ width: "2.2em", height: "2.2em", padding: 0, display: "flex", alignItems: "center", justifyContent: "center" }}
+          >
+            <svg width="1em" height="1em" viewBox="0 0 16 16" aria-hidden="true">
+              <rect x="1" y="1" width="14" height="14" rx="2" stroke="currentColor" strokeWidth="1.5" fill="none" />
+              <rect x="8" y="8" width="6" height="6" rx="1" fill="currentColor" opacity="0.5" />
+            </svg>
+          </Button>
         </div>
 
         <div
@@ -1554,6 +2027,77 @@ L ${sideX} ${lowerTop} Z`;
             }}
           />
         </div>
+        {showMinimap && !isDiagramEmpty && plot.width > 0 && (
+          <div
+            className="diagram-minimap"
+            style={
+              clampedMinimapPos
+                ? { position: "fixed", width: minimapPanelWidth + "px", left: clampedMinimapPos.left, top: clampedMinimapPos.top, bottom: "auto", right: "auto" }
+                : { position: "absolute", width: minimapPanelWidth + "px", maxWidth: "calc(100vw - 24px)" }
+            }
+          >
+            <div
+              className="diagram-minimap-header"
+              onPointerDown={onMinimapHeaderPointerDown}
+              onPointerMove={onMinimapHeaderPointerMove}
+              onPointerUp={onMinimapHeaderPointerUp}
+            >
+              <span className="diagram-minimap-grip" aria-hidden="true">⠿</span>
+              <span className="diagram-minimap-controls">
+                <button
+                  type="button"
+                  className="diagram-minimap-btn"
+                  title="Zoom out minimap"
+                  onClick={() => setMinimapScale((s) => Math.max(0.5, +(s - 0.25).toFixed(2)))}
+                  disabled={minimapScale <= 0.5}
+                >−</button>
+                <button
+                  type="button"
+                  className="diagram-minimap-btn"
+                  title="Reset minimap size"
+                  onClick={() => { setMinimapScale(1); setMinimapPos(null); }}
+                >⟳</button>
+                <button
+                  type="button"
+                  className="diagram-minimap-btn"
+                  title="Zoom in minimap"
+                  onClick={() => setMinimapScale((s) => Math.min(3, +(s + 0.25).toFixed(2)))}
+                  disabled={minimapScale >= 3}
+                >+</button>
+              </span>
+            </div>
+            <div className="diagram-minimap-canvas">
+              <svg
+                ref={minimapRef}
+                viewBox={`0 0 ${plot.width} ${plot.height}`}
+                preserveAspectRatio="xMidYMid meet"
+                onPointerDown={(e) => {
+                  e.preventDefault();
+                  minimapRef.current?.setPointerCapture(e.pointerId);
+                  // Highlight entity under cursor
+                  const entityId = hitTestMinimapEntity(e);
+                  if (entityId) {
+                    focusEntityFromSearch(entityId);
+                  } else {
+                    navigateFromMinimap(e);
+                  }
+                }}
+                onPointerMove={(e) => {
+                  setMinimapHoveredEntityId(hitTestMinimapEntity(e));
+                  updateMinimapLens(e);
+                  if (e.buttons > 0) navigateFromMinimap(e);
+                }}
+                onPointerLeave={hideMinimapLens}
+              />
+            </div>
+            <div ref={minimapLensRef} className="diagram-minimap-lens" style={{ display: "none", width: LENS_SIZE, height: LENS_SIZE }}>
+              <svg
+                ref={minimapLensSvgRef}
+                viewBox={`0 0 ${plot.width} ${plot.height}`}
+              />
+            </div>
+          </div>
+        )}
       </div>
     </>
   );

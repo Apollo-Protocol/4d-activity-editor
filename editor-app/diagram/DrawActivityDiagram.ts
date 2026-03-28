@@ -22,7 +22,7 @@ import { clickParticipations, drawParticipations } from "./DrawParticipations";
 import * as d3 from "d3";
 import { Model } from "@/lib/Model";
 import { getInstallationPeriods } from "@/utils/installations";
-import { ENTITY_CATEGORY } from "@/lib/entityTypes";
+import { ENTITY_CATEGORY, ENTITY_TYPE_IDS, getEntityTypeIdFromIndividual } from "@/lib/entityTypes";
 
 export interface Plot {
   width: number;
@@ -47,7 +47,8 @@ export function drawActivityDiagram(
   rightClickIndividual: (i: Individual) => void,
   rightClickActivity: (a: Activity) => void,
   rightClickParticipation: (a: Activity, p: Participation) => void,
-  hideNonParticipating: boolean = false
+  hideNonParticipating: boolean = false,
+  collapsedSystems?: ReadonlySet<string>
 ) {
   //Prepare Model data into arrays
   let individualsArray: Individual[] = [];
@@ -126,6 +127,20 @@ export function drawActivityDiagram(
         individualsArray = individualsArray.filter((i) => (entityActivities.get(i.id)?.size || 0) > 0);
       }
 
+  // Hide components belonging to collapsed systems
+  if (collapsedSystems && collapsedSystems.size > 0) {
+    individualsArray = individualsArray.filter((i) => {
+      if (
+        getEntityTypeIdFromIndividual(i) === ENTITY_TYPE_IDS.SYSTEM_COMPONENT &&
+        i.installedIn &&
+        collapsedSystems.has(i.installedIn)
+      ) {
+        return false;
+      }
+      return true;
+    });
+  }
+
   //Draw Diagram parts
   const svgElement = clearDiagram(svgRef);
   const individualsMap = new Map(individualsArray.map((i) => [i.id, i]));
@@ -139,6 +154,7 @@ export function drawActivityDiagram(
     dataset,
     activities: activitiesArray,
     individuals: individualsArray,
+    collapsedSystems,
   };
 
   drawIndividuals(drawCtx);

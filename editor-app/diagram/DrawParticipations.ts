@@ -158,6 +158,21 @@ function getPositionOfParticipation(
 
   if (isInstalledInComponent && activeInstallation) {
     drawRowId = installedTarget.id;
+  } else if (!isInstalledInComponent && ctx.collapsedSystems && ctx.collapsedSystems.size > 0 && ctx.dataset) {
+    // Component was filtered out because its parent system is collapsed.
+    // Resolve to the collapsed system row.
+    const componentId = activeInstallation?.systemComponentId ?? individual.installedIn;
+    if (componentId) {
+      const fullComponent = ctx.dataset.individuals.get(componentId);
+      if (
+        fullComponent &&
+        getEntityTypeIdFromIndividual(fullComponent) === ENTITY_TYPE_IDS.SYSTEM_COMPONENT &&
+        fullComponent.installedIn &&
+        ctx.collapsedSystems.has(fullComponent.installedIn)
+      ) {
+        drawRowId = fullComponent.installedIn;
+      }
+    }
   }
 
   const individualNode = svgElement.select("#i" + drawRowId).node();

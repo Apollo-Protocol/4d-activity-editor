@@ -1655,7 +1655,28 @@ html.app-custom-theme .diagram-search-input:focus {
   stroke-width: 3px !important;
 }
 
+.individual.system-collapsed-highlight {
+  stroke: var(--bs-body-color, #212529) !important;
+  stroke-width: 3px !important;
+}
+
+.individual.system-collapsed-highlight.search-result-highlight {
+  stroke: var(--app-accent, #007fff) !important;
+}
+
+.individual.system-collapsed-highlight.entity-hover-highlight {
+  stroke: var(--app-accent, #007fff) !important;
+}
+
 .individualLabel.entity-hover-highlight {
+  font-weight: 700;
+}
+
+.individualLabel.system-collapsed-highlight {
+  font-weight: 700;
+}
+
+.individualLabel.system-collapsed-highlight.entity-hover-highlight {
   font-weight: 700;
 }
 
@@ -3400,4 +3421,95 @@ html.app-custom-theme .breadcrumb-wrapper .breadcrumb-item a:hover {
   .theme-cards {
     flex-direction: column;
   }
+}
+
+/* ── Diagram minimap ── */
+.diagram-minimap {
+  position: fixed;
+  bottom: 12px;
+  right: 12px;
+  background: var(--bs-body-bg, #fff);
+  border: 1px solid var(--bs-border-color-translucent, rgba(0,0,0,0.175));
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.10);
+  overflow: visible;
+  z-index: 30;
+  opacity: 1;
+}
+.diagram-minimap-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 2px 4px;
+  cursor: grab;
+  background: var(--bs-tertiary-bg, #f0f0f0);
+  border-bottom: 1px solid var(--bs-border-color-translucent, rgba(0,0,0,0.1));
+  user-select: none;
+}
+.diagram-minimap-header:active {
+  cursor: grabbing;
+}
+.diagram-minimap-grip {
+  font-size: 0.75rem;
+  color: var(--bs-secondary-color, #6c757d);
+  letter-spacing: 1px;
+  line-height: 1;
+}
+.diagram-minimap-controls {
+  display: flex;
+  gap: 2px;
+}
+.diagram-minimap-btn {
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  border: none;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--bs-body-color, #212529);
+  font-size: 0.85rem;
+  line-height: 1;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.diagram-minimap-btn:hover:not(:disabled) {
+  background: var(--bs-secondary-bg, #e2e6ea);
+}
+.diagram-minimap-btn:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+.diagram-minimap-canvas {
+  overflow: hidden;
+  border-radius: 0 0 8px 8px;
+}
+.diagram-minimap svg {
+  display: block;
+  width: 100%;
+  height: auto;
+  cursor: crosshair;
+}
+.diagram-minimap-viewport {
+  fill: rgba(var(--app-accent-rgb, 0, 127, 255), 0.15);
+  stroke: var(--app-accent, #007fff);
+  stroke-width: 3;
+  pointer-events: none;
+}
+.diagram-minimap-lens {
+  position: absolute;
+  pointer-events: none;
+  border: 2px solid var(--app-accent, #007fff);
+  border-radius: 6px;
+  background: var(--bs-body-bg, #fff);
+  box-shadow: 0 2px 12px rgba(0,0,0,0.18);
+  overflow: hidden;
+  z-index: 31;
+}
+.diagram-minimap-lens svg {
+  display: block;
+  position: absolute;
+  top: 0;
+  left: 0;
 }

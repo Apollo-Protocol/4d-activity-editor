@@ -348,9 +348,15 @@ const SetActivity = (props: Props) => {
       outsideEligible = true;
     }
 
+    // Partial overlap: activity spans across installation boundary
+    const hasPartialOverlap = window.periods.some(
+      (period) =>
+        inputs.beginning < period.ending && inputs.ending > period.beginning
+    );
+
     if (mode === "installed") return inInstalledWindow;
     if (mode === "outside") return outsideEligible;
-    return inInstalledWindow || outsideEligible;
+    return inInstalledWindow || outsideEligible || hasPartialOverlap;
   };
 
   const selectedParticipantIds = getSelectedIndividualIds();
@@ -366,7 +372,23 @@ const SetActivity = (props: Props) => {
         const installedEligible = participantIsEligibleForMode(individual, "installed");
         const isSelected = selectedParticipantIds.has(individual.id);
 
-        if (outsideEligible || isSelected) {
+        // Partial overlap: activity spans across installation boundary
+        const hasPartialOverlap = window.periods.some(
+          (period) =>
+            inputs.beginning < period.ending && inputs.ending > period.beginning
+        ) && !installedEligible;
+
+        if (hasPartialOverlap || isSelected) {
+          options.push({
+            optionKey: `${individual.id}::default`,
+            individual,
+            mode: "default",
+            label: individual.name,
+            group: "Individual",
+          });
+        }
+
+        if (outsideEligible || (isSelected && !hasPartialOverlap)) {
           options.push({
             optionKey: `${individual.id}::outside`,
             individual,
@@ -376,7 +398,7 @@ const SetActivity = (props: Props) => {
           });
         }
 
-        if (installedEligible || isSelected) {
+        if (installedEligible || (isSelected && !hasPartialOverlap)) {
           const periodsLabel = window.periods
             .map((period) => `${period.beginning}-${period.ending >= Model.END_OF_TIME ? "∞" : period.ending}`)
             .join(", ");
@@ -452,6 +474,8 @@ const SetActivity = (props: Props) => {
         const installed = matching.find((option) => option.mode === "installed");
         const outside = matching.find((option) => option.mode === "outside");
         const fallback = matching.find((option) => option.mode === "default");
+        // Prefer "default" (partial overlap) when "installed" is not eligible
+        if (fallback && !installed) return fallback;
         return installed ?? outside ?? fallback ?? matching[0];
       })
       .filter((option): option is ParticipationOption => !!option);

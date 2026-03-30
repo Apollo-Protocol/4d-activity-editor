@@ -13,6 +13,8 @@ import { activity } from "@apollo-protocol/hqdm-lib";
 import {
   getActiveInstallationForActivity,
   getInstallationPeriods,
+  splitParticipationByInstallations,
+  ParticipationSegment,
 } from "@/utils/installations";
 
 let mouseOverElement: any | null = null;
@@ -228,46 +230,42 @@ function calculateLengthOfNewActivity(
   return calculateActivityBottom(svgElement, activity, individuals, dataset, collapsedSystems);
 }
 
-function resolveParticipationRowId(
-  activity: Activity,
+/**
+ * Resolve the bounding-box row ID for a single participation segment.
+ * For activity rect bounds we resolve to the SYSTEM row (not component)
+ * so that the activity background spans the full system block.
+ */
+function resolveSegmentRowIdForBounds(
+  segment: ParticipationSegment,
   individual: Individual,
   individuals: Individual[],
   dataset?: Model,
   collapsedSystems?: ReadonlySet<string>
-) {
-  const activeInstallation = getActiveInstallationForActivity(individual, activity);
-  const installedTarget = activeInstallation
-    ? individuals.find((i) => i.id === activeInstallation.systemComponentId)
-    : individual.installedIn
-    ? individuals.find((i) => i.id === individual.installedIn)
-    : undefined;
+): string {
+  if (!segment.installationPeriod) {
+    return individual.id;
+  }
+
+  const componentId = segment.installationPeriod.systemComponentId;
+  const installedTarget = individuals.find((i) => i.id === componentId);
   const isInstalledInComponent =
     !!installedTarget &&
     getEntityTypeIdFromIndividual(installedTarget) === ENTITY_TYPE_IDS.SYSTEM_COMPONENT;
 
   if (!isInstalledInComponent) {
-    // Component not in the filtered individuals list — it may have been hidden
-    // because its parent system is collapsed. Look up the full dataset to find
-    // the component's host system and resolve to that system row instead.
+    // Component not in the filtered list — may be hidden because its
+    // parent system is collapsed.
     if (collapsedSystems && collapsedSystems.size > 0 && dataset) {
-      const componentId = activeInstallation?.systemComponentId
-        ?? individual.installedIn;
-      if (componentId) {
-        const fullComponent = dataset.individuals.get(componentId);
-        if (
-          fullComponent &&
-          getEntityTypeIdFromIndividual(fullComponent) === ENTITY_TYPE_IDS.SYSTEM_COMPONENT &&
-          fullComponent.installedIn &&
-          collapsedSystems.has(fullComponent.installedIn)
-        ) {
-          return fullComponent.installedIn;
-        }
+      const fullComponent = dataset.individuals.get(componentId);
+      if (
+        fullComponent &&
+        getEntityTypeIdFromIndividual(fullComponent) === ENTITY_TYPE_IDS.SYSTEM_COMPONENT &&
+        fullComponent.installedIn &&
+        collapsedSystems.has(fullComponent.installedIn)
+      ) {
+        return fullComponent.installedIn;
       }
     }
-    return individual.id;
-  }
-
-  if (!activeInstallation) {
     return individual.id;
   }
 
@@ -281,6 +279,27 @@ function resolveParticipationRowId(
   return isInstalledInSystem ? installedSystem.id : installedTarget.id;
 }
 
+/**
+ * Return all distinct row IDs that a participation's segments resolve to
+ * (for activity bounding-box calculations).
+ */
+function resolveParticipationRowIds(
+  activity: Activity,
+  individual: Individual,
+  individuals: Individual[],
+  dataset?: Model,
+  collapsedSystems?: ReadonlySet<string>
+): string[] {
+  const segments = splitParticipationByInstallations(individual, activity);
+  const rowIds = new Set<string>();
+  for (const segment of segments) {
+    rowIds.add(
+      resolveSegmentRowIdForBounds(segment, individual, individuals, dataset, collapsedSystems)
+    );
+  }
+  return Array.from(rowIds);
+}
+
 function calculateActivityBottom(
   svgElement: any,
   activity: Activity,
@@ -292,11 +311,13 @@ function calculateActivityBottom(
   activity?.participations?.forEach((a: Participation) => {
     const individual = individuals.find((i) => i.id === a.individualId);
     if (!individual) return;
-    const rowId = resolveParticipationRowId(activity, individual, individuals, dataset, collapsedSystems);
-    const node = svgElement.select("#i" + rowId).node();
-    if (node) {
-      const bbox = node.getBBox();
-      maxBottom = Math.max(maxBottom, bbox.y + bbox.height);
+    const rowIds = resolveParticipationRowIds(activity, individual, individuals, dataset, collapsedSystems);
+    for (const rowId of rowIds) {
+      const node = svgElement.select("#i" + rowId).node();
+      if (node) {
+        const bbox = node.getBBox();
+        maxBottom = Math.max(maxBottom, bbox.y + bbox.height);
+      }
     }
   });
   return maxBottom > 0 ? maxBottom : null;
@@ -323,11 +344,13 @@ function calculateActivityTop(
   activity?.participations?.forEach((a: Participation) => {
     const individual = individuals.find((i) => i.id === a.individualId);
     if (!individual) return;
-    const rowId = resolveParticipationRowId(activity, individual, individuals, dataset, collapsedSystems);
-    const node = svgElement.select("#i" + rowId).node();
-    if (!node) return;
-    const element = node.getBBox();
-    lowestY = Math.min(lowestY, element.y);
+    const rowIds = resolveParticipationRowIds(activity, individual, individuals, dataset, collapsedSystems);
+    for (const rowId of rowIds) {
+      const node = svgElement.select("#i" + rowId).node();
+      if (!node) continue;
+      const element = node.getBBox();
+      lowestY = Math.min(lowestY, element.y);
+    }
   });
   return lowestY === Number.MAX_VALUE ? 0 : lowestY;
 }

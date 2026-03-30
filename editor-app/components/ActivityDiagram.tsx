@@ -8,7 +8,7 @@ import { ConfigData } from "@/diagram/config";
 import { Model } from "@/lib/Model";
 import { Activity, Id, Individual, Maybe, Participation } from "@/lib/Schema";
 import { ENTITY_TYPE_IDS, getEntityTypeIdFromIndividual, getEntityTypeLabel } from "@/lib/entityTypes";
-import { getActiveInstallationForActivity } from "@/utils/installations";
+import { getActiveInstallationForActivity, splitParticipationByInstallations } from "@/utils/installations";
 import * as d3 from "d3";
 
 interface Props {
@@ -527,6 +527,7 @@ const ActivityDiagram = (props: Props) => {
       // Dim all activities and participations
       svg.selectAll(".activity").attr("opacity", 0.15);
       svg.selectAll(".participation").attr("opacity", 0.1);
+      svg.selectAll(".participationRibbon").attr("opacity", 0.1);
       svg.selectAll(".activityLabel").attr("opacity", 0.2);
 
       // Highlight the selected activity
@@ -543,7 +544,16 @@ const ActivityDiagram = (props: Props) => {
           const id = (this as SVGElement).getAttribute("id") || "";
           return id.startsWith(`p${highlightedActivityId}`);
         })
-        .attr("opacity", 0.8);
+        .attr("opacity", 0.8)
+        .raise();
+
+      // Highlight participation ribbons belonging to the selected activity
+      svg.selectAll(".participationRibbon")
+        .filter(function () {
+          return (this as SVGElement).getAttribute("data-activity-id") === highlightedActivityId;
+        })
+        .attr("opacity", 0.8)
+        .raise();
     } else {
       // Reset all to default
       svg.selectAll(".activity")
@@ -551,6 +561,7 @@ const ActivityDiagram = (props: Props) => {
         .attr("stroke-width", configData.presentation.activity.strokeWidth)
         .attr("stroke-dasharray", configData.presentation.activity.strokeDasharray);
       svg.selectAll(".participation").attr("opacity", configData.presentation.participation.opacity);
+      svg.selectAll(".participationRibbon").attr("opacity", configData.presentation.participation.opacity);
       svg.selectAll(".activityLabel").attr("opacity", 1);
     }
   }, [highlightedActivityId, plot, configData, svgRef]);
@@ -786,36 +797,41 @@ L ${sideX} ${lowerTop} Z`;
       });
     };
 
-    const resolvePreviewActivityRowId = (
+    const resolvePreviewActivityRowIds = (
       activity: Activity,
       individual: Individual
-    ) => {
-      const activeInstallation = getActiveInstallationForActivity(individual, activity);
-      const installedTarget = activeInstallation
-        ? dataset.individuals.get(activeInstallation.systemComponentId)
-        : individual.installedIn
-        ? dataset.individuals.get(individual.installedIn)
-        : undefined;
-      const isInstalledInComponent =
-        !!installedTarget &&
-        getEntityTypeIdFromIndividual(installedTarget) === ENTITY_TYPE_IDS.SYSTEM_COMPONENT;
+    ): string[] => {
+      const segments = splitParticipationByInstallations(individual, activity);
+      const rowIds = new Set<string>();
 
-      if (!isInstalledInComponent) {
-        return individual.id;
+      for (const segment of segments) {
+        if (!segment.installationPeriod) {
+          rowIds.add(individual.id);
+          continue;
+        }
+
+        const componentId = segment.installationPeriod.systemComponentId;
+        const installedTarget = dataset.individuals.get(componentId);
+        const isInstalledInComponent =
+          !!installedTarget &&
+          getEntityTypeIdFromIndividual(installedTarget) === ENTITY_TYPE_IDS.SYSTEM_COMPONENT;
+
+        if (!isInstalledInComponent) {
+          rowIds.add(individual.id);
+          continue;
+        }
+
+        const installedSystem = installedTarget.installedIn
+          ? dataset.individuals.get(installedTarget.installedIn)
+          : undefined;
+        const isInstalledInSystem =
+          !!installedSystem &&
+          getEntityTypeIdFromIndividual(installedSystem) === ENTITY_TYPE_IDS.SYSTEM;
+
+        rowIds.add(isInstalledInSystem ? installedSystem.id : installedTarget.id);
       }
 
-      if (!activeInstallation) {
-        return individual.id;
-      }
-
-      const installedSystem = installedTarget.installedIn
-        ? dataset.individuals.get(installedTarget.installedIn)
-        : undefined;
-      const isInstalledInSystem =
-        !!installedSystem &&
-        getEntityTypeIdFromIndividual(installedSystem) === ENTITY_TYPE_IDS.SYSTEM;
-
-      return isInstalledInSystem ? installedSystem.id : installedTarget.id;
+      return Array.from(rowIds);
     };
 
     const getPreviewRowBounds = (rowId: string) => {
@@ -854,14 +870,13 @@ L ${sideX} ${lowerTop} Z`;
             return;
           }
 
-          const rowId = resolvePreviewActivityRowId(activity, individual);
-          const rowBounds = getPreviewRowBounds(rowId);
-          if (!rowBounds) {
-            return;
+          const rowIds = resolvePreviewActivityRowIds(activity, individual);
+          for (const rowId of rowIds) {
+            const rowBounds = getPreviewRowBounds(rowId);
+            if (!rowBounds) continue;
+            if (rowBounds.top < minTop) minTop = rowBounds.top;
+            if (rowBounds.bottom > maxBottom) maxBottom = rowBounds.bottom;
           }
-
-          if (rowBounds.top < minTop) minTop = rowBounds.top;
-          if (rowBounds.bottom > maxBottom) maxBottom = rowBounds.bottom;
         });
           
         if (minTop === Infinity || maxBottom === -Infinity) {
@@ -1049,8 +1064,9 @@ L ${sideX} ${lowerTop} Z`;
             || node.getAttribute("data-target-id") === id;
         })
         .raise();
-      // Raise activities and participations so they stay on top
+      // Raise activities, participations, and participation ribbons so they stay on top
       svg.selectAll(".activity").raise();
+      svg.selectAll(".participationRibbon").raise();
       svg.selectAll(".participation").raise();
     };
 

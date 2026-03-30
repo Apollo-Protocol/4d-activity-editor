@@ -436,13 +436,14 @@ export default function Page({ imageMap }: { imageMap: Record<string, string> })
                 <h3 id="entity-legend" className="doc-section-heading">Entity Legend</h3>
                 <p>
                   The Entity Legend is a static reference panel that explains
-                  the symbols used on the diagram.  It shows five indicators:
+                  the symbols used on the diagram.  It shows six indicators:
                 </p>
                 <ul>
                   <li><strong>System</strong> (filled square) - a structured assembly</li>
                   <li><strong>System Component</strong> (diamond) - a slot within a system</li>
                   <li><strong>Individual</strong> (circle) - a standalone entity</li>
                   <li><strong>Installation Period</strong> (hatched rectangle) - the time range an individual is fused with a component</li>
+                  <li><strong>System Collapsed</strong> (square with cut corners) - a system that is currently collapsed to hide its components</li>
                   <li><strong>Currently Installed</strong> (dashed rectangle) - a currently active installation</li>
                 </ul>
                 <p>
@@ -466,12 +467,7 @@ export default function Page({ imageMap }: { imageMap: Record<string, string> })
                   system&apos;s components and replaces them with a single
                   compact row showing the system name. Right-click again to expand.
                 </p>
-                <p>
-                  Collapsed state is persisted for the duration of your
-                  browser session, so systems stay collapsed even after
-                  navigating away and returning. The state is automatically
-                  cleared when you load a new file or clear the diagram.
-                </p>
+              
                 <p>
                   Collapsed systems are fully supported across the editor:
                   search results and minimap clicks correctly highlight the

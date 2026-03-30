@@ -2,7 +2,7 @@ import React, { useEffect, useState } from "react";
 import Button from "react-bootstrap/Button";
 import Modal from "react-bootstrap/Modal";
 import Form from "react-bootstrap/Form";
-import DraggableModalDialog from "@/components/DraggableModalDialog";
+import DraggableModalDialog, { shouldSuppressModalHide } from "@/components/DraggableModalDialog";
 import { useTheme } from "next-themes";
 import {
   applyTypographyProfile,
@@ -200,6 +200,11 @@ export default function AppearanceModal({ show, setShow }: Props) {
     setShow(false);
   }
 
+  function handleModalHide() {
+    if (shouldSuppressModalHide()) return;
+    handleClose();
+  }
+
   function handleSave() {
     const colorToApply = isValidHex(draftColor) ? draftColor : DEFAULT_ACCENT;
     applyAccent(colorToApply);
@@ -224,7 +229,7 @@ export default function AppearanceModal({ show, setShow }: Props) {
     <Modal
       dialogAs={DraggableModalDialog}
       show={show}
-      onHide={handleClose}
+      onHide={handleModalHide}
       size="lg"
     >
       <Modal.Header closeButton>

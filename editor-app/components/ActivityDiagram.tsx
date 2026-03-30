@@ -80,14 +80,19 @@ const ActivityDiagram = (props: Props) => {
     typeof window !== "undefined" ? window.innerWidth : 1440
   );
 
-  const getResponsiveDefaultMinimapScale = () => (viewportWidth <= 1599 ? 0.75 : 1);
+  const getResponsiveDefaultMinimapScale = () => {
+    if (viewportWidth >= 1600) return 0.75;
+    if (viewportWidth <= 768) return 0.5;
+    // Linear interpolation between 768→0.5 and 1600→0.75
+    return +(0.5 + (0.25 * (viewportWidth - 768)) / (1600 - 768)).toFixed(3);
+  };
 
   const zoomRef = useRef<d3.ZoomBehavior<SVGSVGElement, unknown> | null>(null);
   const zoomTransformRef = useRef(d3.zoomIdentity);
 
   const [collapsedSystems, setCollapsedSystems] = useState<Set<string>>(new Set());
   const [hasRestoredCollapsedSystems, setHasRestoredCollapsedSystems] = useState(false);
-  const [showMinimap, setShowMinimap] = useState(true);
+  const [showMinimap, setShowMinimap] = useState(false);
   const [minimapScale, setMinimapScale] = useState(() => getResponsiveDefaultMinimapScale());
   const [minimapPos, setMinimapPos] = useState<{ left: number; top: number } | null>(null);
   const [minimapHoveredEntityId, setMinimapHoveredEntityId] = useState<string | null>(null);
@@ -1568,11 +1573,13 @@ L ${sideX} ${lowerTop} Z`;
     const mmParentRect = mmParent.getBoundingClientRect();
     const relX = e.clientX - mmParentRect.left;
     const relY = e.clientY - mmParentRect.top;
-    // Offset lens so it doesn't occlude the cursor
+    // Offset lens so it doesn't occlude the cursor. Keep the vertical
+    // placement fixed instead of flipping above/below the cursor.
+    const viewportW = window.innerWidth;
     let lensLeft = relX - LENS_SIZE - 12;
-    let lensTop = relY - LENS_SIZE - 12;
-    if (lensLeft < 0) lensLeft = relX + 16;
-    if (lensTop < 0) lensTop = relY + 16;
+    const lensTop = relY - LENS_SIZE - 12;
+    if (e.clientX - LENS_SIZE - 12 < 0) lensLeft = relX + 16;
+    if (e.clientX + 16 + LENS_SIZE > viewportW) lensLeft = relX - LENS_SIZE - 12;
     lens.style.left = lensLeft + "px";
     lens.style.top = lensTop + "px";
     lens.style.display = "block";

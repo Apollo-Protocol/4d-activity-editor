@@ -7,7 +7,7 @@ import React, {
 } from "react";
 import Button from "react-bootstrap/Button";
 import Modal from "react-bootstrap/Modal";
-import DraggableModalDialog from "@/components/DraggableModalDialog";
+import DraggableModalDialog, { shouldSuppressModalHide } from "@/components/DraggableModalDialog";
 import Form from "react-bootstrap/Form";
 import ListGroup from "react-bootstrap/ListGroup";
 import Alert from "react-bootstrap/Alert";
@@ -193,7 +193,7 @@ const SetActivity = (props: Props) => {
   // call `onHide` and close the modal — that causes the bug you reported.
   // Ignore onHide requests while `editingTypeId` is non-null.
   const handleModalHide = () => {
-    if (editingTypeId) {
+    if (editingTypeId || shouldSuppressModalHide()) {
       // keep modal open while editing a type to avoid losing focus/selection
       return;
     }

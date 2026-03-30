@@ -3512,6 +3512,7 @@ html.app-custom-theme .breadcrumb-wrapper .breadcrumb-item a:hover {
   position: absolute;
   top: 0;
   left: 0;
+  transition: transform 100ms ease-out;
 }
 
 .toolbar-mobile-minimap-host {

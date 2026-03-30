@@ -74,7 +74,13 @@ const manualSections: JumpLinkItem[] = [
         id: "lefthand-toolbar",
         label: "Lefthand Toolbar",
         children: [
-          { id: "entity-legend", label: "Entity Legend" },
+          {
+            id: "entity-legend",
+            label: "Entity Legend",
+            children: [
+              { id: "system-collapse", label: "System Collapse" },
+            ],
+          },
           {
             id: "activity-legend",
             label: "Activity Legend",
@@ -91,6 +97,7 @@ const manualSections: JumpLinkItem[] = [
         children: [
           { id: "zoom", label: "Zoom" },
           { id: "search-entity", label: "Search Entity" },
+          { id: "minimap", label: "Minimap" },
         ],
       },
       {
@@ -448,6 +455,36 @@ export default function Page({ imageMap }: { imageMap: Record<string, string> })
               </Col>
             </Row>
 
+            {/* System Collapse */}
+            <Row className="justify-content-center row-cols-1 row-cols-lg-2 mt-5">
+              <Col>
+                <h4 id="system-collapse" className="doc-section-heading">System Collapse</h4>
+                <p>
+                  When a system contains one or more system components, you
+                  can <strong>right-click</strong> the system&apos;s row on
+                  the diagram to collapse it. Collapsing hides all of the
+                  system&apos;s components and replaces them with a single
+                  compact row showing the system name. Right-click again to expand.
+                </p>
+                <p>
+                  Collapsed state is persisted for the duration of your
+                  browser session, so systems stay collapsed even after
+                  navigating away and returning. The state is automatically
+                  cleared when you load a new file or clear the diagram.
+                </p>
+                <p>
+                  Collapsed systems are fully supported across the editor:
+                  search results and minimap clicks correctly highlight the
+                  parent system row, and the SVG export reflects the
+                  current collapsed/expanded state including a
+                  &ldquo;System&nbsp;Collapsed&rdquo; entry in the legend.
+                </p>
+              </Col>
+              <Col className="col-md text-center align-self-center">
+                <ImageComponent alt="system collapse" imageMap={imageMap} />
+              </Col>
+            </Row>
+
             {/* Activity Legend */}
             <Row className="justify-content-center row-cols-1 row-cols-lg-2 mt-5">
               <Col>
@@ -574,6 +611,39 @@ export default function Page({ imageMap }: { imageMap: Record<string, string> })
               </Col>
               <Col className="col-md text-center align-self-center">
                 <ImageComponent alt="search entity popover" imageMap={imageMap} />
+              </Col>
+            </Row>
+
+            {/* Minimap */}
+            <Row className="justify-content-center row-cols-1 row-cols-lg-2 mt-5">
+              <Col>
+                <h3 id="minimap" className="doc-section-heading">Minimap</h3>
+                <p>
+                  The minimap provides a birds-eye overview of the entire
+                  diagram. Toggle it with the minimap button in the top-right
+                  toolbar. It is hidden by default and appears as a floating
+                  panel that can be dragged to any position. Use the
+                  <strong> &minus;</strong>, <strong>reset</strong> and
+                  <strong> +</strong> controls on the minimap header to
+                  resize it.
+                </p>
+                
+                <p>
+                  Hovering over the minimap activates a <strong>magnifier
+                  lens</strong> that shows a zoomed-in view of the area
+                  under your cursor. The lens automatically repositions
+                  itself to stay within the minimap panel. Clicking on an
+                  entity in the minimap scrolls the main diagram to that
+                  entity and briefly highlights it.
+                </p>
+                <p>
+                  The blue viewport rectangle shows which portion of the
+                  diagram is currently visible. Drag it to pan the main
+                  diagram view.
+                </p>
+              </Col>
+              <Col className="col-md text-center align-self-center">
+                <ImageComponent alt="minimap" imageMap={imageMap} />
               </Col>
             </Row>
 

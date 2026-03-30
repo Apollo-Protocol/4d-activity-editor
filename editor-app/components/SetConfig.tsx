@@ -6,7 +6,7 @@ import Row from "react-bootstrap/Row";
 import Col from "react-bootstrap/Col";
 import Tabs from "react-bootstrap/Tabs";
 import Tab from "react-bootstrap/Tab";
-import DraggableModalDialog from "@/components/DraggableModalDialog";
+import DraggableModalDialog, { shouldSuppressModalHide } from "@/components/DraggableModalDialog";
 
 import { config, ConfigData } from "@/diagram/config";
 
@@ -323,6 +323,10 @@ const SetConfig = (props: Props) => {
   const handleClose = () => {
     setShowConfigModal(false);
   };
+  const handleModalHide = () => {
+    if (shouldSuppressModalHide()) return;
+    handleClose();
+  };
   const handleShow = () => {
     setInputs(resolveConfigDataForForm(normalizeConfigData(configData)));
     setSelectedColorPath(COLOR_FIELD_OPTIONS[0].path);
@@ -453,7 +457,7 @@ const SetConfig = (props: Props) => {
       <Modal
         dialogAs={DraggableModalDialog}
         show={showConfigModal}
-        onHide={handleClose}
+        onHide={handleModalHide}
         onShow={handleShow}
         size="xl"
       >

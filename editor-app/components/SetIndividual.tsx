@@ -1,7 +1,7 @@
 import React, { Dispatch, SetStateAction, useEffect, useMemo, useState } from "react";
 import Button from "react-bootstrap/Button";
 import Modal from "react-bootstrap/Modal";
-import DraggableModalDialog from "@/components/DraggableModalDialog";
+import DraggableModalDialog, { shouldSuppressModalHide } from "@/components/DraggableModalDialog";
 import Form from "react-bootstrap/Form";
 import Table from "react-bootstrap/Table";
 import Alert from "react-bootstrap/Alert";
@@ -746,10 +746,15 @@ const SetIndividual = (props: Props) => {
   };
 
   const handleModalHide = () => {
-    if (editingTypeId) {
+    if (editingTypeId || shouldSuppressModalHide()) {
       return;
     }
     handleClose();
+  };
+
+  const handleInstallationsModalHide = () => {
+    if (shouldSuppressModalHide()) return;
+    setShowInstallationsModal(false);
   };
 
   const commitIndividualSave = (next: Individual) => {
@@ -2635,7 +2640,7 @@ const SetIndividual = (props: Props) => {
 
       <Modal dialogAs={DraggableModalDialog} 
         show={showInstallationsModal}
-        onHide={() => setShowInstallationsModal(false)}
+        onHide={handleInstallationsModalHide}
         size="xl"
       >
         <Modal.Header closeButton>

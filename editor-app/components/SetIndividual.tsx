@@ -7,7 +7,7 @@ import Table from "react-bootstrap/Table";
 import Alert from "react-bootstrap/Alert";
 import Card from "react-bootstrap/Card";
 import { v4 as uuidv4 } from "uuid";
-import { Activity, Individual, InstallationPeriod } from "@/lib/Schema";
+import { Activity, Individual, InstallationPeriod, findParticipationsForIndividual, participationMapKey } from "@/lib/Schema";
 import { Model } from "@/lib/Model";
 import {
   ENTITY_CATEGORY,
@@ -92,6 +92,8 @@ type AffectedActivity = {
   /** The individual whose bounds changed, causing this activity to be affected */
   individualId: string;
   individualName: string;
+  /** The participation map key (may be composite for per-installation participations) */
+  participationKey?: string;
   systemName?: string;
   systemComponentName?: string;
   fromBeginning: number;
@@ -100,6 +102,9 @@ type AffectedActivity = {
   toEnding?: number;
   action: "trim" | "drop";
   activityOutcomeText?: string;
+  /** When true, this participation should be silently removed without user confirmation
+   *  (the same individual still has another participation in the same activity). */
+  autoRemove?: boolean;
 };
 
 type CascadeWarning = {
@@ -177,6 +182,11 @@ const SetIndividual = (props: Props) => {
   const [pendingDroppedCount, setPendingDroppedCount] = useState(0);
   const [pendingBoundsChanges, setPendingBoundsChanges] = useState<PendingBoundsChange[]>([]);
   const [pendingAffectedActivities, setPendingAffectedActivities] = useState<AffectedActivity[]>([]);
+  const [pendingAutoRemoveActivities, setPendingAutoRemoveActivities] = useState<AffectedActivity[]>([]);
+  const [pendingActivityAction, setPendingActivityAction] =
+    useState<"keep" | "remove">("keep");
+  const [selectedAffectedActivityKeys, setSelectedAffectedActivityKeys] =
+    useState<Set<string>>(new Set());
   const [pendingChangeScope, setPendingChangeScope] =
     useState<"bounds" | "installations" | "both">("bounds");
 
@@ -238,6 +248,9 @@ const SetIndividual = (props: Props) => {
     return String(value);
   };
 
+  const getAffectedActivitySelectionKey = (aa: AffectedActivity) =>
+    `${aa.activityId}:${aa.participationKey ?? aa.individualId}`;
+
   /**
    * Find activities that have participations with a given individual whose
    * activity bounds exceed the individual's new bounds AND the situation is
@@ -259,45 +272,49 @@ const SetIndividual = (props: Props) => {
   ): AffectedActivity[] => {
     const result: AffectedActivity[] = [];
     for (const act of Array.from(dataset.activities.values())) {
-      if (!act.participations.has(entityId)) continue;
-      const participation = act.participations.get(entityId);
-      const actStart = normalizeStart(participation?.beginning ?? act.beginning);
-      const actEnd = normalizeEnd(participation?.ending ?? act.ending);
-      const clampedStart = Math.max(actStart, newStart);
-      const clampedEnd = Math.min(actEnd, newEnd);
+      const entries = findParticipationsForIndividual(act.participations, entityId);
+      if (entries.length === 0) continue;
+      for (const [pKey, participation] of entries) {
+        const actStart = normalizeStart(participation?.beginning ?? act.beginning);
+        const actEnd = normalizeEnd(participation?.ending ?? act.ending);
+        const clampedStart = Math.max(actStart, newStart);
+        const clampedEnd = Math.min(actEnd, newEnd);
 
-      // If old bounds were provided, compute what the clamp was before.
-      // Only warn if the new bounds are MORE restrictive than the old bounds
-      // for this activity (i.e. expanding bounds should never trigger a warning).
-      if (oldStart !== undefined && oldEnd !== undefined) {
-        const oldClampedStart = Math.max(actStart, oldStart);
-        const oldClampedEnd = Math.min(actEnd, oldEnd);
-        // New clamp is at least as permissive as old clamp → skip
-        if (clampedStart <= oldClampedStart && clampedEnd >= oldClampedEnd) continue;
-      }
+        // If old bounds were provided, compute what the clamp was before.
+        // Only warn if the new bounds are MORE restrictive than the old bounds
+        // for this activity (i.e. expanding bounds should never trigger a warning).
+        if (oldStart !== undefined && oldEnd !== undefined) {
+          const oldClampedStart = Math.max(actStart, oldStart);
+          const oldClampedEnd = Math.min(actEnd, oldEnd);
+          // New clamp is at least as permissive as old clamp → skip
+          if (clampedStart <= oldClampedStart && clampedEnd >= oldClampedEnd) continue;
+        }
 
-      if (clampedEnd <= clampedStart) {
-        result.push({
-          activityId: act.id,
-          activityName: act.name,
-          individualId: entityId,
-          individualName: entityName,
-          fromBeginning: participation?.beginning ?? act.beginning,
-          fromEnding: participation?.ending ?? act.ending,
-          action: "drop",
-        });
-      } else if (clampedStart !== actStart || clampedEnd !== actEnd) {
-        result.push({
-          activityId: act.id,
-          activityName: act.name,
-          individualId: entityId,
-          individualName: entityName,
-          fromBeginning: participation?.beginning ?? act.beginning,
-          fromEnding: participation?.ending ?? act.ending,
-          toBeginning: clampedStart,
-          toEnding: clampedEnd,
-          action: "trim",
-        });
+        if (clampedEnd <= clampedStart) {
+          result.push({
+            activityId: act.id,
+            activityName: act.name,
+            individualId: entityId,
+            individualName: entityName,
+            participationKey: pKey,
+            fromBeginning: participation?.beginning ?? act.beginning,
+            fromEnding: participation?.ending ?? act.ending,
+            action: "drop",
+          });
+        } else if (clampedStart !== actStart || clampedEnd !== actEnd) {
+          result.push({
+            activityId: act.id,
+            activityName: act.name,
+            individualId: entityId,
+            individualName: entityName,
+            participationKey: pKey,
+            fromBeginning: participation?.beginning ?? act.beginning,
+            fromEnding: participation?.ending ?? act.ending,
+            toBeginning: clampedStart,
+            toEnding: clampedEnd,
+            action: "trim",
+          });
+        }
       }
     }
     return result;
@@ -312,90 +329,121 @@ const SetIndividual = (props: Props) => {
     const result: AffectedActivity[] = [];
 
     for (const activity of Array.from(dataset.activities.values())) {
-      if (!activity.participations.has(entityId)) continue;
+      const entries = findParticipationsForIndividual(activity.participations, entityId);
+      if (entries.length === 0) continue;
 
-      const participation = activity.participations.get(entityId);
-      const activityStart = normalizeStart(
-        participation?.beginning ?? activity.beginning
-      );
-      const activityEnd = normalizeEnd(participation?.ending ?? activity.ending);
+      for (const [pKey, participation] of entries) {
+        const activityStart = normalizeStart(
+          participation?.beginning ?? activity.beginning
+        );
+        const activityEnd = normalizeEnd(participation?.ending ?? activity.ending);
 
-      const oldActiveInstallation = oldPeriods.find(
-        (period) =>
-          activityStart >= period.beginning && activityEnd <= period.ending
-      );
+        // For per-installation participations, check if the specific component
+        // is affected by the period changes
+        const targetComponentId = participation.systemComponentId;
+        const relevantOldPeriods = targetComponentId
+          ? oldPeriods.filter((p) => p.systemComponentId === targetComponentId)
+          : oldPeriods;
 
-      if (!oldActiveInstallation) continue;
+        const oldActiveInstallation = relevantOldPeriods.find(
+          (period) =>
+            activityStart >= period.beginning && activityEnd <= period.ending
+        );
 
-      const newActiveInstallation = newPeriods.find(
-        (period) =>
-          activityStart >= period.beginning && activityEnd <= period.ending
-      );
+        if (!oldActiveInstallation) continue;
 
-      if (newActiveInstallation) continue;
+        const relevantNewPeriods = targetComponentId
+          ? newPeriods.filter((p) => p.systemComponentId === targetComponentId)
+          : newPeriods;
 
-      const bestOverlap = newPeriods
-        .map((period) => {
-          const overlapBeginning = Math.max(activityStart, period.beginning);
-          const overlapEnding = Math.min(activityEnd, period.ending);
-          return {
-            period,
-            overlapBeginning,
-            overlapEnding,
-            overlapDuration: overlapEnding - overlapBeginning,
-          };
-        })
-        .filter((candidate) => candidate.overlapDuration > 0)
-        .sort((left, right) => {
-          if (right.overlapDuration !== left.overlapDuration) {
-            return right.overlapDuration - left.overlapDuration;
-          }
-          if (left.overlapBeginning !== right.overlapBeginning) {
-            return left.overlapBeginning - right.overlapBeginning;
-          }
-          return left.overlapEnding - right.overlapEnding;
-        })[0];
+        const newActiveInstallation = relevantNewPeriods.find(
+          (period) =>
+            activityStart >= period.beginning && activityEnd <= period.ending
+        );
 
-      const previousComponent = dataset.individuals.get(
-        oldActiveInstallation.systemComponentId
-      );
-      const previousSystem = previousComponent?.installedIn
-        ? dataset.individuals.get(previousComponent.installedIn)
-        : undefined;
+        if (newActiveInstallation) continue;
 
-      if (!bestOverlap) {
+        const bestOverlap = relevantNewPeriods
+          .map((period) => {
+            const overlapBeginning = Math.max(activityStart, period.beginning);
+            const overlapEnding = Math.min(activityEnd, period.ending);
+            return {
+              period,
+              overlapBeginning,
+              overlapEnding,
+              overlapDuration: overlapEnding - overlapBeginning,
+            };
+          })
+          .filter((candidate) => candidate.overlapDuration > 0)
+          .sort((left, right) => {
+            if (right.overlapDuration !== left.overlapDuration) {
+              return right.overlapDuration - left.overlapDuration;
+            }
+            if (left.overlapBeginning !== right.overlapBeginning) {
+              return left.overlapBeginning - right.overlapBeginning;
+            }
+            return left.overlapEnding - right.overlapEnding;
+          })[0];
+
+        const previousComponent = dataset.individuals.get(
+          oldActiveInstallation.systemComponentId
+        );
+        const previousSystem = previousComponent?.installedIn
+          ? dataset.individuals.get(previousComponent.installedIn)
+          : undefined;
+
+        if (!bestOverlap) {
+          result.push({
+            activityId: activity.id,
+            activityName: activity.name,
+            individualId: entityId,
+            individualName: entityName,
+            participationKey: pKey,
+            systemName: previousSystem?.name,
+            systemComponentName: previousComponent?.name,
+            fromBeginning: participation?.beginning ?? activity.beginning,
+            fromEnding: participation?.ending ?? activity.ending,
+            action: "drop",
+          });
+          continue;
+        }
+
+        const nextComponent = dataset.individuals.get(bestOverlap.period.systemComponentId);
+        const nextSystem = nextComponent?.installedIn
+          ? dataset.individuals.get(nextComponent.installedIn)
+          : undefined;
+
         result.push({
           activityId: activity.id,
           activityName: activity.name,
           individualId: entityId,
           individualName: entityName,
-          systemName: previousSystem?.name,
-          systemComponentName: previousComponent?.name,
+          participationKey: pKey,
+          systemName: nextSystem?.name ?? previousSystem?.name,
+          systemComponentName: nextComponent?.name ?? previousComponent?.name,
           fromBeginning: participation?.beginning ?? activity.beginning,
           fromEnding: participation?.ending ?? activity.ending,
-          action: "drop",
+          toBeginning: bestOverlap.overlapBeginning,
+          toEnding: bestOverlap.overlapEnding,
+          action: "trim",
         });
-        continue;
       }
+    }
 
-      const nextComponent = dataset.individuals.get(bestOverlap.period.systemComponentId);
-      const nextSystem = nextComponent?.installedIn
-        ? dataset.individuals.get(nextComponent.installedIn)
-        : undefined;
-
-      result.push({
-        activityId: activity.id,
-        activityName: activity.name,
-        individualId: entityId,
-        individualName: entityName,
-        systemName: nextSystem?.name ?? previousSystem?.name,
-        systemComponentName: nextComponent?.name ?? previousComponent?.name,
-        fromBeginning: participation?.beginning ?? activity.beginning,
-        fromEnding: participation?.ending ?? activity.ending,
-        toBeginning: bestOverlap.overlapBeginning,
-        toEnding: bestOverlap.overlapEnding,
-        action: "trim",
-      });
+    // Mark per-installation participations as autoRemove when the same
+    // individual still has another unaffected participation in the same activity.
+    const affectedKeys = new Set(result.map((r) => `${r.activityId}::${r.participationKey}`));
+    for (const aa of result) {
+      if (!aa.participationKey || !aa.participationKey.includes("::")) continue;
+      const activity = dataset.activities.get(aa.activityId);
+      if (!activity) continue;
+      const allEntries = findParticipationsForIndividual(activity.participations, aa.individualId);
+      const hasUnaffectedSibling = allEntries.some(
+        ([key]) => key !== aa.participationKey && !affectedKeys.has(`${aa.activityId}::${key}`)
+      );
+      if (hasUnaffectedSibling) {
+        aa.autoRemove = true;
+      }
     }
 
     return result;
@@ -407,7 +455,7 @@ const SetIndividual = (props: Props) => {
     const merged = new Map<string, AffectedActivity>();
 
     activityGroups.flat().forEach((candidate) => {
-      const key = `${candidate.activityId}:${candidate.individualId}`;
+      const key = `${candidate.activityId}:${candidate.participationKey ?? candidate.individualId}`;
       const existing = merged.get(key);
 
       if (!existing) {
@@ -477,8 +525,9 @@ const SetIndividual = (props: Props) => {
       const remainingParticipations = new Map(activity.participations);
 
       relatedChanges.forEach((change) => {
+        const pKey = change.participationKey ?? change.individualId;
         if (change.action === "drop") {
-          remainingParticipations.delete(change.individualId);
+          remainingParticipations.delete(pKey);
           return;
         }
 
@@ -489,10 +538,10 @@ const SetIndividual = (props: Props) => {
           return;
         }
 
-        const participation = remainingParticipations.get(change.individualId);
+        const participation = remainingParticipations.get(pKey);
         if (!participation) return;
 
-        remainingParticipations.set(change.individualId, {
+        remainingParticipations.set(pKey, {
           ...participation,
           beginning: change.toBeginning,
           ending: change.toEnding,
@@ -577,8 +626,10 @@ const SetIndividual = (props: Props) => {
       const activity = model.activities.get(affectedActivity.activityId);
       if (!activity) return;
 
+      const pKey = affectedActivity.participationKey ?? affectedActivity.individualId;
+
       if (affectedActivity.action === "drop") {
-        activity.participations.delete(affectedActivity.individualId);
+        activity.participations.delete(pKey);
         return;
       }
 
@@ -589,7 +640,7 @@ const SetIndividual = (props: Props) => {
         return;
       }
 
-      const trimKey = `${affectedActivity.activityId}:${affectedActivity.individualId}`;
+      const trimKey = `${affectedActivity.activityId}:${pKey}`;
       const existing = trimBoundsByParticipation.get(trimKey);
       if (!existing) {
         trimBoundsByParticipation.set(trimKey, {
@@ -606,13 +657,15 @@ const SetIndividual = (props: Props) => {
     });
 
     trimBoundsByParticipation.forEach((bounds, trimKey) => {
-      const [activityId, individualId] = trimKey.split(":");
+      const separatorIdx = trimKey.indexOf(":");
+      const activityId = trimKey.substring(0, separatorIdx);
+      const pKey = trimKey.substring(separatorIdx + 1);
       const activity = model.activities.get(activityId);
       if (!activity || bounds.ending <= bounds.beginning) return;
-      const participation = activity.participations.get(individualId);
+      const participation = activity.participations.get(pKey);
       if (!participation) return;
 
-      activity.participations.set(individualId, {
+      activity.participations.set(pKey, {
         ...participation,
         beginning: bounds.beginning,
         ending: bounds.ending,
@@ -735,6 +788,9 @@ const SetIndividual = (props: Props) => {
     setPendingDroppedCount(0);
     setPendingBoundsChanges([]);
     setPendingAffectedActivities([]);
+    setPendingAutoRemoveActivities([]);
+    setPendingActivityAction("keep");
+    setSelectedAffectedActivityKeys(new Set());
     setPendingChangeScope("bounds");
     setShowCascadeWarningModal(false);
     setCascadeWarning(null);
@@ -1155,7 +1211,13 @@ const SetIndividual = (props: Props) => {
         setPendingTrimCount(trimmedCount);
         setPendingDroppedCount(droppedCount);
         setPendingBoundsChanges(boundsChanges);
-        setPendingAffectedActivities(annotateActivityOutcomes(indAffectedActivities));
+        const annotated = annotateActivityOutcomes(indAffectedActivities);
+        const autoRemovable = annotated.filter((aa) => aa.autoRemove);
+        const userVisible = annotated.filter((aa) => !aa.autoRemove);
+        setPendingAutoRemoveActivities(autoRemovable);
+        setPendingAffectedActivities(userVisible);
+        setPendingActivityAction("keep");
+        setSelectedAffectedActivityKeys(new Set());
         setPendingChangeScope(warningScope);
         setShowBoundsWarningModal(true);
         return;
@@ -1184,6 +1246,27 @@ const SetIndividual = (props: Props) => {
           installationAffectedActivities
         );
         if (indAffectedActivities.length > 0) {
+          const annotated = annotateActivityOutcomes(indAffectedActivities);
+          const autoRemovable = annotated.filter((aa) => aa.autoRemove);
+          const userVisible = annotated.filter((aa) => !aa.autoRemove);
+
+          // If all affected entries are auto-removable, skip the modal
+          if (userVisible.length === 0 && autoRemovable.length > 0) {
+            const pending = syncLegacyInstallationFields({
+              ...next,
+              installedIn: undefined,
+              installedBeginning: undefined,
+              installedEnding: undefined,
+              installations: periods,
+            });
+            updateDataset((d: Model) => {
+              d.addIndividual(pending);
+              applyAffectedActivityChanges(d, autoRemovable);
+            });
+            handleClose();
+            return;
+          }
+
           const warningScope =
             boundsAffectedActivities.length > 0 && installationAffectedActivities.length > 0
               ? "both"
@@ -1202,7 +1285,10 @@ const SetIndividual = (props: Props) => {
           setPendingTrimCount(0);
           setPendingDroppedCount(0);
           setPendingBoundsChanges([]);
-          setPendingAffectedActivities(annotateActivityOutcomes(indAffectedActivities));
+          setPendingAutoRemoveActivities(autoRemovable);
+          setPendingAffectedActivities(userVisible);
+          setPendingActivityAction("keep");
+          setSelectedAffectedActivityKeys(new Set());
           setPendingChangeScope(warningScope);
           setShowBoundsWarningModal(true);
           return;
@@ -1609,7 +1695,7 @@ const SetIndividual = (props: Props) => {
                 const affectedActivityIds = new Set<string>();
                 for (const aa of affectedActivities) {
                   const act = d.activities.get(aa.activityId);
-                  if (act) act.participations.delete(aa.individualId);
+                  if (act) act.participations.delete(aa.participationKey ?? aa.individualId);
                   affectedActivityIds.add(aa.activityId);
                 }
 
@@ -1728,10 +1814,10 @@ const SetIndividual = (props: Props) => {
           }
         }
 
-        // De-duplicate by activityId+individualId
+        // De-duplicate by activityId+participationKey
         const seenCompActKeys = new Set<string>();
         const dedupedCompActivities = compAffectedActivities.filter((aa) => {
-          const key = aa.activityId + ":" + aa.individualId;
+          const key = aa.activityId + ":" + (aa.participationKey ?? aa.individualId);
           if (seenCompActKeys.has(key)) return false;
           seenCompActKeys.add(key);
           return true;
@@ -1816,7 +1902,7 @@ const SetIndividual = (props: Props) => {
                 const affectedActivityIds = new Set<string>();
                 for (const aa of dedupedCompActivities) {
                   const act = d.activities.get(aa.activityId);
-                  if (act) act.participations.delete(aa.individualId);
+                  if (act) act.participations.delete(aa.participationKey ?? aa.individualId);
                   affectedActivityIds.add(aa.activityId);
                 }
 
@@ -1844,11 +1930,19 @@ const SetIndividual = (props: Props) => {
       setShowBoundsWarningModal(false);
       return;
     }
-    // If there are affected activities, handle them in a single update
-    if (pendingAffectedActivities.length > 0) {
+    const selectedAffectedActivities = pendingAffectedActivities.filter((aa) =>
+      selectedAffectedActivityKeys.has(getAffectedActivitySelectionKey(aa))
+    );
+    // Always apply auto-removable entries (participations whose installation
+    // was removed but the individual still participates via another)
+    const allToApply = [
+      ...pendingAutoRemoveActivities,
+      ...(pendingActivityAction === "remove" ? selectedAffectedActivities : []),
+    ];
+    if (allToApply.length > 0) {
       updateDataset((d: Model) => {
         d.addIndividual(pendingSaveIndividual);
-        applyAffectedActivityChanges(d, pendingAffectedActivities);
+        applyAffectedActivityChanges(d, allToApply);
       });
       handleClose();
     } else {
@@ -1861,15 +1955,21 @@ const SetIndividual = (props: Props) => {
       setShowBoundsWarningModal(false);
       return;
     }
-    // If there are affected activities, handle them in a single update
-    if (pendingAffectedActivities.length > 0) {
+    const selectedAffectedActivities = pendingAffectedActivities.filter((aa) =>
+      selectedAffectedActivityKeys.has(getAffectedActivitySelectionKey(aa))
+    );
+    // Always include auto-removable entries alongside user-selected ones
+    const allToApply = [
+      ...pendingAutoRemoveActivities,
+      ...(pendingActivityAction === "remove" ? selectedAffectedActivities : []),
+    ];
+    if (allToApply.length > 0) {
       updateDataset((d: Model) => {
         d.addIndividual(pendingRemoveIndividual);
         const affectedActivityIds = new Set<string>();
-        // Remove all affected participations
-        for (const aa of pendingAffectedActivities) {
+        for (const aa of allToApply) {
           const act = d.activities.get(aa.activityId);
-          if (act) act.participations.delete(aa.individualId);
+          if (act) act.participations.delete(aa.participationKey ?? aa.individualId);
           affectedActivityIds.add(aa.activityId);
         }
         shrinkActivitiesToRemainingParticipants(d, affectedActivityIds);
@@ -2217,10 +2317,34 @@ const SetIndividual = (props: Props) => {
     };
   };
 
-  const hasPendingTrimAction = pendingBoundsChanges.some((change) => change.action === "trim") ||
-    pendingAffectedActivities.some((aa) => aa.action === "trim");
-  const hasPendingDropAction = pendingBoundsChanges.some((change) => change.action === "drop") ||
-    pendingAffectedActivities.some((aa) => aa.action === "drop");
+  const hasPendingPeriodTrimAction = pendingBoundsChanges.some(
+    (change) => change.action === "trim"
+  );
+  const hasPendingPeriodDropAction = pendingBoundsChanges.some(
+    (change) => change.action === "drop"
+  );
+  const hasPendingActivityEffects = pendingAffectedActivities.length > 0;
+  const hasSelectedAffectedActivities = selectedAffectedActivityKeys.size > 0;
+  const canApplyBoundsAction =
+    pendingActivityAction !== "remove" ||
+    !hasPendingActivityEffects ||
+    hasSelectedAffectedActivities;
+  const primaryBoundsActionLabel =
+    pendingActivityAction === "keep"
+      ? "Apply Changes (Keep Activities)"
+      : hasPendingPeriodTrimAction
+      ? "Resolve Affected Periods"
+      : "Apply Selected Activity Changes";
+  const dangerBoundsActionLabel = hasPendingPeriodDropAction
+    ? pendingActivityAction === "remove"
+      ? "Delete Affected Periods + Selected Activities"
+      : "Delete Affected Periods"
+    : "Remove Selected Activities";
+  const showDangerBoundsAction =
+    hasPendingPeriodDropAction || pendingActivityAction === "remove";
+  const canUseDangerBoundsAction = hasPendingPeriodDropAction
+    ? canApplyBoundsAction
+    : pendingActivityAction === "remove" && hasSelectedAffectedActivities;
   const boundsWarningLeadText =
     pendingChangeScope === "installations"
       ? "Changing the installation periods for"
@@ -2770,7 +2894,11 @@ const SetIndividual = (props: Props) => {
 
       <Modal dialogAs={DraggableModalDialog} 
         show={showBoundsWarningModal}
-        onHide={() => setShowBoundsWarningModal(false)}
+        onHide={() => {
+          setShowBoundsWarningModal(false);
+          setPendingActivityAction("keep");
+          setSelectedAffectedActivityKeys(new Set());
+        }}
         centered
         size="lg"
       >
@@ -2805,9 +2933,81 @@ const SetIndividual = (props: Props) => {
           {pendingAffectedActivities.length > 0 && (
             <div className="mb-3">
               <div className="fw-semibold mb-2">Activities</div>
+              <Form.Group className="mb-2" controlId="boundsActivitiesAction">
+                <Form.Label className="small text-muted mb-1">
+                  Activity handling
+                </Form.Label>
+                <div>
+                  <Form.Check
+                    inline
+                    type="radio"
+                    name="boundsActivitiesAction"
+                    id="boundsActivitiesKeep"
+                    label="Keep activities (default)"
+                    checked={pendingActivityAction === "keep"}
+                    onChange={() => setPendingActivityAction("keep")}
+                  />
+                  <Form.Check
+                    inline
+                    type="radio"
+                    name="boundsActivitiesAction"
+                    id="boundsActivitiesRemove"
+                    label="Remove affected activities"
+                    checked={pendingActivityAction === "remove"}
+                    onChange={() => setPendingActivityAction("remove")}
+                  />
+                </div>
+              </Form.Group>
+              {pendingActivityAction === "remove" && (
+                <div className="mb-2 d-flex align-items-center justify-content-between">
+                  <div className="small text-muted">
+                    Selected for removal: {selectedAffectedActivityKeys.size} of {pendingAffectedActivities.length}
+                  </div>
+                  <div className="d-flex gap-2">
+                    <Button
+                      size="sm"
+                      variant="outline-secondary"
+                      onClick={() => {
+                        setSelectedAffectedActivityKeys(
+                          new Set(
+                            pendingAffectedActivities.map((aa) =>
+                              getAffectedActivitySelectionKey(aa)
+                            )
+                          )
+                        );
+                      }}
+                    >
+                      Select all
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="outline-secondary"
+                      onClick={() => setSelectedAffectedActivityKeys(new Set())}
+                    >
+                      Clear
+                    </Button>
+                  </div>
+                </div>
+              )}
               <div style={{ maxHeight: "180px", overflowY: "auto" }}>
                 {[...pendingAffectedActivities].sort((a, b) => a.fromBeginning - b.fromBeginning).map((aa) => (
-                  <div key={aa.activityId} className="mb-1 small">
+                  <div key={`${aa.activityId}:${aa.participationKey ?? aa.individualId}`} className="mb-1 small">
+                    {pendingActivityAction === "remove" && (
+                      <Form.Check
+                        inline
+                        className="me-2"
+                        checked={selectedAffectedActivityKeys.has(getAffectedActivitySelectionKey(aa))}
+                        onChange={(event) => {
+                          const key = getAffectedActivitySelectionKey(aa);
+                          setSelectedAffectedActivityKeys((previous) => {
+                            const next = new Set(previous);
+                            if (event.target.checked) next.add(key);
+                            else next.delete(key);
+                            return next;
+                          });
+                        }}
+                      />
+                    )}
                     <span className="fw-semibold">{aa.activityName}</span>
                     <span className="text-muted">
                       {" (Participant: "}
@@ -2818,11 +3018,19 @@ const SetIndividual = (props: Props) => {
                     </span>
                     {": "}
                     {formatBound(aa.fromBeginning, true)}-{formatBound(aa.fromEnding, false)}
-                    {aa.action === "trim"
-                      ? ` → ${formatBound(aa.toBeginning ?? aa.fromBeginning, true)}-${formatBound(aa.toEnding ?? aa.fromEnding, false)} (would be trimmed)`
-                      : " → would be removed (no overlap)"}
-                    {aa.activityOutcomeText && (
-                      <span className="text-danger">{` — ${aa.activityOutcomeText}`}</span>
+                    {pendingActivityAction === "remove" ? (
+                      <>
+                        {aa.action === "trim"
+                          ? ` → ${formatBound(aa.toBeginning ?? aa.fromBeginning, true)}-${formatBound(aa.toEnding ?? aa.fromEnding, false)} (would be trimmed)`
+                          : " → would be removed (no overlap)"}
+                        {aa.activityOutcomeText && (
+                          <span className="text-danger">{` — ${aa.activityOutcomeText}`}</span>
+                        )}
+                      </>
+                    ) : (
+                      <span className="text-success">
+                        {" → kept (returns to individual timeline outside installation periods)"}
+                      </span>
                     )}
                   </div>
                 ))}
@@ -2833,23 +3041,29 @@ const SetIndividual = (props: Props) => {
         <Modal.Footer>
           <Button
             variant="secondary"
-            onClick={() => setShowBoundsWarningModal(false)}
+            onClick={() => {
+              setShowBoundsWarningModal(false);
+              setPendingActivityAction("keep");
+              setSelectedAffectedActivityKeys(new Set());
+            }}
           >
             Cancel
           </Button>
-          <Button
-            variant="danger"
-            onClick={confirmBoundsDeleteAffected}
-            disabled={!hasPendingDropAction}
-          >
-            Delete All Affected Periods
-          </Button>
+          {showDangerBoundsAction && (
+            <Button
+              variant="danger"
+              onClick={confirmBoundsDeleteAffected}
+              disabled={!canUseDangerBoundsAction}
+            >
+              {dangerBoundsActionLabel}
+            </Button>
+          )}
           <Button
             variant="primary"
             onClick={confirmBoundsAdjustment}
-            disabled={!hasPendingTrimAction}
+            disabled={!canApplyBoundsAction}
           >
-            Resolve Affected Periods
+            {primaryBoundsActionLabel}
           </Button>
         </Modal.Footer>
       </Modal>

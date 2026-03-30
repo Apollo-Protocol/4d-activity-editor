@@ -16,7 +16,7 @@ import Row from "react-bootstrap/Row";
 import Col from "react-bootstrap/Col";
 import { v4 as uuidv4 } from "uuid";
 import Select from "react-select";
-import { Individual, Id, Activity, Maybe, Participation } from "@/lib/Schema";
+import { Individual, Id, Activity, Maybe, Participation, participationMapKey } from "@/lib/Schema";
 import { InputGroup } from "react-bootstrap";
 import { Model } from "@/lib/Model";
 import {
@@ -44,6 +44,7 @@ type ParticipationOption = {
   mode: "default" | "outside" | "installed";
   label: string;
   group: "System" | "System Component" | "Individual";
+  systemComponentId?: string;
 };
 
 const SetActivity = (props: Props) => {
@@ -261,19 +262,21 @@ const SetActivity = (props: Props) => {
     const selectedParticipants: ParticipationOption[] = Array.isArray(e) ? e : [];
     selectedParticipants.forEach((entry) => {
       const i = entry.individual;
-      const previousParticipation = inputs.participations.get(i.id);
+      const mapKey = participationMapKey(i.id, entry.systemComponentId);
+      const previousParticipation = inputs.participations.get(mapKey);
       let participation: Participation = {
         individualId: i.id,
         role: previousParticipation?.role ?? dataset.defaultRole,
         beginning: previousParticipation?.beginning,
         ending: previousParticipation?.ending,
+        systemComponentId: entry.systemComponentId,
       };
-      participations.set(i.id, participation);
+      participations.set(mapKey, participation);
     });
     updateInputs("participations", participations);
   };
 
-  const getSelectedIndividualIds = () => {
+  const getSelectedParticipationKeys = () => {
     if (inputs.participations === undefined) {
       return new Set<string>();
     }
@@ -282,17 +285,51 @@ const SetActivity = (props: Props) => {
 
   const getParticipantWindow = (individual: Individual) => {
     const periods = getInstallationPeriods(individual);
+    const firstComponentPeriod = periods.find((period) => {
+      const component = dataset.individuals.get(period.systemComponentId);
+      return (
+        !!component &&
+        getEntityTypeIdFromIndividual(component) === ENTITY_TYPE_IDS.SYSTEM_COMPONENT
+      );
+    });
     const installedTarget =
-      periods.length > 0
-        ? dataset.individuals.get(periods[0].systemComponentId)
+      firstComponentPeriod
+        ? dataset.individuals.get(firstComponentPeriod.systemComponentId)
         : individual.installedIn
         ? dataset.individuals.get(individual.installedIn)
         : undefined;
     const isInstalledInComponent =
       getEntityTypeIdFromIndividual(individual) === ENTITY_TYPE_IDS.INDIVIDUAL &&
-      !!installedTarget &&
-      getEntityTypeIdFromIndividual(installedTarget) ===
-        ENTITY_TYPE_IDS.SYSTEM_COMPONENT;
+      periods.some((period) => {
+        const component = dataset.individuals.get(period.systemComponentId);
+        return (
+          !!component &&
+          getEntityTypeIdFromIndividual(component) === ENTITY_TYPE_IDS.SYSTEM_COMPONENT
+        );
+      });
+
+    const periodsByComponent = new Map<string, { componentName: string; ranges: string[] }>();
+    periods.forEach((period) => {
+      const component = dataset.individuals.get(period.systemComponentId);
+      if (!component) return;
+      if (getEntityTypeIdFromIndividual(component) !== ENTITY_TYPE_IDS.SYSTEM_COMPONENT) return;
+
+      const componentName = component.name;
+      const rangeLabel = `${period.beginning}-${period.ending >= Model.END_OF_TIME ? "∞" : period.ending}`;
+      const existing = periodsByComponent.get(component.id);
+      if (existing) {
+        existing.ranges.push(rangeLabel);
+      } else {
+        periodsByComponent.set(component.id, {
+          componentName,
+          ranges: [rangeLabel],
+        });
+      }
+    });
+
+    const installationSummary = Array.from(periodsByComponent.values())
+      .map((entry) => `${entry.componentName} (${entry.ranges.join(", ")})`)
+      .join("; ");
 
     const overallStart = Number.isFinite(individual.beginning)
       ? individual.beginning
@@ -311,6 +348,7 @@ const SetActivity = (props: Props) => {
       installEnd,
       periods,
       installedTarget,
+      installationSummary,
     };
   };
 
@@ -359,7 +397,7 @@ const SetActivity = (props: Props) => {
     return inInstalledWindow || outsideEligible || hasPartialOverlap;
   };
 
-  const selectedParticipantIds = getSelectedIndividualIds();
+  const selectedParticipationKeys = getSelectedParticipationKeys();
 
   const participantOptions = (() => {
     const options: ParticipationOption[] = [];
@@ -369,26 +407,52 @@ const SetActivity = (props: Props) => {
 
       if (window.isInstalledInComponent && window.installedTarget) {
         const outsideEligible = participantIsEligibleForMode(individual, "outside");
-        const installedEligible = participantIsEligibleForMode(individual, "installed");
-        const isSelected = selectedParticipantIds.has(individual.id);
 
-        // Partial overlap: activity spans across installation boundary
-        const hasPartialOverlap = window.periods.some(
-          (period) =>
-            inputs.beginning < period.ending && inputs.ending > period.beginning
-        ) && !installedEligible;
+        // Generate one option per system component installation
+        const componentGroups = new Map<string, { component: Individual; periods: typeof window.periods }>();
+        window.periods.forEach((period) => {
+          const component = dataset.individuals.get(period.systemComponentId);
+          if (
+            !component ||
+            getEntityTypeIdFromIndividual(component) !== ENTITY_TYPE_IDS.SYSTEM_COMPONENT
+          ) return;
+          const existing = componentGroups.get(component.id);
+          if (existing) {
+            existing.periods.push(period);
+          } else {
+            componentGroups.set(component.id, { component, periods: [period] });
+          }
+        });
 
-        if (hasPartialOverlap || isSelected) {
-          options.push({
-            optionKey: `${individual.id}::default`,
-            individual,
-            mode: "default",
-            label: individual.name,
-            group: "Individual",
-          });
-        }
+        componentGroups.forEach(({ component, periods: compPeriods }, componentId) => {
+          const mapKey = participationMapKey(individual.id, componentId);
+          const isSelected = selectedParticipationKeys.has(mapKey);
 
-        if (outsideEligible || (isSelected && !hasPartialOverlap)) {
+          // Check if the activity overlaps this component's installation periods
+          const periodEligible = compPeriods.some(
+            (period) =>
+              inputs.beginning < period.ending && inputs.ending > period.beginning
+          );
+
+          if (periodEligible || isSelected) {
+            const rangeLabels = compPeriods.map(
+              (p) => `${p.beginning}-${p.ending >= Model.END_OF_TIME ? "∞" : p.ending}`
+            );
+            options.push({
+              optionKey: `${individual.id}::${componentId}::installed`,
+              individual,
+              mode: "installed",
+              label: `${individual.name} [installed in ${component.name} (${rangeLabels.join(", ")})]`,
+              group: "Individual",
+              systemComponentId: componentId,
+            });
+          }
+        });
+
+        // "Outside" option for when the individual is free (not installed)
+        const outsideKey = individual.id; // non-installed key
+        const outsideSelected = selectedParticipationKeys.has(outsideKey);
+        if (outsideEligible || outsideSelected) {
           options.push({
             optionKey: `${individual.id}::outside`,
             individual,
@@ -398,23 +462,10 @@ const SetActivity = (props: Props) => {
           });
         }
 
-        if (installedEligible || (isSelected && !hasPartialOverlap)) {
-          const periodsLabel = window.periods
-            .map((period) => `${period.beginning}-${period.ending >= Model.END_OF_TIME ? "∞" : period.ending}`)
-            .join(", ");
-          options.push({
-            optionKey: `${individual.id}::installed`,
-            individual,
-            mode: "installed",
-            label: `${individual.name} [installed in ${window.installedTarget.name} (${periodsLabel})]`,
-            group: "Individual",
-          });
-        }
-
         return;
       }
 
-      if (!participantIsEligibleForMode(individual, "default") && !selectedParticipantIds.has(individual.id)) {
+      if (!participantIsEligibleForMode(individual, "default") && !selectedParticipationKeys.has(individual.id)) {
         return;
       }
 
@@ -464,19 +515,24 @@ const SetActivity = (props: Props) => {
   })();
 
   const getSelectedParticipationOptions = () => {
-    const selectedIds = getSelectedIndividualIds();
-    return Array.from(selectedIds)
-      .map((id) => {
+    const selectedKeys = getSelectedParticipationKeys();
+    return Array.from(selectedKeys)
+      .map((key) => {
+        const participation = inputs.participations.get(key);
+        if (!participation) return undefined;
+        // Find matching option by composite key
+        const mapKey = participationMapKey(participation.individualId, participation.systemComponentId);
         const matching = participantOptions.filter(
-          (option) => option.individual.id === id
+          (option) => participationMapKey(option.individual.id, option.systemComponentId) === mapKey
         );
-        if (matching.length === 0) return undefined;
-        const installed = matching.find((option) => option.mode === "installed");
-        const outside = matching.find((option) => option.mode === "outside");
-        const fallback = matching.find((option) => option.mode === "default");
-        // Prefer "default" (partial overlap) when "installed" is not eligible
-        if (fallback && !installed) return fallback;
-        return installed ?? outside ?? fallback ?? matching[0];
+        if (matching.length === 0) {
+          // Fallback: try to find by individual id alone
+          const fallback = participantOptions.find(
+            (option) => option.individual.id === participation.individualId
+          );
+          return fallback;
+        }
+        return matching[0];
       })
       .filter((option): option is ParticipationOption => !!option);
   };

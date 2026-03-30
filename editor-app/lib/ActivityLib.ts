@@ -61,6 +61,9 @@ const SORT_INDEX_PREDICATE = `${EDITOR_NS}#sortIndex`;
 const INDIVIDUAL_INSTALLED_IN_PREDICATE = `${EDITOR_NS}#individualInstalledIn`;
 const INDIVIDUAL_ENTITY_TYPE_PREDICATE = `${EDITOR_NS}#individualEntityType`;
 
+// Custom predicate for participation -> system component link
+const PARTICIPATION_COMPONENT_PREDICATE = `${EDITOR_NS}#participationSystemComponent`;
+
 // Custom predicate for system component -> system relationship
 const COMPONENT_OF_PREDICATE = `${HQDM_NS}component_of`;
 
@@ -475,12 +478,18 @@ export const toModel = (hqdm: HQDMModel): Model => {
             false,
             false
           );
+
+      // Resolve optional system component link for per-installation participations
+      const componentThing = hqdm.getRelated(p, PARTICIPATION_COMPONENT_PREDICATE).first();
+      const systemComponentId = componentThing ? getModelId(componentThing) : undefined;
+
       if (indiv) {
         newA.addParticipation(
           indiv,
           roleType,
           participationBeginning !== beginning ? participationBeginning : undefined,
-          participationEnding !== ending ? participationEnding : undefined
+          participationEnding !== ending ? participationEnding : undefined,
+          systemComponentId
         );
       }
     });
@@ -803,6 +812,11 @@ export const toHQDM = (model: Model): HQDMModel => {
       // Add the participant as a temporal part of the individual.
       hqdm.addAsTemporalPartOf(participation, new Thing(BASE + p.individualId));
       hqdm.addParticipant(participation, act);
+
+      // Link participation to specific system component when per-installation
+      if (p.systemComponentId) {
+        hqdm.relate(PARTICIPATION_COMPONENT_PREDICATE, participation, new Thing(BASE + p.systemComponentId));
+      }
 
       const participationFrom =
         typeof p.beginning === "number" && Number.isFinite(p.beginning)

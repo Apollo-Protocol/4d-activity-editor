@@ -799,9 +799,10 @@ L ${sideX} ${lowerTop} Z`;
 
     const resolvePreviewActivityRowIds = (
       activity: Activity,
-      individual: Individual
+      individual: Individual,
+      participationKey?: string
     ): string[] => {
-      const segments = splitParticipationByInstallations(individual, activity);
+      const segments = splitParticipationByInstallations(individual, activity, participationKey);
       const rowIds = new Set<string>();
 
       for (const segment of segments) {
@@ -864,13 +865,13 @@ L ${sideX} ${lowerTop} Z`;
         let minTop = Infinity;
         let maxBottom = -Infinity;
         
-        activity?.participations?.forEach((participation) => {
+        activity?.participations?.forEach((participation, mapKey) => {
           const individual = dataset.individuals.get(participation.individualId);
           if (!individual) {
             return;
           }
 
-          const rowIds = resolvePreviewActivityRowIds(activity, individual);
+          const rowIds = resolvePreviewActivityRowIds(activity, individual, mapKey);
           for (const rowId of rowIds) {
             const rowBounds = getPreviewRowBounds(rowId);
             if (!rowBounds) continue;

@@ -1,6 +1,7 @@
 /* eslint-disable max-classes-per-file */
 import { HQDM_NS } from "@apollo-protocol/hqdm-lib";
-import type { Activity, Id, Individual, Maybe } from "./Schema.js";
+import type { Activity, Id, Individual, Maybe } from "./Schema";
+import { participationMapKey, findParticipationsForIndividual } from "./Schema";
 import { EPOCH_END } from "./ActivityLib";
 import { ENTITY_TYPE_IDS, getEntityTypeIdFromIndividual } from "./entityTypes";
 import {
@@ -259,6 +260,7 @@ export class Model {
     const removedParticipations: Array<{
       activityId: string;
       individualId: string;
+      participationKey: string;
     }> = [];
 
     this.individuals.forEach((individual) => {
@@ -279,13 +281,20 @@ export class Model {
     });
 
     this.activities.forEach((activity) => {
-      const participantIds = Array.from(activity.participations.keys());
-      const affectedParticipantIds = participantIds.filter((participantId) => {
-        if (deletedIndividualIds.has(participantId)) {
+      const allKeys = Array.from(activity.participations.keys());
+      const affectedKeys = allKeys.filter((key) => {
+        const p = activity.participations.get(key)!;
+        if (deletedIndividualIds.has(p.individualId)) {
           return true;
         }
 
-        const individual = this.individuals.get(participantId);
+        // Per-installation participation: check if the component is being deleted
+        if (p.systemComponentId && deletedIndividualIds.has(p.systemComponentId)) {
+          return true;
+        }
+
+        // Legacy check: individual with active installation in a deleted component
+        const individual = this.individuals.get(p.individualId);
         if (!individual) return false;
 
         const activeInstallation = getActiveInstallationForActivity(
@@ -299,19 +308,21 @@ export class Model {
         );
       });
 
-      if (affectedParticipantIds.length === 0) {
+      if (affectedKeys.length === 0) {
         return;
       }
 
-      if (affectedParticipantIds.length === participantIds.length) {
+      if (affectedKeys.length === allKeys.length) {
         removedActivityIds.add(activity.id);
         return;
       }
 
-      affectedParticipantIds.forEach((participantId) => {
+      affectedKeys.forEach((key) => {
+        const p = activity.participations.get(key)!;
         removedParticipations.push({
           activityId: activity.id,
-          individualId: participantId,
+          individualId: p.individualId,
+          participationKey: key,
         });
       });
     });
@@ -356,16 +367,20 @@ export class Model {
     });
 
     this.activities.forEach((activity) => {
-      activity.participations?.forEach((participation) => {
+      const keysToDelete: string[] = [];
+      activity.participations?.forEach((participation, key) => {
         if (deleted.has(participation.individualId)) {
-          activity.participations?.delete(participation.individualId);
+          keysToDelete.push(key);
+        } else if (participation.systemComponentId && deleted.has(participation.systemComponentId)) {
+          keysToDelete.push(key);
         }
       });
+      keysToDelete.forEach((key) => activity.participations?.delete(key));
     });
 
-    cascade.removedParticipations.forEach(({ activityId, individualId }) => {
+    cascade.removedParticipations.forEach(({ activityId, participationKey: pKey }) => {
       const activity = this.activities.get(activityId);
-      activity?.participations?.delete(individualId);
+      activity?.participations?.delete(pKey);
     });
   }
 

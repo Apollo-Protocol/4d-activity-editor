@@ -11,7 +11,7 @@ import SortIndividuals from "./SortIndividuals";
 import SetParticipation from "./SetParticipation";
 import Undo, { HistoryEntry } from "./Undo";
 import { Model } from "@/lib/Model";
-import { Activity, Id, Individual, Maybe, Participation } from "@/lib/Schema";
+import { Activity, Id, Individual, Maybe, Participation, findParticipationsForIndividual, participationKeyIndividualId } from "@/lib/Schema";
 import {
   ENTITY_TYPE_IDS,
   getEntityTypeIdFromIndividual,
@@ -850,14 +850,15 @@ function getParticipationChangeFragmentsForIndividual(
   activityIds.forEach((activityId) => {
     const oldActivity = oldModel.activities.get(activityId);
     const newActivity = newModel.activities.get(activityId);
-    const oldParticipation = oldActivity?.participations.get(individualId);
-    const newParticipation = newActivity?.participations.get(individualId);
+    const oldEntries = oldActivity ? findParticipationsForIndividual(oldActivity.participations, individualId) : [];
+    const newEntries = newActivity ? findParticipationsForIndividual(newActivity.participations, individualId) : [];
     const activityName = newActivity?.name || oldActivity?.name || activityId;
 
-    if (oldParticipation && !newParticipation) {
+    if (oldEntries.length > 0 && newEntries.length === 0) {
       if (!oldActivity) {
         return;
       }
+      const oldParticipation = oldEntries[0][1];
       const oldRange = getParticipationEffectiveRange(oldActivity, oldParticipation);
       fragments.push(
         `Removed participant "${individualName}" from "${activityName}" (${formatRange(oldRange.beginning, oldRange.ending)})`
@@ -865,14 +866,18 @@ function getParticipationChangeFragmentsForIndividual(
       return;
     }
 
-    if (!oldParticipation && newParticipation) {
+    if (oldEntries.length === 0 && newEntries.length > 0) {
       fragments.push(`Added participant "${individualName}" to "${activityName}"`);
       return;
     }
 
-    if (!oldParticipation || !newParticipation || !oldActivity || !newActivity) {
+    if (oldEntries.length === 0 || newEntries.length === 0 || !oldActivity || !newActivity) {
       return;
     }
+
+    // Compare first participation entry for timing changes
+    const oldParticipation = oldEntries[0][1];
+    const newParticipation = newEntries[0][1];
 
     const oldHasExplicitTiming = hasExplicitParticipationTiming(oldParticipation);
     const newHasExplicitTiming = hasExplicitParticipationTiming(newParticipation);
@@ -1227,13 +1232,13 @@ function generateHistoryDetails(oldModel: Model, newModel: Model): Omit<HistoryE
           );
         }
 
-        const oldParticipantIds = new Set(oldAct.participations.keys());
-        const newParticipantIds = new Set(newAct.participations.keys());
-        const addedParticipantId = Array.from(newParticipantIds).find(
-          (participantId) => !oldParticipantIds.has(participantId)
+        const oldParticipantKeys = new Set(oldAct.participations.keys());
+        const newParticipantKeys = new Set(newAct.participations.keys());
+        const addedKey = Array.from(newParticipantKeys).find(
+          (key) => !oldParticipantKeys.has(key)
         );
-        if (addedParticipantId) {
-          const participantName = getIndividualLabel(newModel, addedParticipantId);
+        if (addedKey) {
+          const participantName = getIndividualLabel(newModel, participationKeyIndividualId(addedKey));
           return createHistoryDetails(
             "Participation",
             `Added participant "${participantName}" to "${newAct.name}"`,
@@ -1241,12 +1246,12 @@ function generateHistoryDetails(oldModel: Model, newModel: Model): Omit<HistoryE
             `Add participant "${participantName}" to "${newAct.name}"`
           );
         }
-        const removedParticipantId = Array.from(oldParticipantIds).find(
-          (participantId) => !newParticipantIds.has(participantId)
+        const removedKey = Array.from(oldParticipantKeys).find(
+          (key) => !newParticipantKeys.has(key)
         );
-        if (removedParticipantId) {
-          const participantName = getIndividualLabel(oldModel, removedParticipantId);
-          const oldParticipation = oldAct.participations.get(removedParticipantId);
+        if (removedKey) {
+          const participantName = getIndividualLabel(oldModel, participationKeyIndividualId(removedKey));
+          const oldParticipation = oldAct.participations.get(removedKey);
           const oldRange = getParticipationEffectiveRange(oldAct, oldParticipation);
           return createHistoryDetails(
             "Participation",

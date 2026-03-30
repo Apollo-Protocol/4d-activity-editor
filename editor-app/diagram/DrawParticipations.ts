@@ -1,5 +1,5 @@
 import { MouseEvent } from "react";
-import { Activity } from "@/lib/Schema";
+import { Activity, participationMapKey } from "@/lib/Schema";
 import { ENTITY_TYPE_IDS, getEntityTypeIdFromIndividual } from "@/lib/entityTypes";
 import { DrawContext } from "./DrawHelpers";
 import {
@@ -15,7 +15,7 @@ export function drawParticipations(ctx: DrawContext) {
 
   const parts: any[] = [];
   activities.forEach((a, actIdx) => {
-    a.participations?.forEach((p) => {
+    a.participations?.forEach((p, mapKey) => {
       const individual = ctx.individuals.find((i) => i.id === p.individualId);
       if (!individual) return;
 
@@ -25,9 +25,9 @@ export function drawParticipations(ctx: DrawContext) {
           actIdx % config.presentation.activity.fill.length
         ];
 
-      const segments = splitParticipationByInstallations(individual, a);
+      const segments = splitParticipationByInstallations(individual, a, mapKey);
       segments.forEach((segment, segIdx) => {
-        const box = getPositionOfParticipation(ctx, svgElement, a, p.individualId, segment);
+        const box = getPositionOfParticipation(ctx, svgElement, a, p.individualId, mapKey, segment);
         if (!box) return;
         parts.push({
           box,
@@ -35,6 +35,7 @@ export function drawParticipations(ctx: DrawContext) {
           individualId: p.individualId,
           rowId: box.rowId,
           participation: p,
+          participationKey: mapKey,
           segmentIndex: segIdx,
           activityColor,
         });
@@ -49,7 +50,7 @@ export function drawParticipations(ctx: DrawContext) {
   // like installation connector ribbons do.
   const groups = new Map<string, any[]>();
   for (const part of parts) {
-    const key = `${part.activityId}::${part.individualId}`;
+    const key = `${part.activityId}::${part.participationKey}`;
     const list = groups.get(key);
     if (list) list.push(part);
     else groups.set(key, [part]);
@@ -86,8 +87,9 @@ export function drawParticipations(ctx: DrawContext) {
     .data(parts.values())
     .join("rect")
     .attr("class", "participation")
-    .attr("id", (p: any) => "p" + p.activityId + p.individualId + "_s" + p.segmentIndex)
+    .attr("id", (p: any) => "p" + p.activityId + p.participationKey + "_s" + p.segmentIndex)
     .attr("data-individual-id", (p: any) => p.individualId)
+    .attr("data-participation-key", (p: any) => p.participationKey)
     .attr("data-row-id", (p: any) => p.rowId)
     .attr("data-activity-id", (p: any) => p.activityId)
     .attr("x", (d: any) => d.box.x)
@@ -208,9 +210,9 @@ export function clickParticipations(
   const { svgElement, activities } = ctx;
 
   activities.forEach((a) => {
-    a.participations.forEach((p) => {
+    a.participations.forEach((p, mapKey) => {
       svgElement
-        .selectAll(`.participation[data-activity-id="${a.id}"][data-individual-id="${p.individualId}"]`)
+        .selectAll(`.participation[data-activity-id="${a.id}"][data-participation-key="${mapKey}"]`)
         .on("click", function (event: MouseEvent) {
           clickParticipation(a, p);
         })
@@ -234,6 +236,7 @@ function getPositionOfParticipation(
   svgElement: any,
   activity: Activity,
   individualId: string,
+  participationKey: string,
   segment?: ParticipationSegment
 ) {
   const activityNode = svgElement.select("#a" + activity.id).node();
@@ -244,7 +247,7 @@ function getPositionOfParticipation(
   const width = activityElement.width;
 
   // Use segment bounds when provided, otherwise full participation bounds
-  const participation = activity.participations.get(individualId);
+  const participation = activity.participations.get(participationKey);
   const effectiveBeginning = segment
     ? segment.beginning
     : Math.max(activity.beginning, participation?.beginning ?? activity.beginning);

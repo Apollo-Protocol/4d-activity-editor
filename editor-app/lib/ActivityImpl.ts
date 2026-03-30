@@ -1,5 +1,6 @@
-import type { Kind } from './Model.js';
-import type { Activity, Id, Individual, Maybe, Participation } from './Schema.js';
+import type { Kind } from './Model';
+import type { Activity, Id, Individual, Maybe, Participation } from './Schema';
+import { participationMapKey } from './Schema';
 
 /**
  * An Activity is a period of time during which a set of Individuals are involved in an activity.
@@ -48,7 +49,8 @@ export class ActivityImpl implements Activity {
     individual: Individual,
     role: Kind,
     beginning?: number,
-    ending?: number
+    ending?: number,
+    systemComponentId?: string
   ): Activity {
     if (!individual.id) {
       console.error(
@@ -61,8 +63,10 @@ export class ActivityImpl implements Activity {
         role,
         beginning,
         ending,
+        systemComponentId,
       };
-      this.participations.set(participation.individualId, participation);
+      const key = participationMapKey(individual.id, systemComponentId);
+      this.participations.set(key, participation);
     }
     return this;
   }
@@ -70,11 +74,13 @@ export class ActivityImpl implements Activity {
   /**
    * Remove an Individual from an Activity
    *
-   * @param id The id of the Individual to remove from the Activity
+   * @param individualId The id of the Individual to remove from the Activity
+   * @param systemComponentId Optional component id for per-installation participations
    * @returns The updated Activity, meaning this function can be chained
    */
-  removeParticipation(individualId: string): Activity {
-    this.participations.delete(individualId);
+  removeParticipation(individualId: string, systemComponentId?: string): Activity {
+    const key = participationMapKey(individualId, systemComponentId);
+    this.participations.delete(key);
     return this;
   }
 }

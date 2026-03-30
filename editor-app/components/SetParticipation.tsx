@@ -9,7 +9,7 @@ import Button from "react-bootstrap/Button";
 import Modal from "react-bootstrap/Modal";
 import DraggableModalDialog, { shouldSuppressModalHide } from "@/components/DraggableModalDialog";
 import Form from "react-bootstrap/Form";
-import { Activity, Participation } from "@/lib/Schema";
+import { Activity, Participation, participationMapKey } from "@/lib/Schema";
 import { InputGroup } from "react-bootstrap";
 import { v4 as uuidv4 } from "uuid";
 import { Model } from "@/lib/Model";
@@ -102,8 +102,9 @@ const SetParticipation = (props: Props) => {
       selectedParticipation.individualId
     ) {
       let localActivity: Activity = { ...selectedActivity };
+      const key = participationMapKey(selectedParticipation.individualId, selectedParticipation.systemComponentId);
       localActivity.participations.set(
-        selectedParticipation.individualId,
+        key,
         selectedParticipation
       );
       setActivity(localActivity);

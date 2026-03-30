@@ -1,4 +1,4 @@
-import { Activity, Individual, InstallationPeriod } from "@/lib/Schema";
+import { Activity, Individual, InstallationPeriod, participationMapKey, findParticipationsForIndividual } from "@/lib/Schema";
 import { Model } from "@/lib/Model";
 import { ENTITY_TYPE_IDS, getEntityTypeIdFromIndividual } from "@/lib/entityTypes";
 
@@ -73,7 +73,12 @@ export function getActiveInstallationForActivity(
   activity: Activity
 ): InstallationPeriod | undefined {
   const periods = getInstallationPeriods(individual);
-  const participation = activity.participations.get(individual.id);
+  // Find participation(s) for this individual in the activity
+  const entries = findParticipationsForIndividual(activity.participations, individual.id);
+  // Use the first matching entry (or fall back to legacy key lookup)
+  const participation = entries.length > 0
+    ? entries[0][1]
+    : activity.participations.get(individual.id);
   const participationBeginning = normalizeStart(
     participation?.beginning ?? activity.beginning
   );
@@ -130,21 +135,35 @@ export interface ParticipationSegment {
  * installation periods.  Segments that overlap an installation carry the
  * `installationPeriod` reference; gap segments do not.
  *
+ * When the participation has a `systemComponentId`, only installation periods
+ * for that specific component are considered (per-installation model).
+ *
  * If the individual has no overlapping installations the function returns a
  * single segment covering the whole participation.
  */
 export function splitParticipationByInstallations(
   individual: Individual,
-  activity: Activity
+  activity: Activity,
+  participationKey?: string
 ): ParticipationSegment[] {
   const periods = getInstallationPeriods(individual);
-  const participation = activity.participations.get(individual.id);
+  // Find the participation: try composite key first, then plain individualId
+  const participation = participationKey
+    ? activity.participations.get(participationKey)
+    : (activity.participations.get(individual.id) ??
+       findParticipationsForIndividual(activity.participations, individual.id)[0]?.[1]);
   const partBegin = normalizeStart(participation?.beginning ?? activity.beginning);
   const partEnd = normalizeEnd(participation?.ending ?? activity.ending);
 
   if (partEnd <= partBegin) return [{ beginning: partBegin, ending: partEnd }];
 
-  const overlapping = periods
+  // If this is a per-installation participation, only consider periods for that component
+  const targetComponentId = participation?.systemComponentId;
+  const relevantPeriods = targetComponentId
+    ? periods.filter((p) => p.systemComponentId === targetComponentId)
+    : periods;
+
+  const overlapping = relevantPeriods
     .filter((p) => p.beginning < partEnd && p.ending > partBegin)
     .sort((a, b) => a.beginning - b.beginning);
 
@@ -152,6 +171,25 @@ export function splitParticipationByInstallations(
     return [{ beginning: partBegin, ending: partEnd }];
   }
 
+  // For per-installation participations, produce only the installation segments
+  // (no gap segments — the individual's "free" row isn't relevant)
+  if (targetComponentId) {
+    const segments: ParticipationSegment[] = [];
+    for (const period of overlapping) {
+      const overlapStart = Math.max(partBegin, period.beginning);
+      const overlapEnd = Math.min(partEnd, period.ending);
+      if (overlapStart < overlapEnd) {
+        segments.push({
+          beginning: overlapStart,
+          ending: overlapEnd,
+          installationPeriod: period,
+        });
+      }
+    }
+    return segments.length > 0 ? segments : [{ beginning: partBegin, ending: partEnd }];
+  }
+
+  // Non-installed participation: produce segments with gaps
   const segments: ParticipationSegment[] = [];
   let cursor = partBegin;
 

@@ -1,5 +1,5 @@
 import type { Kind } from './Model.js';
-import type { Id, Individual, InstallationPeriod } from './Schema.js';
+import type { Id, Individual, InstallationPeriod } from './Schema';
 import type { EntityCategory } from './entityTypes.js';
 
 /**

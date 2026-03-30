@@ -288,9 +288,10 @@ function resolveParticipationRowIds(
   individual: Individual,
   individuals: Individual[],
   dataset?: Model,
-  collapsedSystems?: ReadonlySet<string>
+  collapsedSystems?: ReadonlySet<string>,
+  participationKey?: string
 ): string[] {
-  const segments = splitParticipationByInstallations(individual, activity);
+  const segments = splitParticipationByInstallations(individual, activity, participationKey);
   const rowIds = new Set<string>();
   for (const segment of segments) {
     rowIds.add(
@@ -308,10 +309,10 @@ function calculateActivityBottom(
   collapsedSystems?: ReadonlySet<string>
 ) {
   let maxBottom = 0;
-  activity?.participations?.forEach((a: Participation) => {
+  activity?.participations?.forEach((a: Participation, mapKey: string) => {
     const individual = individuals.find((i) => i.id === a.individualId);
     if (!individual) return;
-    const rowIds = resolveParticipationRowIds(activity, individual, individuals, dataset, collapsedSystems);
+    const rowIds = resolveParticipationRowIds(activity, individual, individuals, dataset, collapsedSystems, mapKey);
     for (const rowId of rowIds) {
       const node = svgElement.select("#i" + rowId).node();
       if (node) {
@@ -341,10 +342,10 @@ function calculateActivityTop(
   collapsedSystems?: ReadonlySet<string>
 ) {
   let lowestY = Number.MAX_VALUE;
-  activity?.participations?.forEach((a: Participation) => {
+  activity?.participations?.forEach((a: Participation, mapKey: string) => {
     const individual = individuals.find((i) => i.id === a.individualId);
     if (!individual) return;
-    const rowIds = resolveParticipationRowIds(activity, individual, individuals, dataset, collapsedSystems);
+    const rowIds = resolveParticipationRowIds(activity, individual, individuals, dataset, collapsedSystems, mapKey);
     for (const rowId of rowIds) {
       const node = svgElement.select("#i" + rowId).node();
       if (!node) continue;

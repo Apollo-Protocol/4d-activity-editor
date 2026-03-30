@@ -1,5 +1,5 @@
 import type { Kind } from './Model.js';
-import type { Participation } from './Schema.js';
+import type { Participation } from './Schema';
 
 /**
  * A class that implements the Participation interface.
@@ -9,11 +9,13 @@ export class ParticipationImpl implements Participation {
   role: Kind;
   beginning?: number;
   ending?: number;
+  systemComponentId?: string;
 
-  constructor(individualId: string, role: Kind, beginning?: number, ending?: number) {
+  constructor(individualId: string, role: Kind, beginning?: number, ending?: number, systemComponentId?: string) {
     this.individualId = individualId;
     this.role = role;
     this.beginning = beginning;
     this.ending = ending;
+    this.systemComponentId = systemComponentId;
   }
 }

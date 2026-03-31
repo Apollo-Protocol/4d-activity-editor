@@ -113,6 +113,9 @@ type AffectedActivity = {
   action: "trim" | "drop";
   activityOutcomeText?: string;
   deleteChoice?: "required" | "optional";
+  keepStrategy?: "return-to-individual" | "move-to-parent-system";
+  keepTargetIndividualId?: string;
+  keepTargetIndividualName?: string;
   /** When true, this participation should be silently removed without user confirmation
    *  (the same individual still has another participation in the same activity). */
   autoRemove?: boolean;
@@ -864,6 +867,13 @@ const SetIndividual = (props: Props) => {
   const buildDeleteCascadeWarning = (individual: Individual): CascadeWarning => {
     const cascade = dataset.getIndividualRemovalCascade(individual.id);
     const deletedIds = new Set(cascade.deletedIndividualIds);
+    const isDeletingSystemComponent =
+      getEntityTypeIdFromIndividual(individual) === ENTITY_TYPE_IDS.SYSTEM_COMPONENT;
+    const parentSystem = individual.installedIn
+      ? dataset.individuals.get(individual.installedIn)
+      : undefined;
+    const canMoveActivitiesToParentSystem =
+      isDeletingSystemComponent && !!parentSystem && !deletedIds.has(parentSystem.id);
 
     const affectedComponents: AffectedComponent[] = cascade.deletedIndividualIds
       .filter((id) => id !== individual.id)
@@ -893,7 +903,8 @@ const SetIndividual = (props: Props) => {
 
       if (
         ownerType === ENTITY_TYPE_IDS.SYSTEM_COMPONENT &&
-        targetType === ENTITY_TYPE_IDS.SYSTEM
+        targetType === ENTITY_TYPE_IDS.SYSTEM &&
+        !deletedIds.has(installation.systemComponentId)
       ) {
         affectedComponentOfSystems.push({
           componentId: installation.individualId,
@@ -920,47 +931,90 @@ const SetIndividual = (props: Props) => {
       });
     });
 
-    const requiredActivities: AffectedActivity[] = [
-      ...cascade.removedParticipations.map((removed) => {
-        const activity = dataset.activities.get(removed.activityId);
-        const participation = activity?.participations.get(removed.participationKey);
-        const component = participation?.systemComponentId
-          ? dataset.individuals.get(participation.systemComponentId)
-          : undefined;
-        const system = component?.installedIn
-          ? dataset.individuals.get(component.installedIn)
-          : undefined;
+    const requiredActivities: AffectedActivity[] = [];
+    const optionalTransferActivities: AffectedActivity[] = [];
 
-        return {
-          activityId: removed.activityId,
-          activityName: activity?.name || removed.activityId,
-          individualId: removed.individualId,
-          individualName:
-            dataset.individuals.get(removed.individualId)?.name || removed.individualId,
-          participationKey: removed.participationKey,
-          systemName: system?.name,
-          systemComponentName: component?.name,
-          fromBeginning: participation?.beginning ?? activity?.beginning ?? 0,
-          fromEnding: participation?.ending ?? activity?.ending ?? Model.END_OF_TIME,
-          action: "drop" as const,
-          deleteChoice: "required" as const,
-        };
-      }),
-      ...cascade.removedActivityIds.map((activityId) => {
-        const activity = dataset.activities.get(activityId);
-        return {
+    cascade.removedParticipations.forEach((removed) => {
+      const activity = dataset.activities.get(removed.activityId);
+      const participation = activity?.participations.get(removed.participationKey);
+      const component = participation?.systemComponentId
+        ? dataset.individuals.get(participation.systemComponentId)
+        : undefined;
+      const system = component?.installedIn
+        ? dataset.individuals.get(component.installedIn)
+        : undefined;
+
+      const baseActivity: AffectedActivity = {
+        activityId: removed.activityId,
+        activityName: activity?.name || removed.activityId,
+        individualId: removed.individualId,
+        individualName:
+          dataset.individuals.get(removed.individualId)?.name || removed.individualId,
+        participationKey: removed.participationKey,
+        systemName: system?.name,
+        systemComponentName: component?.name,
+        fromBeginning: participation?.beginning ?? activity?.beginning ?? 0,
+        fromEnding: participation?.ending ?? activity?.ending ?? Model.END_OF_TIME,
+        action: "drop",
+      };
+
+      if (canMoveActivitiesToParentSystem && removed.individualId === individual.id) {
+        optionalTransferActivities.push({
+          ...baseActivity,
+          deleteChoice: "optional",
+          keepStrategy: "move-to-parent-system",
+          keepTargetIndividualId: parentSystem?.id,
+          keepTargetIndividualName: parentSystem?.name,
+        });
+        return;
+      }
+
+      requiredActivities.push({
+        ...baseActivity,
+        deleteChoice: "required",
+      });
+    });
+
+    cascade.removedActivityIds.forEach((activityId) => {
+      const activity = dataset.activities.get(activityId);
+      const onlyParticipation = activity?.participations.size === 1
+        ? Array.from(activity.participations.entries())[0]
+        : undefined;
+
+      if (
+        canMoveActivitiesToParentSystem &&
+        onlyParticipation &&
+        onlyParticipation[1].individualId === individual.id
+      ) {
+        optionalTransferActivities.push({
           activityId,
           activityName: activity?.name || activityId,
           individualId: individual.id,
           individualName: individual.name,
-          fromBeginning: activity?.beginning ?? 0,
-          fromEnding: activity?.ending ?? Model.END_OF_TIME,
-          action: "drop" as const,
-          deleteChoice: "required" as const,
-          activityOutcomeText: "activity would be deleted because no participants remain",
-        };
-      }),
-    ];
+          participationKey: onlyParticipation[0],
+          fromBeginning: onlyParticipation[1].beginning ?? activity?.beginning ?? 0,
+          fromEnding: onlyParticipation[1].ending ?? activity?.ending ?? Model.END_OF_TIME,
+          action: "drop",
+          deleteChoice: "optional",
+          keepStrategy: "move-to-parent-system",
+          keepTargetIndividualId: parentSystem?.id,
+          keepTargetIndividualName: parentSystem?.name,
+        });
+        return;
+      }
+
+      requiredActivities.push({
+        activityId,
+        activityName: activity?.name || activityId,
+        individualId: individual.id,
+        individualName: individual.name,
+        fromBeginning: activity?.beginning ?? 0,
+        fromEnding: activity?.ending ?? Model.END_OF_TIME,
+        action: "drop",
+        deleteChoice: "required",
+        activityOutcomeText: "activity would be deleted because no participants remain",
+      });
+    });
 
     const optionalActivities = Array.from(dataset.individuals.values())
       .filter((candidate) => !deletedIds.has(candidate.id))
@@ -982,6 +1036,7 @@ const SetIndividual = (props: Props) => {
         ).map((affectedActivity) => ({
           ...affectedActivity,
           deleteChoice: "optional" as const,
+          keepStrategy: "return-to-individual" as const,
         }));
       });
 
@@ -1000,6 +1055,7 @@ const SetIndividual = (props: Props) => {
 
     const affectedActivities: AffectedActivity[] = [
       ...requiredActivities,
+      ...optionalTransferActivities,
       ...Array.from(optionalByKey.values()),
     ];
 
@@ -2212,9 +2268,50 @@ const SetIndividual = (props: Props) => {
         affectedActivity.deleteChoice === "optional" &&
         selectedAffectedActivityKeys.has(getAffectedActivitySelectionKey(affectedActivity))
     );
+    const keptOptionalActivities = cascadeWarning.affectedActivities.filter(
+      (affectedActivity) =>
+        affectedActivity.deleteChoice === "optional" &&
+        !selectedAffectedActivityKeys.has(getAffectedActivitySelectionKey(affectedActivity))
+    );
 
     updateDataset((d: Model) => {
+      const originalActivities = new Map(dataset.activities);
       d.removeIndividual(cascadeWarning.pendingIndividual.id);
+
+      keptOptionalActivities.forEach((affectedActivity) => {
+        if (
+          affectedActivity.keepStrategy !== "move-to-parent-system" ||
+          !affectedActivity.keepTargetIndividualId
+        ) {
+          return;
+        }
+
+        const originalActivity = originalActivities.get(affectedActivity.activityId);
+        if (!originalActivity) {
+          return;
+        }
+
+        const originalKey = affectedActivity.participationKey ?? affectedActivity.individualId;
+        const originalParticipation = originalActivity.participations.get(originalKey);
+        if (!originalParticipation) {
+          return;
+        }
+
+        const nextParticipations = new Map(
+          d.activities.get(affectedActivity.activityId)?.participations ?? originalActivity.participations
+        );
+        nextParticipations.delete(originalKey);
+        nextParticipations.set(affectedActivity.keepTargetIndividualId, {
+          ...originalParticipation,
+          individualId: affectedActivity.keepTargetIndividualId,
+          systemComponentId: undefined,
+        });
+
+        d.addActivity(d.normalizeActivityParticipations({
+          ...(d.activities.get(affectedActivity.activityId) ?? originalActivity),
+          participations: nextParticipations,
+        }));
+      });
 
       if (pendingActivityAction === "remove" && selectedOptionalActivities.length > 0) {
         const affectedActivityIds = new Set<string>();
@@ -3524,7 +3621,9 @@ const SetIndividual = (props: Props) => {
                     {formatBound(aa.fromBeginning, true)}-{formatBound(aa.fromEnding, false)}
                     {aa.deleteChoice === "optional" &&
                     (pendingActivityAction !== "remove" || !isOptionalDeleteActivitySelected(aa))
-                      ? " → kept (returns to individual timeline outside installation periods)"
+                      ? aa.keepStrategy === "move-to-parent-system"
+                        ? ` → kept (moves to ${aa.keepTargetIndividualName ?? "parent system"})`
+                        : " → kept (returns to individual timeline outside installation periods)"
                       : aa.action === "trim"
                       ? ` → ${formatBound(aa.toBeginning ?? aa.fromBeginning, true)}-${formatBound(aa.toEnding ?? aa.fromEnding, false)} (would be trimmed)`
                       : " → would be removed (no overlap)"}

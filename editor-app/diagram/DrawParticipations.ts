@@ -61,6 +61,8 @@ export function drawParticipations(ctx: DrawContext) {
   parts.forEach((part) => {
     adjustedBoxes.set(part.id, { ...part.box });
   });
+  const leftLeadAdjusted = new Set<string>();
+  const rightLeadAdjusted = new Set<string>();
 
   const lead = PARTICIPATION_RIBBON_LEAD_PX;
   transitions.forEach(({ from, to }) => {
@@ -73,16 +75,18 @@ export function drawParticipations(ctx: DrawContext) {
     // The lead offset belongs on the individual-row segment so the installed
     // segment continues to align exactly with the installation period.
     if (fromInstalled && !toInstalled) {
-      if (toBox.x === to.box.x) {
+      if (!leftLeadAdjusted.has(to.id)) {
         toBox.x += lead;
         toBox.width = Math.max(1, toBox.width - lead);
+        leftLeadAdjusted.add(to.id);
       }
       return;
     }
 
     if (!fromInstalled && toInstalled) {
-      if (fromBox.width === from.box.width) {
+      if (!rightLeadAdjusted.has(from.id)) {
         fromBox.width = Math.max(1, fromBox.width - lead);
+        rightLeadAdjusted.add(from.id);
       }
     }
   });
@@ -141,34 +145,81 @@ function drawParticipationRibbons(
       pathData =
         `M ${xUpper} ${upperTop} L ${xUpper} ${upperBottom} ` +
         `L ${xLower} ${lowerBottom} L ${xLower} ${lowerTop} Z`;
+
+      const edgePathData =
+        `M ${xUpper} ${upperTop} L ${xLower} ${lowerTop} ` +
+        `M ${xUpper} ${upperBottom} L ${xLower} ${lowerBottom}`;
+
+      svgElement
+        .append("path")
+        .attr("class", "participationRibbon")
+        .attr("d", pathData)
+        .attr("fill", config.presentation.participation.fill)
+        .attr("stroke", "none")
+        .attr("opacity", config.presentation.participation.opacity)
+        .attr("data-activity-id", from.activityId)
+        .attr("data-individual-id", from.individualId)
+        .attr("data-upper-row-id", upper.rowId)
+        .attr("data-lower-row-id", lower.rowId)
+        .attr("data-upper-top", upperTop)
+        .attr("data-upper-bottom", upperBottom)
+        .attr("data-lower-top", lowerTop)
+        .attr("data-lower-bottom", lowerBottom)
+        .attr("data-x-upper", fromIsUpper ? from.box.x + from.box.width : to.box.x)
+        .attr("data-x-lower", fromIsUpper ? to.box.x : from.box.x + from.box.width)
+        .attr("data-ribbon-direction", fromIsUpper ? "upper-to-lower" : "lower-to-upper");
+
+      svgElement
+        .append("path")
+        .attr("class", "participationRibbonEdge")
+        .attr("d", edgePathData)
+        .attr("fill", "none")
+        .attr("stroke", config.presentation.participation.stroke)
+        .attr("stroke-dasharray", "6 3")
+        .attr("stroke-width", config.presentation.participation.strokeWidth)
+        .attr("opacity", config.presentation.participation.opacity)
+        .attr("pointer-events", "none");
     } else {
       const xLower = fromBox.x + fromBox.width;
       const xUpper = toBox.x;
       pathData =
         `M ${xLower} ${lowerTop} L ${xLower} ${lowerBottom} ` +
         `L ${xUpper} ${upperBottom} L ${xUpper} ${upperTop} Z`;
-    }
 
-    svgElement
-      .append("path")
-      .attr("class", "participationRibbon")
-      .attr("d", pathData)
-      .attr("fill", config.presentation.participation.fill)
-      .attr("stroke", config.presentation.participation.stroke)
-      .attr("stroke-dasharray", "6 3")
-      .attr("stroke-width", config.presentation.participation.strokeWidth)
-      .attr("opacity", config.presentation.participation.opacity)
-      .attr("data-activity-id", from.activityId)
-      .attr("data-individual-id", from.individualId)
-      .attr("data-upper-row-id", upper.rowId)
-      .attr("data-lower-row-id", lower.rowId)
-      .attr("data-upper-top", upperTop)
-      .attr("data-upper-bottom", upperBottom)
-      .attr("data-lower-top", lowerTop)
-      .attr("data-lower-bottom", lowerBottom)
-      .attr("data-x-upper", fromIsUpper ? from.box.x + from.box.width : to.box.x)
-      .attr("data-x-lower", fromIsUpper ? to.box.x : from.box.x + from.box.width)
-      .attr("data-ribbon-direction", fromIsUpper ? "upper-to-lower" : "lower-to-upper");
+      const edgePathData =
+        `M ${xUpper} ${upperTop} L ${xLower} ${lowerTop} ` +
+        `M ${xUpper} ${upperBottom} L ${xLower} ${lowerBottom}`;
+
+      svgElement
+        .append("path")
+        .attr("class", "participationRibbon")
+        .attr("d", pathData)
+        .attr("fill", config.presentation.participation.fill)
+        .attr("stroke", "none")
+        .attr("opacity", config.presentation.participation.opacity)
+        .attr("data-activity-id", from.activityId)
+        .attr("data-individual-id", from.individualId)
+        .attr("data-upper-row-id", upper.rowId)
+        .attr("data-lower-row-id", lower.rowId)
+        .attr("data-upper-top", upperTop)
+        .attr("data-upper-bottom", upperBottom)
+        .attr("data-lower-top", lowerTop)
+        .attr("data-lower-bottom", lowerBottom)
+        .attr("data-x-upper", fromIsUpper ? from.box.x + from.box.width : to.box.x)
+        .attr("data-x-lower", fromIsUpper ? to.box.x : from.box.x + from.box.width)
+        .attr("data-ribbon-direction", fromIsUpper ? "upper-to-lower" : "lower-to-upper");
+
+      svgElement
+        .append("path")
+        .attr("class", "participationRibbonEdge")
+        .attr("d", edgePathData)
+        .attr("fill", "none")
+        .attr("stroke", config.presentation.participation.stroke)
+        .attr("stroke-dasharray", "6 3")
+        .attr("stroke-width", config.presentation.participation.strokeWidth)
+        .attr("opacity", config.presentation.participation.opacity)
+        .attr("pointer-events", "none");
+    }
   });
 }
 

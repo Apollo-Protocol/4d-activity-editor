@@ -106,18 +106,21 @@ function renderHistoryTextWithColorSwatches(text: string) {
 
 function renderHistoryDescription(text: string) {
   const lines = text.split("\n");
-  const causalHeaderIndex = lines.findIndex((line) => line.trim().endsWith(" which:"));
-  if (causalHeaderIndex >= 0) {
+  const bulletHeaderIndex = lines.findIndex((line, index) => {
+    const trimmed = line.trim();
+    if (!trimmed.endsWith(":")) return false;
+    return lines.slice(index + 1).some((candidate) => candidate.trim().length > 0);
+  });
+  if (bulletHeaderIndex >= 0) {
     const prefixLines = lines
-      .slice(0, causalHeaderIndex)
+      .slice(0, bulletHeaderIndex)
       .map((line) => line.trim())
       .filter((line) => line.length > 0);
-    const header = lines[causalHeaderIndex].trim().replace(/ which:$/, "");
+    const header = lines[bulletHeaderIndex].trim().replace(/:$/, "");
     const items = lines
-      .slice(causalHeaderIndex + 1)
+      .slice(bulletHeaderIndex + 1)
       .map((item) => item.trim())
-      .filter((item) => item.startsWith("- "))
-      .map((item) => item.slice(2).trim())
+      .map((item) => (item.startsWith("- ") ? item.slice(2).trim() : item))
       .filter((item) => item.length > 0);
 
     if (items.length > 0) {
@@ -128,7 +131,7 @@ function renderHistoryDescription(text: string) {
               {renderHistoryTextWithColorSwatches(line)}
             </div>
           ))}
-          <div className="mb-1">{renderHistoryTextWithColorSwatches(header)} which:</div>
+          <div className="mb-1">{renderHistoryTextWithColorSwatches(header)}:</div>
           <ul className="history-entry-description-list mb-0">
             {items.map((item, index) => (
               <li key={`${item}-${index}`}>{renderHistoryTextWithColorSwatches(item)}</li>

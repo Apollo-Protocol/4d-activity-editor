@@ -11,7 +11,7 @@ import SortIndividuals from "./SortIndividuals";
 import SetParticipation from "./SetParticipation";
 import Undo, { HistoryEntry } from "./Undo";
 import { Model } from "@/lib/Model";
-import { Activity, Id, Individual, Maybe, Participation, findParticipationsForIndividual, participationKeyIndividualId } from "@/lib/Schema";
+import { Activity, Id, Individual, Maybe, Participation, findParticipationsForIndividual } from "@/lib/Schema";
 import {
   ENTITY_TYPE_IDS,
   getEntityTypeIdFromIndividual,
@@ -169,6 +169,79 @@ function getIndividualLabel(model: Model, individualId: string | undefined) {
   return model.individuals.get(individualId)?.name || individualId;
 }
 
+function getParticipationInstallationRanges(
+  model: Model,
+  participation: Participation,
+  activity?: Activity
+) {
+  if (!participation.systemComponentId) {
+    return undefined;
+  }
+
+  const individual = model.individuals.get(participation.individualId);
+  if (!individual) {
+    return undefined;
+  }
+
+  const componentPeriods = getInstallationPeriods(individual).filter(
+    (period) => period.systemComponentId === participation.systemComponentId
+  );
+
+  if (componentPeriods.length === 0) {
+    return undefined;
+  }
+
+  if (!activity) {
+    return componentPeriods.map((period) => formatRange(period.beginning, period.ending));
+  }
+
+  const participationRange = getParticipationEffectiveRange(activity, participation);
+  const matchingPeriods = componentPeriods.filter(
+    (period) =>
+      participationRange.beginning >= period.beginning &&
+      participationRange.ending <= period.ending
+  );
+
+  const resolvedPeriods = matchingPeriods.length > 0 ? matchingPeriods : componentPeriods;
+  return resolvedPeriods.map((period) => formatRange(period.beginning, period.ending));
+}
+
+function getParticipationHistoryLabel(
+  model: Model,
+  participation: Participation,
+  activity?: Activity
+) {
+  const individualName = getIndividualLabel(model, participation.individualId);
+  const individual = model.individuals.get(participation.individualId);
+
+  if (!participation.systemComponentId) {
+    if (!activity) {
+      return `"${individualName}"`;
+    }
+
+    return `"${individualName} (${formatRange(
+      individual?.beginning ?? 0,
+      individual?.ending ?? Model.END_OF_TIME
+    )})"`;
+  }
+
+  const component = model.individuals.get(participation.systemComponentId);
+  const componentName = component?.name || participation.systemComponentId;
+  const installationRanges = getParticipationInstallationRanges(
+    model,
+    participation,
+    activity
+  );
+  const componentRange = installationRanges && installationRanges.length > 0
+    ? installationRanges.join(", ")
+    : formatRange(
+        component?.beginning ?? 0,
+        component?.ending ?? Model.END_OF_TIME
+      );
+
+  return `"${individualName}" installed in "${componentName}" (${componentRange})`;
+}
+
 function getEntityHistoryCopy(individual: Individual | undefined, fallbackId: string) {
   const typeLabel = getEntityTypeLabel(
     individual?.type,
@@ -206,11 +279,119 @@ function getActivityParticipantsCopy(model: Model, activity: Activity | undefine
     return "with no participants";
   }
 
-  const participantNames = Array.from(activity.participations.keys()).map((participantId) =>
-    `"${getIndividualLabel(model, participantId)}"`
+  const participantNames = Array.from(activity.participations.values()).map((participation) =>
+    getParticipationHistoryLabel(model, participation, activity)
   );
 
-  return `with participants ${participantNames.join(", ")}`;
+  return `with participants:\n${participantNames.join("\n")}`;
+}
+
+function formatParticipationChangeDescription(
+  action: "Added" | "Removed",
+  model: Model,
+  activity: Activity,
+  entries: Array<[string, Participation]>
+) {
+  const preposition = action === "Added" ? "to" : "from";
+  const activityLabel = `activity "${activity.name}" (${formatRange(activity.beginning, activity.ending)})`;
+  const labels = entries.map(([, participation]) =>
+    getParticipationHistoryLabel(model, participation, activity)
+  );
+
+  if (labels.length === 1) {
+    return `${action} participant ${labels[0]} ${preposition} ${activityLabel}`;
+  }
+
+  return `${action} participants ${preposition} ${activityLabel}:\n${labels.join("\n")}`;
+}
+
+type ParsedParticipationChangeFragment = {
+  action: "Added" | "Removed";
+  activityName: string;
+  activityRange?: string;
+  labels: string[];
+};
+
+function parseParticipationChangeFragment(fragment: string): ParsedParticipationChangeFragment | undefined {
+  const multiMatch = fragment.match(
+    /^(Added|Removed) participants (to|from) activity "([^"]+)"(?: \(([^)]+)\))?:\n([\s\S]+)$/
+  );
+  if (multiMatch) {
+    const [, action, , activityName, activityRange, labelsBlock] = multiMatch;
+    const labels = labelsBlock
+      .split("\n")
+      .map((line) => line.trim())
+      .filter((line) => line.length > 0);
+
+    if (labels.length === 0) {
+      return undefined;
+    }
+
+    return {
+      action: action as "Added" | "Removed",
+      activityName,
+      activityRange,
+      labels,
+    };
+  }
+
+  const singleMatch = fragment.match(
+    /^(Added|Removed) participant (.+) (to|from) activity "([^"]+)"(?: \(([^)]+)\))?$/
+  );
+  if (singleMatch) {
+    const [, action, label, , activityName, activityRange] = singleMatch;
+    return {
+      action: action as "Added" | "Removed",
+      activityName,
+      activityRange,
+      labels: [label.trim()],
+    };
+  }
+
+  return undefined;
+}
+
+function mergeParticipationChangeFragments(fragments: string[]) {
+  const grouped = new Map<string, ParsedParticipationChangeFragment>();
+  const mergedOrder: string[] = [];
+
+  for (const fragment of fragments) {
+    const parsed = parseParticipationChangeFragment(fragment);
+    if (!parsed) {
+      return undefined;
+    }
+
+    const groupKey = `${parsed.action}::${parsed.activityName}::${parsed.activityRange ?? ""}`;
+    if (!grouped.has(groupKey)) {
+      grouped.set(groupKey, {
+        ...parsed,
+        labels: [...parsed.labels],
+      });
+      mergedOrder.push(groupKey);
+      continue;
+    }
+
+    const existing = grouped.get(groupKey)!;
+    parsed.labels.forEach((label) => {
+      if (!existing.labels.includes(label)) {
+        existing.labels.push(label);
+      }
+    });
+  }
+
+  return mergedOrder.map((groupKey) => {
+    const entry = grouped.get(groupKey)!;
+    const preposition = entry.action === "Added" ? "to" : "from";
+    const activityLabel = entry.activityRange
+      ? `activity "${entry.activityName}" (${entry.activityRange})`
+      : `activity "${entry.activityName}"`;
+
+    if (entry.labels.length === 1) {
+      return `${entry.action} participant ${entry.labels[0]} ${preposition} ${activityLabel}`;
+    }
+
+    return `${entry.action} participants ${preposition} ${activityLabel}:\n${entry.labels.join("\n")}`;
+  });
 }
 
 function formatQuotedList(items: string[]) {
@@ -244,7 +425,7 @@ function summarizeRemovedInstallations(
 
   return Array.from(installationsByIndividual.entries()).map(
     ([ownerName, installations]) =>
-      `Removed installations for "${ownerName}": ${installations.join(", ")}`
+      `Removed ${installations.length === 1 ? "installation" : "installations"} for "${ownerName}": ${installations.join(", ")}`
   );
 }
 
@@ -286,14 +467,13 @@ function getRemovalCascadeCopy(model: Model, removedId: string) {
 function buildRemovalHistoryDetails(model: Model, removedId: string) {
   const entityCopy = getEntityHistoryCopy(model.individuals.get(removedId), removedId);
   const cascade = getRemovalCascadeCopy(model, removedId);
-  const detailParts = [
-    `Removed ${entityCopy.noun} ${formatEntityWithExtent(model, removedId)}`,
-  ];
+  const primaryFragment = `Removed ${entityCopy.noun} ${formatEntityWithExtent(model, removedId)}`;
+  const sideEffectFragments: string[] = [];
   const summaryParts: string[] = [];
 
   if (cascade.removedComponentNames.length > 0) {
-    detailParts.push(
-      `Removed system components ${formatQuotedList(cascade.removedComponentNames)}`
+    sideEffectFragments.push(
+      `Removed ${cascade.removedComponentNames.length === 1 ? "system component" : "system components"} ${formatQuotedList(cascade.removedComponentNames)}`
     );
     summaryParts.push(
       `${cascade.removedComponentNames.length} system component${cascade.removedComponentNames.length === 1 ? "" : "s"}`
@@ -301,14 +481,16 @@ function buildRemovalHistoryDetails(model: Model, removedId: string) {
   }
 
   if (cascade.removedInstallations.length > 0) {
-    detailParts.push(...summarizeRemovedInstallations(model, cascade.removedInstallations));
+    sideEffectFragments.push(...summarizeRemovedInstallations(model, cascade.removedInstallations));
     summaryParts.push(
       `${cascade.removedInstallations.length} installation${cascade.removedInstallations.length === 1 ? "" : "s"}`
     );
   }
 
   if (cascade.removedActivities.length > 0) {
-    detailParts.push(`Removed activities ${formatQuotedList(cascade.removedActivities)}`);
+    sideEffectFragments.push(
+      `Removed ${cascade.removedActivities.length === 1 ? "activity" : "activities"} ${formatQuotedList(cascade.removedActivities)}`
+    );
     summaryParts.push(
       `${cascade.removedActivities.length} activit${cascade.removedActivities.length === 1 ? "y" : "ies"}`
     );
@@ -319,7 +501,7 @@ function buildRemovalHistoryDetails(model: Model, removedId: string) {
 
   return createHistoryDetails(
     entityCopy.category,
-    detailParts.join("; "),
+    buildCascadingHistoryDescription([], primaryFragment, sideEffectFragments),
     `Restore ${entityCopy.noun} "${entityCopy.name}"${summaryText}`,
     `Remove ${entityCopy.noun} "${entityCopy.name}"${summaryText}`
   );
@@ -759,6 +941,16 @@ function summarizeCombinedIndividualChange(oldModel: Model, newModel: Model) {
     });
   }
 
+  const mergedParticipationFragments = mergeParticipationChangeFragments(combinedFragments);
+  if (mergedParticipationFragments && mergedParticipationFragments.length === 1) {
+    return createHistoryDetails(
+      "Participation",
+      mergedParticipationFragments[0],
+      "Restore previous participation edits",
+      "Reapply participation edits"
+    );
+  }
+
   if (primaryEntity && combinedFragments.length >= 2) {
     const primaryDirectFragments = primaryEntity.directFragments.filter((fragment) =>
       combinedFragments.includes(fragment)
@@ -868,16 +1060,19 @@ function getParticipationChangeFragmentsForIndividual(
       if (!oldActivity) {
         return;
       }
-      const oldParticipation = oldEntries[0][1];
-      const oldRange = getParticipationEffectiveRange(oldActivity, oldParticipation);
       fragments.push(
-        `Removed participant "${individualName}" from "${activityName}" (${formatRange(oldRange.beginning, oldRange.ending)})`
+        formatParticipationChangeDescription("Removed", oldModel, oldActivity, oldEntries)
       );
       return;
     }
 
     if (oldEntries.length === 0 && newEntries.length > 0) {
-      fragments.push(`Added participant "${individualName}" to "${activityName}"`);
+      if (!newActivity) {
+        return;
+      }
+      fragments.push(
+        formatParticipationChangeDescription("Added", newModel, newActivity, newEntries)
+      );
       return;
     }
 
@@ -1282,30 +1477,28 @@ function generateHistoryDetails(oldModel: Model, newModel: Model): Omit<HistoryE
 
         const oldParticipantKeys = new Set(oldAct.participations.keys());
         const newParticipantKeys = new Set(newAct.participations.keys());
-        const addedKey = Array.from(newParticipantKeys).find(
-          (key) => !oldParticipantKeys.has(key)
+        const addedEntries = Array.from(newAct.participations.entries()).filter(
+          ([key]) => !oldParticipantKeys.has(key)
         );
-        if (addedKey) {
-          const participantName = getIndividualLabel(newModel, participationKeyIndividualId(addedKey));
+        if (addedEntries.length > 0) {
+          const participantCountLabel = addedEntries.length === 1 ? "participant" : "participants";
           return createHistoryDetails(
             "Participation",
-            `Added participant "${participantName}" to "${newAct.name}"`,
-            `Remove participant "${participantName}" from "${newAct.name}"`,
-            `Add participant "${participantName}" to "${newAct.name}"`
+            formatParticipationChangeDescription("Added", newModel, newAct, addedEntries),
+            `Remove ${participantCountLabel} from "${newAct.name}"`,
+            `Add ${participantCountLabel} to "${newAct.name}"`
           );
         }
-        const removedKey = Array.from(oldParticipantKeys).find(
-          (key) => !newParticipantKeys.has(key)
+        const removedEntries = Array.from(oldAct.participations.entries()).filter(
+          ([key]) => !newParticipantKeys.has(key)
         );
-        if (removedKey) {
-          const participantName = getIndividualLabel(oldModel, participationKeyIndividualId(removedKey));
-          const oldParticipation = oldAct.participations.get(removedKey);
-          const oldRange = getParticipationEffectiveRange(oldAct, oldParticipation);
+        if (removedEntries.length > 0) {
+          const participantCountLabel = removedEntries.length === 1 ? "participant" : "participants";
           return createHistoryDetails(
             "Participation",
-            `Removed participant "${participantName}" from "${oldAct.name}" (${formatRange(oldRange.beginning, oldRange.ending)})`,
-            `Restore participant "${participantName}" in "${oldAct.name}"`,
-            `Remove participant "${participantName}" from "${oldAct.name}"`
+            formatParticipationChangeDescription("Removed", oldModel, oldAct, removedEntries),
+            `Restore ${participantCountLabel} in "${oldAct.name}"`,
+            `Remove ${participantCountLabel} from "${oldAct.name}"`
           );
         }
       }

@@ -30,6 +30,7 @@ export function drawParticipations(ctx: DrawContext) {
         const box = getPositionOfParticipation(ctx, svgElement, a, p.individualId, mapKey, segment);
         if (!box) return;
         parts.push({
+          id: `${a.id}::${mapKey}::${segIdx}`,
           box,
           activityId: a.id,
           individualId: p.individualId,
@@ -37,47 +38,51 @@ export function drawParticipations(ctx: DrawContext) {
           participation: p,
           participationKey: mapKey,
           segmentIndex: segIdx,
+          segmentBeginning: segment.beginning,
+          segmentEnding: segment.ending,
+          segmentComponentId: segment.installationPeriod?.systemComponentId ?? "",
           activityColor,
         });
       });
     });
   });
 
-  // ── Apply ribbon lead offsets to participation boxes ──
-  // Group by (activity, individual), then for consecutive segments on
-  // different rows, shrink the individual-row segment by the ribbon lead so
-  // the participation block starts/ends where the ribbon meets it — exactly
-  // like installation connector ribbons do.
-  const groups = new Map<string, any[]>();
+  const participationGroups = new Map<string, any[]>();
   for (const part of parts) {
     const key = `${part.activityId}::${part.participationKey}`;
-    const list = groups.get(key);
+    const list = participationGroups.get(key);
     if (list) list.push(part);
-    else groups.set(key, [part]);
+    else participationGroups.set(key, [part]);
   }
 
+  const transitions = buildParticipationTransitions(participationGroups);
+
+  const adjustedBoxes = new Map<string, { x: number; y: number; width: number; height: number; rowId: string }>();
+  parts.forEach((part) => {
+    adjustedBoxes.set(part.id, { ...part.box });
+  });
+
   const lead = PARTICIPATION_RIBBON_LEAD_PX;
-  groups.forEach((segs) => {
-    if (segs.length < 2) return;
-    segs.sort((a: any, b: any) => a.segmentIndex - b.segmentIndex);
+  transitions.forEach(({ from, to }) => {
+    const fromInstalled = !!from.segmentComponentId;
+    const toInstalled = !!to.segmentComponentId;
+    const fromBox = adjustedBoxes.get(from.id);
+    const toBox = adjustedBoxes.get(to.id);
+    if (!fromBox || !toBox) return;
 
-    for (let i = 0; i < segs.length - 1; i++) {
-      const segA = segs[i];
-      const segB = segs[i + 1];
-      if (segA.rowId === segB.rowId) continue;
+    // The lead offset belongs on the individual-row segment so the installed
+    // segment continues to align exactly with the installation period.
+    if (fromInstalled && !toInstalled) {
+      if (toBox.x === to.box.x) {
+        toBox.x += lead;
+        toBox.width = Math.max(1, toBox.width - lead);
+      }
+      return;
+    }
 
-      const aIsUpper = segA.box.y < segB.box.y;
-      // Installed (component) row = upper, Individual row = lower
-      // The lower-row segment gets the lead offset away from the transition.
-      if (aIsUpper) {
-        // segA is upper (installed), segB is lower (individual row)
-        // segB left edge shifts RIGHT by lead
-        segB.box.x += lead;
-        segB.box.width = Math.max(1, segB.box.width - lead);
-      } else {
-        // segA is lower (individual row), segB is upper (installed)
-        // segA right edge shifts LEFT by lead
-        segA.box.width = Math.max(1, segA.box.width - lead);
+    if (!fromInstalled && toInstalled) {
+      if (fromBox.width === from.box.width) {
+        fromBox.width = Math.max(1, fromBox.width - lead);
       }
     }
   });
@@ -92,10 +97,10 @@ export function drawParticipations(ctx: DrawContext) {
     .attr("data-participation-key", (p: any) => p.participationKey)
     .attr("data-row-id", (p: any) => p.rowId)
     .attr("data-activity-id", (p: any) => p.activityId)
-    .attr("x", (d: any) => d.box.x)
-    .attr("y", (d: any) => d.box.y)
-    .attr("width", (d: any) => d.box.width)
-    .attr("height", (d: any) => d.box.height)
+    .attr("x", (d: any) => adjustedBoxes.get(d.id)?.x ?? d.box.x)
+    .attr("y", (d: any) => adjustedBoxes.get(d.id)?.y ?? d.box.y)
+    .attr("width", (d: any) => adjustedBoxes.get(d.id)?.width ?? d.box.width)
+    .attr("height", (d: any) => adjustedBoxes.get(d.id)?.height ?? d.box.height)
     .attr("stroke", config.presentation.participation.stroke)
     .attr("stroke-dasharray", config.presentation.participation.strokeDasharray)
     .attr("stroke-width", config.presentation.participation.strokeWidth)
@@ -103,7 +108,7 @@ export function drawParticipations(ctx: DrawContext) {
     .attr("opacity", config.presentation.participation.opacity);
 
   // Draw dashed ribbons connecting participation segments on different rows
-  drawParticipationRibbons(ctx, groups);
+  drawParticipationRibbons(ctx, transitions, adjustedBoxes);
 
   hoverParticipations(ctx);
 }
@@ -112,62 +117,99 @@ const PARTICIPATION_RIBBON_LEAD_PX = 24;
 
 function drawParticipationRibbons(
   ctx: DrawContext,
-  groups: Map<string, any[]>
+  transitions: Array<{ from: any; to: any }>,
+  adjustedBoxes: Map<string, { x: number; y: number; width: number; height: number; rowId: string }>
 ) {
   const { config, svgElement } = ctx;
-  const lead = PARTICIPATION_RIBBON_LEAD_PX;
+  transitions.forEach(({ from, to }) => {
+    const fromBox = adjustedBoxes.get(from.id) ?? from.box;
+    const toBox = adjustedBoxes.get(to.id) ?? to.box;
+
+    const fromIsUpper = fromBox.y < toBox.y;
+    const upper = fromIsUpper ? { ...from, box: fromBox } : { ...to, box: toBox };
+    const lower = fromIsUpper ? { ...to, box: toBox } : { ...from, box: fromBox };
+
+    const upperTop = upper.box.y;
+    const upperBottom = upper.box.y + upper.box.height;
+    const lowerTop = lower.box.y;
+    const lowerBottom = lower.box.y + lower.box.height;
+
+    let pathData: string;
+    if (fromIsUpper) {
+      const xUpper = fromBox.x + fromBox.width;
+      const xLower = toBox.x;
+      pathData =
+        `M ${xUpper} ${upperTop} L ${xUpper} ${upperBottom} ` +
+        `L ${xLower} ${lowerBottom} L ${xLower} ${lowerTop} Z`;
+    } else {
+      const xLower = fromBox.x + fromBox.width;
+      const xUpper = toBox.x;
+      pathData =
+        `M ${xLower} ${lowerTop} L ${xLower} ${lowerBottom} ` +
+        `L ${xUpper} ${upperBottom} L ${xUpper} ${upperTop} Z`;
+    }
+
+    svgElement
+      .append("path")
+      .attr("class", "participationRibbon")
+      .attr("d", pathData)
+      .attr("fill", config.presentation.participation.fill)
+      .attr("stroke", config.presentation.participation.stroke)
+      .attr("stroke-dasharray", "6 3")
+      .attr("stroke-width", config.presentation.participation.strokeWidth)
+      .attr("opacity", config.presentation.participation.opacity)
+      .attr("data-activity-id", from.activityId)
+      .attr("data-individual-id", from.individualId)
+      .attr("data-upper-row-id", upper.rowId)
+      .attr("data-lower-row-id", lower.rowId)
+      .attr("data-upper-top", upperTop)
+      .attr("data-upper-bottom", upperBottom)
+      .attr("data-lower-top", lowerTop)
+      .attr("data-lower-bottom", lowerBottom)
+      .attr("data-x-upper", fromIsUpper ? from.box.x + from.box.width : to.box.x)
+      .attr("data-x-lower", fromIsUpper ? to.box.x : from.box.x + from.box.width)
+      .attr("data-ribbon-direction", fromIsUpper ? "upper-to-lower" : "lower-to-upper");
+  });
+}
+
+function buildParticipationTransitions(groups: Map<string, any[]>) {
+  const transitions: Array<{ from: any; to: any }> = [];
 
   groups.forEach((segments) => {
-    if (segments.length < 2) return;
-    // Already sorted by offset-application loop above
+    const byStart = new Map<number, any[]>();
+    const byEnd = new Map<number, any[]>();
 
-    const activityColor = segments[0].activityColor;
+    segments.forEach((segment) => {
+      const startList = byStart.get(segment.segmentBeginning);
+      if (startList) startList.push(segment);
+      else byStart.set(segment.segmentBeginning, [segment]);
 
-    for (let i = 0; i < segments.length - 1; i++) {
-      const segA = segments[i];
-      const segB = segments[i + 1];
-      if (segA.rowId === segB.rowId) continue;
+      const endList = byEnd.get(segment.segmentEnding);
+      if (endList) endList.push(segment);
+      else byEnd.set(segment.segmentEnding, [segment]);
+    });
 
-      const aIsUpper = segA.box.y < segB.box.y;
-      const upper = aIsUpper ? segA : segB;
-      const lower = aIsUpper ? segB : segA;
+    byEnd.forEach((endingSegments, boundary) => {
+      const startingSegments = byStart.get(boundary);
+      if (!startingSegments) return;
 
-      const upperTop = upper.box.y;
-      const upperBottom = upper.box.y + upper.box.height;
-      const lowerTop = lower.box.y;
-      const lowerBottom = lower.box.y + lower.box.height;
+      endingSegments.forEach((from) => {
+        startingSegments.forEach((to) => {
+          if (from === to || from.rowId === to.rowId) return;
 
-      let pathData: string;
-      if (aIsUpper) {
-        // installed → free: upper segment ends, lower segment starts offset
-        // Upper right edge at its box right, lower left edge already shifted
-        const xUpper = segA.box.x + segA.box.width; // component-row edge
-        const xLower = segB.box.x;                   // individual-row edge (already offset)
-        pathData =
-          `M ${xUpper} ${upperTop} L ${xUpper} ${upperBottom} ` +
-          `L ${xLower} ${lowerBottom} L ${xLower} ${lowerTop} Z`;
-      } else {
-        // free → installed: lower segment ends, upper segment starts
-        const xLower = segA.box.x + segA.box.width; // individual-row edge (already trimmed)
-        const xUpper = segB.box.x;                   // component-row edge
-        pathData =
-          `M ${xLower} ${lowerTop} L ${xLower} ${lowerBottom} ` +
-          `L ${xUpper} ${upperBottom} L ${xUpper} ${upperTop} Z`;
-      }
+          const fromInstalled = !!from.segmentComponentId;
+          const toInstalled = !!to.segmentComponentId;
 
-      svgElement
-        .append("path")
-        .attr("class", "participationRibbon")
-        .attr("d", pathData)
-        .attr("fill", config.presentation.participation.fill)
-        .attr("stroke", config.presentation.participation.stroke)
-        .attr("stroke-dasharray", "6 3")
-        .attr("stroke-width", config.presentation.participation.strokeWidth)
-        .attr("opacity", config.presentation.participation.opacity)
-        .attr("data-activity-id", segments[0].activityId)
-        .attr("data-individual-id", segments[0].individualId);
-    }
+          // Do not draw ribbons directly between two installation rows.
+          if (fromInstalled && toInstalled) return;
+
+          transitions.push({ from, to });
+        });
+      });
+    });
   });
+
+  return transitions;
 }
 
 function hoverParticipations(ctx: DrawContext) {

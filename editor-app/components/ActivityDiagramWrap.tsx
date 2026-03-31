@@ -853,6 +853,16 @@ function getParticipationChangeFragmentsForIndividual(
     const oldEntries = oldActivity ? findParticipationsForIndividual(oldActivity.participations, individualId) : [];
     const newEntries = newActivity ? findParticipationsForIndividual(newActivity.participations, individualId) : [];
     const activityName = newActivity?.name || oldActivity?.name || activityId;
+    const oldByKey = new Map(oldEntries);
+    const newByKey = new Map(newEntries);
+    const oldPlainEntry = oldEntries.find(([, participation]) => !participation.systemComponentId);
+    const newPlainEntry = newEntries.find(([, participation]) => !participation.systemComponentId);
+    const removedInstalledEntries = oldEntries.filter(
+      ([key, participation]) => !!participation.systemComponentId && !newByKey.has(key)
+    );
+    const addedInstalledEntries = newEntries.filter(
+      ([key, participation]) => !!participation.systemComponentId && !oldByKey.has(key)
+    );
 
     if (oldEntries.length > 0 && newEntries.length === 0) {
       if (!oldActivity) {
@@ -869,6 +879,44 @@ function getParticipationChangeFragmentsForIndividual(
     if (oldEntries.length === 0 && newEntries.length > 0) {
       fragments.push(`Added participant "${individualName}" to "${activityName}"`);
       return;
+    }
+
+    if (oldActivity && newActivity) {
+      removedInstalledEntries.forEach(([, oldParticipation]) => {
+        if (!newPlainEntry) return;
+
+        const oldRange = getParticipationEffectiveRange(oldActivity, oldParticipation);
+        const newRange = getParticipationEffectiveRange(newActivity, newPlainEntry[1]);
+
+        if (
+          oldRange.beginning === newRange.beginning &&
+          oldRange.ending === newRange.ending
+        ) {
+          const fragment =
+            `Kept participant "${individualName}" in "${activityName}" on the individual timeline (${formatRange(newRange.beginning, newRange.ending)})`;
+          if (!fragments.includes(fragment)) {
+            fragments.push(fragment);
+          }
+        }
+      });
+
+      addedInstalledEntries.forEach(([, newParticipation]) => {
+        if (!oldPlainEntry) return;
+
+        const oldRange = getParticipationEffectiveRange(oldActivity, oldPlainEntry[1]);
+        const newRange = getParticipationEffectiveRange(newActivity, newParticipation);
+
+        if (
+          oldRange.beginning === newRange.beginning &&
+          oldRange.ending === newRange.ending
+        ) {
+          const fragment =
+            `Moved participant "${individualName}" in "${activityName}" into an installation timeline (${formatRange(newRange.beginning, newRange.ending)})`;
+          if (!fragments.includes(fragment)) {
+            fragments.push(fragment);
+          }
+        }
+      });
     }
 
     if (oldEntries.length === 0 || newEntries.length === 0 || !oldActivity || !newActivity) {
@@ -1548,6 +1596,7 @@ export default function ActivityDiagramWrap() {
 
   const sanitizeAllInstallations = (d: Model) => {
     const allIndividuals = Array.from(d.individuals.values());
+    const reconciledIndividuals: Individual[] = [];
 
     allIndividuals.forEach((individual) => {
       if (getEntityTypeIdFromIndividual(individual) !== ENTITY_TYPE_IDS.INDIVIDUAL) {
@@ -1605,12 +1654,18 @@ export default function ActivityDiagramWrap() {
       });
 
       d.addIndividual(synced);
+      reconciledIndividuals.push(synced);
+    });
+
+    reconciledIndividuals.forEach((individual) => {
+      d.reconcileParticipationsForInstallations(individual);
     });
   };
 
   const setIndividual = (individual: Individual) => {
     updateDataset((d: Model) => {
       d.addIndividual(individual);
+      d.reconcileParticipationsForInstallations(individual);
       sanitizeAllInstallations(d);
     });
   };
@@ -1618,7 +1673,7 @@ export default function ActivityDiagramWrap() {
     updateDataset((d: Model) => d.removeActivity(id));
   };
   const setActivity = (activity: Activity) => {
-    updateDataset((d: Model) => d.addActivity(activity));
+    updateDataset((d: Model) => d.addActivity(d.normalizeActivityParticipations(activity)));
   };
 
   const clickIndividual = useCallback((i: Individual) => {

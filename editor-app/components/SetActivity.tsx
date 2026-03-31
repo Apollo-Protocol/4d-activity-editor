@@ -23,7 +23,7 @@ import {
   ENTITY_TYPE_IDS,
   getEntityTypeIdFromIndividual,
 } from "@/lib/entityTypes";
-import { getInstallationPeriods } from "@/utils/installations";
+import { getInstallationPeriods, normalizeEnd, normalizeStart } from "@/utils/installations";
 
 interface Props {
   show: boolean;
@@ -201,9 +201,13 @@ const SetActivity = (props: Props) => {
     handleClose();
   };
 
+  const normalizeParticipations = (activity: Activity): Activity => {
+    return dataset.normalizeActivityParticipations(activity);
+  };
+
   const handleShow = () => {
     if (selectedActivity) {
-      setInputs(selectedActivity);
+      setInputs(normalizeParticipations(selectedActivity));
     } else {
       defaultActivity.id = uuidv4();
       setInputs(defaultActivity);
@@ -214,8 +218,9 @@ const SetActivity = (props: Props) => {
     if (!dirty) return handleClose();
     const isValid = validateInputs();
     if (isValid) {
+      const normalizedInputs = normalizeParticipations(inputs);
       updateDataset((d) => {
-        d.addActivity(inputs);
+        d.addActivity(d.normalizeActivityParticipations(normalizedInputs));
         updateIndividuals(d);
       });
       handleClose();
@@ -428,10 +433,11 @@ const SetActivity = (props: Props) => {
           const mapKey = participationMapKey(individual.id, componentId);
           const isSelected = selectedParticipationKeys.has(mapKey);
 
-          // Check if the activity overlaps this component's installation periods
+          // Installed participation is only valid when the activity is fully
+          // contained within at least one installation period for the component.
           const periodEligible = compPeriods.some(
             (period) =>
-              inputs.beginning < period.ending && inputs.ending > period.beginning
+              inputs.beginning >= period.beginning && inputs.ending <= period.ending
           );
 
           if (periodEligible || isSelected) {

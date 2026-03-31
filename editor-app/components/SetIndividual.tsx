@@ -86,6 +86,16 @@ type AffectedInstallation = {
   action: "trim" | "drop";
 };
 
+type AffectedComponentOfSystem = {
+  componentId: string;
+  componentName: string;
+  systemId: string;
+  systemName: string;
+  fromBeginning: number;
+  fromEnding: number;
+  action: "drop";
+};
+
 type AffectedActivity = {
   activityId: string;
   activityName: string;
@@ -102,14 +112,20 @@ type AffectedActivity = {
   toEnding?: number;
   action: "trim" | "drop";
   activityOutcomeText?: string;
+  deleteChoice?: "required" | "optional";
   /** When true, this participation should be silently removed without user confirmation
    *  (the same individual still has another participation in the same activity). */
   autoRemove?: boolean;
 };
 
 type CascadeWarning = {
+  mode?: "bounds" | "delete";
+  leadText?: string;
+  removeButtonLabel?: string;
+  trimButtonLabel?: string;
   entityName: string;
   affectedComponents: AffectedComponent[];
+  affectedComponentOfSystems: AffectedComponentOfSystem[];
   affectedInstallations: AffectedInstallation[];
   affectedActivities: AffectedActivity[];
   pendingIndividual: Individual;
@@ -250,6 +266,25 @@ const SetIndividual = (props: Props) => {
 
   const getAffectedActivitySelectionKey = (aa: AffectedActivity) =>
     `${aa.activityId}:${aa.participationKey ?? aa.individualId}`;
+
+  const resolveCurrentAffectedParticipationKey = (
+    activity: Activity,
+    affectedActivity: AffectedActivity
+  ) => {
+    const originalKey =
+      affectedActivity.participationKey ?? affectedActivity.individualId;
+
+    if (activity.participations.has(originalKey)) {
+      return originalKey;
+    }
+
+    const plainKey = affectedActivity.individualId;
+    if (activity.participations.has(plainKey)) {
+      return plainKey;
+    }
+
+    return originalKey;
+  };
 
   /**
    * Find activities that have participations with a given individual whose
@@ -626,7 +661,10 @@ const SetIndividual = (props: Props) => {
       const activity = model.activities.get(affectedActivity.activityId);
       if (!activity) return;
 
-      const pKey = affectedActivity.participationKey ?? affectedActivity.individualId;
+      const pKey = resolveCurrentAffectedParticipationKey(
+        activity,
+        affectedActivity
+      );
 
       if (affectedActivity.action === "drop") {
         activity.participations.delete(pKey);
@@ -816,6 +854,173 @@ const SetIndividual = (props: Props) => {
   const commitIndividualSave = (next: Individual) => {
     setIndividual(next);
     handleClose();
+  };
+
+  const saveIndividualToModel = (d: Model, individual: Individual) => {
+    d.addIndividual(individual);
+    d.reconcileParticipationsForInstallations(individual);
+  };
+
+  const buildDeleteCascadeWarning = (individual: Individual): CascadeWarning => {
+    const cascade = dataset.getIndividualRemovalCascade(individual.id);
+    const deletedIds = new Set(cascade.deletedIndividualIds);
+
+    const affectedComponents: AffectedComponent[] = cascade.deletedIndividualIds
+      .filter((id) => id !== individual.id)
+      .map((id) => dataset.individuals.get(id))
+      .filter((candidate): candidate is Individual => !!candidate)
+      .map((candidate) => ({
+        id: candidate.id,
+        name: candidate.name,
+        fromBeginning: candidate.beginning,
+        fromEnding: candidate.ending,
+        action: "drop",
+      }));
+
+    const affectedComponentOfSystems: AffectedComponentOfSystem[] = [];
+    const affectedInstallations: AffectedInstallation[] = [];
+
+    cascade.removedInstallations.forEach((installation) => {
+      const installationOwner = dataset.individuals.get(installation.individualId);
+      const installationTarget = dataset.individuals.get(installation.systemComponentId);
+
+      const ownerType = installationOwner
+        ? getEntityTypeIdFromIndividual(installationOwner)
+        : undefined;
+      const targetType = installationTarget
+        ? getEntityTypeIdFromIndividual(installationTarget)
+        : undefined;
+
+      if (
+        ownerType === ENTITY_TYPE_IDS.SYSTEM_COMPONENT &&
+        targetType === ENTITY_TYPE_IDS.SYSTEM
+      ) {
+        affectedComponentOfSystems.push({
+          componentId: installation.individualId,
+          componentName: installationOwner?.name || installation.individualId,
+          systemId: installation.systemComponentId,
+          systemName: installationTarget?.name || installation.systemComponentId,
+          fromBeginning: installation.beginning,
+          fromEnding: installation.ending,
+          action: "drop",
+        });
+        return;
+      }
+
+      affectedInstallations.push({
+        periodId: `${installation.individualId}:${installation.systemComponentId}:${installation.beginning}:${installation.ending}`,
+        individualId: installation.individualId,
+        individualName: installationOwner?.name || installation.individualId,
+        systemComponentId: installation.systemComponentId,
+        systemComponentName:
+          installationTarget?.name || installation.systemComponentId,
+        fromBeginning: installation.beginning,
+        fromEnding: installation.ending,
+        action: "drop",
+      });
+    });
+
+    const requiredActivities: AffectedActivity[] = [
+      ...cascade.removedParticipations.map((removed) => {
+        const activity = dataset.activities.get(removed.activityId);
+        const participation = activity?.participations.get(removed.participationKey);
+        const component = participation?.systemComponentId
+          ? dataset.individuals.get(participation.systemComponentId)
+          : undefined;
+        const system = component?.installedIn
+          ? dataset.individuals.get(component.installedIn)
+          : undefined;
+
+        return {
+          activityId: removed.activityId,
+          activityName: activity?.name || removed.activityId,
+          individualId: removed.individualId,
+          individualName:
+            dataset.individuals.get(removed.individualId)?.name || removed.individualId,
+          participationKey: removed.participationKey,
+          systemName: system?.name,
+          systemComponentName: component?.name,
+          fromBeginning: participation?.beginning ?? activity?.beginning ?? 0,
+          fromEnding: participation?.ending ?? activity?.ending ?? Model.END_OF_TIME,
+          action: "drop" as const,
+          deleteChoice: "required" as const,
+        };
+      }),
+      ...cascade.removedActivityIds.map((activityId) => {
+        const activity = dataset.activities.get(activityId);
+        return {
+          activityId,
+          activityName: activity?.name || activityId,
+          individualId: individual.id,
+          individualName: individual.name,
+          fromBeginning: activity?.beginning ?? 0,
+          fromEnding: activity?.ending ?? Model.END_OF_TIME,
+          action: "drop" as const,
+          deleteChoice: "required" as const,
+          activityOutcomeText: "activity would be deleted because no participants remain",
+        };
+      }),
+    ];
+
+    const optionalActivities = Array.from(dataset.individuals.values())
+      .filter((candidate) => !deletedIds.has(candidate.id))
+      .flatMap((candidate) => {
+        const oldPeriods = getInstallationPeriods(candidate);
+        const newPeriods = oldPeriods.filter(
+          (period) => !deletedIds.has(period.systemComponentId)
+        );
+
+        if (oldPeriods.length === newPeriods.length) {
+          return [];
+        }
+
+        return findAffectedActivitiesForInstallationPeriods(
+          candidate.id,
+          candidate.name,
+          oldPeriods,
+          newPeriods
+        ).map((affectedActivity) => ({
+          ...affectedActivity,
+          deleteChoice: "optional" as const,
+        }));
+      });
+
+    const optionalByKey = new Map(
+      annotateActivityOutcomes(mergeAffectedActivities(optionalActivities)).map(
+        (affectedActivity) => [
+          getAffectedActivitySelectionKey(affectedActivity),
+          affectedActivity,
+        ]
+      )
+    );
+
+    requiredActivities.forEach((affectedActivity) => {
+      optionalByKey.delete(getAffectedActivitySelectionKey(affectedActivity));
+    });
+
+    const affectedActivities: AffectedActivity[] = [
+      ...requiredActivities,
+      ...Array.from(optionalByKey.values()),
+    ];
+
+    return {
+      mode: "delete",
+      leadText: "Deleting",
+      removeButtonLabel: `Delete ${individual.name || "Entity"}`,
+      entityName: individual.name || "Entity",
+      affectedComponents,
+      affectedComponentOfSystems,
+      affectedInstallations,
+      affectedActivities,
+      pendingIndividual: individual,
+      applyTrim: () => {},
+      applyRemove: () => {
+        deleteIndividual(individual.id);
+        setShowCascadeWarningModal(false);
+        setCascadeWarning(null);
+        handleClose();
+      },
+    };
   };
 
   const handleShow = () => {
@@ -1260,7 +1465,7 @@ const SetIndividual = (props: Props) => {
               installations: periods,
             });
             updateDataset((d: Model) => {
-              d.addIndividual(pending);
+              saveIndividualToModel(d, pending);
               applyAffectedActivityChanges(d, autoRemovable);
             });
             handleClose();
@@ -1534,7 +1739,7 @@ const SetIndividual = (props: Props) => {
         if (silentCompTrims.length > 0 && affectedComps.length === 0 && affectedInstalls.length === 0 && dedupedActivities.length === 0) {
           // All affected items are trivial — apply silently
           updateDataset((d: Model) => {
-            d.addIndividual(next);
+            saveIndividualToModel(d, next);
             for (const sc of silentCompTrims) {
               const comp = d.individuals.get(sc.id);
               if (comp && sc.toBeginning !== undefined && sc.toEnding !== undefined) {
@@ -1558,7 +1763,7 @@ const SetIndividual = (props: Props) => {
                 return p;
               }).filter((p): p is InstallationPeriod => !!p);
               if (changed) {
-                d.addIndividual(syncLegacyInstallationFields({
+                saveIndividualToModel(d, syncLegacyInstallationFields({
                   ...ind,
                   installedIn: undefined,
                   installedBeginning: undefined,
@@ -1582,6 +1787,7 @@ const SetIndividual = (props: Props) => {
           setCascadeWarning({
             entityName: next.name,
             affectedComponents: affectedComps,
+            affectedComponentOfSystems: [],
             affectedInstallations: affectedInstalls,
             affectedActivities: annotateActivityOutcomes(dedupedActivities),
             pendingIndividual: pending,
@@ -1589,7 +1795,7 @@ const SetIndividual = (props: Props) => {
               // Do everything in one atomic updateDataset call
               updateDataset((d: Model) => {
                 // Save the system itself
-                d.addIndividual(pending);
+                saveIndividualToModel(d, pending);
 
                 // Trim or drop affected components
                 for (const ac of affectedComps) {
@@ -1637,7 +1843,7 @@ const SetIndividual = (props: Props) => {
                     return p;
                   }).filter((p): p is InstallationPeriod => !!p);
 
-                  d.addIndividual(syncLegacyInstallationFields({
+                  saveIndividualToModel(d, syncLegacyInstallationFields({
                     ...ind,
                     installedIn: undefined,
                     installedBeginning: undefined,
@@ -1658,7 +1864,7 @@ const SetIndividual = (props: Props) => {
             applyRemove: () => {
               updateDataset((d: Model) => {
                 // Save the system itself
-                d.addIndividual(pending);
+                saveIndividualToModel(d, pending);
 
                 // Remove dropped components entirely
                 const droppedCompIds = new Set(
@@ -1681,7 +1887,7 @@ const SetIndividual = (props: Props) => {
                     const kept = periods.filter(
                       (p) => !installsToRemove.has(p.id) && !droppedCompIds.has(p.systemComponentId)
                     );
-                    d.addIndividual(syncLegacyInstallationFields({
+                    saveIndividualToModel(d, syncLegacyInstallationFields({
                       ...ind,
                       installedIn: undefined,
                       installedBeginning: undefined,
@@ -1829,13 +2035,14 @@ const SetIndividual = (props: Props) => {
           setCascadeWarning({
             entityName: next.name,
             affectedComponents: [],
+            affectedComponentOfSystems: [],
             affectedInstallations: affectedInstalls,
             affectedActivities: annotateActivityOutcomes(dedupedCompActivities),
             pendingIndividual: pending,
             applyTrim: () => {
               updateDataset((d: Model) => {
                 // Save the system component itself
-                d.addIndividual(pending);
+                saveIndividualToModel(d, pending);
 
                 // Trim affected installations
                 const installsByIndividual = new Map<string, AffectedInstallation[]>();
@@ -1858,7 +2065,7 @@ const SetIndividual = (props: Props) => {
                       return p;
                     })
                     .filter((p): p is InstallationPeriod => !!p);
-                  d.addIndividual(syncLegacyInstallationFields({
+                  saveIndividualToModel(d, syncLegacyInstallationFields({
                     ...ind,
                     installedIn: undefined,
                     installedBeginning: undefined,
@@ -1879,7 +2086,7 @@ const SetIndividual = (props: Props) => {
             applyRemove: () => {
               updateDataset((d: Model) => {
                 // Save the system component itself
-                d.addIndividual(pending);
+                saveIndividualToModel(d, pending);
 
                 // Remove all affected installations
                 const installsToRemove = new Set(affectedInstalls.map((ai) => ai.periodId));
@@ -1888,7 +2095,7 @@ const SetIndividual = (props: Props) => {
                   const hasAffected = periods.some((p) => installsToRemove.has(p.id));
                   if (hasAffected) {
                     const kept = periods.filter((p) => !installsToRemove.has(p.id));
-                    d.addIndividual(syncLegacyInstallationFields({
+                    saveIndividualToModel(d, syncLegacyInstallationFields({
                       ...ind,
                       installedIn: undefined,
                       installedBeginning: undefined,
@@ -1941,7 +2148,7 @@ const SetIndividual = (props: Props) => {
     ];
     if (allToApply.length > 0) {
       updateDataset((d: Model) => {
-        d.addIndividual(pendingSaveIndividual);
+        saveIndividualToModel(d, pendingSaveIndividual);
         applyAffectedActivityChanges(d, allToApply);
       });
       handleClose();
@@ -1965,11 +2172,14 @@ const SetIndividual = (props: Props) => {
     ];
     if (allToApply.length > 0) {
       updateDataset((d: Model) => {
-        d.addIndividual(pendingRemoveIndividual);
+        saveIndividualToModel(d, pendingRemoveIndividual);
         const affectedActivityIds = new Set<string>();
         for (const aa of allToApply) {
           const act = d.activities.get(aa.activityId);
-          if (act) act.participations.delete(aa.participationKey ?? aa.individualId);
+          if (act) {
+            const pKey = resolveCurrentAffectedParticipationKey(act, aa);
+            act.participations.delete(pKey);
+          }
           affectedActivityIds.add(aa.activityId);
         }
         shrinkActivitiesToRemainingParticipants(d, affectedActivityIds);
@@ -1981,7 +2191,50 @@ const SetIndividual = (props: Props) => {
   };
 
   const handleDelete = () => {
-    deleteIndividual(inputs.id);
+    setPendingActivityAction("keep");
+    setSelectedAffectedActivityKeys(new Set());
+    setCascadeWarning(buildDeleteCascadeWarning(inputs));
+    setShowCascadeWarningModal(true);
+  };
+
+  const confirmCascadeDelete = () => {
+    if (!cascadeWarning) {
+      return;
+    }
+
+    if (cascadeWarning.mode !== "delete") {
+      cascadeWarning.applyRemove();
+      return;
+    }
+
+    const selectedOptionalActivities = cascadeWarning.affectedActivities.filter(
+      (affectedActivity) =>
+        affectedActivity.deleteChoice === "optional" &&
+        selectedAffectedActivityKeys.has(getAffectedActivitySelectionKey(affectedActivity))
+    );
+
+    updateDataset((d: Model) => {
+      d.removeIndividual(cascadeWarning.pendingIndividual.id);
+
+      if (pendingActivityAction === "remove" && selectedOptionalActivities.length > 0) {
+        const affectedActivityIds = new Set<string>();
+
+        selectedOptionalActivities.forEach((affectedActivity) => {
+          const activity = d.activities.get(affectedActivity.activityId);
+          if (!activity) return;
+          const pKey = resolveCurrentAffectedParticipationKey(activity, affectedActivity);
+          activity.participations.delete(pKey);
+          affectedActivityIds.add(affectedActivity.activityId);
+        });
+
+        shrinkActivitiesToRemainingParticipants(d, affectedActivityIds);
+      }
+    });
+
+    setShowCascadeWarningModal(false);
+    setCascadeWarning(null);
+    setPendingActivityAction("keep");
+    setSelectedAffectedActivityKeys(new Set());
     handleClose();
   };
 
@@ -2362,9 +2615,25 @@ const SetIndividual = (props: Props) => {
     !!cascadeWarning &&
     (
       cascadeWarning.affectedComponents.some((item) => item.action === "drop") ||
+      cascadeWarning.affectedComponentOfSystems.some((item) => item.action === "drop") ||
       cascadeWarning.affectedInstallations.some((item) => item.action === "drop") ||
       cascadeWarning.affectedActivities.some((item) => item.action === "drop")
     );
+  const cascadeOptionalActivities = cascadeWarning?.affectedActivities.filter(
+    (item) => item.deleteChoice === "optional"
+  ) ?? [];
+  const cascadeHasOptionalActivities =
+    cascadeWarning?.mode === "delete" && cascadeOptionalActivities.length > 0;
+  const isOptionalDeleteActivitySelected = (affectedActivity: AffectedActivity) =>
+    affectedActivity.deleteChoice === "optional" &&
+    selectedAffectedActivityKeys.has(getAffectedActivitySelectionKey(affectedActivity));
+  const cascadeDeleteButtonLabel =
+    cascadeWarning?.mode === "delete"
+      ? pendingActivityAction === "remove" && selectedAffectedActivityKeys.size > 0
+        ? `${cascadeWarning.removeButtonLabel ?? "Delete Entity"} + Remove Selected Activities`
+        : `${cascadeWarning.removeButtonLabel ?? "Delete Entity"} (Keep Activities)`
+      : cascadeWarning?.removeButtonLabel ?? "Delete All Affected Periods";
+  const cascadeCanRemove = !!cascadeWarning && (cascadeWarning.mode === "delete" || cascadeHasDropAction);
 
   return (
     <>
@@ -3074,6 +3343,8 @@ const SetIndividual = (props: Props) => {
         onHide={() => {
           setShowCascadeWarningModal(false);
           setCascadeWarning(null);
+          setPendingActivityAction("keep");
+          setSelectedAffectedActivityKeys(new Set());
         }}
         centered
         size="lg"
@@ -3085,9 +3356,21 @@ const SetIndividual = (props: Props) => {
         </Modal.Header>
         <Modal.Body>
           <p>
-            Changing the bounds of <strong>{cascadeWarning?.entityName}</strong> will
-            affect the following items:
+            {cascadeWarning?.leadText ?? "Changing the bounds of"} <strong>{cascadeWarning?.entityName}</strong>
+            {cascadeWarning?.mode === "delete"
+              ? " will remove it and affect the following items:"
+              : " will affect the following items:"}
           </p>
+
+          {cascadeWarning?.mode === "delete" &&
+            cascadeWarning.affectedComponents.length === 0 &&
+            cascadeWarning.affectedComponentOfSystems.length === 0 &&
+            cascadeWarning.affectedInstallations.length === 0 &&
+            cascadeWarning.affectedActivities.length === 0 && (
+              <p className="text-muted small">
+                No additional related items will be removed.
+              </p>
+            )}
 
           {cascadeWarning && cascadeWarning.affectedComponents.length > 0 && (
             <div className="mb-3">
@@ -3103,6 +3386,26 @@ const SetIndividual = (props: Props) => {
                       : " → would be removed (no overlap)"}
                   </div>
                 ))}
+              </div>
+            </div>
+          )}
+
+          {cascadeWarning && cascadeWarning.affectedComponentOfSystems.length > 0 && (
+            <div className="mb-3">
+              <div className="fw-semibold mb-2">Component Of System</div>
+              <div style={{ maxHeight: "180px", overflowY: "auto" }}>
+                {[...cascadeWarning.affectedComponentOfSystems]
+                  .sort((a, b) => a.fromBeginning - b.fromBeginning)
+                  .map((item) => (
+                    <div key={`${item.componentId}:${item.systemId}:${item.fromBeginning}:${item.fromEnding}`} className="mb-1 small">
+                      <span className="fw-semibold">{item.componentName}</span>
+                      {" in "}
+                      <span className="fw-semibold">{item.systemName}</span>
+                      {": "}
+                      {formatBound(item.fromBeginning, true)}-{formatBound(item.fromEnding, false)}
+                      {" → would be removed"}
+                    </div>
+                  ))}
               </div>
             </div>
           )}
@@ -3130,9 +3433,85 @@ const SetIndividual = (props: Props) => {
           {cascadeWarning && cascadeWarning.affectedActivities.length > 0 && (
             <div className="mb-3">
               <div className="fw-semibold mb-2">Activities</div>
+              {cascadeHasOptionalActivities && (
+                <>
+                  <Form.Group className="mb-2" controlId="cascadeActivitiesAction">
+                    <Form.Label className="small text-muted mb-1">
+                      Activity handling
+                    </Form.Label>
+                    <div>
+                      <Form.Check
+                        inline
+                        type="radio"
+                        name="cascadeActivitiesAction"
+                        id="cascadeActivitiesKeep"
+                        label="Keep affected activities (default)"
+                        checked={pendingActivityAction === "keep"}
+                        onChange={() => setPendingActivityAction("keep")}
+                      />
+                      <Form.Check
+                        inline
+                        type="radio"
+                        name="cascadeActivitiesAction"
+                        id="cascadeActivitiesRemove"
+                        label="Remove affected activities"
+                        checked={pendingActivityAction === "remove"}
+                        onChange={() => setPendingActivityAction("remove")}
+                      />
+                    </div>
+                  </Form.Group>
+                  {pendingActivityAction === "remove" && (
+                    <div className="mb-2 d-flex align-items-center justify-content-between">
+                      <div className="small text-muted">
+                        Selected for removal: {selectedAffectedActivityKeys.size} of {cascadeOptionalActivities.length}
+                      </div>
+                      <div className="d-flex gap-2">
+                        <Button
+                          size="sm"
+                          variant="outline-secondary"
+                          onClick={() => {
+                            setSelectedAffectedActivityKeys(
+                              new Set(
+                                cascadeOptionalActivities.map((aa) =>
+                                  getAffectedActivitySelectionKey(aa)
+                                )
+                              )
+                            );
+                          }}
+                        >
+                          Select all
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="outline-secondary"
+                          onClick={() => setSelectedAffectedActivityKeys(new Set())}
+                        >
+                          Clear
+                        </Button>
+                      </div>
+                    </div>
+                  )}
+                </>
+              )}
               <div style={{ maxHeight: "180px", overflowY: "auto" }}>
                 {[...cascadeWarning.affectedActivities].sort((a, b) => a.fromBeginning - b.fromBeginning).map((aa) => (
-                  <div key={aa.activityId} className="mb-1 small">
+                  <div key={`${aa.activityId}:${aa.participationKey ?? aa.individualId}:${aa.fromBeginning}:${aa.fromEnding}`} className="mb-1 small">
+                    {cascadeHasOptionalActivities && aa.deleteChoice === "optional" && pendingActivityAction === "remove" && (
+                      <Form.Check
+                        inline
+                        className="me-2"
+                        checked={selectedAffectedActivityKeys.has(getAffectedActivitySelectionKey(aa))}
+                        onChange={(event) => {
+                          const key = getAffectedActivitySelectionKey(aa);
+                          setSelectedAffectedActivityKeys((previous) => {
+                            const next = new Set(previous);
+                            if (event.target.checked) next.add(key);
+                            else next.delete(key);
+                            return next;
+                          });
+                        }}
+                      />
+                    )}
                     <span className="fw-semibold">{aa.activityName}</span>
                     <span className="text-muted">
                       {" (Participant: "}
@@ -3143,10 +3522,15 @@ const SetIndividual = (props: Props) => {
                     </span>
                     {": "}
                     {formatBound(aa.fromBeginning, true)}-{formatBound(aa.fromEnding, false)}
-                    {aa.action === "trim"
+                    {aa.deleteChoice === "optional" &&
+                    (pendingActivityAction !== "remove" || !isOptionalDeleteActivitySelected(aa))
+                      ? " → kept (returns to individual timeline outside installation periods)"
+                      : aa.action === "trim"
                       ? ` → ${formatBound(aa.toBeginning ?? aa.fromBeginning, true)}-${formatBound(aa.toEnding ?? aa.fromEnding, false)} (would be trimmed)`
                       : " → would be removed (no overlap)"}
-                    {aa.activityOutcomeText && (
+                    {aa.activityOutcomeText &&
+                      (aa.deleteChoice !== "optional" ||
+                        (pendingActivityAction === "remove" && isOptionalDeleteActivitySelected(aa))) && (
                       <span className="text-danger">{` — ${aa.activityOutcomeText}`}</span>
                     )}
                   </div>
@@ -3161,24 +3545,28 @@ const SetIndividual = (props: Props) => {
             onClick={() => {
               setShowCascadeWarningModal(false);
               setCascadeWarning(null);
+              setPendingActivityAction("keep");
+              setSelectedAffectedActivityKeys(new Set());
             }}
           >
             Cancel
           </Button>
           <Button
             variant="danger"
-            onClick={() => cascadeWarning?.applyRemove()}
-            disabled={!cascadeHasDropAction}
+            onClick={confirmCascadeDelete}
+            disabled={!cascadeCanRemove}
           >
-            Delete All Affected Periods
+            {cascadeDeleteButtonLabel}
           </Button>
-          <Button
-            variant="primary"
-            onClick={() => cascadeWarning?.applyTrim()}
-            disabled={!cascadeHasTrimAction}
-          >
-            Resolve Affected Periods
-          </Button>
+          {cascadeWarning?.mode !== "delete" && (
+            <Button
+              variant="primary"
+              onClick={() => cascadeWarning?.applyTrim()}
+              disabled={!cascadeHasTrimAction}
+            >
+              {cascadeWarning?.trimButtonLabel ?? "Resolve Affected Periods"}
+            </Button>
+          )}
         </Modal.Footer>
       </Modal>
     </>

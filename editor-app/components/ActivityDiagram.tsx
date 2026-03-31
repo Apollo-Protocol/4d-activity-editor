@@ -757,6 +757,46 @@ L ${sideX} ${lowerTop} Z`;
         });
     };
 
+    const updateLinkedParticipationRibbons = (entityId: string, offset: number) => {
+      svg
+        .selectAll<SVGPathElement, unknown>(".participationRibbon")
+        .filter(function () {
+          const node = this as SVGElement;
+          const upperRowId = node.getAttribute("data-upper-row-id");
+          const lowerRowId = node.getAttribute("data-lower-row-id");
+          return upperRowId === entityId || lowerRowId === entityId;
+        })
+        .attr("d", function () {
+          const node = this as SVGElement;
+          const upperRowId = node.getAttribute("data-upper-row-id");
+          const lowerRowId = node.getAttribute("data-lower-row-id");
+          if (!upperRowId || !lowerRowId) {
+            return node.getAttribute("d") ?? "";
+          }
+
+          const xUpper = Number(node.getAttribute("data-x-upper") ?? "0");
+          const xLower = Number(node.getAttribute("data-x-lower") ?? "0");
+          const upperTopBase = Number(node.getAttribute("data-upper-top") ?? "0");
+          const upperBottomBase = Number(node.getAttribute("data-upper-bottom") ?? "0");
+          const lowerTopBase = Number(node.getAttribute("data-lower-top") ?? "0");
+          const lowerBottomBase = Number(node.getAttribute("data-lower-bottom") ?? "0");
+          const direction = node.getAttribute("data-ribbon-direction");
+
+          const upperShift = upperRowId === entityId ? offset : getElementOffset(upperRowId);
+          const lowerShift = lowerRowId === entityId ? offset : getElementOffset(lowerRowId);
+          const upperTop = upperTopBase + upperShift;
+          const upperBottom = upperBottomBase + upperShift;
+          const lowerTop = lowerTopBase + lowerShift;
+          const lowerBottom = lowerBottomBase + lowerShift;
+
+          if (direction === "upper-to-lower") {
+            return `M ${xUpper} ${upperTop} L ${xUpper} ${upperBottom} L ${xLower} ${lowerBottom} L ${xLower} ${lowerTop} Z`;
+          }
+
+          return `M ${xLower} ${lowerTop} L ${xLower} ${lowerBottom} L ${xUpper} ${upperBottom} L ${xUpper} ${upperTop} Z`;
+        });
+    };
+
     const updateLinkedParticipations = (entityId: string, offset: number) => {
       const t = offset === 0 ? null : `translate(0, ${offset})`;
       svg
@@ -954,6 +994,7 @@ L ${sideX} ${lowerTop} Z`;
       }
       updateLinkedHatches(id, dy);
       updateLinkedRibbons(id, dy);
+      updateLinkedParticipationRibbons(id, dy);
       
       // We need to update activities after the transition starts, but for simplicity
       // we can just update them immediately. The transition might make it look slightly out of sync,
@@ -992,6 +1033,7 @@ L ${sideX} ${lowerTop} Z`;
       // so getElementOffset returns 0 for all endpoints)
       dragSnapshot.forEach((snap) => {
         updateLinkedRibbons(snap.id, 0);
+        updateLinkedParticipationRibbons(snap.id, 0);
       });
       // Third pass: clear offset tracking and restore activity bounds
       entityOffsets.clear();
@@ -1175,6 +1217,7 @@ L ${sideX} ${lowerTop} Z`;
         updateLinkedHatches(draggedIndividual.id, nextOffset);
         updateLinkedRibbons(draggedIndividual.id, nextOffset);
         updateLinkedParticipations(draggedIndividual.id, nextOffset);
+        updateLinkedParticipationRibbons(draggedIndividual.id, nextOffset);
         entityOffsets.set(draggedIndividual.id, nextOffset);
 
         // If dragging a system, also move its components
@@ -1193,6 +1236,7 @@ L ${sideX} ${lowerTop} Z`;
             updateLinkedHatches(cid, nextOffset);
             updateLinkedRibbons(cid, nextOffset);
             updateLinkedParticipations(cid, nextOffset);
+            updateLinkedParticipationRibbons(cid, nextOffset);
           });
         }
         

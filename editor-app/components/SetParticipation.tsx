@@ -107,7 +107,7 @@ const SetParticipation = (props: Props) => {
         key,
         selectedParticipation
       );
-      setActivity(localActivity);
+      setActivity(dataset.normalizeActivityParticipations(localActivity));
     }
     handleClose();
   };

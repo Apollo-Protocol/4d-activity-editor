@@ -189,20 +189,15 @@ export function splitParticipationByInstallations(
     return segments.length > 0 ? segments : [{ beginning: partBegin, ending: partEnd }];
   }
 
-  // Non-installed participation: produce segments with gaps
+  // Non-installed (plain-key) participation: produce one segment per
+  // overlapping installation period (even when different component periods
+  // cover the same time range) plus gap segments for uncovered time.
   const segments: ParticipationSegment[] = [];
-  let cursor = partBegin;
 
+  // First, produce a segment for each overlapping installation period
   for (const period of overlapping) {
-    const overlapStart = Math.max(cursor, period.beginning);
+    const overlapStart = Math.max(partBegin, period.beginning);
     const overlapEnd = Math.min(partEnd, period.ending);
-
-    // Gap before this installation
-    if (cursor < overlapStart) {
-      segments.push({ beginning: cursor, ending: overlapStart });
-    }
-
-    // Installation overlap segment
     if (overlapStart < overlapEnd) {
       segments.push({
         beginning: overlapStart,
@@ -210,14 +205,47 @@ export function splitParticipationByInstallations(
         installationPeriod: period,
       });
     }
-
-    cursor = overlapEnd;
   }
 
-  // Remaining time after all installations
+  // Now produce gap segments for time ranges not covered by ANY period.
+  // Merge all installation coverage intervals then find uncovered gaps.
+  const coverageIntervals = overlapping
+    .map((p) => ({
+      start: Math.max(partBegin, p.beginning),
+      end: Math.min(partEnd, p.ending),
+    }))
+    .filter((iv) => iv.start < iv.end)
+    .sort((a, b) => a.start - b.start);
+
+  const merged: { start: number; end: number }[] = [];
+  for (const iv of coverageIntervals) {
+    const last = merged[merged.length - 1];
+    if (last && iv.start <= last.end) {
+      last.end = Math.max(last.end, iv.end);
+    } else {
+      merged.push({ ...iv });
+    }
+  }
+
+  let cursor = partBegin;
+  for (const iv of merged) {
+    if (cursor < iv.start) {
+      segments.push({ beginning: cursor, ending: iv.start });
+    }
+    cursor = iv.end;
+  }
   if (cursor < partEnd) {
     segments.push({ beginning: cursor, ending: partEnd });
   }
+
+  // Sort all segments by beginning time, then installation segments before gaps
+  segments.sort((a, b) => {
+    if (a.beginning !== b.beginning) return a.beginning - b.beginning;
+    // Installation segments first
+    if (a.installationPeriod && !b.installationPeriod) return -1;
+    if (!a.installationPeriod && b.installationPeriod) return 1;
+    return 0;
+  });
 
   return segments;
 }

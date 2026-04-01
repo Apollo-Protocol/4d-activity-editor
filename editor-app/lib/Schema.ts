@@ -62,6 +62,7 @@ export interface Participation {
   beginning?: number;
   ending?: number;
   systemComponentId?: Id;
+  installationPeriodId?: Id;
 }
 
 /**
@@ -71,10 +72,13 @@ export interface Participation {
  */
 export function participationMapKey(
   individualId: string,
-  systemComponentId?: string
+  systemComponentId?: string,
+  installationPeriodId?: string
 ): string {
   return systemComponentId
-    ? `${individualId}::${systemComponentId}`
+    ? installationPeriodId
+      ? `${individualId}::${systemComponentId}::${installationPeriodId}`
+      : `${individualId}::${systemComponentId}`
     : individualId;
 }
 

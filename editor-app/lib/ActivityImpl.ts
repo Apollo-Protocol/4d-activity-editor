@@ -50,7 +50,8 @@ export class ActivityImpl implements Activity {
     role: Kind,
     beginning?: number,
     ending?: number,
-    systemComponentId?: string
+    systemComponentId?: string,
+    installationPeriodId?: string
   ): Activity {
     if (!individual.id) {
       console.error(
@@ -64,8 +65,9 @@ export class ActivityImpl implements Activity {
         beginning,
         ending,
         systemComponentId,
+        installationPeriodId,
       };
-      const key = participationMapKey(individual.id, systemComponentId);
+      const key = participationMapKey(individual.id, systemComponentId, installationPeriodId);
       this.participations.set(key, participation);
     }
     return this;
@@ -78,8 +80,8 @@ export class ActivityImpl implements Activity {
    * @param systemComponentId Optional component id for per-installation participations
    * @returns The updated Activity, meaning this function can be chained
    */
-  removeParticipation(individualId: string, systemComponentId?: string): Activity {
-    const key = participationMapKey(individualId, systemComponentId);
+  removeParticipation(individualId: string, systemComponentId?: string, installationPeriodId?: string): Activity {
+    const key = participationMapKey(individualId, systemComponentId, installationPeriodId);
     this.participations.delete(key);
     return this;
   }

@@ -40,6 +40,8 @@ function highlightInstallationForEntity(
   enabled: boolean,
   config: any
 ) {
+  const hoverStroke = "var(--app-accent, #007fff)";
+
   const matching = (d: any, i: number, nodes: any[]) => {
     const node = nodes[i] as Element;
     const installedId = node.getAttribute("data-installed-id");
@@ -52,6 +54,7 @@ function highlightInstallationForEntity(
     .filter(matching)
     .attr("opacity", enabled ? 1.0 : 1.0)
     .attr("fill", enabled ? "url(#installHatchHighlight)" : "url(#installHatch)")
+    .attr("stroke", enabled ? hoverStroke : config.presentation.individual.stroke)
     .attr("stroke-width", enabled ? 2.5 : 2.0);
 
   svgElement
@@ -59,6 +62,7 @@ function highlightInstallationForEntity(
     .filter(matching)
     .attr("fill", config.presentation.individual.fillHover)
     .attr("fill-opacity", 1)
+    .attr("stroke", enabled ? hoverStroke : config.presentation.individual.stroke)
     .attr("stroke-width", enabled ? 2.0 : 1.5);
 }
 
@@ -996,11 +1000,24 @@ export function hoverIndividuals(ctx: DrawContext) {
         .style("top", event.pageY + 20 + "px")
         .style("left", event.pageX + "px");
     } else {
-      const ttWidth = tooltip?.node().getBoundingClientRect().width;
+      const tooltipNode = tooltip?.node();
+      const ttWidth = tooltipNode ? tooltipNode.getBoundingClientRect().width : 0;
       tooltip
         .style("top", event.pageY + 20 + "px")
         .style("left", event.pageX - ttWidth + "px");
     }
+  };
+
+  const getHoveredIndividual = (bound: any, element: Element | null): Individual | undefined => {
+    if (bound?.id) {
+      return bound;
+    }
+    const installedId = element?.getAttribute("data-installed-id");
+    if (installedId) {
+      return ctx.individuals.find((candidate) => candidate.id === installedId);
+    }
+    const entityId = resolveEntityId(bound, element);
+    return entityId ? ctx.individuals.find((candidate) => candidate.id === entityId) : undefined;
   };
 
   const hoverMatching = (entityId: string) => (d: any, i: number, nodes: any[]) => {
@@ -1055,6 +1072,40 @@ export function hoverIndividuals(ctx: DrawContext) {
     })
     .on("mousemove", function (event: MouseEvent, d: any) {
       positionTooltip(event, d);
+    });
+
+  svgElement
+    .selectAll(".installHatch, .installConnectorRibbon")
+    .style("cursor", "pointer")
+    .on("mouseover", function (event: MouseEvent, d: any) {
+      const currentElement = event.currentTarget as Element | null;
+      const hoveredIndividual = getHoveredIndividual(d, currentElement);
+      const entityId = hoveredIndividual?.id ?? null;
+      if (!entityId) return;
+
+      mouseOverElement = event.target as HTMLElement;
+      highlightInstallationForEntity(svgElement, entityId, true, config);
+      applyHoverHighlight(entityId);
+      tooltip.style("display", "block");
+      positionTooltip(event, hoveredIndividual);
+    })
+    .on("mouseout", function (event: MouseEvent, d: any) {
+      const currentElement = event.currentTarget as Element | null;
+      const hoveredIndividual = getHoveredIndividual(d, currentElement);
+      const entityId = hoveredIndividual?.id ?? null;
+      if (entityId) {
+        highlightInstallationForEntity(svgElement, entityId, false, config);
+      }
+      removeHoverHighlight();
+      mouseOverElement = null;
+      tooltip.style("display", "none");
+    })
+    .on("mousemove", function (event: MouseEvent, d: any) {
+      const currentElement = event.currentTarget as Element | null;
+      const hoveredIndividual = getHoveredIndividual(d, currentElement);
+      if (hoveredIndividual) {
+        positionTooltip(event, hoveredIndividual);
+      }
     });
 
   // Apply the same hover effect when hovering on the row label text
@@ -1127,6 +1178,24 @@ export function clickIndividuals(
       .on("click", lclick)
       .on("contextmenu", rclick);
   });
+
+  svgElement
+    .selectAll(".installHatch, .installConnectorRibbon")
+    .on("click", function (e: MouseEvent) {
+      const installedId = (e.currentTarget as Element | null)?.getAttribute("data-installed-id");
+      const individual = installedId ? individuals.find((candidate) => candidate.id === installedId) : undefined;
+      if (individual) {
+        clickIndividual(individual);
+      }
+    })
+    .on("contextmenu", function (e: MouseEvent) {
+      e.preventDefault();
+      const installedId = (e.currentTarget as Element | null)?.getAttribute("data-installed-id");
+      const individual = installedId ? individuals.find((candidate) => candidate.id === installedId) : undefined;
+      if (individual) {
+        rightClickIndividual(individual);
+      }
+    });
 }
 
 export function labelIndividuals(ctx: DrawContext) {

@@ -63,6 +63,7 @@ const INDIVIDUAL_ENTITY_TYPE_PREDICATE = `${EDITOR_NS}#individualEntityType`;
 
 // Custom predicate for participation -> system component link
 const PARTICIPATION_COMPONENT_PREDICATE = `${EDITOR_NS}#participationSystemComponent`;
+const PARTICIPATION_INSTALLATION_PERIOD_PREDICATE = `${EDITOR_NS}#participationInstallationPeriod`;
 
 // Custom predicate for system component -> system relationship
 const COMPONENT_OF_PREDICATE = `${HQDM_NS}component_of`;
@@ -482,6 +483,20 @@ export const toModel = (hqdm: HQDMModel): Model => {
       // Resolve optional system component link for per-installation participations
       const componentThing = hqdm.getRelated(p, PARTICIPATION_COMPONENT_PREDICATE).first();
       const systemComponentId = componentThing ? getModelId(componentThing) : undefined;
+      const installationThing = hqdm
+        .getRelated(p, PARTICIPATION_INSTALLATION_PERIOD_PREDICATE)
+        .first();
+      let installationPeriodId = installationThing ? getModelId(installationThing) : undefined;
+
+      if (!installationPeriodId && indiv && systemComponentId && indiv.installations?.length) {
+        const matchingInstallation = indiv.installations.find(
+          (period) =>
+            period.systemComponentId === systemComponentId &&
+            (participationBeginning ?? beginning) >= period.beginning &&
+            (participationEnding ?? ending) <= period.ending
+        );
+        installationPeriodId = matchingInstallation?.id;
+      }
 
       if (indiv) {
         newA.addParticipation(
@@ -489,7 +504,8 @@ export const toModel = (hqdm: HQDMModel): Model => {
           roleType,
           participationBeginning !== beginning ? participationBeginning : undefined,
           participationEnding !== ending ? participationEnding : undefined,
-          systemComponentId
+          systemComponentId,
+          installationPeriodId
         );
       }
     });
@@ -816,6 +832,13 @@ export const toHQDM = (model: Model): HQDMModel => {
       // Link participation to specific system component when per-installation
       if (p.systemComponentId) {
         hqdm.relate(PARTICIPATION_COMPONENT_PREDICATE, participation, new Thing(BASE + p.systemComponentId));
+      }
+      if (p.installationPeriodId) {
+        hqdm.relate(
+          PARTICIPATION_INSTALLATION_PERIOD_PREDICATE,
+          participation,
+          new Thing(BASE + p.installationPeriodId)
+        );
       }
 
       const participationFrom =

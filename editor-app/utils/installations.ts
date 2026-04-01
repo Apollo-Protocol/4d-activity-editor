@@ -86,6 +86,15 @@ export function getActiveInstallationForActivity(
     participation?.ending ?? activity.ending
   );
 
+  if (participation?.installationPeriodId) {
+    return periods.find(
+      (period) =>
+        period.id === participation.installationPeriodId &&
+        participationBeginning >= period.beginning &&
+        participationEnding <= period.ending
+    );
+  }
+
   return periods.find(
     (period) =>
       participationBeginning >= period.beginning && participationEnding <= period.ending
@@ -159,8 +168,13 @@ export function splitParticipationByInstallations(
 
   // If this is a per-installation participation, only consider periods for that component
   const targetComponentId = participation?.systemComponentId;
+  const targetInstallationPeriodId = participation?.installationPeriodId;
   const relevantPeriods = targetComponentId
-    ? periods.filter((p) => p.systemComponentId === targetComponentId)
+    ? periods.filter(
+        (p) =>
+          p.systemComponentId === targetComponentId &&
+          (!targetInstallationPeriodId || p.id === targetInstallationPeriodId)
+      )
     : periods;
 
   const overlapping = relevantPeriods

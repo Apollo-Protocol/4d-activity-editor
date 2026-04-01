@@ -180,6 +180,8 @@ export class Model {
         const isFullyContained = periods.some(
           (period) =>
             period.systemComponentId === participation.systemComponentId &&
+            (!participation.installationPeriodId ||
+              period.id === participation.installationPeriodId) &&
             participationStart >= period.beginning &&
             participationEnd <= period.ending
         );
@@ -195,6 +197,7 @@ export class Model {
           nextParticipations.set(plainKey, {
             ...participation,
             systemComponentId: undefined,
+            installationPeriodId: undefined,
           });
         }
 
@@ -231,7 +234,10 @@ export class Model {
         participation.ending ?? activity.ending
       );
       const periods = getInstallationPeriods(individual).filter(
-        (period) => period.systemComponentId === participation.systemComponentId
+        (period) =>
+          period.systemComponentId === participation.systemComponentId &&
+          (!participation.installationPeriodId ||
+            period.id === participation.installationPeriodId)
       );
       const isFullyContained = periods.some(
         (period) =>
@@ -246,6 +252,7 @@ export class Model {
           nextParticipations.set(plainKey, {
             ...participation,
             systemComponentId: undefined,
+            installationPeriodId: undefined,
           });
         }
       }

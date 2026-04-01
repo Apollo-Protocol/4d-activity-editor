@@ -159,6 +159,7 @@ function drawParticipationRibbons(
         .attr("opacity", config.presentation.participation.opacity)
         .attr("data-activity-id", from.activityId)
         .attr("data-individual-id", from.individualId)
+        .attr("data-participation-key", from.participationKey)
         .attr("data-upper-row-id", upper.rowId)
         .attr("data-lower-row-id", lower.rowId)
         .attr("data-upper-top", upperTop)
@@ -178,7 +179,10 @@ function drawParticipationRibbons(
         .attr("stroke-dasharray", "6 3")
         .attr("stroke-width", config.presentation.participation.strokeWidth)
         .attr("opacity", config.presentation.participation.opacity)
-        .attr("pointer-events", "none");
+        .attr("data-activity-id", from.activityId)
+        .attr("data-individual-id", from.individualId)
+        .attr("data-participation-key", from.participationKey)
+        .attr("pointer-events", "visibleStroke");
     } else {
       const xLower = fromBox.x + fromBox.width;
       const xUpper = toBox.x;
@@ -199,6 +203,7 @@ function drawParticipationRibbons(
         .attr("opacity", config.presentation.participation.opacity)
         .attr("data-activity-id", from.activityId)
         .attr("data-individual-id", from.individualId)
+        .attr("data-participation-key", from.participationKey)
         .attr("data-upper-row-id", upper.rowId)
         .attr("data-lower-row-id", lower.rowId)
         .attr("data-upper-top", upperTop)
@@ -218,7 +223,10 @@ function drawParticipationRibbons(
         .attr("stroke-dasharray", "6 3")
         .attr("stroke-width", config.presentation.participation.strokeWidth)
         .attr("opacity", config.presentation.participation.opacity)
-        .attr("pointer-events", "none");
+        .attr("data-activity-id", from.activityId)
+        .attr("data-individual-id", from.individualId)
+        .attr("data-participation-key", from.participationKey)
+        .attr("pointer-events", "visibleStroke");
     }
   });
 }
@@ -264,30 +272,83 @@ function buildParticipationTransitions(groups: Map<string, any[]>) {
 }
 
 function hoverParticipations(ctx: DrawContext) {
-  const { config, svgElement, tooltip } = ctx;
+  const { config, svgElement, tooltip, activities } = ctx;
+  const getTooltipParticipation = (currentElement: Element | null, datum: any) => {
+    if (datum?.participation) {
+      return datum;
+    }
+
+    const activityId = currentElement?.getAttribute("data-activity-id");
+    const participationKey = currentElement?.getAttribute("data-participation-key");
+    if (!activityId || !participationKey) {
+      return undefined;
+    }
+
+    const activity = activities.find((candidate) => candidate.id === activityId);
+    const participation = activity?.participations.get(participationKey);
+    if (!participation) {
+      return undefined;
+    }
+
+    return { activity, participation, participationKey };
+  };
+
+  const setParticipationHoverState = (
+    activityId: string,
+    participationKey: string,
+    hovered: boolean
+  ) => {
+    const opacity = hovered
+      ? config.presentation.participation.opacityHover
+      : config.presentation.participation.opacity;
+
+    svgElement
+      .selectAll(`.participation[data-activity-id="${activityId}"][data-participation-key="${participationKey}"]`)
+      .attr("opacity", opacity);
+
+    svgElement
+      .selectAll(`.participationRibbon[data-activity-id="${activityId}"][data-participation-key="${participationKey}"]`)
+      .attr("opacity", opacity);
+
+    svgElement
+      .selectAll(`.participationRibbonEdge[data-activity-id="${activityId}"][data-participation-key="${participationKey}"]`)
+      .attr("opacity", opacity);
+  };
+
   svgElement
-    .selectAll(".participation")
+    .selectAll(".participation, .participationRibbon, .participationRibbonEdge")
     .on("mouseover", function (event: MouseEvent) {
       mouseOverElement = event.target as HTMLElement;
-      mouseOverElement.style.opacity =
-        config.presentation.participation.opacityHover;
+      const currentElement = event.currentTarget as Element | null;
+      const activityId = currentElement?.getAttribute("data-activity-id");
+      const participationKey = currentElement?.getAttribute("data-participation-key");
+      if (activityId && participationKey) {
+        setParticipationHoverState(activityId, participationKey, true);
+      }
       tooltip.style("display", "block");
     })
     .on("mouseout", function (event: MouseEvent) {
       if (mouseOverElement) {
-        mouseOverElement.style.opacity = "";
+        const currentElement = event.currentTarget as Element | null;
+        const activityId = currentElement?.getAttribute("data-activity-id");
+        const participationKey = currentElement?.getAttribute("data-participation-key");
+        if (activityId && participationKey) {
+          setParticipationHoverState(activityId, participationKey, false);
+        }
         mouseOverElement = null;
       }
       tooltip.style("display", "none");
     })
     .on("mousemove", function (event: MouseEvent, d: any) {
-      tooltip.html(participationTooltip(d));
+      const currentElement = event.currentTarget as Element | null;
+      tooltip.html(participationTooltip(getTooltipParticipation(currentElement, d)));
       if (event.pageX < window.innerWidth / 2) {
         tooltip
           .style("top", event.pageY + 20 + "px")
           .style("left", event.pageX + "px");
       } else {
-        const ttWidth = tooltip?.node().getBoundingClientRect().width;
+        const tooltipNode = tooltip?.node();
+        const ttWidth = tooltipNode ? tooltipNode.getBoundingClientRect().width : 0;
         tooltip
           .style("top", event.pageY + 20 + "px")
           .style("left", event.pageX - ttWidth + "px");
@@ -305,7 +366,7 @@ export function clickParticipations(
   activities.forEach((a) => {
     a.participations.forEach((p, mapKey) => {
       svgElement
-        .selectAll(`.participation[data-activity-id="${a.id}"][data-participation-key="${mapKey}"]`)
+        .selectAll(`.participation[data-activity-id="${a.id}"][data-participation-key="${mapKey}"], .participationRibbon[data-activity-id="${a.id}"][data-participation-key="${mapKey}"], .participationRibbonEdge[data-activity-id="${a.id}"][data-participation-key="${mapKey}"]`)
         .on("click", function (event: MouseEvent) {
           clickParticipation(a, p);
         })
@@ -319,7 +380,7 @@ export function clickParticipations(
 
 function participationTooltip(part: any) {
   let tip = "<strong>Participant</strong>";
-  if (part.participation.role)
+  if (part?.participation?.role)
     tip += "<br/> Role: " + part.participation.role.name;
   return tip;
 }

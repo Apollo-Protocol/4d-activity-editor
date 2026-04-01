@@ -45,6 +45,7 @@ type ParticipationOption = {
   label: string;
   group: "System" | "System Component" | "Individual";
   systemComponentId?: string;
+  installationPeriodId?: string;
 };
 
 const SetActivity = (props: Props) => {
@@ -267,7 +268,11 @@ const SetActivity = (props: Props) => {
     const selectedParticipants: ParticipationOption[] = Array.isArray(e) ? e : [];
     selectedParticipants.forEach((entry) => {
       const i = entry.individual;
-      const mapKey = participationMapKey(i.id, entry.systemComponentId);
+      const mapKey = participationMapKey(
+        i.id,
+        entry.systemComponentId,
+        entry.installationPeriodId
+      );
       const previousParticipation = inputs.participations.get(mapKey);
       let participation: Participation = {
         individualId: i.id,
@@ -275,6 +280,7 @@ const SetActivity = (props: Props) => {
         beginning: previousParticipation?.beginning,
         ending: previousParticipation?.ending,
         systemComponentId: entry.systemComponentId,
+        installationPeriodId: entry.installationPeriodId,
       };
       participations.set(mapKey, participation);
     });
@@ -413,44 +419,32 @@ const SetActivity = (props: Props) => {
       if (window.isInstalledInComponent && window.installedTarget) {
         const outsideEligible = participantIsEligibleForMode(individual, "outside");
 
-        // Generate one option per system component installation
-        const componentGroups = new Map<string, { component: Individual; periods: typeof window.periods }>();
+        // Generate one option per installation period so repeated installs in the
+        // same component can participate independently.
         window.periods.forEach((period) => {
           const component = dataset.individuals.get(period.systemComponentId);
           if (
             !component ||
             getEntityTypeIdFromIndividual(component) !== ENTITY_TYPE_IDS.SYSTEM_COMPONENT
           ) return;
-          const existing = componentGroups.get(component.id);
-          if (existing) {
-            existing.periods.push(period);
-          } else {
-            componentGroups.set(component.id, { component, periods: [period] });
-          }
-        });
 
-        componentGroups.forEach(({ component, periods: compPeriods }, componentId) => {
-          const mapKey = participationMapKey(individual.id, componentId);
+          const mapKey = participationMapKey(individual.id, component.id, period.id);
           const isSelected = selectedParticipationKeys.has(mapKey);
 
           // Installed participation is only valid when the activity is fully
-          // contained within at least one installation period for the component.
-          const periodEligible = compPeriods.some(
-            (period) =>
-              inputs.beginning >= period.beginning && inputs.ending <= period.ending
-          );
+          // contained within this installation period.
+          const periodEligible =
+            inputs.beginning >= period.beginning && inputs.ending <= period.ending;
 
           if (periodEligible || isSelected) {
-            const rangeLabels = compPeriods.map(
-              (p) => `${p.beginning}-${p.ending >= Model.END_OF_TIME ? "∞" : p.ending}`
-            );
             options.push({
-              optionKey: `${individual.id}::${componentId}::installed`,
+              optionKey: `${individual.id}::${component.id}::${period.id}::installed`,
               individual,
               mode: "installed",
-              label: `${individual.name} [installed in ${component.name} (${rangeLabels.join(", ")})]`,
+              label: `${individual.name} [installed in ${component.name} (${period.beginning}-${period.ending >= Model.END_OF_TIME ? "∞" : period.ending})]`,
               group: "Individual",
-              systemComponentId: componentId,
+              systemComponentId: component.id,
+              installationPeriodId: period.id,
             });
           }
         });
@@ -527,9 +521,18 @@ const SetActivity = (props: Props) => {
         const participation = inputs.participations.get(key);
         if (!participation) return undefined;
         // Find matching option by composite key
-        const mapKey = participationMapKey(participation.individualId, participation.systemComponentId);
+        const mapKey = participationMapKey(
+          participation.individualId,
+          participation.systemComponentId,
+          participation.installationPeriodId
+        );
         const matching = participantOptions.filter(
-          (option) => participationMapKey(option.individual.id, option.systemComponentId) === mapKey
+          (option) =>
+            participationMapKey(
+              option.individual.id,
+              option.systemComponentId,
+              option.installationPeriodId
+            ) === mapKey
         );
         if (matching.length === 0) {
           // Fallback: try to find by individual id alone

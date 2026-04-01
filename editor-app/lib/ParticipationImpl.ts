@@ -10,12 +10,14 @@ export class ParticipationImpl implements Participation {
   beginning?: number;
   ending?: number;
   systemComponentId?: string;
+  installationPeriodId?: string;
 
-  constructor(individualId: string, role: Kind, beginning?: number, ending?: number, systemComponentId?: string) {
+  constructor(individualId: string, role: Kind, beginning?: number, ending?: number, systemComponentId?: string, installationPeriodId?: string) {
     this.individualId = individualId;
     this.role = role;
     this.beginning = beginning;
     this.ending = ending;
     this.systemComponentId = systemComponentId;
+    this.installationPeriodId = installationPeriodId;
   }
 }

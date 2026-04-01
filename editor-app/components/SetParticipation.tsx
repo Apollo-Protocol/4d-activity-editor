@@ -102,7 +102,11 @@ const SetParticipation = (props: Props) => {
       selectedParticipation.individualId
     ) {
       let localActivity: Activity = { ...selectedActivity };
-      const key = participationMapKey(selectedParticipation.individualId, selectedParticipation.systemComponentId);
+      const key = participationMapKey(
+        selectedParticipation.individualId,
+        selectedParticipation.systemComponentId,
+        selectedParticipation.installationPeriodId
+      );
       localActivity.participations.set(
         key,
         selectedParticipation

@@ -106,6 +106,8 @@ type AffectedActivity = {
   participationKey?: string;
   systemName?: string;
   systemComponentName?: string;
+  installationBeginning?: number;
+  installationEnding?: number;
   fromBeginning: number;
   fromEnding: number;
   toBeginning?: number;
@@ -113,9 +115,7 @@ type AffectedActivity = {
   action: "trim" | "drop";
   activityOutcomeText?: string;
   deleteChoice?: "required" | "optional";
-  keepStrategy?: "return-to-individual" | "move-to-parent-system";
-  keepTargetIndividualId?: string;
-  keepTargetIndividualName?: string;
+  keepStrategy?: "return-to-individual";
   /** When true, this participation should be silently removed without user confirmation
    *  (the same individual still has another participation in the same activity). */
   autoRemove?: boolean;
@@ -289,6 +289,66 @@ const SetIndividual = (props: Props) => {
     return originalKey;
   };
 
+  const getAffectedActivityParticipantLabel = (aa: AffectedActivity): string => {
+    const individual = dataset.individuals.get(aa.individualId);
+    let timelineStart = individual?.beginning ?? aa.fromBeginning;
+    let timelineEnd = individual?.ending ?? aa.fromEnding;
+    const componentName = aa.systemComponentName;
+
+    if (
+      componentName &&
+      aa.installationBeginning !== undefined &&
+      aa.installationEnding !== undefined
+    ) {
+      return `${aa.individualName} [installed in ${componentName} (${formatBound(
+        aa.installationBeginning,
+        true
+      )}-${formatBound(aa.installationEnding, false)})]`;
+    }
+
+    const activity = dataset.activities.get(aa.activityId);
+    if (activity) {
+      const participationKey = resolveCurrentAffectedParticipationKey(activity, aa);
+      const participation = activity.participations.get(participationKey);
+
+      if (participation?.systemComponentId) {
+        const component = dataset.individuals.get(participation.systemComponentId);
+        const componentName =
+          component?.name || aa.systemComponentName || participation.systemComponentId;
+
+        const installationPeriod =
+          individual?.installations?.find(
+            (period) =>
+              period.id === participation.installationPeriodId &&
+              period.systemComponentId === participation.systemComponentId
+          ) ||
+          individual?.installations?.find((period) => {
+            if (period.systemComponentId !== participation.systemComponentId) {
+              return false;
+            }
+            const pStart = participation.beginning ?? aa.fromBeginning;
+            const pEnd = participation.ending ?? aa.fromEnding;
+            return pStart >= period.beginning && pEnd <= period.ending;
+          });
+
+        if (installationPeriod) {
+          timelineStart = installationPeriod.beginning;
+          timelineEnd = installationPeriod.ending;
+        }
+
+        return `${aa.individualName} [installed in ${componentName} (${formatBound(
+          timelineStart,
+          true
+        )}-${formatBound(timelineEnd, false)})]`;
+      }
+    }
+
+    return `${aa.individualName} (${formatBound(timelineStart, true)}-${formatBound(
+      timelineEnd,
+      false
+    )})`;
+  };
+
   /**
    * Find activities that have participations with a given individual whose
    * activity bounds exceed the individual's new bounds AND the situation is
@@ -439,6 +499,8 @@ const SetIndividual = (props: Props) => {
             participationKey: pKey,
             systemName: previousSystem?.name,
             systemComponentName: previousComponent?.name,
+            installationBeginning: oldActiveInstallation.beginning,
+            installationEnding: oldActiveInstallation.ending,
             fromBeginning: participation?.beginning ?? activity.beginning,
             fromEnding: participation?.ending ?? activity.ending,
             action: "drop",
@@ -459,6 +521,8 @@ const SetIndividual = (props: Props) => {
           participationKey: pKey,
           systemName: nextSystem?.name ?? previousSystem?.name,
           systemComponentName: nextComponent?.name ?? previousComponent?.name,
+          installationBeginning: oldActiveInstallation.beginning,
+          installationEnding: oldActiveInstallation.ending,
           fromBeginning: participation?.beginning ?? activity.beginning,
           fromEnding: participation?.ending ?? activity.ending,
           toBeginning: bestOverlap.overlapBeginning,
@@ -867,13 +931,6 @@ const SetIndividual = (props: Props) => {
   const buildDeleteCascadeWarning = (individual: Individual): CascadeWarning => {
     const cascade = dataset.getIndividualRemovalCascade(individual.id);
     const deletedIds = new Set(cascade.deletedIndividualIds);
-    const isDeletingSystemComponent =
-      getEntityTypeIdFromIndividual(individual) === ENTITY_TYPE_IDS.SYSTEM_COMPONENT;
-    const parentSystem = individual.installedIn
-      ? dataset.individuals.get(individual.installedIn)
-      : undefined;
-    const canMoveActivitiesToParentSystem =
-      isDeletingSystemComponent && !!parentSystem && !deletedIds.has(parentSystem.id);
 
     const affectedComponents: AffectedComponent[] = cascade.deletedIndividualIds
       .filter((id) => id !== individual.id)
@@ -932,7 +989,6 @@ const SetIndividual = (props: Props) => {
     });
 
     const requiredActivities: AffectedActivity[] = [];
-    const optionalTransferActivities: AffectedActivity[] = [];
 
     cascade.removedParticipations.forEach((removed) => {
       const activity = dataset.activities.get(removed.activityId);
@@ -958,17 +1014,6 @@ const SetIndividual = (props: Props) => {
         action: "drop",
       };
 
-      if (canMoveActivitiesToParentSystem && removed.individualId === individual.id) {
-        optionalTransferActivities.push({
-          ...baseActivity,
-          deleteChoice: "optional",
-          keepStrategy: "move-to-parent-system",
-          keepTargetIndividualId: parentSystem?.id,
-          keepTargetIndividualName: parentSystem?.name,
-        });
-        return;
-      }
-
       requiredActivities.push({
         ...baseActivity,
         deleteChoice: "required",
@@ -977,31 +1022,6 @@ const SetIndividual = (props: Props) => {
 
     cascade.removedActivityIds.forEach((activityId) => {
       const activity = dataset.activities.get(activityId);
-      const onlyParticipation = activity?.participations.size === 1
-        ? Array.from(activity.participations.entries())[0]
-        : undefined;
-
-      if (
-        canMoveActivitiesToParentSystem &&
-        onlyParticipation &&
-        onlyParticipation[1].individualId === individual.id
-      ) {
-        optionalTransferActivities.push({
-          activityId,
-          activityName: activity?.name || activityId,
-          individualId: individual.id,
-          individualName: individual.name,
-          participationKey: onlyParticipation[0],
-          fromBeginning: onlyParticipation[1].beginning ?? activity?.beginning ?? 0,
-          fromEnding: onlyParticipation[1].ending ?? activity?.ending ?? Model.END_OF_TIME,
-          action: "drop",
-          deleteChoice: "optional",
-          keepStrategy: "move-to-parent-system",
-          keepTargetIndividualId: parentSystem?.id,
-          keepTargetIndividualName: parentSystem?.name,
-        });
-        return;
-      }
 
       requiredActivities.push({
         activityId,
@@ -1055,7 +1075,6 @@ const SetIndividual = (props: Props) => {
 
     const affectedActivities: AffectedActivity[] = [
       ...requiredActivities,
-      ...optionalTransferActivities,
       ...Array.from(optionalByKey.values()),
     ];
 
@@ -2275,43 +2294,7 @@ const SetIndividual = (props: Props) => {
     );
 
     updateDataset((d: Model) => {
-      const originalActivities = new Map(dataset.activities);
       d.removeIndividual(cascadeWarning.pendingIndividual.id);
-
-      keptOptionalActivities.forEach((affectedActivity) => {
-        if (
-          affectedActivity.keepStrategy !== "move-to-parent-system" ||
-          !affectedActivity.keepTargetIndividualId
-        ) {
-          return;
-        }
-
-        const originalActivity = originalActivities.get(affectedActivity.activityId);
-        if (!originalActivity) {
-          return;
-        }
-
-        const originalKey = affectedActivity.participationKey ?? affectedActivity.individualId;
-        const originalParticipation = originalActivity.participations.get(originalKey);
-        if (!originalParticipation) {
-          return;
-        }
-
-        const nextParticipations = new Map(
-          d.activities.get(affectedActivity.activityId)?.participations ?? originalActivity.participations
-        );
-        nextParticipations.delete(originalKey);
-        nextParticipations.set(affectedActivity.keepTargetIndividualId, {
-          ...originalParticipation,
-          individualId: affectedActivity.keepTargetIndividualId,
-          systemComponentId: undefined,
-        });
-
-        d.addActivity(d.normalizeActivityParticipations({
-          ...(d.activities.get(affectedActivity.activityId) ?? originalActivity),
-          participations: nextParticipations,
-        }));
-      });
 
       if (pendingActivityAction === "remove" && selectedOptionalActivities.length > 0) {
         const affectedActivityIds = new Set<string>();
@@ -3280,26 +3263,29 @@ const SetIndividual = (props: Props) => {
           </p>
           {pendingBoundsChanges.length > 0 && (
             <div className="mb-3">
-              <div className="fw-semibold mb-2">Installation Periods</div>
-              <div style={{ maxHeight: "220px", overflowY: "auto" }}>
+              <div className="cascade-section-title">Installation Periods</div>
+              <div className="cascade-badges-wrap" style={{ maxHeight: "220px", overflowY: "auto" }}>
                 {[...pendingBoundsChanges].sort((a, b) => a.fromBeginning - b.fromBeginning).map((change) => (
-                  <div key={change.periodId} className="mb-1 small">
-                    <span className="fw-semibold">{change.systemComponentName}</span>
-                    {change.parentSystemName ? ` (in ${change.parentSystemName})` : ""}
-                    {": "}
+                  <span
+                    key={change.periodId}
+                    className={`cascade-badge ${change.action === "trim" ? "cascade-badge-trim" : "cascade-badge-remove"}`}
+                  >
+                    {change.systemComponentName}
+                    {" ("}
                     {formatBound(change.fromBeginning, true)}-{formatBound(change.fromEnding, false)}
                     {change.action === "trim"
-                      ? ` → ${formatBound(change.toBeginning ?? change.fromBeginning, true)}-${formatBound(change.toEnding ?? change.fromEnding, false)} (trimmed)`
-                      : " → removed (no overlap)"}
-                  </div>
+                      ? ` → ${formatBound(change.toBeginning ?? change.fromBeginning, true)}-${formatBound(change.toEnding ?? change.fromEnding, false)}`
+                      : ""}
+                    {")"}
+                  </span>
                 ))}
               </div>
             </div>
           )}
           {pendingAffectedActivities.length > 0 && (
             <div className="mb-3">
-              <div className="fw-semibold mb-2">Activities</div>
-              <Form.Group className="mb-2" controlId="boundsActivitiesAction">
+              <div className="cascade-section-title">Participation In Activities</div>
+              <Form.Group className="mb-2 cascade-activity-handling" controlId="boundsActivitiesAction">
                 <Form.Label className="small text-muted mb-1">
                   Activity handling
                 </Form.Label>
@@ -3355,56 +3341,98 @@ const SetIndividual = (props: Props) => {
                   </div>
                 </div>
               )}
-              <div style={{ maxHeight: "180px", overflowY: "auto" }}>
-                {[...pendingAffectedActivities].sort((a, b) => a.fromBeginning - b.fromBeginning).map((aa) => (
-                  <div key={`${aa.activityId}:${aa.participationKey ?? aa.individualId}`} className="mb-1 small">
-                    {pendingActivityAction === "remove" && (
-                      <Form.Check
-                        inline
-                        className="me-2"
-                        checked={selectedAffectedActivityKeys.has(getAffectedActivitySelectionKey(aa))}
-                        onChange={(event) => {
-                          const key = getAffectedActivitySelectionKey(aa);
-                          setSelectedAffectedActivityKeys((previous) => {
-                            const next = new Set(previous);
-                            if (event.target.checked) next.add(key);
-                            else next.delete(key);
-                            return next;
-                          });
-                        }}
-                      />
-                    )}
-                    <span className="fw-semibold">{aa.activityName}</span>
-                    <span className="text-muted">
-                      {" (Participant: "}
-                      {aa.systemName ? `${aa.systemName} → ` : ""}
-                      {aa.systemComponentName ? `${aa.systemComponentName} → ` : ""}
-                      {aa.individualName}
-                      {")"}
-                    </span>
-                    {": "}
-                    {formatBound(aa.fromBeginning, true)}-{formatBound(aa.fromEnding, false)}
-                    {pendingActivityAction === "remove" ? (
-                      <>
-                        {aa.action === "trim"
-                          ? ` → ${formatBound(aa.toBeginning ?? aa.fromBeginning, true)}-${formatBound(aa.toEnding ?? aa.fromEnding, false)} (would be trimmed)`
-                          : " → would be removed (no overlap)"}
-                        {aa.activityOutcomeText && (
-                          <span className="text-danger">{` — ${aa.activityOutcomeText}`}</span>
-                        )}
-                      </>
-                    ) : (
-                      <span className="text-success">
-                        {" → kept (returns to individual timeline outside installation periods)"}
-                      </span>
-                    )}
-                  </div>
-                ))}
+              <div style={{ maxHeight: "260px", overflowY: "auto" }}>
+                {(() => {
+                  // Group affected activities by activityId
+                  const grouped = new Map<string, { activityName: string; fromBeginning: number; fromEnding: number; entries: AffectedActivity[] }>();
+                  [...pendingAffectedActivities]
+                    .sort((a, b) => a.fromBeginning - b.fromBeginning)
+                    .forEach((aa) => {
+                      const existing = grouped.get(aa.activityId);
+                      if (existing) {
+                        existing.entries.push(aa);
+                      } else {
+                        grouped.set(aa.activityId, {
+                          activityName: aa.activityName,
+                          fromBeginning: aa.fromBeginning,
+                          fromEnding: aa.fromEnding,
+                          entries: [aa],
+                        });
+                      }
+                    });
+                  return Array.from(grouped.entries()).map(([activityId, group]) => (
+                    <div key={activityId} className="cascade-activity-row">
+                      <div className="cascade-activity-line">
+                        <div className="cascade-activity-header">
+                          {group.activityName} ({formatBound(group.fromBeginning, true)}-{formatBound(group.fromEnding, false)}):
+                        </div>
+                        <div className="cascade-badges-wrap">
+                        {group.entries.map((aa) => {
+                          const selectionKey = getAffectedActivitySelectionKey(aa);
+                          const isSelectedForRemoval =
+                            pendingActivityAction === "remove" &&
+                            selectedAffectedActivityKeys.has(selectionKey);
+                          const isSelectable = pendingActivityAction === "remove";
+
+                          let badgeClass: string;
+                          if (isSelectedForRemoval) {
+                            badgeClass = "cascade-badge-remove";
+                          } else if (aa.action === "drop") {
+                            badgeClass = "cascade-badge-detached";
+                          } else if (aa.action === "trim" && pendingActivityAction === "remove") {
+                            badgeClass = "cascade-badge-trim";
+                          } else {
+                            badgeClass = "cascade-badge-keep";
+                          }
+
+                          const participantLabel = getAffectedActivityParticipantLabel(aa);
+
+                          return (
+                            <div key={`${aa.activityId}:${aa.participationKey ?? aa.individualId}`} className="cascade-badge-row">
+                              {isSelectable && (
+                                <Form.Check
+                                  checked={isSelectedForRemoval}
+                                  onChange={(event) => {
+                                    setSelectedAffectedActivityKeys((prev) => {
+                                      const next = new Set(prev);
+                                      if (event.target.checked) next.add(selectionKey);
+                                      else next.delete(selectionKey);
+                                      return next;
+                                    });
+                                  }}
+                                />
+                              )}
+                              <span className={`cascade-badge ${badgeClass}`}>
+                                {participantLabel}
+                              </span>
+                            </div>
+                          );
+                        })}
+                        </div>
+                      </div>
+                    </div>
+                  ));
+                })()}
               </div>
             </div>
           )}
         </Modal.Body>
         <Modal.Footer>
+          {pendingAffectedActivities.length > 0 && (
+            <div className="cascade-footer-info">
+              <div className="cascade-legend mb-0">
+                <span className="cascade-legend-item">
+                  <span className="cascade-legend-swatch cascade-legend-swatch-remove" /> Removed
+                </span>
+                <span className="cascade-legend-item">
+                  <span className="cascade-legend-swatch cascade-legend-swatch-trim" /> Trimmed
+                </span>
+                <span className="cascade-legend-item">
+                  <span className="cascade-legend-swatch cascade-legend-swatch-keep" /> Removed due to no overlap, participation will return to parent entity
+                </span>
+              </div>
+            </div>
+          )}
           <Button
             variant="secondary"
             onClick={() => {
@@ -3471,17 +3499,19 @@ const SetIndividual = (props: Props) => {
 
           {cascadeWarning && cascadeWarning.affectedComponents.length > 0 && (
             <div className="mb-3">
-              <div className="fw-semibold mb-2">System Components</div>
-              <div style={{ maxHeight: "180px", overflowY: "auto" }}>
+              <div className="cascade-section-title">System Components</div>
+              <div className="cascade-badges-wrap" style={{ maxHeight: "180px", overflowY: "auto" }}>
                 {[...cascadeWarning.affectedComponents].sort((a, b) => a.fromBeginning - b.fromBeginning).map((ac) => (
-                  <div key={ac.id} className="mb-1 small">
-                    <span className="fw-semibold">{ac.name}</span>
-                    {": "}
-                    {formatBound(ac.fromBeginning, true)}-{formatBound(ac.fromEnding, false)}
+                  <span
+                    key={ac.id}
+                    className={`cascade-badge ${ac.action === "trim" ? "cascade-badge-trim" : "cascade-badge-remove"}`}
+                  >
+                    {ac.name} ({formatBound(ac.fromBeginning, true)}-{formatBound(ac.fromEnding, false)}
                     {ac.action === "trim"
-                      ? ` → ${formatBound(ac.toBeginning ?? ac.fromBeginning, true)}-${formatBound(ac.toEnding ?? ac.fromEnding, false)} (would be trimmed)`
-                      : " → would be removed (no overlap)"}
-                  </div>
+                      ? ` → ${formatBound(ac.toBeginning ?? ac.fromBeginning, true)}-${formatBound(ac.toEnding ?? ac.fromEnding, false)}`
+                      : ""}
+                    )
+                  </span>
                 ))}
               </div>
             </div>
@@ -3489,19 +3519,17 @@ const SetIndividual = (props: Props) => {
 
           {cascadeWarning && cascadeWarning.affectedComponentOfSystems.length > 0 && (
             <div className="mb-3">
-              <div className="fw-semibold mb-2">Component Of System</div>
-              <div style={{ maxHeight: "180px", overflowY: "auto" }}>
+              <div className="cascade-section-title">Component Of System</div>
+              <div className="cascade-badges-wrap" style={{ maxHeight: "180px", overflowY: "auto" }}>
                 {[...cascadeWarning.affectedComponentOfSystems]
                   .sort((a, b) => a.fromBeginning - b.fromBeginning)
                   .map((item) => (
-                    <div key={`${item.componentId}:${item.systemId}:${item.fromBeginning}:${item.fromEnding}`} className="mb-1 small">
-                      <span className="fw-semibold">{item.componentName}</span>
-                      {" in "}
-                      <span className="fw-semibold">{item.systemName}</span>
-                      {": "}
-                      {formatBound(item.fromBeginning, true)}-{formatBound(item.fromEnding, false)}
-                      {" → would be removed"}
-                    </div>
+                    <span
+                      key={`${item.componentId}:${item.systemId}:${item.fromBeginning}:${item.fromEnding}`}
+                      className="cascade-badge cascade-badge-remove"
+                    >
+                      {item.componentName} [component of {item.systemName} ({formatBound(item.fromBeginning, true)}-{formatBound(item.fromEnding, false)})]
+                    </span>
                   ))}
               </div>
             </div>
@@ -3509,19 +3537,19 @@ const SetIndividual = (props: Props) => {
 
           {cascadeWarning && cascadeWarning.affectedInstallations.length > 0 && (
             <div className="mb-3">
-              <div className="fw-semibold mb-2">Installation Periods</div>
-              <div style={{ maxHeight: "220px", overflowY: "auto" }}>
+              <div className="cascade-section-title">Installation Periods</div>
+              <div className="cascade-badges-wrap" style={{ maxHeight: "220px", overflowY: "auto" }}>
                 {[...cascadeWarning.affectedInstallations].sort((a, b) => a.fromBeginning - b.fromBeginning).map((ai) => (
-                  <div key={ai.periodId} className="mb-1 small">
-                    <span className="fw-semibold">{ai.individualName}</span>
-                    {" installed in "}
-                    <span className="fw-semibold">{ai.systemComponentName}</span>
-                    {": "}
-                    {formatBound(ai.fromBeginning, true)}-{formatBound(ai.fromEnding, false)}
+                  <span
+                    key={ai.periodId}
+                    className={`cascade-badge ${ai.action === "trim" ? "cascade-badge-trim" : "cascade-badge-remove"}`}
+                  >
+                    {ai.individualName} [installed in {ai.systemComponentName} ({formatBound(ai.fromBeginning, true)}-{formatBound(ai.fromEnding, false)}
                     {ai.action === "trim"
-                      ? ` → ${formatBound(ai.toBeginning ?? ai.fromBeginning, true)}-${formatBound(ai.toEnding ?? ai.fromEnding, false)} (would be trimmed)`
-                      : " → would be removed (no overlap)"}
-                  </div>
+                      ? ` → ${formatBound(ai.toBeginning ?? ai.fromBeginning, true)}-${formatBound(ai.toEnding ?? ai.fromEnding, false)}`
+                      : ""}
+                    )]
+                  </span>
                 ))}
               </div>
             </div>
@@ -3529,10 +3557,10 @@ const SetIndividual = (props: Props) => {
 
           {cascadeWarning && cascadeWarning.affectedActivities.length > 0 && (
             <div className="mb-3">
-              <div className="fw-semibold mb-2">Activities</div>
+              <div className="cascade-section-title">Participation In Activities</div>
               {cascadeHasOptionalActivities && (
                 <>
-                  <Form.Group className="mb-2" controlId="cascadeActivitiesAction">
+                  <Form.Group className="mb-2 cascade-activity-handling" controlId="cascadeActivitiesAction">
                     <Form.Label className="small text-muted mb-1">
                       Activity handling
                     </Form.Label>
@@ -3590,55 +3618,115 @@ const SetIndividual = (props: Props) => {
                   )}
                 </>
               )}
-              <div style={{ maxHeight: "180px", overflowY: "auto" }}>
-                {[...cascadeWarning.affectedActivities].sort((a, b) => a.fromBeginning - b.fromBeginning).map((aa) => (
-                  <div key={`${aa.activityId}:${aa.participationKey ?? aa.individualId}:${aa.fromBeginning}:${aa.fromEnding}`} className="mb-1 small">
-                    {cascadeHasOptionalActivities && aa.deleteChoice === "optional" && pendingActivityAction === "remove" && (
-                      <Form.Check
-                        inline
-                        className="me-2"
-                        checked={selectedAffectedActivityKeys.has(getAffectedActivitySelectionKey(aa))}
-                        onChange={(event) => {
-                          const key = getAffectedActivitySelectionKey(aa);
-                          setSelectedAffectedActivityKeys((previous) => {
-                            const next = new Set(previous);
-                            if (event.target.checked) next.add(key);
-                            else next.delete(key);
-                            return next;
-                          });
-                        }}
-                      />
-                    )}
-                    <span className="fw-semibold">{aa.activityName}</span>
-                    <span className="text-muted">
-                      {" (Participant: "}
-                      {aa.systemName ? `${aa.systemName} → ` : ""}
-                      {aa.systemComponentName ? `${aa.systemComponentName} → ` : ""}
-                      {aa.individualName}
-                      {")"}
-                    </span>
-                    {": "}
-                    {formatBound(aa.fromBeginning, true)}-{formatBound(aa.fromEnding, false)}
-                    {aa.deleteChoice === "optional" &&
-                    (pendingActivityAction !== "remove" || !isOptionalDeleteActivitySelected(aa))
-                      ? aa.keepStrategy === "move-to-parent-system"
-                        ? ` → kept (moves to ${aa.keepTargetIndividualName ?? "parent system"})`
-                        : " → kept (returns to individual timeline outside installation periods)"
-                      : aa.action === "trim"
-                      ? ` → ${formatBound(aa.toBeginning ?? aa.fromBeginning, true)}-${formatBound(aa.toEnding ?? aa.fromEnding, false)} (would be trimmed)`
-                      : " → would be removed (no overlap)"}
-                    {aa.activityOutcomeText &&
-                      (aa.deleteChoice !== "optional" ||
-                        (pendingActivityAction === "remove" && isOptionalDeleteActivitySelected(aa))) && (
-                      <span className="text-danger">{` — ${aa.activityOutcomeText}`}</span>
-                    )}
-                  </div>
-                ))}
+              <div style={{ maxHeight: "260px", overflowY: "auto" }}>
+                {(() => {
+                  // Group affected activities by activityId
+                  const grouped = new Map<string, { activityName: string; fromBeginning: number; fromEnding: number; entries: AffectedActivity[] }>();
+                  [...cascadeWarning.affectedActivities]
+                    .sort((a, b) => a.fromBeginning - b.fromBeginning)
+                    .forEach((aa) => {
+                      const existing = grouped.get(aa.activityId);
+                      if (existing) {
+                        existing.entries.push(aa);
+                      } else {
+                        grouped.set(aa.activityId, {
+                          activityName: aa.activityName,
+                          fromBeginning: aa.fromBeginning,
+                          fromEnding: aa.fromEnding,
+                          entries: [aa],
+                        });
+                      }
+                    });
+                  return Array.from(grouped.entries()).map(([activityId, group]) => {
+                    // Determine whether all entries for this activity are required-drop (entire activity removed)
+                    const allRequiredDrop = group.entries.every(
+                      (e) => e.deleteChoice === "required" && e.action === "drop" && e.activityOutcomeText
+                    );
+                    return (
+                      <div key={activityId} className="cascade-activity-row">
+                        <div className="cascade-activity-line">
+                          <div className="cascade-activity-header">
+                            {group.activityName} ({formatBound(group.fromBeginning, true)}-{formatBound(group.fromEnding, false)}):
+                            {allRequiredDrop && (
+                              <span className="text-danger small ms-2">— activity removed (no participants remain)</span>
+                            )}
+                          </div>
+                          <div className="cascade-badges-wrap">
+                          {group.entries.map((aa) => {
+                            const selectionKey = getAffectedActivitySelectionKey(aa);
+                            const isKept =
+                              aa.deleteChoice === "optional" &&
+                              (pendingActivityAction !== "remove" || !selectedAffectedActivityKeys.has(selectionKey));
+                            const isSelectedForRemoval =
+                              aa.deleteChoice === "optional" &&
+                              pendingActivityAction === "remove" &&
+                              selectedAffectedActivityKeys.has(selectionKey);
+                            const isSelectableForRemoval =
+                              aa.deleteChoice === "optional" && pendingActivityAction === "remove";
+
+                            let badgeClass: string;
+                            if (aa.deleteChoice === "required") {
+                              badgeClass = aa.action === "trim" ? "cascade-badge-trim" : "cascade-badge-remove";
+                            } else if (isSelectedForRemoval) {
+                              badgeClass = "cascade-badge-remove";
+                            } else if (isKept && aa.action === "drop") {
+                              badgeClass = "cascade-badge-detached";
+                            } else if (isKept) {
+                              badgeClass = "cascade-badge-keep";
+                            } else {
+                              badgeClass = "cascade-badge-keep";
+                            }
+
+                            // Build the label
+                            const participantLabel = getAffectedActivityParticipantLabel(aa);
+
+                            return (
+                              <div key={`${aa.activityId}:${aa.participationKey ?? aa.individualId}`} className="cascade-badge-row">
+                                {isSelectableForRemoval && (
+                                  <Form.Check
+                                    checked={isSelectedForRemoval}
+                                    onChange={(event) => {
+                                      setSelectedAffectedActivityKeys((prev) => {
+                                        const next = new Set(prev);
+                                        if (event.target.checked) next.add(selectionKey);
+                                        else next.delete(selectionKey);
+                                        return next;
+                                      });
+                                    }}
+                                  />
+                                )}
+                                <span className={`cascade-badge ${badgeClass}`}>
+                                  {participantLabel}
+                                </span>
+                              </div>
+                            );
+                          })}
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  });
+                })()}
               </div>
             </div>
           )}
         </Modal.Body>
         <Modal.Footer>
+          {cascadeWarning?.affectedActivities.length ? (
+            <div className="cascade-footer-info">
+              <div className="cascade-legend mb-0">
+                <span className="cascade-legend-item">
+                  <span className="cascade-legend-swatch cascade-legend-swatch-remove" /> Removed
+                </span>
+                <span className="cascade-legend-item">
+                  <span className="cascade-legend-swatch cascade-legend-swatch-trim" /> Trimmed
+                </span>
+                <span className="cascade-legend-item">
+                  <span className="cascade-legend-swatch cascade-legend-swatch-keep" /> Removed due to no overlap, participation will return to parent entity
+                </span>
+              </div>
+            </div>
+          ) : null}
           <Button
             variant="secondary"
             onClick={() => {

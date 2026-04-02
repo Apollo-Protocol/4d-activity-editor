@@ -1731,14 +1731,23 @@ body.modal-open {
   display: inline-flex;
   align-items: center;
   margin-left: 0.3rem;
-  color: var(--bs-danger);
   font-size: 0.95rem;
   font-weight: 700;
   line-height: 1;
 }
 
 .cascade-activity-note-marker {
+  font-weight: 700;
+}
+
+.cascade-activity-flag-remove,
+.cascade-activity-note-marker {
   color: var(--bs-danger);
+}
+
+.cascade-activity-flag-trim,
+.cascade-activity-note-marker-trim {
+  color: #1f2937;
 }
 
 .editor-toolbar .dropdown-menu .dropdown-item:hover,

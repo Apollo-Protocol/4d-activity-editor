@@ -3035,8 +3035,13 @@ const SetIndividual = (props: Props) => {
   const showBoundsTrimmedLegend =
     pendingBoundsChanges.some((change) => change.action === "trim") ||
     pendingAffectedActivities.some((activity) => activity.action === "trim");
-  const showBoundsKeptLegend = pendingAffectedActivities.length > 0;
+  const showBoundsKeptLegend = pendingAffectedActivities.some(
+    (activity) => activity.action !== "drop" && activity.action !== "trim"
+  );
   const showBoundsTrimNote = showBoundsTrimmedLegend;
+  const showBoundsActivityTrimmedNote = pendingAffectedActivities.some((item) =>
+    item.activityOutcomeText?.startsWith("Activity itself would be trimmed to")
+  );
   const showCascadeFooterInfo =
     !!cascadeWarning &&
     (
@@ -3061,7 +3066,23 @@ const SetIndividual = (props: Props) => {
       cascadeWarning.affectedInstallations.some((item) => item.action === "trim") ||
       cascadeWarning.affectedActivities.some((item) => item.action === "trim")
     );
-  const showCascadeKeptLegend = !!cascadeWarning && cascadeWarning.affectedActivities.length > 0;
+  const showCascadeKeptLegend =
+    !!cascadeWarning &&
+    cascadeWarning.affectedActivities.some((item) => {
+      const isOptional = item.deleteChoice === "optional";
+      const selectionKey = getAffectedActivitySelectionKey(item);
+      const isToggledToDelete = isOptional && selectedAffectedActivityKeys.has(selectionKey);
+
+      if (item.deleteChoice === "required") {
+        return false;
+      }
+
+      if (isToggledToDelete) {
+        return false;
+      }
+
+      return item.action === "drop" || item.action !== "trim";
+    });
   const showCascadeTrimNote =
     !!cascadeWarning &&
     cascadeWarning.mode !== "delete" &&
@@ -3074,6 +3095,11 @@ const SetIndividual = (props: Props) => {
     !!cascadeWarning &&
     cascadeWarning.affectedActivities.some(
       (item) => item.deleteChoice === "required" && item.action === "drop" && !!item.activityOutcomeText
+    );
+  const showCascadeActivityTrimmedNote =
+    !!cascadeWarning &&
+    cascadeWarning.affectedActivities.some((item) =>
+      item.activityOutcomeText?.startsWith("Activity itself would be trimmed to")
     );
 
   return (
@@ -3704,18 +3730,26 @@ const SetIndividual = (props: Props) => {
                   const activityHeaderWidth = getActivityHeaderWidthCh(
                     groupedEntries.map(([, group]) => group)
                   );
-                  return groupedEntries.map(([activityId, group]) => (
-                    <div
-                      key={activityId}
-                      className="cascade-activity-row"
-                      style={{ ["--cascade-activity-header-width" as string]: activityHeaderWidth }}
-                    >
-                      <div className="cascade-activity-line">
-                        <div className="cascade-activity-header">
-                          <span className="cascade-activity-name">{group.activityName}</span>
-                          {" "}({formatBound(group.fromBeginning, true)}-{formatBound(group.fromEnding, false)}):
-                        </div>
-                        <div className="cascade-badges-wrap">
+                  return groupedEntries.map(([activityId, group]) => {
+                    const activityTrimmed = group.entries.some((entry) =>
+                      entry.activityOutcomeText?.startsWith("Activity itself would be trimmed to")
+                    );
+
+                    return (
+                      <div
+                        key={activityId}
+                        className="cascade-activity-row"
+                        style={{ ["--cascade-activity-header-width" as string]: activityHeaderWidth }}
+                      >
+                        <div className="cascade-activity-line">
+                          <div className="cascade-activity-header">
+                            <span className="cascade-activity-name">{group.activityName}</span>
+                            {" "}({formatBound(group.fromBeginning, true)}-{formatBound(group.fromEnding, false)}):
+                            {activityTrimmed && (
+                              <span className="cascade-activity-flag cascade-activity-flag-trim" aria-label="Activity trimmed to remaining participation bounds">*</span>
+                            )}
+                          </div>
+                          <div className="cascade-badges-wrap">
                         {group.entries.map((aa) => {
                           const selectionKey = getAffectedActivitySelectionKey(aa);
                           const isDrop = aa.action === "drop";
@@ -3763,10 +3797,11 @@ const SetIndividual = (props: Props) => {
                             </span>
                           );
                         })}
+                          </div>
                         </div>
                       </div>
-                    </div>
-                  ));
+                    );
+                  });
                 })()}
               </div>
             </div>
@@ -3785,7 +3820,7 @@ const SetIndividual = (props: Props) => {
                   )}
                   {showBoundsTrimmedLegend && (
                     <span className="cascade-legend-item">
-                      <span className="cascade-badge cascade-badge-trim cascade-legend-badge">Trimmed</span>
+                      <span className="cascade-badge cascade-badge-trim cascade-legend-badge">Trimmed to Fit</span>
                     </span>
                   )}
                   {showBoundsKeptLegend && (
@@ -3795,7 +3830,7 @@ const SetIndividual = (props: Props) => {
                   )}
                 </div>
               </div>
-              {(showBoundsTrimNote || showBoundsKeptLegend) && (
+              {(showBoundsTrimNote || showBoundsKeptLegend || showBoundsActivityTrimmedNote) && (
                 <div className="cascade-footer-block cascade-footer-notes-block">
                   <div className="cascade-footer-heading">Notes:</div>
                   <div className="cascade-footer-notes">
@@ -3805,6 +3840,13 @@ const SetIndividual = (props: Props) => {
                         : null,
                       showBoundsKeptLegend
                         ? "Kept items are removed due to no overlap, participation will return to parent entity."
+                        : null,
+                      showBoundsActivityTrimmedNote
+                        ? (
+                          <span>
+                            <strong className="cascade-activity-note-marker cascade-activity-note-marker-trim">*</strong>: Activity itself will be trimmed to the remaining participation bounds.
+                          </span>
+                        )
                         : null,
                     ] as React.ReactNode[])
                       .filter(Boolean)
@@ -4034,6 +4076,9 @@ const SetIndividual = (props: Props) => {
                     const allRequiredDrop = group.entries.every(
                       (e) => e.deleteChoice === "required" && e.action === "drop" && e.activityOutcomeText
                     );
+                    const activityTrimmed = group.entries.some((entry) =>
+                      entry.activityOutcomeText?.startsWith("Activity itself would be trimmed to")
+                    );
                     return (
                       <div
                         key={activityId}
@@ -4045,7 +4090,10 @@ const SetIndividual = (props: Props) => {
                             <span className="cascade-activity-name">{group.activityName}</span>
                             {" "}({formatBound(group.fromBeginning, true)}-{formatBound(group.fromEnding, false)}):
                             {allRequiredDrop && (
-                              <span className="cascade-activity-flag" aria-label="Activity removed because no participants remain">#</span>
+                              <span className="cascade-activity-flag cascade-activity-flag-remove" aria-label="Activity removed because no participants remain">#</span>
+                            )}
+                            {!allRequiredDrop && activityTrimmed && (
+                              <span className="cascade-activity-flag cascade-activity-flag-trim" aria-label="Activity trimmed to remaining participation bounds">*</span>
                             )}
                           </div>
                           <div className="cascade-badges-wrap">
@@ -4126,7 +4174,7 @@ const SetIndividual = (props: Props) => {
                   )}
                   {showCascadeTrimmedLegend && (
                     <span className="cascade-legend-item">
-                      <span className="cascade-badge cascade-badge-trim cascade-legend-badge">Trimmed</span>
+                      <span className="cascade-badge cascade-badge-trim cascade-legend-badge">Trimmed to Fit</span>
                     </span>
                   )}
                   {showCascadeKeptLegend && (
@@ -4136,7 +4184,7 @@ const SetIndividual = (props: Props) => {
                   )}
                 </div>
               </div>
-              {(showCascadeTrimNote || showCascadeKeptLegend || showCascadeActivityRemovedNote) && (
+              {(showCascadeTrimNote || showCascadeKeptLegend || showCascadeActivityRemovedNote || showCascadeActivityTrimmedNote) && (
                 <div className="cascade-footer-block cascade-footer-notes-block">
                   <div className="cascade-footer-heading">Notes:</div>
                   <div className="cascade-footer-notes">
@@ -4148,6 +4196,13 @@ const SetIndividual = (props: Props) => {
                         ? (
                           <span>
                             <strong className="cascade-activity-note-marker">#</strong>: Activity itself will be removed (no remaining participants).
+                          </span>
+                        )
+                        : null,
+                      showCascadeActivityTrimmedNote
+                        ? (
+                          <span>
+                            <strong className="cascade-activity-note-marker cascade-activity-note-marker-trim">*</strong>: Activity itself will be trimmed to the remaining participation bounds.
                           </span>
                         )
                         : null,

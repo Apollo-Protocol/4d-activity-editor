@@ -1486,9 +1486,9 @@ body.modal-open {
   display: inline-flex;
   align-items: center;
   position: relative;
-  padding: 0 0 0 0.55rem;
+  padding: 0 0 0 0.5rem;
   min-height: 1.65rem;
-  border-radius: 0.35rem;
+  border-radius: 0.2rem;
   font-size: 0.88rem;
   font-weight: 400;
   line-height: 1.2;
@@ -1508,14 +1508,15 @@ body.modal-open {
   content: "";
   position: static;
   align-self: stretch;
-  width: 1.55rem;
-  min-width: 1.55rem;
-  margin-left: 0.45rem;
+  width: 1.5rem;
+  min-width: 1.5rem;
+  margin-left: 0.4rem;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  font-size: 0.85rem;
-  font-weight: 700;
+  font-size: 0.8rem;
+  font-weight: 500;
+  line-height: 1;
   color: #fff;
   border-left: 1px solid var(--bs-border-color);
 }
@@ -1527,7 +1528,7 @@ body.modal-open {
 }
 
 .cascade-badge-remove::after {
-  content: "x";
+  content: "\00D7";
   background-color: var(--bs-danger);
   border-left-color: rgba(0, 0, 0, 0.05);
 }
@@ -1592,11 +1593,14 @@ body.modal-open {
   margin-right: 0.35rem;
   cursor: inherit;
   flex-shrink: 0;
+  align-self: center;
   vertical-align: middle;
   pointer-events: none;
 }
 
 .cascade-badge-label {
+  display: inline-flex;
+  align-items: center;
   line-height: 1.2;
 }
 
@@ -1721,6 +1725,20 @@ body.modal-open {
   font-size: 0.82rem;
   min-height: 1.45rem;
   padding-left: 0.5rem;
+}
+
+.cascade-activity-flag {
+  display: inline-flex;
+  align-items: center;
+  margin-left: 0.3rem;
+  color: var(--bs-danger);
+  font-size: 0.95rem;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.cascade-activity-note-marker {
+  color: var(--bs-danger);
 }
 
 .editor-toolbar .dropdown-menu .dropdown-item:hover,
@@ -2025,10 +2043,26 @@ html.app-custom-theme .diagram-search-input:focus {
 .participants-select__multi-value {
   background-color: var(--bs-tertiary-bg) !important;
   border: 1px solid var(--bs-border-color) !important;
+  border-radius: 0.2rem !important;
+  align-items: center !important;
 }
 
 .participants-select__multi-value__label {
   color: var(--bs-body-color) !important;
+  display: inline-flex !important;
+  align-items: center !important;
+}
+
+.participants-select__multi-value__remove {
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+}
+
+.participants-select__multi-value__remove svg {
+  width: 0.8rem;
+  height: 0.8rem;
+  stroke-width: 1.5;
 }
 
 .participants-select__multi-value__remove:hover {

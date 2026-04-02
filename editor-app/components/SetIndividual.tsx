@@ -749,7 +749,7 @@ const SetIndividual = (props: Props) => {
         return {
           ...affectedActivity,
           activityOutcomeText:
-            "Activity itself would be removed (no remaining participants)",
+            "Activity itself will be removed (no remaining participants).",
         };
       }
 
@@ -782,7 +782,7 @@ const SetIndividual = (props: Props) => {
         return {
           ...affectedActivity,
           activityOutcomeText:
-            "Activity itself would be removed (no remaining participants)",
+            "Activity itself will be removed (no remaining participants).",
         };
       }
 
@@ -3070,6 +3070,11 @@ const SetIndividual = (props: Props) => {
       cascadeWarning.affectedInstallations.some((item) => item.action === "trim") ||
       cascadeWarning.affectedActivities.some((item) => item.action === "trim")
     );
+  const showCascadeActivityRemovedNote =
+    !!cascadeWarning &&
+    cascadeWarning.affectedActivities.some(
+      (item) => item.deleteChoice === "required" && item.action === "drop" && !!item.activityOutcomeText
+    );
 
   return (
     <>
@@ -3621,9 +3626,6 @@ const SetIndividual = (props: Props) => {
           {pendingBoundsChanges.length > 0 && (
             <div className="mb-3">
               <div className="cascade-section-title">Installation Periods</div>
-              <div className="cascade-section-note">
-                Checked items will be deleted. Leave a trim item unchecked to keep the trimmed period.
-              </div>
               <div className="cascade-badges-wrap" style={{ maxHeight: "220px", overflowY: "auto" }}>
                 {[...pendingBoundsChanges].sort((a, b) => a.fromBeginning - b.fromBeginning).map((change) => {
                   const isDrop = change.action === "drop";
@@ -3797,17 +3799,17 @@ const SetIndividual = (props: Props) => {
                 <div className="cascade-footer-block cascade-footer-notes-block">
                   <div className="cascade-footer-heading">Notes:</div>
                   <div className="cascade-footer-notes">
-                    {[
+                    {([
                       showBoundsTrimNote
                         ? "Tick boxes to remove entities."
                         : null,
                       showBoundsKeptLegend
                         ? "Kept items are removed due to no overlap, participation will return to parent entity."
                         : null,
-                    ]
-                      .filter((note): note is string => !!note)
+                    ] as React.ReactNode[])
+                      .filter(Boolean)
                       .map((note, index) => (
-                        <div key={note} className="cascade-footer-note">
+                        <div key={index} className="cascade-footer-note">
                           {index + 1} - {note}
                         </div>
                       ))}
@@ -4043,7 +4045,7 @@ const SetIndividual = (props: Props) => {
                             <span className="cascade-activity-name">{group.activityName}</span>
                             {" "}({formatBound(group.fromBeginning, true)}-{formatBound(group.fromEnding, false)}):
                             {allRequiredDrop && (
-                              <span className="text-danger small ms-2">— activity removed (no participants remain)</span>
+                              <span className="cascade-activity-flag" aria-label="Activity removed because no participants remain">#</span>
                             )}
                           </div>
                           <div className="cascade-badges-wrap">
@@ -4134,21 +4136,28 @@ const SetIndividual = (props: Props) => {
                   )}
                 </div>
               </div>
-              {(showCascadeTrimNote || showCascadeKeptLegend) && (
+              {(showCascadeTrimNote || showCascadeKeptLegend || showCascadeActivityRemovedNote) && (
                 <div className="cascade-footer-block cascade-footer-notes-block">
                   <div className="cascade-footer-heading">Notes:</div>
                   <div className="cascade-footer-notes">
-                    {[
-                      showCascadeTrimNote
-                        ? "Tick boxes to remove entities."
-                        : null,
+                    {([
                       showCascadeKeptLegend
                         ? "Kept items are removed due to no overlap, participation will return to parent entity."
                         : null,
-                    ]
-                      .filter((note): note is string => !!note)
+                      showCascadeActivityRemovedNote
+                        ? (
+                          <span>
+                            <strong className="cascade-activity-note-marker">#</strong>: Activity itself will be removed (no remaining participants).
+                          </span>
+                        )
+                        : null,
+                      showCascadeTrimNote
+                        ? "Tick boxes to remove entities."
+                        : null,
+                    ] as React.ReactNode[])
+                      .filter(Boolean)
                       .map((note, index) => (
-                        <div key={note} className="cascade-footer-note">
+                        <div key={index} className="cascade-footer-note">
                           {index + 1} - {note}
                         </div>
                       ))}

@@ -1485,42 +1485,87 @@ body.modal-open {
 .cascade-badge {
   display: inline-flex;
   align-items: center;
-  gap: 0.3rem;
-  padding: 0.38rem 0.8rem;
-  border-radius: 999px;
-  font-size: 1rem;
+  position: relative;
+  padding: 0 0 0 0.55rem;
+  min-height: 1.65rem;
+  border-radius: 0.35rem;
+  font-size: 0.88rem;
   font-weight: 400;
-  line-height: 1.35;
+  line-height: 1.2;
   white-space: nowrap;
   cursor: default;
   transition: opacity 0.15s ease;
   font-family: inherit;
   border-width: 1px;
   border-style: solid;
+  overflow: hidden;
+  background-color: var(--bs-tertiary-bg);
+  color: var(--bs-body-color);
+  border-color: var(--bs-border-color);
+}
+
+.cascade-badge::after {
+  content: "";
+  position: static;
+  align-self: stretch;
+  width: 1.55rem;
+  min-width: 1.55rem;
+  margin-left: 0.45rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: #fff;
+  border-left: 1px solid var(--bs-border-color);
 }
 
 .cascade-badge-remove {
+  background-color: var(--bs-tertiary-bg);
+  color: var(--bs-body-color);
+  border-color: var(--bs-border-color);
+}
+
+.cascade-badge-remove::after {
+  content: "x";
   background-color: var(--bs-danger);
-  color: #ffffff;
-  border-color: var(--bs-danger);
+  border-left-color: rgba(0, 0, 0, 0.05);
 }
 
 .cascade-badge-trim {
-  background-color: #334155;
-  color: #ffffff;
-  border-color: #334155;
+  background-color: var(--bs-tertiary-bg);
+  color: var(--bs-body-color);
+  border-color: var(--bs-border-color);
+}
+
+.cascade-badge-trim::after {
+  content: "\2702";
+  background-color: #1f2937;
+  border-left-color: rgba(0, 0, 0, 0.12);
 }
 
 .cascade-badge-keep {
+  background-color: var(--bs-tertiary-bg);
+  color: var(--bs-body-color);
+  border-color: var(--bs-border-color);
+}
+
+.cascade-badge-keep::after {
+  content: "\21A9";
   background-color: var(--app-accent, #007fff);
-  color: #ffffff;
-  border-color: var(--app-accent, #007fff);
+  border-left-color: rgba(0, 0, 0, 0.05);
 }
 
 .cascade-badge-detached {
+  background-color: var(--bs-tertiary-bg);
+  color: var(--bs-body-color);
+  border-color: var(--bs-border-color);
+}
+
+.cascade-badge-detached::after {
+  content: "\21A9";
   background-color: var(--app-accent, #007fff);
-  color: #ffffff;
-  border-color: var(--app-accent, #007fff);
+  border-left-color: rgba(0, 0, 0, 0.05);
 }
 
 .cascade-badge-selectable {
@@ -1529,6 +1574,30 @@ body.modal-open {
 
 .cascade-badge-selectable:hover {
   opacity: 0.8;
+}
+
+.cascade-badge-checkable {
+  cursor: pointer;
+}
+
+.cascade-badge-checkable:hover {
+  opacity: 0.82;
+}
+
+.cascade-badge-checkbox {
+  appearance: auto;
+  width: 0.85rem;
+  height: 0.85rem;
+  margin: 0;
+  margin-right: 0.35rem;
+  cursor: inherit;
+  flex-shrink: 0;
+  vertical-align: middle;
+  pointer-events: none;
+}
+
+.cascade-badge-label {
+  line-height: 1.2;
 }
 
 .cascade-section-title {
@@ -1549,16 +1618,42 @@ body.modal-open {
 }
 
 .cascade-activity-line {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 0.45rem;
+  display: grid;
+  grid-template-columns: var(--cascade-activity-header-width, max-content) minmax(0, 1fr);
+  align-items: start;
+  column-gap: 0.35ch;
+  row-gap: 0.25rem;
 }
 
 .cascade-activity-header {
   font-weight: 600;
   font-size: 1.02rem;
   margin-bottom: 0;
+  max-width: 100%;
+  grid-column: 1;
+}
+
+.cascade-activity-name {
+  display: inline-block;
+  max-width: 30ch;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  vertical-align: bottom;
+}
+
+.cascade-activity-line .cascade-badges-wrap {
+  grid-column: 2;
+}
+
+@media (max-width: 768px) {
+  .cascade-activity-line {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .cascade-activity-line .cascade-badges-wrap {
+    grid-column: 1;
+  }
 }
 
 .cascade-activity-handling .form-label {
@@ -1579,12 +1674,32 @@ body.modal-open {
   width: 100%;
   border-top: 1px solid var(--bs-border-color);
   padding-top: 0.6rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+}
+
+.cascade-footer-block {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.cascade-footer-heading {
+  font-size: 0.88rem;
+  font-weight: 700;
+  color: var(--bs-body-color);
+}
+
+.cascade-footer-notes {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
 }
 
 .cascade-footer-note {
   font-size: 0.88rem;
   color: var(--bs-secondary-color);
-  margin-bottom: 0.35rem;
 }
 
 .cascade-legend {
@@ -1602,23 +1717,10 @@ body.modal-open {
   color: var(--bs-secondary-color);
 }
 
-.cascade-legend-swatch {
-  display: inline-block;
-  width: 1.15rem;
-  height: 0.95rem;
-  border-radius: 0.3rem;
-}
-
-.cascade-legend-swatch-remove {
-  background-color: #dc3545;
-}
-
-.cascade-legend-swatch-trim {
-  background-color: #334155;
-}
-
-.cascade-legend-swatch-keep {
-  background-color: var(--app-accent, #007fff);
+.cascade-legend-badge {
+  font-size: 0.82rem;
+  min-height: 1.45rem;
+  padding-left: 0.5rem;
 }
 
 .editor-toolbar .dropdown-menu .dropdown-item:hover,

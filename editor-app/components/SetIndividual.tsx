@@ -206,6 +206,12 @@ const SetIndividual = (props: Props) => {
     useState<"keep" | "remove">("keep");
   const [selectedAffectedActivityKeys, setSelectedAffectedActivityKeys] =
     useState<Set<string>>(new Set());
+  const [selectedBoundsChangeIds, setSelectedBoundsChangeIds] =
+    useState<Set<string>>(new Set());
+  const [selectedCascadeComponentIds, setSelectedCascadeComponentIds] =
+    useState<Set<string>>(new Set());
+  const [selectedCascadeInstallationIds, setSelectedCascadeInstallationIds] =
+    useState<Set<string>>(new Set());
   const [pendingChangeScope, setPendingChangeScope] =
     useState<"bounds" | "installations" | "both">("bounds");
 
@@ -347,6 +353,27 @@ const SetIndividual = (props: Props) => {
       timelineEnd,
       false
     )})`;
+  };
+
+  const getActivityHeaderLabel = (
+    activityName: string,
+    fromBeginning: number,
+    fromEnding: number
+  ) => `${activityName} (${formatBound(fromBeginning, true)}-${formatBound(fromEnding, false)}):`;
+
+  const getActivityHeaderWidthCh = (
+    groups: Array<{ activityName: string; fromBeginning: number; fromEnding: number }>
+  ) => {
+    const longestLabelLength = groups.reduce((maxLength, group) => {
+      const labelLength = getActivityHeaderLabel(
+        group.activityName,
+        group.fromBeginning,
+        group.fromEnding
+      ).length;
+      return Math.max(maxLength, labelLength);
+    }, 0);
+
+    return `${Math.min(Math.max(longestLabelLength + 1, 10), 34)}ch`;
   };
 
   /**
@@ -964,6 +991,9 @@ const SetIndividual = (props: Props) => {
     setPendingAutoRemoveActivities([]);
     setPendingActivityAction("keep");
     setSelectedAffectedActivityKeys(new Set());
+    setSelectedBoundsChangeIds(new Set());
+    setSelectedCascadeComponentIds(new Set());
+    setSelectedCascadeInstallationIds(new Set());
     setPendingChangeScope("bounds");
     setShowCascadeWarningModal(false);
     setCascadeWarning(null);
@@ -1047,6 +1077,15 @@ const SetIndividual = (props: Props) => {
           fromEnding: installation.ending,
           action: "drop",
         });
+        return;
+      }
+
+      // Deleted child system components are already listed under System Components.
+      // Do not repeat their parent-system installation under Installation Periods.
+      if (
+        ownerType === ENTITY_TYPE_IDS.SYSTEM_COMPONENT &&
+        deletedIds.has(installation.individualId)
+      ) {
         return;
       }
 
@@ -1427,6 +1466,12 @@ const SetIndividual = (props: Props) => {
               `System Component beginning must be within ${parentSystem.name}`
             );
           }
+
+          if (ownEnd < Model.END_OF_TIME && ownEnd > parentEnd) {
+            runningErrors.push(
+              `System Component ending cannot be after ${parentSystem.name}`
+            );
+          }
         }
       }
     }
@@ -1573,6 +1618,7 @@ const SetIndividual = (props: Props) => {
         setPendingAffectedActivities(userVisible);
         setPendingActivityAction("keep");
         setSelectedAffectedActivityKeys(new Set());
+        setSelectedBoundsChangeIds(new Set());
         setPendingChangeScope(warningScope);
         setShowBoundsWarningModal(true);
         return;
@@ -1644,6 +1690,7 @@ const SetIndividual = (props: Props) => {
           setPendingAffectedActivities(userVisible);
           setPendingActivityAction("keep");
           setSelectedAffectedActivityKeys(new Set());
+          setSelectedBoundsChangeIds(new Set());
           setPendingChangeScope(warningScope);
           setShowBoundsWarningModal(true);
           return;
@@ -2367,67 +2414,59 @@ const SetIndividual = (props: Props) => {
     commitIndividualSave(next);
   };
 
-  const confirmBoundsAdjustment = () => {
-    if (!pendingSaveIndividual) {
+  const confirmBoundsApply = () => {
+    const individual = pendingSaveIndividual;
+    if (!individual) {
       setShowBoundsWarningModal(false);
       return;
     }
-    const selectedAffectedActivities = pendingAffectedActivities.filter((aa) =>
-      selectedAffectedActivityKeys.has(getAffectedActivitySelectionKey(aa))
-    );
-    // Always apply auto-removable entries (participations whose installation
-    // was removed but the individual still participates via another)
-    const allToApply = [
-      ...pendingAutoRemoveActivities,
-      ...(pendingActivityAction === "remove" ? selectedAffectedActivities : []),
-    ];
-    if (allToApply.length > 0) {
-      updateDataset((d: Model) => {
-        saveIndividualToModel(d, pendingSaveIndividual);
-        applyAffectedActivityChanges(d, allToApply);
-      });
-      handleClose();
-    } else {
-      commitIndividualSave(pendingSaveIndividual);
-    }
-  };
 
-  const confirmBoundsDeleteAffected = () => {
-    if (!pendingRemoveIndividual) {
-      setShowBoundsWarningModal(false);
-      return;
+    // Resolve installation periods: trim-items toggled to delete get removed
+    let resolvedIndividual = individual;
+    if (pendingBoundsChanges.length > 0 && selectedBoundsChangeIds.size > 0) {
+      const currentPeriods = getInstallationPeriods(individual);
+      const resolvedPeriods = currentPeriods.filter(
+        (p) => !selectedBoundsChangeIds.has(p.id)
+      );
+      resolvedIndividual = syncLegacyInstallationFields({
+        ...individual,
+        installedIn: undefined,
+        installedBeginning: undefined,
+        installedEnding: undefined,
+        installations: resolvedPeriods,
+      });
     }
-    const selectedAffectedActivities = pendingAffectedActivities.filter((aa) =>
-      selectedAffectedActivityKeys.has(getAffectedActivitySelectionKey(aa))
-    );
-    // Always include auto-removable entries alongside user-selected ones
-    const allToApply = [
+
+    // Build consolidated list: auto-removable + user-visible with toggled actions
+    const allChanges: AffectedActivity[] = [
       ...pendingAutoRemoveActivities,
-      ...(pendingActivityAction === "remove" ? selectedAffectedActivities : []),
-    ];
-    if (allToApply.length > 0) {
-      updateDataset((d: Model) => {
-        saveIndividualToModel(d, pendingRemoveIndividual);
-        const affectedActivityIds = new Set<string>();
-        for (const aa of allToApply) {
-          const act = d.activities.get(aa.activityId);
-          if (act) {
-            const pKey = resolveCurrentAffectedParticipationKey(act, aa);
-            act.participations.delete(pKey);
-          }
-          affectedActivityIds.add(aa.activityId);
+      ...pendingAffectedActivities.map((aa) => {
+        // Trim items toggled to delete become drop
+        if (
+          aa.action === "trim" &&
+          selectedAffectedActivityKeys.has(getAffectedActivitySelectionKey(aa))
+        ) {
+          return { ...aa, action: "drop" as const };
         }
-        shrinkActivitiesToRemainingParticipants(d, affectedActivityIds);
+        return aa;
+      }),
+    ];
+    if (allChanges.length > 0) {
+      updateDataset((d: Model) => {
+        saveIndividualToModel(d, resolvedIndividual);
+        applyAffectedActivityChanges(d, allChanges);
       });
       handleClose();
     } else {
-      commitIndividualSave(pendingRemoveIndividual);
+      commitIndividualSave(resolvedIndividual);
     }
   };
 
   const handleDelete = () => {
     setPendingActivityAction("keep");
     setSelectedAffectedActivityKeys(new Set());
+    setSelectedCascadeComponentIds(new Set());
+    setSelectedCascadeInstallationIds(new Set());
     setCascadeWarning(buildDeleteCascadeWarning(inputs));
     setShowCascadeWarningModal(true);
   };
@@ -2438,7 +2477,149 @@ const SetIndividual = (props: Props) => {
     }
 
     if (cascadeWarning.mode !== "delete") {
-      cascadeWarning.applyRemove();
+      const resolvedAffectedComponents = cascadeWarning.affectedComponents.map(
+        (affectedComponent) => {
+          if (
+            affectedComponent.action === "trim" &&
+            selectedCascadeComponentIds.has(affectedComponent.id)
+          ) {
+            return {
+              ...affectedComponent,
+              action: "drop" as const,
+              toBeginning: undefined,
+              toEnding: undefined,
+            };
+          }
+
+          return affectedComponent;
+        }
+      );
+
+      const resolvedAffectedInstallations = cascadeWarning.affectedInstallations.map(
+        (affectedInstallation) => {
+          if (
+            affectedInstallation.action === "trim" &&
+            selectedCascadeInstallationIds.has(affectedInstallation.periodId)
+          ) {
+            return {
+              ...affectedInstallation,
+              action: "drop" as const,
+              toBeginning: undefined,
+              toEnding: undefined,
+            };
+          }
+
+          return affectedInstallation;
+        }
+      );
+
+      updateDataset((d: Model) => {
+        saveIndividualToModel(d, cascadeWarning.pendingIndividual);
+
+        for (const affectedComponent of resolvedAffectedComponents) {
+          const component = d.individuals.get(affectedComponent.id);
+          if (!component) continue;
+
+          if (
+            affectedComponent.action === "trim" &&
+            affectedComponent.toBeginning !== undefined &&
+            affectedComponent.toEnding !== undefined
+          ) {
+            d.addIndividual({
+              ...component,
+              beginning: affectedComponent.toBeginning,
+              ending: affectedComponent.toEnding,
+            });
+          }
+
+          if (affectedComponent.action === "drop") {
+            d.individuals.delete(affectedComponent.id);
+          }
+        }
+
+        const installsByIndividual = new Map<string, AffectedInstallation[]>();
+        for (const affectedInstallation of resolvedAffectedInstallations) {
+          const list = installsByIndividual.get(affectedInstallation.individualId) ?? [];
+          list.push(affectedInstallation);
+          installsByIndividual.set(affectedInstallation.individualId, list);
+        }
+
+        Array.from(installsByIndividual.entries()).forEach(([individualId, affectedPeriods]) => {
+          const individual = d.individuals.get(individualId);
+          if (!individual) return;
+
+          const droppedComponentIds = new Set(
+            resolvedAffectedComponents
+              .filter((component) => component.action === "drop")
+              .map((component) => component.id)
+          );
+
+          let periods = getInstallationPeriods(individual).filter(
+            (period) => !droppedComponentIds.has(period.systemComponentId)
+          );
+
+          periods = periods
+            .map((period) => {
+              const match = affectedPeriods.find(
+                (affectedInstallation) => affectedInstallation.periodId === period.id
+              );
+              if (
+                match &&
+                match.action === "trim" &&
+                match.toBeginning !== undefined &&
+                match.toEnding !== undefined
+              ) {
+                return {
+                  ...period,
+                  beginning: match.toBeginning,
+                  ending: match.toEnding,
+                };
+              }
+              if (match && match.action === "drop") return null;
+              return period;
+            })
+            .filter((period): period is InstallationPeriod => !!period);
+
+          saveIndividualToModelWithoutReconcile(
+            d,
+            syncLegacyInstallationFields({
+              ...individual,
+              installedIn: undefined,
+              installedBeginning: undefined,
+              installedEnding: undefined,
+              installations: periods,
+            })
+          );
+        });
+
+        applyAffectedActivityChanges(
+          d,
+          cascadeWarning.affectedActivities.filter(
+            (affectedActivity) =>
+              !(
+                affectedActivity.action === "drop" &&
+                affectedActivity.keepStrategy === "return-to-individual"
+              )
+          )
+        );
+
+        Array.from(installsByIndividual.keys()).forEach((individualId) => {
+          const individual = d.individuals.get(individualId);
+          if (individual) {
+            d.reconcileParticipationsForInstallations(individual);
+          }
+        });
+
+        return d;
+      });
+
+      setShowCascadeWarningModal(false);
+      setCascadeWarning(null);
+      setPendingActivityAction("keep");
+      setSelectedAffectedActivityKeys(new Set());
+      setSelectedCascadeComponentIds(new Set());
+      setSelectedCascadeInstallationIds(new Set());
+      handleClose();
       return;
     }
 
@@ -2447,16 +2628,11 @@ const SetIndividual = (props: Props) => {
         affectedActivity.deleteChoice === "optional" &&
         selectedAffectedActivityKeys.has(getAffectedActivitySelectionKey(affectedActivity))
     );
-    const keptOptionalActivities = cascadeWarning.affectedActivities.filter(
-      (affectedActivity) =>
-        affectedActivity.deleteChoice === "optional" &&
-        !selectedAffectedActivityKeys.has(getAffectedActivitySelectionKey(affectedActivity))
-    );
 
     updateDataset((d: Model) => {
       d.removeIndividual(cascadeWarning.pendingIndividual.id);
 
-      if (pendingActivityAction === "remove" && selectedOptionalActivities.length > 0) {
+      if (selectedOptionalActivities.length > 0) {
         const affectedActivityIds = new Set<string>();
 
         selectedOptionalActivities.forEach((affectedActivity) => {
@@ -2475,6 +2651,8 @@ const SetIndividual = (props: Props) => {
     setCascadeWarning(null);
     setPendingActivityAction("keep");
     setSelectedAffectedActivityKeys(new Set());
+    setSelectedCascadeComponentIds(new Set());
+    setSelectedCascadeInstallationIds(new Set());
     handleClose();
   };
 
@@ -2818,26 +2996,6 @@ const SetIndividual = (props: Props) => {
   );
   const hasPendingActivityEffects = pendingAffectedActivities.length > 0;
   const hasSelectedAffectedActivities = selectedAffectedActivityKeys.size > 0;
-  const canApplyBoundsAction =
-    pendingActivityAction !== "remove" ||
-    !hasPendingActivityEffects ||
-    hasSelectedAffectedActivities;
-  const primaryBoundsActionLabel =
-    pendingActivityAction === "keep"
-      ? "Apply Changes (Keep Activities)"
-      : hasPendingPeriodTrimAction
-      ? "Resolve Affected Periods"
-      : "Apply Selected Activity Changes";
-  const dangerBoundsActionLabel = hasPendingPeriodDropAction
-    ? pendingActivityAction === "remove"
-      ? "Delete Affected Periods + Selected Activities"
-      : "Delete Affected Periods"
-    : "Remove Selected Activities";
-  const showDangerBoundsAction =
-    hasPendingPeriodDropAction || pendingActivityAction === "remove";
-  const canUseDangerBoundsAction = hasPendingPeriodDropAction
-    ? canApplyBoundsAction
-    : pendingActivityAction === "remove" && hasSelectedAffectedActivities;
   const boundsWarningLeadText =
     pendingChangeScope === "installations"
       ? "Changing the installation periods for"
@@ -2864,16 +3022,54 @@ const SetIndividual = (props: Props) => {
   ) ?? [];
   const cascadeHasOptionalActivities =
     cascadeWarning?.mode === "delete" && cascadeOptionalActivities.length > 0;
-  const isOptionalDeleteActivitySelected = (affectedActivity: AffectedActivity) =>
-    affectedActivity.deleteChoice === "optional" &&
-    selectedAffectedActivityKeys.has(getAffectedActivitySelectionKey(affectedActivity));
   const cascadeDeleteButtonLabel =
     cascadeWarning?.mode === "delete"
-      ? pendingActivityAction === "remove" && selectedAffectedActivityKeys.size > 0
-        ? `${cascadeWarning.removeButtonLabel ?? "Delete Entity"} + Remove Selected Activities`
-        : `${cascadeWarning.removeButtonLabel ?? "Delete Entity"} (Keep Activities)`
-      : cascadeWarning?.removeButtonLabel ?? "Delete All Affected Periods";
-  const cascadeCanRemove = !!cascadeWarning && (cascadeWarning.mode === "delete" || cascadeHasDropAction);
+      ? cascadeWarning.removeButtonLabel ?? "Delete Entity"
+      : "Apply";
+  const cascadeCanRemove = !!cascadeWarning;
+  const showBoundsFooterInfo =
+    pendingBoundsChanges.length > 0 || pendingAffectedActivities.length > 0;
+  const showBoundsRemovedLegend =
+    pendingBoundsChanges.some((change) => change.action === "drop") ||
+    pendingAffectedActivities.some((activity) => activity.action === "drop");
+  const showBoundsTrimmedLegend =
+    pendingBoundsChanges.some((change) => change.action === "trim") ||
+    pendingAffectedActivities.some((activity) => activity.action === "trim");
+  const showBoundsKeptLegend = pendingAffectedActivities.length > 0;
+  const showBoundsTrimNote = showBoundsTrimmedLegend;
+  const showCascadeFooterInfo =
+    !!cascadeWarning &&
+    (
+      cascadeWarning.affectedComponents.length > 0 ||
+      cascadeWarning.affectedComponentOfSystems.length > 0 ||
+      cascadeWarning.affectedInstallations.length > 0 ||
+      cascadeWarning.affectedActivities.length > 0
+    );
+  const showCascadeRemovedLegend =
+    !!cascadeWarning &&
+    (
+      cascadeWarning.mode === "delete" ||
+      cascadeWarning.affectedComponents.some((item) => item.action === "drop") ||
+      cascadeWarning.affectedComponentOfSystems.length > 0 ||
+      cascadeWarning.affectedInstallations.some((item) => item.action === "drop") ||
+      cascadeWarning.affectedActivities.some((item) => item.action === "drop")
+    );
+  const showCascadeTrimmedLegend =
+    !!cascadeWarning &&
+    (
+      cascadeWarning.affectedComponents.some((item) => item.action === "trim") ||
+      cascadeWarning.affectedInstallations.some((item) => item.action === "trim") ||
+      cascadeWarning.affectedActivities.some((item) => item.action === "trim")
+    );
+  const showCascadeKeptLegend = !!cascadeWarning && cascadeWarning.affectedActivities.length > 0;
+  const showCascadeTrimNote =
+    !!cascadeWarning &&
+    cascadeWarning.mode !== "delete" &&
+    (
+      cascadeWarning.affectedComponents.some((item) => item.action === "trim") ||
+      cascadeWarning.affectedInstallations.some((item) => item.action === "trim") ||
+      cascadeWarning.affectedActivities.some((item) => item.action === "trim")
+    );
 
   return (
     <>
@@ -3407,6 +3603,7 @@ const SetIndividual = (props: Props) => {
           setShowBoundsWarningModal(false);
           setPendingActivityAction("keep");
           setSelectedAffectedActivityKeys(new Set());
+          setSelectedBoundsChangeIds(new Set());
         }}
         centered
         size="lg"
@@ -3424,83 +3621,64 @@ const SetIndividual = (props: Props) => {
           {pendingBoundsChanges.length > 0 && (
             <div className="mb-3">
               <div className="cascade-section-title">Installation Periods</div>
+              <div className="cascade-section-note">
+                Checked items will be deleted. Leave a trim item unchecked to keep the trimmed period.
+              </div>
               <div className="cascade-badges-wrap" style={{ maxHeight: "220px", overflowY: "auto" }}>
-                {[...pendingBoundsChanges].sort((a, b) => a.fromBeginning - b.fromBeginning).map((change) => (
-                  <span
-                    key={change.periodId}
-                    className={`cascade-badge ${change.action === "trim" ? "cascade-badge-trim" : "cascade-badge-remove"}`}
-                  >
-                    {change.systemComponentName}
-                    {" ("}
-                    {formatBound(change.fromBeginning, true)}-{formatBound(change.fromEnding, false)}
-                    {change.action === "trim"
-                      ? ` → ${formatBound(change.toBeginning ?? change.fromBeginning, true)}-${formatBound(change.toEnding ?? change.fromEnding, false)}`
-                      : ""}
-                    {")"}
-                  </span>
-                ))}
+                {[...pendingBoundsChanges].sort((a, b) => a.fromBeginning - b.fromBeginning).map((change) => {
+                  const isDrop = change.action === "drop";
+                  const isTrim = change.action === "trim";
+                  const isToggledToDelete = isTrim && selectedBoundsChangeIds.has(change.periodId);
+
+                  let badgeClass: string;
+                  if (isDrop || isToggledToDelete) {
+                    badgeClass = "cascade-badge-remove";
+                  } else {
+                    badgeClass = "cascade-badge-trim";
+                  }
+
+                  const isChecked = isDrop || isToggledToDelete;
+                  const isDisabled = isDrop;
+
+                  return (
+                    <span
+                      key={change.periodId}
+                      className={`cascade-badge ${badgeClass}${isTrim ? " cascade-badge-checkable" : ""}`}
+                      onClick={isTrim ? () => {
+                        setSelectedBoundsChangeIds((prev) => {
+                          const next = new Set(prev);
+                          if (next.has(change.periodId)) next.delete(change.periodId);
+                          else next.add(change.periodId);
+                          return next;
+                        });
+                      } : undefined}
+                    >
+                      <input
+                        type="checkbox"
+                        className="cascade-badge-checkbox"
+                        checked={isChecked}
+                        disabled={isDisabled}
+                        onChange={() => {}}
+                        tabIndex={-1}
+                      />
+                      <span className="cascade-badge-label">
+                        {change.systemComponentName}
+                        {" ("}
+                        {formatBound(change.fromBeginning, true)}-{formatBound(change.fromEnding, false)}
+                        {change.action === "trim" && !isToggledToDelete
+                          ? ` → ${formatBound(change.toBeginning ?? change.fromBeginning, true)}-${formatBound(change.toEnding ?? change.fromEnding, false)}`
+                          : ""}
+                        {")"}
+                      </span>
+                    </span>
+                  );
+                })}
               </div>
             </div>
           )}
           {pendingAffectedActivities.length > 0 && (
             <div className="mb-3">
               <div className="cascade-section-title">Participation In Activities</div>
-              <Form.Group className="mb-2 cascade-activity-handling" controlId="boundsActivitiesAction">
-                <Form.Label className="small text-muted mb-1">
-                  Activity handling
-                </Form.Label>
-                <div>
-                  <Form.Check
-                    inline
-                    type="radio"
-                    name="boundsActivitiesAction"
-                    id="boundsActivitiesKeep"
-                    label="Keep activities (default)"
-                    checked={pendingActivityAction === "keep"}
-                    onChange={() => setPendingActivityAction("keep")}
-                  />
-                  <Form.Check
-                    inline
-                    type="radio"
-                    name="boundsActivitiesAction"
-                    id="boundsActivitiesRemove"
-                    label="Remove affected activities"
-                    checked={pendingActivityAction === "remove"}
-                    onChange={() => setPendingActivityAction("remove")}
-                  />
-                </div>
-              </Form.Group>
-              {pendingActivityAction === "remove" && (
-                <div className="mb-2 d-flex align-items-center justify-content-between">
-                  <div className="small text-muted">
-                    Selected for removal: {selectedAffectedActivityKeys.size} of {pendingAffectedActivities.length}
-                  </div>
-                  <div className="d-flex gap-2">
-                    <Button
-                      size="sm"
-                      variant="outline-secondary"
-                      onClick={() => {
-                        setSelectedAffectedActivityKeys(
-                          new Set(
-                            pendingAffectedActivities.map((aa) =>
-                              getAffectedActivitySelectionKey(aa)
-                            )
-                          )
-                        );
-                      }}
-                    >
-                      Select all
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant="outline-secondary"
-                      onClick={() => setSelectedAffectedActivityKeys(new Set())}
-                    >
-                      Clear
-                    </Button>
-                  </div>
-                </div>
-              )}
               <div style={{ maxHeight: "260px", overflowY: "auto" }}>
                 {(() => {
                   // Group affected activities by activityId
@@ -3520,52 +3698,67 @@ const SetIndividual = (props: Props) => {
                         });
                       }
                     });
-                  return Array.from(grouped.entries()).map(([activityId, group]) => (
-                    <div key={activityId} className="cascade-activity-row">
+                  const groupedEntries = Array.from(grouped.entries());
+                  const activityHeaderWidth = getActivityHeaderWidthCh(
+                    groupedEntries.map(([, group]) => group)
+                  );
+                  return groupedEntries.map(([activityId, group]) => (
+                    <div
+                      key={activityId}
+                      className="cascade-activity-row"
+                      style={{ ["--cascade-activity-header-width" as string]: activityHeaderWidth }}
+                    >
                       <div className="cascade-activity-line">
                         <div className="cascade-activity-header">
-                          {group.activityName} ({formatBound(group.fromBeginning, true)}-{formatBound(group.fromEnding, false)}):
+                          <span className="cascade-activity-name">{group.activityName}</span>
+                          {" "}({formatBound(group.fromBeginning, true)}-{formatBound(group.fromEnding, false)}):
                         </div>
                         <div className="cascade-badges-wrap">
                         {group.entries.map((aa) => {
                           const selectionKey = getAffectedActivitySelectionKey(aa);
-                          const isSelectedForRemoval =
-                            pendingActivityAction === "remove" &&
-                            selectedAffectedActivityKeys.has(selectionKey);
-                          const isSelectable = pendingActivityAction === "remove";
+                          const isDrop = aa.action === "drop";
+                          const isTrim = aa.action === "trim";
+                          const isToggledToDelete = isTrim && selectedAffectedActivityKeys.has(selectionKey);
 
                           let badgeClass: string;
-                          if (isSelectedForRemoval) {
+                          if (isDrop || isToggledToDelete) {
                             badgeClass = "cascade-badge-remove";
-                          } else if (aa.action === "drop") {
-                            badgeClass = "cascade-badge-detached";
-                          } else if (aa.action === "trim" && pendingActivityAction === "remove") {
+                          } else if (isTrim) {
                             badgeClass = "cascade-badge-trim";
                           } else {
                             badgeClass = "cascade-badge-keep";
                           }
 
+                          const showCheckbox = isDrop || isTrim;
+                          const isChecked = isDrop || isToggledToDelete;
+                          const isDisabled = isDrop;
                           const participantLabel = getAffectedActivityParticipantLabel(aa);
 
                           return (
-                            <div key={`${aa.activityId}:${aa.participationKey ?? aa.individualId}`} className="cascade-badge-row">
-                              {isSelectable && (
-                                <Form.Check
-                                  checked={isSelectedForRemoval}
-                                  onChange={(event) => {
-                                    setSelectedAffectedActivityKeys((prev) => {
-                                      const next = new Set(prev);
-                                      if (event.target.checked) next.add(selectionKey);
-                                      else next.delete(selectionKey);
-                                      return next;
-                                    });
-                                  }}
+                            <span
+                              key={`${aa.activityId}:${aa.participationKey ?? aa.individualId}`}
+                              className={`cascade-badge ${badgeClass}${isTrim ? " cascade-badge-checkable" : ""}`}
+                              onClick={isTrim ? () => {
+                                setSelectedAffectedActivityKeys((prev) => {
+                                  const next = new Set(prev);
+                                  if (next.has(selectionKey)) next.delete(selectionKey);
+                                  else next.add(selectionKey);
+                                  return next;
+                                });
+                              } : undefined}
+                            >
+                              {showCheckbox && (
+                                <input
+                                  type="checkbox"
+                                  className="cascade-badge-checkbox"
+                                  checked={isChecked}
+                                  disabled={isDisabled}
+                                  onChange={() => {}}
+                                  tabIndex={-1}
                                 />
                               )}
-                              <span className={`cascade-badge ${badgeClass}`}>
-                                {participantLabel}
-                              </span>
-                            </div>
+                              <span className="cascade-badge-label">{participantLabel}</span>
+                            </span>
                           );
                         })}
                         </div>
@@ -3578,19 +3771,49 @@ const SetIndividual = (props: Props) => {
           )}
         </Modal.Body>
         <Modal.Footer>
-          {pendingAffectedActivities.length > 0 && (
+          {showBoundsFooterInfo && (
             <div className="cascade-footer-info">
-              <div className="cascade-legend mb-0">
-                <span className="cascade-legend-item">
-                  <span className="cascade-legend-swatch cascade-legend-swatch-remove" /> Removed
-                </span>
-                <span className="cascade-legend-item">
-                  <span className="cascade-legend-swatch cascade-legend-swatch-trim" /> Trimmed
-                </span>
-                <span className="cascade-legend-item">
-                  <span className="cascade-legend-swatch cascade-legend-swatch-keep" /> Removed due to no overlap, participation will return to parent entity
-                </span>
+              <div className="cascade-footer-block">
+                <div className="cascade-footer-heading">Legend:</div>
+                <div className="cascade-legend mb-0">
+                  {showBoundsRemovedLegend && (
+                    <span className="cascade-legend-item">
+                      <span className="cascade-badge cascade-badge-remove cascade-legend-badge">Removed</span>
+                    </span>
+                  )}
+                  {showBoundsTrimmedLegend && (
+                    <span className="cascade-legend-item">
+                      <span className="cascade-badge cascade-badge-trim cascade-legend-badge">Trimmed</span>
+                    </span>
+                  )}
+                  {showBoundsKeptLegend && (
+                    <span className="cascade-legend-item">
+                      <span className="cascade-badge cascade-badge-keep cascade-legend-badge">Kept</span>
+                    </span>
+                  )}
+                </div>
               </div>
+              {(showBoundsTrimNote || showBoundsKeptLegend) && (
+                <div className="cascade-footer-block cascade-footer-notes-block">
+                  <div className="cascade-footer-heading">Notes:</div>
+                  <div className="cascade-footer-notes">
+                    {[
+                      showBoundsTrimNote
+                        ? "Tick boxes to remove entities."
+                        : null,
+                      showBoundsKeptLegend
+                        ? "Kept items are removed due to no overlap, participation will return to parent entity."
+                        : null,
+                    ]
+                      .filter((note): note is string => !!note)
+                      .map((note, index) => (
+                        <div key={note} className="cascade-footer-note">
+                          {index + 1} - {note}
+                        </div>
+                      ))}
+                  </div>
+                </div>
+              )}
             </div>
           )}
           <Button
@@ -3599,25 +3822,16 @@ const SetIndividual = (props: Props) => {
               setShowBoundsWarningModal(false);
               setPendingActivityAction("keep");
               setSelectedAffectedActivityKeys(new Set());
+              setSelectedBoundsChangeIds(new Set());
             }}
           >
             Cancel
           </Button>
-          {showDangerBoundsAction && (
-            <Button
-              variant="danger"
-              onClick={confirmBoundsDeleteAffected}
-              disabled={!canUseDangerBoundsAction}
-            >
-              {dangerBoundsActionLabel}
-            </Button>
-          )}
           <Button
             variant="primary"
-            onClick={confirmBoundsAdjustment}
-            disabled={!canApplyBoundsAction}
+            onClick={confirmBoundsApply}
           >
-            {primaryBoundsActionLabel}
+            Apply
           </Button>
         </Modal.Footer>
       </Modal>
@@ -3630,6 +3844,8 @@ const SetIndividual = (props: Props) => {
           setCascadeWarning(null);
           setPendingActivityAction("keep");
           setSelectedAffectedActivityKeys(new Set());
+          setSelectedCascadeComponentIds(new Set());
+          setSelectedCascadeInstallationIds(new Set());
         }}
         centered
         size="lg"
@@ -3661,18 +3877,48 @@ const SetIndividual = (props: Props) => {
             <div className="mb-3">
               <div className="cascade-section-title">System Components</div>
               <div className="cascade-badges-wrap" style={{ maxHeight: "180px", overflowY: "auto" }}>
-                {[...cascadeWarning.affectedComponents].sort((a, b) => a.fromBeginning - b.fromBeginning).map((ac) => (
-                  <span
-                    key={ac.id}
-                    className={`cascade-badge ${ac.action === "trim" ? "cascade-badge-trim" : "cascade-badge-remove"}`}
-                  >
-                    {ac.name} ({formatBound(ac.fromBeginning, true)}-{formatBound(ac.fromEnding, false)}
-                    {ac.action === "trim"
-                      ? ` → ${formatBound(ac.toBeginning ?? ac.fromBeginning, true)}-${formatBound(ac.toEnding ?? ac.fromEnding, false)}`
-                      : ""}
-                    )
-                  </span>
-                ))}
+                {[...cascadeWarning.affectedComponents].sort((a, b) => a.fromBeginning - b.fromBeginning).map((ac) => {
+                  const isDrop = ac.action === "drop";
+                  const isTrim = ac.action === "trim";
+                  const isToggleable = cascadeWarning.mode !== "delete" && isTrim;
+                  const isToggledToDelete =
+                    isToggleable && selectedCascadeComponentIds.has(ac.id);
+                  const badgeClass =
+                    isDrop || isToggledToDelete
+                      ? "cascade-badge-remove"
+                      : "cascade-badge-trim";
+
+                  return (
+                    <span
+                      key={ac.id}
+                      className={`cascade-badge ${badgeClass}${isToggleable ? " cascade-badge-checkable" : ""}`}
+                      onClick={isToggleable ? () => {
+                        setSelectedCascadeComponentIds((prev) => {
+                          const next = new Set(prev);
+                          if (next.has(ac.id)) next.delete(ac.id);
+                          else next.add(ac.id);
+                          return next;
+                        });
+                      } : undefined}
+                    >
+                      <input
+                        type="checkbox"
+                        className="cascade-badge-checkbox"
+                        checked={isDrop || isToggledToDelete}
+                        disabled={isDrop}
+                        onChange={() => {}}
+                        tabIndex={-1}
+                      />
+                      <span className="cascade-badge-label">
+                        {ac.name} ({formatBound(ac.fromBeginning, true)}-{formatBound(ac.fromEnding, false)}
+                        {ac.action === "trim" && !isToggledToDelete
+                          ? ` → ${formatBound(ac.toBeginning ?? ac.fromBeginning, true)}-${formatBound(ac.toEnding ?? ac.fromEnding, false)}`
+                          : ""}
+                        )
+                      </span>
+                    </span>
+                  );
+                })}
               </div>
             </div>
           )}
@@ -3688,7 +3934,17 @@ const SetIndividual = (props: Props) => {
                       key={`${item.componentId}:${item.systemId}:${item.fromBeginning}:${item.fromEnding}`}
                       className="cascade-badge cascade-badge-remove"
                     >
-                      {item.componentName} [component of {item.systemName} ({formatBound(item.fromBeginning, true)}-{formatBound(item.fromEnding, false)})]
+                      <input
+                        type="checkbox"
+                        className="cascade-badge-checkbox"
+                        checked
+                        disabled
+                        onChange={() => {}}
+                        tabIndex={-1}
+                      />
+                      <span className="cascade-badge-label">
+                        {item.componentName} [component of {item.systemName} ({formatBound(item.fromBeginning, true)}-{formatBound(item.fromEnding, false)})]
+                      </span>
                     </span>
                   ))}
               </div>
@@ -3699,18 +3955,48 @@ const SetIndividual = (props: Props) => {
             <div className="mb-3">
               <div className="cascade-section-title">Installation Periods</div>
               <div className="cascade-badges-wrap" style={{ maxHeight: "220px", overflowY: "auto" }}>
-                {[...cascadeWarning.affectedInstallations].sort((a, b) => a.fromBeginning - b.fromBeginning).map((ai) => (
-                  <span
-                    key={ai.periodId}
-                    className={`cascade-badge ${ai.action === "trim" ? "cascade-badge-trim" : "cascade-badge-remove"}`}
-                  >
-                    {ai.individualName} [installed in {ai.systemComponentName} ({formatBound(ai.fromBeginning, true)}-{formatBound(ai.fromEnding, false)}
-                    {ai.action === "trim"
-                      ? ` → ${formatBound(ai.toBeginning ?? ai.fromBeginning, true)}-${formatBound(ai.toEnding ?? ai.fromEnding, false)}`
-                      : ""}
-                    )]
-                  </span>
-                ))}
+                {[...cascadeWarning.affectedInstallations].sort((a, b) => a.fromBeginning - b.fromBeginning).map((ai) => {
+                  const isDrop = ai.action === "drop";
+                  const isTrim = ai.action === "trim";
+                  const isToggleable = cascadeWarning.mode !== "delete" && isTrim;
+                  const isToggledToDelete =
+                    isToggleable && selectedCascadeInstallationIds.has(ai.periodId);
+                  const badgeClass =
+                    isDrop || isToggledToDelete
+                      ? "cascade-badge-remove"
+                      : "cascade-badge-trim";
+
+                  return (
+                    <span
+                      key={ai.periodId}
+                      className={`cascade-badge ${badgeClass}${isToggleable ? " cascade-badge-checkable" : ""}`}
+                      onClick={isToggleable ? () => {
+                        setSelectedCascadeInstallationIds((prev) => {
+                          const next = new Set(prev);
+                          if (next.has(ai.periodId)) next.delete(ai.periodId);
+                          else next.add(ai.periodId);
+                          return next;
+                        });
+                      } : undefined}
+                    >
+                      <input
+                        type="checkbox"
+                        className="cascade-badge-checkbox"
+                        checked={isDrop || isToggledToDelete}
+                        disabled={isDrop}
+                        onChange={() => {}}
+                        tabIndex={-1}
+                      />
+                      <span className="cascade-badge-label">
+                        {ai.individualName} [installed in {ai.systemComponentName} ({formatBound(ai.fromBeginning, true)}-{formatBound(ai.fromEnding, false)}
+                        {ai.action === "trim" && !isToggledToDelete
+                          ? ` → ${formatBound(ai.toBeginning ?? ai.fromBeginning, true)}-${formatBound(ai.toEnding ?? ai.fromEnding, false)}`
+                          : ""}
+                        )]
+                      </span>
+                    </span>
+                  );
+                })}
               </div>
             </div>
           )}
@@ -3718,66 +4004,6 @@ const SetIndividual = (props: Props) => {
           {cascadeWarning && cascadeWarning.affectedActivities.length > 0 && (
             <div className="mb-3">
               <div className="cascade-section-title">Participation In Activities</div>
-              {cascadeHasOptionalActivities && (
-                <>
-                  <Form.Group className="mb-2 cascade-activity-handling" controlId="cascadeActivitiesAction">
-                    <Form.Label className="small text-muted mb-1">
-                      Activity handling
-                    </Form.Label>
-                    <div>
-                      <Form.Check
-                        inline
-                        type="radio"
-                        name="cascadeActivitiesAction"
-                        id="cascadeActivitiesKeep"
-                        label="Keep affected activities (default)"
-                        checked={pendingActivityAction === "keep"}
-                        onChange={() => setPendingActivityAction("keep")}
-                      />
-                      <Form.Check
-                        inline
-                        type="radio"
-                        name="cascadeActivitiesAction"
-                        id="cascadeActivitiesRemove"
-                        label="Remove affected activities"
-                        checked={pendingActivityAction === "remove"}
-                        onChange={() => setPendingActivityAction("remove")}
-                      />
-                    </div>
-                  </Form.Group>
-                  {pendingActivityAction === "remove" && (
-                    <div className="mb-2 d-flex align-items-center justify-content-between">
-                      <div className="small text-muted">
-                        Selected for removal: {selectedAffectedActivityKeys.size} of {cascadeOptionalActivities.length}
-                      </div>
-                      <div className="d-flex gap-2">
-                        <Button
-                          size="sm"
-                          variant="outline-secondary"
-                          onClick={() => {
-                            setSelectedAffectedActivityKeys(
-                              new Set(
-                                cascadeOptionalActivities.map((aa) =>
-                                  getAffectedActivitySelectionKey(aa)
-                                )
-                              )
-                            );
-                          }}
-                        >
-                          Select all
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="outline-secondary"
-                          onClick={() => setSelectedAffectedActivityKeys(new Set())}
-                        >
-                          Clear
-                        </Button>
-                      </div>
-                    </div>
-                  )}
-                </>
-              )}
               <div style={{ maxHeight: "260px", overflowY: "auto" }}>
                 {(() => {
                   // Group affected activities by activityId
@@ -3797,16 +4023,25 @@ const SetIndividual = (props: Props) => {
                         });
                       }
                     });
-                  return Array.from(grouped.entries()).map(([activityId, group]) => {
+                  const groupedEntries = Array.from(grouped.entries());
+                  const activityHeaderWidth = getActivityHeaderWidthCh(
+                    groupedEntries.map(([, group]) => group)
+                  );
+                  return groupedEntries.map(([activityId, group]) => {
                     // Determine whether all entries for this activity are required-drop (entire activity removed)
                     const allRequiredDrop = group.entries.every(
                       (e) => e.deleteChoice === "required" && e.action === "drop" && e.activityOutcomeText
                     );
                     return (
-                      <div key={activityId} className="cascade-activity-row">
+                      <div
+                        key={activityId}
+                        className="cascade-activity-row"
+                        style={{ ["--cascade-activity-header-width" as string]: activityHeaderWidth }}
+                      >
                         <div className="cascade-activity-line">
                           <div className="cascade-activity-header">
-                            {group.activityName} ({formatBound(group.fromBeginning, true)}-{formatBound(group.fromEnding, false)}):
+                            <span className="cascade-activity-name">{group.activityName}</span>
+                            {" "}({formatBound(group.fromBeginning, true)}-{formatBound(group.fromEnding, false)}):
                             {allRequiredDrop && (
                               <span className="text-danger small ms-2">— activity removed (no participants remain)</span>
                             )}
@@ -3814,51 +4049,56 @@ const SetIndividual = (props: Props) => {
                           <div className="cascade-badges-wrap">
                           {group.entries.map((aa) => {
                             const selectionKey = getAffectedActivitySelectionKey(aa);
-                            const isKept =
-                              aa.deleteChoice === "optional" &&
-                              (pendingActivityAction !== "remove" || !selectedAffectedActivityKeys.has(selectionKey));
-                            const isSelectedForRemoval =
-                              aa.deleteChoice === "optional" &&
-                              pendingActivityAction === "remove" &&
-                              selectedAffectedActivityKeys.has(selectionKey);
-                            const isSelectableForRemoval =
-                              aa.deleteChoice === "optional" && pendingActivityAction === "remove";
+                            const isRequired = aa.deleteChoice === "required";
+                            const isDrop = aa.action === "drop";
+                            const isTrim = aa.action === "trim";
+                            const isOptional = aa.deleteChoice === "optional";
+                            const isToggledToDelete = isOptional && selectedAffectedActivityKeys.has(selectionKey);
 
                             let badgeClass: string;
-                            if (aa.deleteChoice === "required") {
-                              badgeClass = aa.action === "trim" ? "cascade-badge-trim" : "cascade-badge-remove";
-                            } else if (isSelectedForRemoval) {
+                            if (isRequired) {
+                              badgeClass = isTrim ? "cascade-badge-trim" : "cascade-badge-remove";
+                            } else if (isToggledToDelete) {
                               badgeClass = "cascade-badge-remove";
-                            } else if (isKept && aa.action === "drop") {
+                            } else if (isDrop) {
                               badgeClass = "cascade-badge-detached";
-                            } else if (isKept) {
-                              badgeClass = "cascade-badge-keep";
+                            } else if (isTrim) {
+                              badgeClass = "cascade-badge-trim";
                             } else {
                               badgeClass = "cascade-badge-keep";
                             }
 
-                            // Build the label
+                            const showCheckbox = isRequired || isOptional;
+                            const isChecked = isRequired || isToggledToDelete;
+                            const isDisabled = isRequired;
+                            const canToggle = isOptional;
                             const participantLabel = getAffectedActivityParticipantLabel(aa);
 
                             return (
-                              <div key={`${aa.activityId}:${aa.participationKey ?? aa.individualId}`} className="cascade-badge-row">
-                                {isSelectableForRemoval && (
-                                  <Form.Check
-                                    checked={isSelectedForRemoval}
-                                    onChange={(event) => {
-                                      setSelectedAffectedActivityKeys((prev) => {
-                                        const next = new Set(prev);
-                                        if (event.target.checked) next.add(selectionKey);
-                                        else next.delete(selectionKey);
-                                        return next;
-                                      });
-                                    }}
+                              <span
+                                key={`${aa.activityId}:${aa.participationKey ?? aa.individualId}`}
+                                className={`cascade-badge ${badgeClass}${canToggle ? " cascade-badge-checkable" : ""}`}
+                                onClick={canToggle ? () => {
+                                  setSelectedAffectedActivityKeys((prev) => {
+                                    const next = new Set(prev);
+                                    if (next.has(selectionKey)) next.delete(selectionKey);
+                                    else next.add(selectionKey);
+                                    return next;
+                                  });
+                                } : undefined}
+                              >
+                                {showCheckbox && (
+                                  <input
+                                    type="checkbox"
+                                    className="cascade-badge-checkbox"
+                                    checked={isChecked}
+                                    disabled={isDisabled}
+                                    onChange={() => {}}
+                                    tabIndex={-1}
                                   />
                                 )}
-                                <span className={`cascade-badge ${badgeClass}`}>
-                                  {participantLabel}
-                                </span>
-                              </div>
+                                <span className="cascade-badge-label">{participantLabel}</span>
+                              </span>
                             );
                           })}
                           </div>
@@ -3872,19 +4112,49 @@ const SetIndividual = (props: Props) => {
           )}
         </Modal.Body>
         <Modal.Footer>
-          {cascadeWarning?.affectedActivities.length ? (
+          {showCascadeFooterInfo ? (
             <div className="cascade-footer-info">
-              <div className="cascade-legend mb-0">
-                <span className="cascade-legend-item">
-                  <span className="cascade-legend-swatch cascade-legend-swatch-remove" /> Removed
-                </span>
-                <span className="cascade-legend-item">
-                  <span className="cascade-legend-swatch cascade-legend-swatch-trim" /> Trimmed
-                </span>
-                <span className="cascade-legend-item">
-                  <span className="cascade-legend-swatch cascade-legend-swatch-keep" /> Removed due to no overlap, participation will return to parent entity
-                </span>
+              <div className="cascade-footer-block">
+                <div className="cascade-footer-heading">Legend:</div>
+                <div className="cascade-legend mb-0">
+                  {showCascadeRemovedLegend && (
+                    <span className="cascade-legend-item">
+                      <span className="cascade-badge cascade-badge-remove cascade-legend-badge">Removed</span>
+                    </span>
+                  )}
+                  {showCascadeTrimmedLegend && (
+                    <span className="cascade-legend-item">
+                      <span className="cascade-badge cascade-badge-trim cascade-legend-badge">Trimmed</span>
+                    </span>
+                  )}
+                  {showCascadeKeptLegend && (
+                    <span className="cascade-legend-item">
+                      <span className="cascade-badge cascade-badge-keep cascade-legend-badge">Kept</span>
+                    </span>
+                  )}
+                </div>
               </div>
+              {(showCascadeTrimNote || showCascadeKeptLegend) && (
+                <div className="cascade-footer-block cascade-footer-notes-block">
+                  <div className="cascade-footer-heading">Notes:</div>
+                  <div className="cascade-footer-notes">
+                    {[
+                      showCascadeTrimNote
+                        ? "Tick boxes to remove entities."
+                        : null,
+                      showCascadeKeptLegend
+                        ? "Kept items are removed due to no overlap, participation will return to parent entity."
+                        : null,
+                    ]
+                      .filter((note): note is string => !!note)
+                      .map((note, index) => (
+                        <div key={note} className="cascade-footer-note">
+                          {index + 1} - {note}
+                        </div>
+                      ))}
+                  </div>
+                </div>
+              )}
             </div>
           ) : null}
           <Button
@@ -3894,26 +4164,19 @@ const SetIndividual = (props: Props) => {
               setCascadeWarning(null);
               setPendingActivityAction("keep");
               setSelectedAffectedActivityKeys(new Set());
+              setSelectedCascadeComponentIds(new Set());
+              setSelectedCascadeInstallationIds(new Set());
             }}
           >
             Cancel
           </Button>
           <Button
-            variant="danger"
+            variant="primary"
             onClick={confirmCascadeDelete}
             disabled={!cascadeCanRemove}
           >
             {cascadeDeleteButtonLabel}
           </Button>
-          {cascadeWarning?.mode !== "delete" && (
-            <Button
-              variant="primary"
-              onClick={() => cascadeWarning?.applyTrim()}
-              disabled={!cascadeHasTrimAction}
-            >
-              {cascadeWarning?.trimButtonLabel ?? "Resolve Affected Periods"}
-            </Button>
-          )}
         </Modal.Footer>
       </Modal>
     </>

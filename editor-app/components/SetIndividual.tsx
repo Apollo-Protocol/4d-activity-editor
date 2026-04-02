@@ -551,6 +551,58 @@ const SetIndividual = (props: Props) => {
     return result;
   };
 
+  const markReturnToIndividualChanges = (
+    affectedActivities: AffectedActivity[]
+  ): AffectedActivity[] =>
+    affectedActivities.map((affectedActivity) =>
+      affectedActivity.action === "drop"
+        ? {
+            ...affectedActivity,
+            keepStrategy: "return-to-individual" as const,
+          }
+        : affectedActivity
+    );
+
+  const applyInstallationBoundsToPeriods = (
+    periods: InstallationPeriod[],
+    componentBoundsById: Map<
+      string,
+      { beginning: number; ending: number; dropped: boolean }
+    >
+  ): InstallationPeriod[] =>
+    periods.flatMap((period) => {
+      const bounds = componentBoundsById.get(period.systemComponentId);
+      if (!bounds) {
+        return [period];
+      }
+
+      if (bounds.dropped) {
+        return [];
+      }
+
+      const nextBeginning = Math.max(period.beginning, bounds.beginning);
+      const nextEnding = Math.min(period.ending, bounds.ending);
+
+      if (nextEnding <= nextBeginning) {
+        return [];
+      }
+
+      if (
+        nextBeginning === period.beginning &&
+        nextEnding === period.ending
+      ) {
+        return [period];
+      }
+
+      return [
+        {
+          ...period,
+          beginning: nextBeginning,
+          ending: nextEnding,
+        },
+      ];
+    });
+
   const mergeAffectedActivities = (
     ...activityGroups: AffectedActivity[][]
   ): AffectedActivity[] => {
@@ -629,7 +681,23 @@ const SetIndividual = (props: Props) => {
       relatedChanges.forEach((change) => {
         const pKey = change.participationKey ?? change.individualId;
         if (change.action === "drop") {
+          const participation = remainingParticipations.get(pKey);
           remainingParticipations.delete(pKey);
+
+          if (
+            change.keepStrategy === "return-to-individual" &&
+            participation
+          ) {
+            const plainKey = participationMapKey(change.individualId);
+            if (!remainingParticipations.has(plainKey)) {
+              remainingParticipations.set(plainKey, {
+                ...participation,
+                systemComponentId: undefined,
+                installationPeriodId: undefined,
+              });
+            }
+          }
+
           return;
         }
 
@@ -926,6 +994,13 @@ const SetIndividual = (props: Props) => {
   const saveIndividualToModel = (d: Model, individual: Individual) => {
     d.addIndividual(individual);
     d.reconcileParticipationsForInstallations(individual);
+  };
+
+  const saveIndividualToModelWithoutReconcile = (
+    d: Model,
+    individual: Individual
+  ) => {
+    d.addIndividual(individual);
   };
 
   const buildDeleteCascadeWarning = (individual: Individual): CascadeWarning => {
@@ -1755,6 +1830,10 @@ const SetIndividual = (props: Props) => {
 
         // Check activities that participate the system or any of its child components or installed individuals
         const affectedActivities: AffectedActivity[] = [];
+        const componentBoundsById = new Map<
+          string,
+          { beginning: number; ending: number; dropped: boolean }
+        >();
         // Activities participating the system itself
         const oldEnd = oldSystem ? normalizeEnd(oldSystem.ending) : newEnd;
         affectedActivities.push(...findAffectedActivities(next.id, next.name, newStart, newEnd, oldStart, oldEnd));
@@ -1776,31 +1855,52 @@ const SetIndividual = (props: Props) => {
           const oldCompEffStart = Math.max(normalizeStart(comp.beginning), oldStart);
           const oldCompEffEnd = Math.min(normalizeEnd(comp.ending), oldEnd);
 
+          componentBoundsById.set(comp.id, {
+            beginning: compEffStart,
+            ending: compEffEnd,
+            dropped: compEffEnd <= compEffStart,
+          });
+
           if (compEffEnd > compEffStart) {
             affectedActivities.push(...findAffectedActivities(comp.id, comp.name, compEffStart, compEffEnd, oldCompEffStart, oldCompEffEnd).map(a => ({...a, systemName: next.name})));
           } else {
             affectedActivities.push(...findAffectedActivities(comp.id, comp.name, compEffStart, compEffStart, oldCompEffStart, oldCompEffEnd).map(a => ({...a, systemName: next.name})));
           }
+        }
 
-          // Activities participating individuals installed in this component
-          for (const ind of Array.from(dataset.individuals.values())) {
-            const periods = getInstallationPeriods(ind);
-            const isInstalledInComp = periods.some((p) => p.systemComponentId === comp.id);
-            if (!isInstalledInComp) continue;
-            // The individual's effective bounds are clamped to the component's final effective bounds
-            const indStart = normalizeStart(ind.beginning);
-            const indEnd = normalizeEnd(ind.ending);
-            const indEffStart = Math.max(indStart, compEffStart);
-            const indEffEnd = Math.min(indEnd, compEffEnd);
-            const oldIndEffStart = Math.max(indStart, oldCompEffStart);
-            const oldIndEffEnd = Math.min(indEnd, oldCompEffEnd);
+        for (const ind of Array.from(dataset.individuals.values())) {
+          const oldPeriods = getInstallationPeriods(ind);
+          const newPeriods = applyInstallationBoundsToPeriods(
+            oldPeriods,
+            componentBoundsById
+          );
 
-            if (indEffEnd > indEffStart) {
-              affectedActivities.push(...findAffectedActivities(ind.id, ind.name, indEffStart, indEffEnd, oldIndEffStart, oldIndEffEnd).map(a => ({...a, systemName: next.name, systemComponentName: comp.name})));
-            } else {
-              affectedActivities.push(...findAffectedActivities(ind.id, ind.name, indEffStart, indEffStart, oldIndEffStart, oldIndEffEnd).map(a => ({...a, systemName: next.name, systemComponentName: comp.name})));
+          if (oldPeriods.length === newPeriods.length) {
+            const unchanged = oldPeriods.every((period, index) => {
+              const nextPeriod = newPeriods[index];
+              return (
+                nextPeriod &&
+                nextPeriod.id === period.id &&
+                nextPeriod.systemComponentId === period.systemComponentId &&
+                nextPeriod.beginning === period.beginning &&
+                nextPeriod.ending === period.ending
+              );
+            });
+            if (unchanged) {
+              continue;
             }
           }
+
+          affectedActivities.push(
+            ...markReturnToIndividualChanges(
+              findAffectedActivitiesForInstallationPeriods(
+                ind.id,
+                ind.name,
+                oldPeriods,
+                newPeriods
+              )
+            )
+          );
         }
         // De-duplicate by activityId (activity may participate multiple affected entities)
         const seenActivityIds = new Set<string>();
@@ -1918,7 +2018,7 @@ const SetIndividual = (props: Props) => {
                     return p;
                   }).filter((p): p is InstallationPeriod => !!p);
 
-                  saveIndividualToModel(d, syncLegacyInstallationFields({
+                  saveIndividualToModelWithoutReconcile(d, syncLegacyInstallationFields({
                     ...ind,
                     installedIn: undefined,
                     installedBeginning: undefined,
@@ -1927,7 +2027,23 @@ const SetIndividual = (props: Props) => {
                   }));
                 });
 
-                applyAffectedActivityChanges(d, affectedActivities);
+                applyAffectedActivityChanges(
+                  d,
+                  dedupedActivities.filter(
+                    (affectedActivity) =>
+                      !(
+                        affectedActivity.action === "drop" &&
+                        affectedActivity.keepStrategy === "return-to-individual"
+                      )
+                  )
+                );
+
+                Array.from(installsByIndividual.keys()).forEach((indId) => {
+                  const ind = d.individuals.get(indId);
+                  if (ind) {
+                    d.reconcileParticipationsForInstallations(ind);
+                  }
+                });
 
                 return d;
               });
@@ -1962,7 +2078,7 @@ const SetIndividual = (props: Props) => {
                     const kept = periods.filter(
                       (p) => !installsToRemove.has(p.id) && !droppedCompIds.has(p.systemComponentId)
                     );
-                    saveIndividualToModel(d, syncLegacyInstallationFields({
+                    saveIndividualToModelWithoutReconcile(d, syncLegacyInstallationFields({
                       ...ind,
                       installedIn: undefined,
                       installedBeginning: undefined,
@@ -1972,15 +2088,22 @@ const SetIndividual = (props: Props) => {
                   }
                 }
 
-                // Remove all affected participations
-                const affectedActivityIds = new Set<string>();
-                for (const aa of affectedActivities) {
-                  const act = d.activities.get(aa.activityId);
-                  if (act) act.participations.delete(aa.participationKey ?? aa.individualId);
-                  affectedActivityIds.add(aa.activityId);
-                }
+                applyAffectedActivityChanges(
+                  d,
+                  dedupedActivities.filter(
+                    (affectedActivity) =>
+                      !(
+                        affectedActivity.action === "drop" &&
+                        affectedActivity.keepStrategy === "return-to-individual"
+                      )
+                  )
+                );
 
-                shrinkActivitiesToRemainingParticipants(d, affectedActivityIds);
+                Array.from(d.individuals.values()).forEach((ind) => {
+                  if (getInstallationPeriods(ind).length > 0) {
+                    d.reconcileParticipationsForInstallations(ind);
+                  }
+                });
 
                 return d;
               });
@@ -2076,23 +2199,37 @@ const SetIndividual = (props: Props) => {
         const compAffectedActivities: AffectedActivity[] = [];
         compAffectedActivities.push(...findAffectedActivities(next.id, next.name, effectiveStart, effectiveEnd, oldEffStart, oldEffEnd).map(a => ({...a, systemName: parentSystemName})));
 
+        const componentBoundsById = new Map<string, { beginning: number; ending: number; dropped: boolean }>([
+          [
+            next.id,
+            {
+              beginning: effectiveStart,
+              ending: effectiveEnd,
+              dropped: effectiveEnd <= effectiveStart,
+            },
+          ],
+        ]);
+
         // Also check activities for individuals installed in this component
         for (const ind of Array.from(dataset.individuals.values())) {
-          const periods = getInstallationPeriods(ind);
-          const isInstalledInComp = periods.some((p) => p.systemComponentId === next.id);
+          const oldPeriods = getInstallationPeriods(ind);
+          const isInstalledInComp = oldPeriods.some((p) => p.systemComponentId === next.id);
           if (!isInstalledInComp) continue;
-          const indStart = normalizeStart(ind.beginning);
-          const indEnd = normalizeEnd(ind.ending);
-          const indEffStart = Math.max(indStart, effectiveStart);
-          const indEffEnd = Math.min(indEnd, effectiveEnd);
-          const oldIndEffStart = Math.max(indStart, oldEffStart);
-          const oldIndEffEnd = Math.min(indEnd, oldEffEnd);
-          
-          if (indEffEnd > indEffStart) {
-            compAffectedActivities.push(...findAffectedActivities(ind.id, ind.name, indEffStart, indEffEnd, oldIndEffStart, oldIndEffEnd).map(a => ({...a, systemName: parentSystemName, systemComponentName: next.name})));
-          } else {
-            compAffectedActivities.push(...findAffectedActivities(ind.id, ind.name, indEffStart, indEffStart, oldIndEffStart, oldIndEffEnd).map(a => ({...a, systemName: parentSystemName, systemComponentName: next.name})));
-          }
+          const newPeriods = applyInstallationBoundsToPeriods(
+            oldPeriods,
+            componentBoundsById
+          );
+
+          compAffectedActivities.push(
+            ...markReturnToIndividualChanges(
+              findAffectedActivitiesForInstallationPeriods(
+                ind.id,
+                ind.name,
+                oldPeriods,
+                newPeriods
+              )
+            )
+          );
         }
 
         // De-duplicate by activityId+participationKey
@@ -2140,7 +2277,7 @@ const SetIndividual = (props: Props) => {
                       return p;
                     })
                     .filter((p): p is InstallationPeriod => !!p);
-                  saveIndividualToModel(d, syncLegacyInstallationFields({
+                  saveIndividualToModelWithoutReconcile(d, syncLegacyInstallationFields({
                     ...ind,
                     installedIn: undefined,
                     installedBeginning: undefined,
@@ -2149,7 +2286,23 @@ const SetIndividual = (props: Props) => {
                   }));
                 });
 
-                applyAffectedActivityChanges(d, dedupedCompActivities);
+                applyAffectedActivityChanges(
+                  d,
+                  dedupedCompActivities.filter(
+                    (affectedActivity) =>
+                      !(
+                        affectedActivity.action === "drop" &&
+                        affectedActivity.keepStrategy === "return-to-individual"
+                      )
+                  )
+                );
+
+                Array.from(installsByIndividual.keys()).forEach((indId) => {
+                  const ind = d.individuals.get(indId);
+                  if (ind) {
+                    d.reconcileParticipationsForInstallations(ind);
+                  }
+                });
 
                 return d;
               });
@@ -2170,7 +2323,7 @@ const SetIndividual = (props: Props) => {
                   const hasAffected = periods.some((p) => installsToRemove.has(p.id));
                   if (hasAffected) {
                     const kept = periods.filter((p) => !installsToRemove.has(p.id));
-                    saveIndividualToModel(d, syncLegacyInstallationFields({
+                    saveIndividualToModelWithoutReconcile(d, syncLegacyInstallationFields({
                       ...ind,
                       installedIn: undefined,
                       installedBeginning: undefined,
@@ -2180,15 +2333,22 @@ const SetIndividual = (props: Props) => {
                   }
                 }
 
-                // Remove all affected participations
-                const affectedActivityIds = new Set<string>();
-                for (const aa of dedupedCompActivities) {
-                  const act = d.activities.get(aa.activityId);
-                  if (act) act.participations.delete(aa.participationKey ?? aa.individualId);
-                  affectedActivityIds.add(aa.activityId);
-                }
+                applyAffectedActivityChanges(
+                  d,
+                  dedupedCompActivities.filter(
+                    (affectedActivity) =>
+                      !(
+                        affectedActivity.action === "drop" &&
+                        affectedActivity.keepStrategy === "return-to-individual"
+                      )
+                  )
+                );
 
-                shrinkActivitiesToRemainingParticipants(d, affectedActivityIds);
+                Array.from(d.individuals.values()).forEach((ind) => {
+                  if (getInstallationPeriods(ind).length > 0) {
+                    d.reconcileParticipationsForInstallations(ind);
+                  }
+                });
 
                 return d;
               });

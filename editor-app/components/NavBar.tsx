@@ -39,17 +39,15 @@ interface NavBarProps {
 
 function CollapsibleExample({ openAppearanceModal }: NavBarProps) {
   const router = useRouter();
-  const isEditorDropdownActive = [
-    "/manual",
-    "/editor",
-    "/terminology",
-  ].includes(router.pathname);
+  const isEditorActive = router.pathname === "/editor";
   const isActivityModellingActive = [
     "/intro",
     "/crane",
     "/management",
   ].includes(router.pathname);
-  const isSystemComponentsActive = [
+  const isGuideActive = [
+    "/manual",
+    "/terminology",
     "/system-intro",
     "/system-example",
   ].includes(router.pathname);
@@ -76,41 +74,7 @@ function CollapsibleExample({ openAppearanceModal }: NavBarProps) {
         <Navbar.Collapse id="responsive-navbar-nav">
           <Nav className="ms-auto gap-2">
             <NavItem href="/">Home</NavItem>
-            <NavDropdown
-              title="Editor"
-              id="editor-dropdown"
-              className={isEditorDropdownActive ? "active-dropdown" : ""}
-              align="end"
-            >
-              <NavDropdown.Item
-                href="/manual"
-                className={router.pathname === "/manual" ? "active" : ""}
-              >
-                Guide
-              </NavDropdown.Item>
-              <NavDropdown.Item
-                href="/editor"
-                className={router.pathname === "/editor" ? "active" : ""}
-              >
-                Activity Diagram
-              </NavDropdown.Item>
-              <NavDropdown.Item
-                href="/terminology"
-                className={router.pathname === "/terminology" ? "active" : ""}
-              >
-                Terminology
-              </NavDropdown.Item>
-              <NavDropdown.Divider />
-              <NavDropdown.Item
-                as="button"
-                onClick={(event) => {
-                  event.preventDefault();
-                  openAppearanceModal();
-                }}
-              >
-                Appearance
-              </NavDropdown.Item>
-            </NavDropdown>
+            <NavItem href="/editor">Editor</NavItem>
             <NavDropdown
               title="Activity Modelling"
               id="activity-modelling-dropdown"
@@ -118,18 +82,21 @@ function CollapsibleExample({ openAppearanceModal }: NavBarProps) {
               align="end"
             >
               <NavDropdown.Item
+                as={Link}
                 href="/intro"
                 className={router.pathname === "/intro" ? "active" : ""}
               >
                 Introduction
               </NavDropdown.Item>
               <NavDropdown.Item
+                as={Link}
                 href="/crane"
                 className={router.pathname === "/crane" ? "active" : ""}
               >
                 Example Analysis
               </NavDropdown.Item>
               <NavDropdown.Item
+                as={Link}
                 href="/management"
                 className={router.pathname === "/management" ? "active" : ""}
               >
@@ -137,24 +104,50 @@ function CollapsibleExample({ openAppearanceModal }: NavBarProps) {
               </NavDropdown.Item>
             </NavDropdown>
             <NavDropdown
-              title="System &amp; System Component"
-              id="system-dropdown"
-              className={isSystemComponentsActive ? "active-dropdown" : ""}
+              title="Guide"
+              id="guide-dropdown"
+              className={isGuideActive ? "active-dropdown" : ""}
               align="end"
             >
               <NavDropdown.Item
+                as={Link}
+                href="/manual"
+                className={router.pathname === "/manual" ? "active" : ""}
+              >
+                Editor Guide
+              </NavDropdown.Item>
+              <NavDropdown.Item
+                as={Link}
+                href="/terminology"
+                className={router.pathname === "/terminology" ? "active" : ""}
+              >
+                Terminology
+              </NavDropdown.Item>
+              <NavDropdown.Divider />
+              <div className="nav-dropdown-section-title">System &amp; System Components</div>
+              <NavDropdown.Item
+                as={Link}
                 href="/system-intro"
-                className={router.pathname === "/system-intro" ? "active" : ""}
+                className={`nav-dropdown-subsection-link ${router.pathname === "/system-intro" ? "active" : ""}`}
               >
                 Introduction
               </NavDropdown.Item>
               <NavDropdown.Item
+                as={Link}
                 href="/system-example"
-                className={router.pathname === "/system-example" ? "active" : ""}
+                className={`nav-dropdown-subsection-link ${router.pathname === "/system-example" ? "active" : ""}`}
               >
                 Example Analysis
               </NavDropdown.Item>
             </NavDropdown>
+            <button
+              type="button"
+              className="nav-link nav-settings-trigger"
+              onClick={openAppearanceModal}
+              aria-label="Open appearance settings"
+            >
+              Settings
+            </button>
           </Nav>
         </Navbar.Collapse>
       </Container>

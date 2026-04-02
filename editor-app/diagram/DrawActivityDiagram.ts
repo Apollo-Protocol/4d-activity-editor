@@ -158,9 +158,9 @@ export function drawActivityDiagram(
   };
 
   drawIndividuals(drawCtx);
+  drawInstallationConnectors(drawCtx);
   labelIndividuals(drawCtx);
   hoverIndividuals(drawCtx);
-  drawInstallationConnectors(drawCtx);
   clickIndividuals(drawCtx, clickIndividual, rightClickIndividual);
   drawActivities(drawCtx);
   hoverActivities(drawCtx);

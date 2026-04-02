@@ -27,31 +27,34 @@ const DiagramLegend = ({
 }: Props) => {
   const [hovered, setHovered] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
+  const legendItemsRef = React.useRef<HTMLDivElement | null>(null);
+  const [legendItemsMaxHeight, setLegendItemsMaxHeight] = useState<number>(260);
 
   // Filter activities based on search term
   const filteredActivities = activities.filter((activity) =>
     activity.name.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
-  // Decide threshold based on screen size
-  const [scrollThreshold, setScrollThreshold] = useState(12);
-
   React.useEffect(() => {
-    const updateThreshold = () => {
-      const width = window.innerWidth;
-      const height = window.innerHeight;
-      if (width <= 1400 || height <= 800) {
-        setScrollThreshold(8);
-      } else {
-        setScrollThreshold(12);
-      }
-    };
-    updateThreshold();
-    window.addEventListener("resize", updateThreshold);
-    return () => window.removeEventListener("resize", updateThreshold);
-  }, []);
+    const updateLegendMaxHeight = () => {
+      const container = legendItemsRef.current;
+      if (!container) return;
 
-  const needsScroll = filteredActivities.length > scrollThreshold;
+      const rect = container.getBoundingClientRect();
+      const bottomReservedPx = 96;
+      const minHeightPx = 220;
+      const nextMaxHeight = Math.max(
+        minHeightPx,
+        Math.floor(window.innerHeight - rect.top - bottomReservedPx)
+      );
+
+      setLegendItemsMaxHeight(nextMaxHeight);
+    };
+
+    updateLegendMaxHeight();
+    window.addEventListener("resize", updateLegendMaxHeight);
+    return () => window.removeEventListener("resize", updateLegendMaxHeight);
+  }, [activities.length, searchTerm]);
 
   return (
     <Card className="legend-card mb-2">
@@ -75,9 +78,10 @@ const DiagramLegend = ({
 
         {/* Scrollable container - only scroll when needed */}
         <div
+          ref={legendItemsRef}
           style={{
-            maxHeight: needsScroll ? "200px" : "none",
-            overflowY: needsScroll ? "auto" : "visible",
+            maxHeight: `${legendItemsMaxHeight}px`,
+            overflowY: "auto",
             overflowX: "hidden",
           }}
         >

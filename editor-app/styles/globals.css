@@ -276,6 +276,17 @@ h4.doc-section-heading {
   position: relative;
 }
 
+.nav-settings-trigger {
+  border: 0;
+  background: transparent;
+}
+
+.nav-settings-trigger:focus-visible {
+  outline: 2px solid rgba(var(--app-accent-rgb, 0, 127, 255), 0.45);
+  outline-offset: 2px;
+  border-radius: 0.35rem;
+}
+
 .navbar .nav-link:hover {
   color: var(--bs-emphasis-color) !important;
 }
@@ -408,6 +419,19 @@ h4.doc-section-heading {
   font-weight: 500;
   color: var(--bs-body-color);
   position: relative;
+}
+
+.navbar .nav-dropdown-section-title {
+  display: block;
+  padding: 0.6rem 1rem 0.45rem;
+  color: var(--bs-secondary-color, #6c757d);
+  font-size: 0.95rem;
+  font-weight: 500;
+  line-height: 1.2;
+}
+
+.navbar .nav-dropdown-subsection-link {
+  padding-left: 1rem;
 }
 
 [data-bs-theme="light"] .navbar .dropdown-item {
@@ -2963,27 +2987,33 @@ html.app-custom-theme .breadcrumb-wrapper .breadcrumb-item a:hover {
 }
 
 .typography-card-header {
+  min-height: 4.1rem;
   display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 0.75rem;
+  align-items: flex-start;
   margin-bottom: 0.8rem;
 }
 
-.typography-card-label {
-  font-size: 0.98rem;
-  font-weight: 600;
+.typography-card-fonts {
+  display: grid;
+  grid-template-columns: max-content max-content;
+  column-gap: 0.45rem;
+  row-gap: 0.45rem;
+  width: 100%;
 }
 
-.typography-card-badge {
-  padding: 0.18rem 0.55rem;
+.typography-card-fonts span:nth-child(3) {
+  grid-column: 1 / -1;
+  justify-self: start;
+}
+
+.typography-card-fonts span {
+  padding: 0.18rem 0.45rem;
   border-radius: 999px;
-  background: rgba(var(--app-accent-rgb, 0, 127, 255), 0.1);
-  color: var(--app-accent, #007fff);
-  font-size: 0.72rem;
-  font-weight: 700;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
+  background: var(--bs-tertiary-bg);
+  color: var(--bs-secondary-color);
+  font-size: 0.78rem;
+  font-weight: 600;
+  white-space: nowrap;
 }
 
 .typography-card-preview-block {
@@ -3015,29 +3045,6 @@ html.app-custom-theme .breadcrumb-wrapper .breadcrumb-item a:hover {
   line-height: 1.45;
   color: var(--bs-secondary-color);
   margin: 0;
-}
-
-.typography-card-meta {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.45rem;
-  margin-top: 0.8rem;
-}
-
-.typography-card-meta span {
-  padding: 0.18rem 0.45rem;
-  border-radius: 999px;
-  background: var(--bs-tertiary-bg);
-  font-size: 0.76rem;
-  color: var(--bs-secondary-color);
-}
-
-.typography-card-description {
-  margin-top: 0.7rem;
-  font-size: 0.84rem;
-  line-height: 1.4;
-  color: var(--bs-secondary-color);
-  margin-bottom: 0;
 }
 
 /* Color scheme grid */

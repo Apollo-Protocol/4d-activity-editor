@@ -156,7 +156,6 @@ const ActivityDiagram = (props: Props) => {
     }
   }, [collapsedSystems, hasRestoredCollapsedSystems]);
 
-  // Prune any stored collapsed IDs that no longer exist in the current dataset.
   // Skip when systemsWithComponents is empty — that means the dataset hasn't
   // loaded yet and pruning would incorrectly wipe the restored collapse state.
   useEffect(() => {
@@ -249,6 +248,27 @@ const ActivityDiagram = (props: Props) => {
     svg.selectAll(".installConnectorRibbon").classed("search-result-highlight", false);
   };
 
+  const shouldHighlightEntityConnectorRibbons = (entityId: string) => {
+    const entity = dataset.individuals.get(entityId);
+    if (!entity) {
+      return true;
+    }
+
+    const entityType = getEntityTypeIdFromIndividual(entity);
+    if (entityType === ENTITY_TYPE_IDS.SYSTEM_COMPONENT) {
+      return false;
+    }
+
+    if (
+      entityType === ENTITY_TYPE_IDS.SYSTEM &&
+      collapsedSystems.has(entityId)
+    ) {
+      return false;
+    }
+
+    return true;
+  };
+
   const focusEntityFromSearch = (entityId: string) => {
     if (!svgRef.current) return;
 
@@ -275,9 +295,6 @@ const ActivityDiagram = (props: Props) => {
     svg.select(`#i${visibleEntityId}`).classed("search-result-highlight", true);
     svg.select(`#il${visibleEntityId}`).classed("search-result-highlight", true);
 
-    const entity = dataset.individuals.get(entityId);
-    const entityType = entity ? getEntityTypeIdFromIndividual(entity) : null;
-    const isSystemComponent = entityType === ENTITY_TYPE_IDS.SYSTEM_COMPONENT;
     const highlightEntityIds = new Set([entityId, visibleEntityId]);
 
     svg.selectAll(".installHatch").each(function () {
@@ -289,7 +306,7 @@ const ActivityDiagram = (props: Props) => {
         d3.select(el).classed("search-result-highlight", true);
       }
     });
-    if (!isSystemComponent || visibleEntityId !== entityId) {
+    if (shouldHighlightEntityConnectorRibbons(entityId)) {
       svg.selectAll(".installConnectorRibbon").each(function () {
         const el = this as Element;
         if (
@@ -523,6 +540,14 @@ const ActivityDiagram = (props: Props) => {
     if (!svgRef.current) return;
     const svg = d3.select(svgRef.current);
 
+    svg.selectAll(".activity")
+      .attr("opacity", configData.presentation.activity.opacity)
+      .attr("stroke-width", configData.presentation.activity.strokeWidth)
+      .attr("stroke-dasharray", configData.presentation.activity.strokeDasharray);
+    svg.selectAll(".participation").attr("opacity", configData.presentation.participation.opacity);
+    svg.selectAll(".participationRibbon").attr("opacity", configData.presentation.participation.opacity);
+    svg.selectAll(".activityLabel").attr("opacity", 1);
+
     if (highlightedActivityId) {
       // Dim all activities and participations
       svg.selectAll(".activity").attr("opacity", 0.15);
@@ -554,15 +579,6 @@ const ActivityDiagram = (props: Props) => {
         })
         .attr("opacity", 0.8)
         .raise();
-    } else {
-      // Reset all to default
-      svg.selectAll(".activity")
-        .attr("opacity", configData.presentation.activity.opacity)
-        .attr("stroke-width", configData.presentation.activity.strokeWidth)
-        .attr("stroke-dasharray", configData.presentation.activity.strokeDasharray);
-      svg.selectAll(".participation").attr("opacity", configData.presentation.participation.opacity);
-      svg.selectAll(".participationRibbon").attr("opacity", configData.presentation.participation.opacity);
-      svg.selectAll(".activityLabel").attr("opacity", 1);
     }
   }, [highlightedActivityId, plot, configData, svgRef]);
 
@@ -759,7 +775,7 @@ L ${sideX} ${lowerTop} Z`;
 
     const updateLinkedParticipationRibbons = (entityId: string, offset: number) => {
       svg
-        .selectAll<SVGPathElement, unknown>(".participationRibbon")
+        .selectAll<SVGPathElement, unknown>(".participationRibbon, .participationRibbonEdge")
         .filter(function () {
           const node = this as SVGElement;
           const upperRowId = node.getAttribute("data-upper-row-id");
@@ -790,9 +806,15 @@ L ${sideX} ${lowerTop} Z`;
           const lowerBottom = lowerBottomBase + lowerShift;
 
           if (direction === "upper-to-lower") {
+            if (node.classList.contains("participationRibbonEdge")) {
+              return `M ${xUpper} ${upperTop} L ${xLower} ${lowerTop} M ${xUpper} ${upperBottom} L ${xLower} ${lowerBottom}`;
+            }
             return `M ${xUpper} ${upperTop} L ${xUpper} ${upperBottom} L ${xLower} ${lowerBottom} L ${xLower} ${lowerTop} Z`;
           }
 
+          if (node.classList.contains("participationRibbonEdge")) {
+            return `M ${xUpper} ${upperTop} L ${xLower} ${lowerTop} M ${xUpper} ${upperBottom} L ${xLower} ${lowerBottom}`;
+          }
           return `M ${xLower} ${lowerTop} L ${xLower} ${lowerBottom} L ${xUpper} ${upperBottom} L ${xUpper} ${upperTop} Z`;
         });
     };
@@ -1741,9 +1763,7 @@ L ${sideX} ${lowerTop} Z`;
       }
     });
 
-    const entity = dataset.individuals.get(entityId);
-    const isSystemComponent = entity && getEntityTypeIdFromIndividual(entity) === ENTITY_TYPE_IDS.SYSTEM_COMPONENT;
-    if (!isSystemComponent || visibleEntityId !== entityId) {
+    if (shouldHighlightEntityConnectorRibbons(entityId)) {
       svg.selectAll(".installConnectorRibbon").each(function () {
         const el = this as Element;
         if (

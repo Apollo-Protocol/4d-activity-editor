@@ -1,4 +1,5 @@
 import { MouseEvent } from "react";
+import * as d3 from "d3";
 import { Activity, Individual } from "@/lib/Schema";
 import { Model } from "@/lib/Model";
 import {
@@ -38,7 +39,8 @@ function highlightInstallationForEntity(
   svgElement: any,
   entityId: string,
   enabled: boolean,
-  config: any
+  config: any,
+  includeConnectorRibbons = true
 ) {
   const hoverStroke = "var(--app-accent, #007fff)";
 
@@ -57,13 +59,33 @@ function highlightInstallationForEntity(
     .attr("stroke", enabled ? hoverStroke : config.presentation.individual.stroke)
     .attr("stroke-width", enabled ? 2.5 : 2.0);
 
-  svgElement
-    .selectAll(".installConnectorRibbon")
-    .filter(matching)
-    .attr("fill", config.presentation.individual.fillHover)
-    .attr("fill-opacity", 1)
+  if (includeConnectorRibbons) {
+    svgElement
+      .selectAll(".installConnectorRibbon")
+      .filter(matching)
+      .attr("fill", config.presentation.individual.fillHover)
+      .attr("fill-opacity", 1)
+      .attr("stroke", enabled ? hoverStroke : config.presentation.individual.stroke)
+      .attr("stroke-width", enabled ? 2.0 : 1.5);
+  }
+}
+
+function highlightInstallHatchElement(
+  element: Element | null,
+  enabled: boolean,
+  config: any
+) {
+  if (!element) {
+    return;
+  }
+
+  const hoverStroke = "var(--app-accent, #007fff)";
+
+  const selection = d3.select(element as SVGElement);
+  selection
+    .attr("fill", enabled ? "url(#installHatchHighlight)" : "url(#installHatch)")
     .attr("stroke", enabled ? hoverStroke : config.presentation.individual.stroke)
-    .attr("stroke-width", enabled ? 2.0 : 1.5);
+    .attr("stroke-width", enabled ? 2.5 : 2.0);
 }
 
 const INDENT_STEP_PX = 18;
@@ -979,6 +1001,27 @@ L ${x2 + endDropDx} ${lowerTop} Z`;
 export function hoverIndividuals(ctx: DrawContext) {
   const { config, svgElement, tooltip } = ctx;
 
+  const shouldHighlightConnectorRibbons = (entityId: string) => {
+    const entity = ctx.individuals.find((candidate) => candidate.id === entityId);
+    if (!entity) {
+      return true;
+    }
+
+    const entityType = getEntityTypeIdFromIndividual(entity);
+    if (entityType === ENTITY_TYPE_IDS.SYSTEM_COMPONENT) {
+      return false;
+    }
+
+    if (
+      entityType === ENTITY_TYPE_IDS.SYSTEM &&
+      ctx.collapsedSystems?.has(entityId)
+    ) {
+      return false;
+    }
+
+    return true;
+  };
+
   const resolveEntityId = (bound: any, element: Element | null): string | null => {
     if (bound?.id) return bound.id;
     const rawId = element?.getAttribute("id") ?? "";
@@ -1031,10 +1074,9 @@ export function hoverIndividuals(ctx: DrawContext) {
     svgElement.select(`#i${entityId}`).classed("entity-hover-highlight", true);
     svgElement.select(`#il${entityId}`).classed("entity-hover-highlight", true);
     svgElement.selectAll(".installHatch").filter(hoverMatching(entityId)).classed("entity-hover-highlight", true);
-    // Skip ribbon highlighting for system components, matching search behavior
-    const ind = ctx.individuals.find(x => x.id === entityId);
-    const isSystemComponent = ind && getEntityTypeIdFromIndividual(ind) === ENTITY_TYPE_IDS.SYSTEM_COMPONENT;
-    if (!isSystemComponent) {
+    // Skip ribbon highlighting for system components and collapsed systems,
+    // matching search/minimap behavior.
+    if (shouldHighlightConnectorRibbons(entityId)) {
       svgElement.selectAll(".installConnectorRibbon").filter(hoverMatching(entityId)).classed("entity-hover-highlight", true);
     }
   };
@@ -1051,7 +1093,13 @@ export function hoverIndividuals(ctx: DrawContext) {
       const hoveredInd = entityId ? ctx.individuals.find((x) => x.id === entityId) : undefined;
       mouseOverElement.style.fill = restoreFillForIndividual(hoveredInd);
       if (entityId) {
-        highlightInstallationForEntity(svgElement, entityId, true, config);
+        highlightInstallationForEntity(
+          svgElement,
+          entityId,
+          true,
+          config,
+          shouldHighlightConnectorRibbons(entityId)
+        );
         applyHoverHighlight(entityId);
       }
       tooltip.style("display", "block");
@@ -1059,7 +1107,13 @@ export function hoverIndividuals(ctx: DrawContext) {
     .on("mouseout", function (event: MouseEvent, d: any) {
       const entityId = resolveEntityId(d, event.target as Element);
       if (entityId) {
-        highlightInstallationForEntity(svgElement, entityId, false, config);
+        highlightInstallationForEntity(
+          svgElement,
+          entityId,
+          false,
+          config,
+          shouldHighlightConnectorRibbons(entityId)
+        );
       }
       removeHoverHighlight();
 
@@ -1075,7 +1129,29 @@ export function hoverIndividuals(ctx: DrawContext) {
     });
 
   svgElement
-    .selectAll(".installHatch, .installConnectorRibbon")
+    .selectAll(".installHatch")
+    .style("cursor", "pointer")
+    .on("mouseover", function (event: MouseEvent, d: any) {
+      const currentElement = event.currentTarget as Element | null;
+      const hoveredIndividual = getHoveredIndividual(d, currentElement);
+      highlightInstallHatchElement(currentElement, true, config);
+      tooltip.style("display", "block");
+      positionTooltip(event, hoveredIndividual);
+    })
+    .on("mouseout", function (event: MouseEvent) {
+      highlightInstallHatchElement(event.currentTarget as Element | null, false, config);
+      tooltip.style("display", "none");
+    })
+    .on("mousemove", function (event: MouseEvent, d: any) {
+      const currentElement = event.currentTarget as Element | null;
+      const hoveredIndividual = getHoveredIndividual(d, currentElement);
+      if (hoveredIndividual) {
+        positionTooltip(event, hoveredIndividual);
+      }
+    });
+
+  svgElement
+    .selectAll(".installConnectorRibbon")
     .style("cursor", "pointer")
     .on("mouseover", function (event: MouseEvent, d: any) {
       const currentElement = event.currentTarget as Element | null;
@@ -1083,8 +1159,18 @@ export function hoverIndividuals(ctx: DrawContext) {
       const entityId = hoveredIndividual?.id ?? null;
       if (!entityId) return;
 
-      mouseOverElement = event.target as HTMLElement;
-      highlightInstallationForEntity(svgElement, entityId, true, config);
+      const rowNode = svgElement.select("#i" + entityId).node() as HTMLElement | null;
+      mouseOverElement = rowNode ?? (event.target as HTMLElement);
+      if (rowNode) {
+        rowNode.style.fill = restoreFillForIndividual(hoveredIndividual);
+      }
+      highlightInstallationForEntity(
+        svgElement,
+        entityId,
+        true,
+        config,
+        shouldHighlightConnectorRibbons(entityId)
+      );
       applyHoverHighlight(entityId);
       tooltip.style("display", "block");
       positionTooltip(event, hoveredIndividual);
@@ -1094,9 +1180,18 @@ export function hoverIndividuals(ctx: DrawContext) {
       const hoveredIndividual = getHoveredIndividual(d, currentElement);
       const entityId = hoveredIndividual?.id ?? null;
       if (entityId) {
-        highlightInstallationForEntity(svgElement, entityId, false, config);
+        highlightInstallationForEntity(
+          svgElement,
+          entityId,
+          false,
+          config,
+          shouldHighlightConnectorRibbons(entityId)
+        );
       }
       removeHoverHighlight();
+      if (mouseOverElement && hoveredIndividual) {
+        mouseOverElement.style.fill = restoreFillForIndividual(hoveredIndividual);
+      }
       mouseOverElement = null;
       tooltip.style("display", "none");
     })
@@ -1120,14 +1215,26 @@ export function hoverIndividuals(ctx: DrawContext) {
         mouseOverElement = rowNode;
         rowNode.style.fill = restoreFillForIndividual(d);
       }
-      highlightInstallationForEntity(svgElement, entityId, true, config);
+      highlightInstallationForEntity(
+        svgElement,
+        entityId,
+        true,
+        config,
+        shouldHighlightConnectorRibbons(entityId)
+      );
       applyHoverHighlight(entityId);
       tooltip.style("display", "block");
     })
     .on("mouseout", function (event: MouseEvent, d: any) {
       const entityId = d?.id;
       if (entityId) {
-        highlightInstallationForEntity(svgElement, entityId, false, config);
+        highlightInstallationForEntity(
+          svgElement,
+          entityId,
+          false,
+          config,
+          shouldHighlightConnectorRibbons(entityId)
+        );
       }
       removeHoverHighlight();
       if (mouseOverElement) {

@@ -13,7 +13,7 @@ let mouseOverElement: any | null = null;
 export function drawParticipations(ctx: DrawContext) {
   const { config, svgElement, activities } = ctx;
 
-  const parts: any[] = [];
+  const rawParts: any[] = [];
   activities.forEach((a, actIdx) => {
     a.participations?.forEach((p, mapKey) => {
       const individual = ctx.individuals.find((i) => i.id === p.individualId);
@@ -29,7 +29,7 @@ export function drawParticipations(ctx: DrawContext) {
       segments.forEach((segment, segIdx) => {
         const box = getPositionOfParticipation(ctx, svgElement, a, p.individualId, mapKey, segment);
         if (!box) return;
-        parts.push({
+        rawParts.push({
           id: `${a.id}::${mapKey}::${segIdx}`,
           box,
           activityId: a.id,
@@ -46,6 +46,8 @@ export function drawParticipations(ctx: DrawContext) {
       });
     });
   });
+
+  const parts = mergeAdjacentParticipationParts(rawParts);
 
   const participationGroups = new Map<string, any[]>();
   for (const part of parts) {
@@ -166,8 +168,8 @@ function drawParticipationRibbons(
         .attr("data-upper-bottom", upperBottom)
         .attr("data-lower-top", lowerTop)
         .attr("data-lower-bottom", lowerBottom)
-        .attr("data-x-upper", fromIsUpper ? from.box.x + from.box.width : to.box.x)
-        .attr("data-x-lower", fromIsUpper ? to.box.x : from.box.x + from.box.width)
+        .attr("data-x-upper", xUpper)
+        .attr("data-x-lower", xLower)
         .attr("data-ribbon-direction", fromIsUpper ? "upper-to-lower" : "lower-to-upper");
 
       svgElement
@@ -182,6 +184,15 @@ function drawParticipationRibbons(
         .attr("data-activity-id", from.activityId)
         .attr("data-individual-id", from.individualId)
         .attr("data-participation-key", from.participationKey)
+        .attr("data-upper-row-id", upper.rowId)
+        .attr("data-lower-row-id", lower.rowId)
+        .attr("data-upper-top", upperTop)
+        .attr("data-upper-bottom", upperBottom)
+        .attr("data-lower-top", lowerTop)
+        .attr("data-lower-bottom", lowerBottom)
+        .attr("data-x-upper", xUpper)
+        .attr("data-x-lower", xLower)
+        .attr("data-ribbon-direction", fromIsUpper ? "upper-to-lower" : "lower-to-upper")
         .attr("pointer-events", "visibleStroke");
     } else {
       const xLower = fromBox.x + fromBox.width;
@@ -210,8 +221,8 @@ function drawParticipationRibbons(
         .attr("data-upper-bottom", upperBottom)
         .attr("data-lower-top", lowerTop)
         .attr("data-lower-bottom", lowerBottom)
-        .attr("data-x-upper", fromIsUpper ? from.box.x + from.box.width : to.box.x)
-        .attr("data-x-lower", fromIsUpper ? to.box.x : from.box.x + from.box.width)
+        .attr("data-x-upper", xUpper)
+        .attr("data-x-lower", xLower)
         .attr("data-ribbon-direction", fromIsUpper ? "upper-to-lower" : "lower-to-upper");
 
       svgElement
@@ -226,6 +237,15 @@ function drawParticipationRibbons(
         .attr("data-activity-id", from.activityId)
         .attr("data-individual-id", from.individualId)
         .attr("data-participation-key", from.participationKey)
+        .attr("data-upper-row-id", upper.rowId)
+        .attr("data-lower-row-id", lower.rowId)
+        .attr("data-upper-top", upperTop)
+        .attr("data-upper-bottom", upperBottom)
+        .attr("data-lower-top", lowerTop)
+        .attr("data-lower-bottom", lowerBottom)
+        .attr("data-x-upper", xUpper)
+        .attr("data-x-lower", xLower)
+        .attr("data-ribbon-direction", fromIsUpper ? "upper-to-lower" : "lower-to-upper")
         .attr("pointer-events", "visibleStroke");
     }
   });
@@ -497,4 +517,48 @@ function getPositionOfParticipation(
     height: height,
     rowId: drawRowId,
   };
+}
+
+function mergeAdjacentParticipationParts(parts: any[]) {
+  const mergedByGroup = new Map<string, any[]>();
+
+  parts.forEach((part) => {
+    const groupKey = `${part.activityId}::${part.participationKey}`;
+    const list = mergedByGroup.get(groupKey) ?? [];
+    list.push(part);
+    mergedByGroup.set(groupKey, list);
+  });
+
+  return Array.from(mergedByGroup.values()).flatMap((group) => {
+    const ordered = [...group].sort((left, right) => {
+      if (left.segmentBeginning !== right.segmentBeginning) {
+        return left.segmentBeginning - right.segmentBeginning;
+      }
+      return left.segmentEnding - right.segmentEnding;
+    });
+
+    return ordered.reduce<any[]>((accumulator, current) => {
+      const previous = accumulator[accumulator.length - 1];
+
+      if (
+        previous &&
+        previous.rowId === current.rowId &&
+        previous.segmentEnding === current.segmentBeginning
+      ) {
+        previous.segmentEnding = current.segmentEnding;
+        previous.box.width = current.box.x + current.box.width - previous.box.x;
+        previous.id = `${previous.activityId}::${previous.participationKey}::${previous.segmentBeginning}-${previous.segmentEnding}`;
+        if (!previous.segmentComponentId) {
+          previous.segmentComponentId = current.segmentComponentId;
+        }
+        return accumulator;
+      }
+
+      accumulator.push({
+        ...current,
+        box: { ...current.box },
+      });
+      return accumulator;
+    }, []);
+  });
 }

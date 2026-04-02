@@ -142,6 +142,14 @@ export default function AppearanceModal({ show, setShow }: Props) {
     useState<TypographyProfileKey>("default");
   const [isDefaultProfileMode, setIsDefaultProfileMode] = useState(false);
 
+  const getTypographyCardFonts = (option: (typeof TYPOGRAPHY_OPTIONS)[number]) => (
+    <div className="typography-card-fonts">
+      <span>{option.heading}</span>
+      <span>{option.subheading}</span>
+      <span>{option.body}</span>
+    </div>
+  );
+
   useEffect(() => {
     setMounted(true);
     const stored = localStorage.getItem("app-accent-color");
@@ -339,10 +347,7 @@ export default function AppearanceModal({ show, setShow }: Props) {
                   aria-label={`Select ${option.label} typography`}
                 >
                   <div className="typography-card-header">
-                    <span className="typography-card-label">{option.label}</span>
-                    <span className="typography-card-badge">
-                      {option.key === "apollo" ? "Guideline" : "Legacy"}
-                    </span>
+                    {getTypographyCardFonts(option)}
                   </div>
                   <div className="typography-card-preview-block">
                     <div
@@ -364,12 +369,6 @@ export default function AppearanceModal({ show, setShow }: Props) {
                       Body copy stays readable across the editor, docs, and diagram labels.
                     </div>
                   </div>
-                  <div className="typography-card-meta">
-                    <span>{option.heading}</span>
-                    <span>{option.subheading}</span>
-                    <span>{option.body}</span>
-                  </div>
-                  <div className="typography-card-description">{option.description}</div>
                 </button>
               );
             })}

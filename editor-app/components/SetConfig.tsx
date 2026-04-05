@@ -7,6 +7,7 @@ import Col from "react-bootstrap/Col";
 import Tabs from "react-bootstrap/Tabs";
 import Tab from "react-bootstrap/Tab";
 import DraggableModalDialog, { shouldSuppressModalHide } from "@/components/DraggableModalDialog";
+import { useModalAnimation } from "@/utils/useModalAnimation";
 
 import { config, ConfigData } from "@/diagram/config";
 
@@ -266,6 +267,7 @@ const SetConfig = (props: Props) => {
 
   const [inputs, setInputs] = useState(configData);
   const [uploadError, setUploadError] = useState("");
+  const modalAnim = useModalAnimation();
   const [selectedColorPath, setSelectedColorPath] = useState<ColorFieldPath>(
     COLOR_FIELD_OPTIONS[0].path
   );
@@ -456,11 +458,13 @@ const SetConfig = (props: Props) => {
 
       <Modal
         dialogAs={DraggableModalDialog}
+        className={modalAnim.className}
         show={showConfigModal}
         onHide={handleModalHide}
         onShow={handleShow}
         size="xl"
       >
+        {modalAnim.sketchSvg}
         <Modal.Header closeButton>
           <Modal.Title>Diagram Settings</Modal.Title>
         </Modal.Header>

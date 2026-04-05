@@ -8,7 +8,21 @@ import {
   applyTypographyProfile,
   getStoredTypographyProfile,
   TypographyProfileKey,
+  getStoredModalAnimation,
+  setStoredModalAnimation,
+  ModalAnimationKey,
 } from "@/utils/appearance";
+import { useModalAnimation } from "@/utils/useModalAnimation";
+
+const MODAL_ANIMATION_OPTIONS: Array<{
+  key: ModalAnimationKey;
+  label: string;
+  description: string;
+}> = [
+  { key: "none", label: "Default", description: "Clean fade with no extra motion." },
+  { key: "meep-meep", label: "Meep Meep", description: "A fast cinematic slide-in." },
+  { key: "sketch", label: "Sketch", description: "A hand-drawn outline that resolves." },
+];
 
 const APPEARANCE_THEME_KEY = "app-theme";
 const APPEARANCE_NAV_STYLE_KEY = "app-nav-style";
@@ -141,6 +155,11 @@ export default function AppearanceModal({ show, setShow }: Props) {
   const [draftTypography, setDraftTypography] =
     useState<TypographyProfileKey>("default");
   const [isDefaultProfileMode, setIsDefaultProfileMode] = useState(false);
+  const [savedModalAnim, setSavedModalAnim] =
+    useState<ModalAnimationKey>("none");
+  const [draftModalAnim, setDraftModalAnim] =
+    useState<ModalAnimationKey>("none");
+  const modalAnim = useModalAnimation();
 
   const getTypographyCardFonts = (option: (typeof TYPOGRAPHY_OPTIONS)[number]) => (
     <div className="typography-card-fonts">
@@ -175,6 +194,9 @@ export default function AppearanceModal({ show, setShow }: Props) {
       applyDefaultNavStyle();
       setIsDefaultProfileMode(true);
     }
+    const modalAnim = getStoredModalAnimation();
+    setSavedModalAnim(modalAnim);
+    setDraftModalAnim(modalAnim);
   }, [setTheme]);
 
   // Sync pendingTheme when modal opens
@@ -196,6 +218,9 @@ export default function AppearanceModal({ show, setShow }: Props) {
       setDraftTypography(typographyProfile);
       const navStyle = localStorage.getItem(APPEARANCE_NAV_STYLE_KEY);
       setIsDefaultProfileMode(navStyle !== "custom");
+      const modalAnim = getStoredModalAnimation();
+      setSavedModalAnim(modalAnim);
+      setDraftModalAnim(modalAnim);
     }
   }, [show, theme]);
 
@@ -204,6 +229,7 @@ export default function AppearanceModal({ show, setShow }: Props) {
     setDraftColor(savedColor);
     setPendingTheme(theme || "system");
     setDraftTypography(savedTypography);
+    setDraftModalAnim(savedModalAnim);
     setIsDefaultProfileMode(localStorage.getItem(APPEARANCE_NAV_STYLE_KEY) !== "custom");
     setShow(false);
   }
@@ -226,6 +252,8 @@ export default function AppearanceModal({ show, setShow }: Props) {
       applyCustomNavStyle();
       setIsDefaultProfileMode(false);
     }
+    setStoredModalAnimation(draftModalAnim);
+    setSavedModalAnim(draftModalAnim);
     setTheme(pendingTheme);
     localStorage.setItem(APPEARANCE_THEME_KEY, pendingTheme);
     setShow(false);
@@ -236,10 +264,12 @@ export default function AppearanceModal({ show, setShow }: Props) {
   return (
     <Modal
       dialogAs={DraggableModalDialog}
+      className={modalAnim.className}
       show={show}
       onHide={handleModalHide}
       size="lg"
     >
+      {modalAnim.sketchSvg}
       <Modal.Header closeButton>
         <Modal.Title>Appearance</Modal.Title>
       </Modal.Header>
@@ -327,6 +357,41 @@ export default function AppearanceModal({ show, setShow }: Props) {
                     )}
                   </span>
                   <span className="color-scheme-label">{c.name}</span>
+                </button>
+              );
+            })}
+          </div>
+        </Form.Group>
+
+        <Form.Group className="mb-4">
+          <Form.Label className="fw-semibold">Modal Animation</Form.Label>
+          <div className="modal-anim-grid">
+            {MODAL_ANIMATION_OPTIONS.map((opt) => {
+              const selected = draftModalAnim === opt.key;
+              return (
+                <button
+                  type="button"
+                  key={opt.key}
+                  className={`modal-anim-btn${selected ? " is-selected" : ""}`}
+                  aria-label={`Select ${opt.label} modal animation`}
+                  onClick={() => setDraftModalAnim(opt.key)}
+                >
+                  <div className={`modal-anim-preview modal-anim-preview--${opt.key}`} aria-hidden>
+                    {renderModalAnimationPreview(opt.key)}
+                  </div>
+                  <div className="modal-anim-copy">
+                    <div className="modal-anim-label-row">
+                      <span className="modal-anim-label">{opt.label}</span>
+                      <span className="modal-anim-icon">
+                        {selected && (
+                          <svg viewBox="0 0 16 16" className="modal-anim-check" fill="white" aria-hidden>
+                            <path d="M13.485 3.929a1 1 0 0 1 .057 1.414l-6 6.5a1 1 0 0 1-1.452.012l-3-3a1 1 0 1 1 1.414-1.414L6.95 9.88l5.293-5.893a1 1 0 0 1 1.414-.057z" />
+                          </svg>
+                        )}
+                      </span>
+                    </div>
+                    <span className="modal-anim-description">{opt.description}</span>
+                  </div>
                 </button>
               );
             })}
@@ -441,5 +506,49 @@ function ThemePreview({ variant }: { variant: string }) {
       <circle cx="18" cy="96" r="5" fill={dot} />
       <rect x="30" y="92" width="100" height="5" rx="2.5" fill={line} />
     </svg>
+  );
+}
+
+function renderModalAnimationPreview(key: ModalAnimationKey) {
+  if (key === "meep-meep") {
+    return (
+      <>
+        <span className="modal-anim-preview-track" />
+        <span className="modal-anim-preview-trail modal-anim-preview-trail-a" />
+        <span className="modal-anim-preview-trail modal-anim-preview-trail-b" />
+        <span className="modal-anim-preview-trail modal-anim-preview-trail-c" />
+        <div className="modal-anim-preview-window modal-anim-preview-window--meep">
+          <span className="modal-anim-preview-window-bar" />
+          <span className="modal-anim-preview-window-line" />
+          <span className="modal-anim-preview-window-line short" />
+        </div>
+      </>
+    );
+  }
+
+  if (key === "sketch") {
+    return (
+      <>
+        <svg className="modal-anim-preview-sketch" viewBox="0 0 240 124" aria-hidden>
+          <rect className="modal-anim-preview-sketch-frame" x="8" y="8" width="224" height="108" rx="14" ry="14" fill="none" />
+          <rect x="24" y="20" width="78" height="10" rx="5" fill="rgba(15, 23, 42, 0.12)" />
+          <rect x="24" y="42" width="190" height="8" rx="4" fill="rgba(15, 23, 42, 0.14)" />
+          <rect x="24" y="60" width="152" height="8" rx="4" fill="rgba(15, 23, 42, 0.12)" />
+          <rect x="24" y="78" width="178" height="8" rx="4" fill="rgba(15, 23, 42, 0.12)" />
+          <rect x="24" y="94" width="64" height="8" rx="4" fill="rgba(var(--app-accent-rgb, 0, 127, 255), 0.22)" />
+          <rect x="186" y="18" width="34" height="18" rx="9" fill="rgba(var(--app-accent-rgb, 0, 127, 255), 0.18)" />
+        </svg>
+      </>
+    );
+  }
+
+  return (
+    <>
+      <div className="modal-anim-preview-window modal-anim-preview-window--none">
+        <span className="modal-anim-preview-window-bar" />
+        <span className="modal-anim-preview-window-line" />
+        <span className="modal-anim-preview-window-line short" />
+      </div>
+    </>
   );
 }

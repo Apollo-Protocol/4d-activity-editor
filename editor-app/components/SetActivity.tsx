@@ -8,6 +8,7 @@ import React, {
 import Button from "react-bootstrap/Button";
 import Modal from "react-bootstrap/Modal";
 import DraggableModalDialog, { shouldSuppressModalHide } from "@/components/DraggableModalDialog";
+import { useModalAnimation } from "@/utils/useModalAnimation";
 import Form from "react-bootstrap/Form";
 import ListGroup from "react-bootstrap/ListGroup";
 import Alert from "react-bootstrap/Alert";
@@ -76,6 +77,7 @@ const SetActivity = (props: Props) => {
   const [inputs, setInputs] = useState(defaultActivity);
   const [errors, setErrors] = useState([]);
   const [dirty, setDirty] = useState(false);
+  const modalAnim = useModalAnimation();
 
   // Custom activity-type selector state (search / create / inline edit)
   const [typeOpen, setTypeOpen] = useState(false);
@@ -769,7 +771,8 @@ const SetActivity = (props: Props) => {
         Add Activity
       </Button>
 
-      <Modal dialogAs={DraggableModalDialog} show={show} onHide={handleModalHide} onShow={handleShow}>
+      <Modal dialogAs={DraggableModalDialog} className={modalAnim.className} show={show} onHide={handleModalHide} onShow={handleShow}>
+        {modalAnim.sketchSvg}
         <Modal.Header closeButton>
           <Modal.Title>
             {selectedActivity ? "Edit Activity" : "Add Activity"}
@@ -1135,7 +1138,8 @@ const SetActivity = (props: Props) => {
       </Modal>
 
       {/* Parent chooser modal */}
-      <Modal dialogAs={DraggableModalDialog} show={showParentModal} onHide={() => setShowParentModal(false)}>
+      <Modal dialogAs={DraggableModalDialog} className={modalAnim.className} show={showParentModal} onHide={() => setShowParentModal(false)}>
+        {modalAnim.sketchSvg}
         <Modal.Header closeButton>
           <Modal.Title>Choose parent activity (or None)</Modal.Title>
         </Modal.Header>

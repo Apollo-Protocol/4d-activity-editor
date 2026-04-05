@@ -802,7 +802,11 @@ body {
 
 body.modal-open {
   padding-right: 0 !important;
-  overflow: hidden !important;
+  /* Keep the scrollbar visible while the modal is open.
+     Use auto instead of hidden/clip so the page keeps its gutter
+     without forcing a layout jump to the top. */
+  overflow-y: auto !important;
+  overflow-x: clip !important;
 }
 
 .modal {
@@ -858,6 +862,7 @@ body.modal-open {
 }
 
 .modal-content {
+  border: var(--bs-modal-border-width, 1px) solid var(--bs-modal-border-color, rgba(0, 0, 0, 0.2));
   box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.5); /* Strong shadow for highlighted effect */
 }
 
@@ -2925,6 +2930,296 @@ html.app-custom-theme .breadcrumb-wrapper .breadcrumb-item a:hover {
   transition: transform 0.05s ease-out !important;
 }
 
+/* ── Modal animation: Meep Meep ── */
+.modal.modal-anim-meep-meep.fade .modal-dialog {
+  transform: translateX(-1500px) skewX(30deg) scaleX(1.3);
+  transition: none !important;
+}
+.modal.modal-anim-meep-meep.show .modal-dialog {
+  animation: mmRoadRunnerIn 0.3s cubic-bezier(0.165, 0.840, 0.440, 1.000) forwards;
+}
+.modal.modal-anim-meep-meep.fade:not(.show) .modal-dialog {
+  animation: mmRoadRunnerOut 0.5s cubic-bezier(0.165, 0.840, 0.440, 1.000) forwards;
+}
+
+@keyframes mmRoadRunnerIn {
+  0%   { transform: translateX(-1500px) skewX(30deg) scaleX(1.3); }
+  70%  { transform: translateX(30px) skewX(0deg) scaleX(0.9); }
+  100% { transform: translateX(0) skewX(0deg) scaleX(1); }
+}
+@keyframes mmRoadRunnerOut {
+  0%   { transform: translateX(0) skewX(0deg) scaleX(1); }
+  30%  { transform: translateX(-30px) skewX(-5deg) scaleX(0.9); }
+  100% { transform: translateX(1500px) skewX(30deg) scaleX(1.3); }
+}
+
+/* ── Modal animation: Sketch ── */
+.modal.modal-anim-sketch .modal-content {
+  position: relative;
+}
+.modal.modal-anim-sketch .modal-sketch-svg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  z-index: 1;
+  border-radius: inherit;
+}
+.modal.modal-anim-sketch .modal-sketch-svg rect {
+  stroke: var(--app-accent, #007fff);
+  stroke-width: 2px;
+  stroke-dasharray: 2000;
+  stroke-dashoffset: 2000;
+  fill: none;
+  rx: 6;
+  ry: 6;
+}
+.modal.modal-anim-sketch.fade .modal-dialog {
+  transition: none !important;
+}
+.modal.modal-anim-sketch.fade .modal-content {
+  background-color: transparent;
+}
+.modal.modal-anim-sketch.fade .modal-header,
+.modal.modal-anim-sketch.fade .modal-body,
+.modal.modal-anim-sketch.fade .modal-footer {
+  opacity: 0;
+  position: relative;
+}
+.modal.modal-anim-sketch.show .modal-content {
+  animation: skModalBgIn 0.25s 0.3s cubic-bezier(0.165, 0.840, 0.440, 1.000) forwards;
+}
+.modal.modal-anim-sketch.show .modal-header,
+.modal.modal-anim-sketch.show .modal-body,
+.modal.modal-anim-sketch.show .modal-footer {
+  animation: skContentIn 0.25s 0.4s cubic-bezier(0.165, 0.840, 0.440, 1.000) forwards;
+}
+.modal.modal-anim-sketch.show .modal-sketch-svg rect {
+  animation: skStrokeIn 0.3s 0.05s cubic-bezier(0.165, 0.840, 0.440, 1.000) forwards;
+}
+.modal.modal-anim-sketch.show .modal-sketch-svg {
+  animation: skOverlayFadeOut 0.12s 0.48s linear forwards;
+}
+.modal.modal-anim-sketch.fade:not(.show) .modal-content {
+  animation: skModalBgOut 0.2s cubic-bezier(0.165, 0.840, 0.440, 1.000) forwards;
+}
+.modal.modal-anim-sketch.fade:not(.show) .modal-header,
+.modal.modal-anim-sketch.fade:not(.show) .modal-body,
+.modal.modal-anim-sketch.fade:not(.show) .modal-footer {
+  animation: skContentOut 0.2s cubic-bezier(0.165, 0.840, 0.440, 1.000) forwards;
+}
+.modal.modal-anim-sketch.fade:not(.show) .modal-sketch-svg rect {
+  animation: skStrokeOut 0.2s cubic-bezier(0.165, 0.840, 0.440, 1.000) forwards;
+}
+
+@keyframes skStrokeIn {
+  0%   { stroke-dashoffset: 2000; }
+  100% { stroke-dashoffset: 0; }
+}
+@keyframes skStrokeOut {
+  0%   { stroke-dashoffset: 0; }
+  100% { stroke-dashoffset: 2000; }
+}
+@keyframes skModalBgIn {
+  0%   { background-color: transparent; }
+  100% { background-color: var(--bs-modal-bg, #fff); }
+}
+@keyframes skModalBgOut {
+  0%   { background-color: var(--bs-modal-bg, #fff); }
+  100% { background-color: transparent; }
+}
+@keyframes skContentIn {
+  0%   { opacity: 0; top: -20px; }
+  100% { opacity: 1; top: 0; }
+}
+@keyframes skContentOut {
+  0%   { opacity: 1; top: 0; }
+  100% { opacity: 0; top: -20px; }
+}
+@keyframes skOverlayFadeOut {
+  0%   { opacity: 1; }
+  100% { opacity: 0; }
+}
+
+/* ── Modal animation picker (Appearance) ── */
+.modal-anim-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0.75rem;
+}
+.modal-anim-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 0.7rem;
+  padding: 0.7rem;
+  border: 2px solid var(--bs-border-color-translucent, #dee2e6);
+  border-radius: 0.9rem;
+  background: linear-gradient(180deg, var(--bs-tertiary-bg, #f8f9fa) 0%, var(--bs-body-bg, #fff) 100%);
+  cursor: pointer;
+  transition: border-color 0.15s, box-shadow 0.15s, transform 0.15s;
+  text-align: left;
+  min-height: 9.5rem;
+}
+.modal-anim-btn:hover {
+  border-color: var(--bs-secondary-color, #adb5bd);
+  transform: translateY(-1px);
+}
+.modal-anim-btn.is-selected {
+  border-color: var(--bs-body-color, #212529);
+  box-shadow: 0 0 0 1px var(--bs-body-color, #212529);
+}
+.modal-anim-preview {
+  position: relative;
+  height: 5.75rem;
+  border-radius: 0.8rem;
+  overflow: hidden;
+  border: 1px solid var(--bs-border-color-translucent, #dee2e6);
+  background:
+    radial-gradient(circle at 20% 20%, rgba(var(--app-accent-rgb, 0, 127, 255), 0.12), transparent 32%),
+    linear-gradient(180deg, rgba(var(--app-accent-rgb, 0, 127, 255), 0.05) 0%, rgba(255, 255, 255, 0.75) 100%);
+}
+.modal-anim-copy {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+.modal-anim-label-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+.modal-anim-icon {
+  width: 1.5rem;
+  height: 1.5rem;
+  min-width: 1.5rem;
+  border-radius: 999px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  background: var(--app-accent, #007fff);
+}
+.modal-anim-check {
+  width: 0.9rem;
+  height: 0.9rem;
+}
+.modal-anim-label {
+  font-size: 0.94rem;
+  font-weight: 600;
+  color: var(--bs-body-color);
+}
+.modal-anim-description {
+  font-size: 0.8rem;
+  line-height: 1.25;
+  color: var(--bs-secondary-color, #6c757d);
+}
+.modal-anim-preview-window {
+  position: absolute;
+  inset: 0.85rem 0.85rem 1rem;
+  border-radius: 0.65rem;
+  border: 1.5px solid rgba(var(--app-accent-rgb, 0, 127, 255), 0.65);
+  background: var(--bs-body-bg, #fff);
+  box-shadow: 0 0.35rem 0.9rem rgba(15, 23, 42, 0.12);
+}
+.modal-anim-preview-window--none {
+  inset: 1rem 1.1rem 1.15rem;
+}
+.modal-anim-preview-window--meep {
+  animation: modalPreviewSlide 1.9s cubic-bezier(0.165, 0.84, 0.44, 1) infinite;
+}
+.modal-anim-preview-window--sketch {
+  inset: 1rem 1.1rem 1.15rem;
+}
+.modal-anim-preview-window-bar {
+  position: absolute;
+  left: 0.7rem;
+  top: 0.65rem;
+  width: 36%;
+  height: 0.45rem;
+  border-radius: 999px;
+  background: rgba(var(--app-accent-rgb, 0, 127, 255), 0.18);
+}
+.modal-anim-preview-window-line {
+  position: absolute;
+  left: 0.7rem;
+  right: 0.9rem;
+  top: 1.55rem;
+  height: 0.35rem;
+  border-radius: 999px;
+  background: rgba(15, 23, 42, 0.14);
+}
+.modal-anim-preview-window-line.short {
+  right: 32%;
+  top: 2.2rem;
+}
+.modal-anim-preview-track {
+  position: absolute;
+  left: 0.9rem;
+  right: 0.9rem;
+  bottom: 0.9rem;
+  height: 2px;
+  background: rgba(15, 23, 42, 0.12);
+}
+.modal-anim-preview-trail {
+  position: absolute;
+  bottom: 1.45rem;
+  width: 18px;
+  height: 3px;
+  border-radius: 999px;
+  background: rgba(var(--app-accent-rgb, 0, 127, 255), 0.18);
+  filter: blur(0.3px);
+}
+.modal-anim-preview-trail-a { left: 1.1rem; animation: modalPreviewTrail 1.9s linear infinite; }
+.modal-anim-preview-trail-b { left: 1.45rem; animation: modalPreviewTrail 1.9s linear infinite 0.08s; }
+.modal-anim-preview-trail-c { left: 1.8rem; animation: modalPreviewTrail 1.9s linear infinite 0.16s; }
+.modal-anim-preview-sketch {
+  position: absolute;
+  inset: 0.55rem;
+  width: calc(100% - 1.1rem);
+  height: calc(100% - 1.1rem);
+}
+.modal-anim-preview-sketch-frame {
+  fill: none;
+  stroke: var(--app-accent, #007fff);
+  stroke-width: 2;
+  stroke-dasharray: 520;
+  stroke-dashoffset: 520;
+  animation: modalPreviewSketch 2.2s ease-in-out infinite;
+}
+.modal-anim-preview-caption {
+  position: absolute;
+  left: 1rem;
+  right: 1rem;
+  bottom: 0.55rem;
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  color: var(--bs-secondary-color, #6c757d);
+}
+@keyframes modalPreviewSlide {
+  0%, 12% { transform: translateX(-34px) skewX(18deg) scaleX(1.08); opacity: 0; }
+  18% { opacity: 1; }
+  40% { transform: translateX(6px) skewX(0deg) scaleX(0.98); }
+  60% { transform: translateX(-2px) skewX(0deg) scaleX(1); }
+  100% { transform: translateX(28px) skewX(0deg) scaleX(1); opacity: 0; }
+}
+@keyframes modalPreviewTrail {
+  0% { transform: translateX(0); opacity: 0; }
+  20% { opacity: 1; }
+  70% { opacity: 0.4; }
+  100% { transform: translateX(42px); opacity: 0; }
+}
+@keyframes modalPreviewSketch {
+  0% { stroke-dashoffset: 520; opacity: 0.75; }
+  30% { opacity: 1; }
+  60% { stroke-dashoffset: 0; opacity: 1; }
+  100% { stroke-dashoffset: 0; opacity: 0.35; }
+}
+
 /* Make all modals scale down progressively on laptop/smaller screens */
 @media (max-width: 1599.98px) {
   .modal .modal-dialog {
@@ -3384,6 +3679,27 @@ html.app-custom-theme .breadcrumb-wrapper .breadcrumb-item a:hover {
     padding: 0.4rem 0.6rem !important;
     font-size: 0.82rem !important;
     border-radius: 0.55rem !important;
+  }
+
+  .modal-anim-grid {
+    gap: 0.4rem;
+  }
+  .modal-anim-btn {
+    gap: 0.5rem;
+    padding: 0.4rem 0.6rem;
+    border-radius: 0.55rem;
+  }
+  .modal-anim-icon {
+    width: 1.5rem;
+    height: 1.5rem;
+    min-width: 1.5rem;
+  }
+  .modal-anim-check {
+    width: 0.8rem;
+    height: 0.8rem;
+  }
+  .modal-anim-label {
+    font-size: 0.82rem;
   }
 }
 

@@ -98,3 +98,44 @@ export function getDiagramFontFamily() {
     DEFAULT_TYPOGRAPHY_PROFILE.diagram
   );
 }
+
+// ── Modal animation setting ──
+
+export const APPEARANCE_MODAL_ANIM_KEY = "app-modal-animation";
+
+export type ModalAnimationKey = "none" | "meep-meep" | "sketch";
+
+const VALID_MODAL_ANIMATIONS: ModalAnimationKey[] = ["none", "meep-meep", "sketch"];
+
+export function isModalAnimationKey(
+  value: string | null | undefined
+): value is ModalAnimationKey {
+  return VALID_MODAL_ANIMATIONS.includes(value as ModalAnimationKey);
+}
+
+export function getStoredModalAnimation(): ModalAnimationKey {
+  if (typeof window === "undefined") return "none";
+  const stored = localStorage.getItem(APPEARANCE_MODAL_ANIM_KEY);
+  return isModalAnimationKey(stored) ? stored : "none";
+}
+
+export function setStoredModalAnimation(key: ModalAnimationKey) {
+  if (typeof window !== "undefined") {
+    localStorage.setItem(APPEARANCE_MODAL_ANIM_KEY, key);
+  }
+}
+
+/**
+ * Returns the CSS class to add to a `<Modal>` for the chosen animation,
+ * or an empty string for the default (no animation).
+ */
+export function getModalAnimationClass(key: ModalAnimationKey): string {
+  switch (key) {
+    case "meep-meep":
+      return "modal-anim-meep-meep";
+    case "sketch":
+      return "modal-anim-sketch";
+    default:
+      return "";
+  }
+}

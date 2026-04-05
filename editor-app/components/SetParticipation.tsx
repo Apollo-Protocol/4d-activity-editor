@@ -8,6 +8,7 @@ import React, {
 import Button from "react-bootstrap/Button";
 import Modal from "react-bootstrap/Modal";
 import DraggableModalDialog, { shouldSuppressModalHide } from "@/components/DraggableModalDialog";
+import { useModalAnimation } from "@/utils/useModalAnimation";
 import Form from "react-bootstrap/Form";
 import { Activity, Participation, participationMapKey } from "@/lib/Schema";
 import { InputGroup } from "react-bootstrap";
@@ -40,8 +41,7 @@ const SetParticipation = (props: Props) => {
   } = props;
 
   const [dirty, setDirty] = useState(false);
-
-  // Custom role selector state (search / create / inline edit)
+  const modalAnim = useModalAnimation();
   const [roleOpen, setRoleOpen] = useState(false);
   const [roleSearch, setRoleSearch] = useState("");
   const [editingRoleId, setEditingRoleId] = useState<string | null>(null);
@@ -260,7 +260,8 @@ const SetParticipation = (props: Props) => {
 
   return (
     <>
-      <Modal dialogAs={DraggableModalDialog} show={show} onHide={handleModalHide} onShow={handleShow}>
+      <Modal dialogAs={DraggableModalDialog} className={modalAnim.className} show={show} onHide={handleModalHide} onShow={handleShow}>
+        {modalAnim.sketchSvg}
         <Modal.Header closeButton>
           <Modal.Title>Edit Participation</Modal.Title>
         </Modal.Header>

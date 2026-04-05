@@ -3,6 +3,7 @@ import Button from "react-bootstrap/Button";
 import Modal from "react-bootstrap/Modal";
 import Table from "react-bootstrap/Table";
 import DraggableModalDialog from "@/components/DraggableModalDialog";
+import { useModalAnimation } from "@/utils/useModalAnimation";
 
 export interface HistoryEntry<T> {
   model: T;
@@ -245,6 +246,7 @@ function Undo<T>({
 }: Props<T>) {
   const [showUndoModal, setShowUndoModal] = useState(false);
   const [showRedoModal, setShowRedoModal] = useState(false);
+  const modalAnim = useModalAnimation();
 
   const handleUndoContext = useCallback(
     (e: React.MouseEvent) => {
@@ -293,11 +295,13 @@ function Undo<T>({
       {/* Undo history modal */}
       <Modal
         dialogAs={DraggableModalDialog}
+        className={modalAnim.className}
         show={showUndoModal}
         onHide={() => setShowUndoModal(false)}
         size="lg"
         dialogClassName="history-modal-dialog"
       >
+        {modalAnim.sketchSvg}
         <Modal.Header closeButton>
           <Modal.Title>Undo History</Modal.Title>
         </Modal.Header>
@@ -322,11 +326,13 @@ function Undo<T>({
       {/* Redo history modal */}
       <Modal
         dialogAs={DraggableModalDialog}
+        className={modalAnim.className}
         show={showRedoModal}
         onHide={() => setShowRedoModal(false)}
         size="lg"
         dialogClassName="history-modal-dialog"
       >
+        {modalAnim.sketchSvg}
         <Modal.Header closeButton>
           <Modal.Title>Redo History</Modal.Title>
         </Modal.Header>

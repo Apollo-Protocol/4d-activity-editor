@@ -2,6 +2,7 @@ import React, { Dispatch, SetStateAction, useEffect, useMemo, useState } from "r
 import Button from "react-bootstrap/Button";
 import Modal from "react-bootstrap/Modal";
 import DraggableModalDialog, { shouldSuppressModalHide } from "@/components/DraggableModalDialog";
+import { useModalAnimation } from "@/utils/useModalAnimation";
 import Form from "react-bootstrap/Form";
 import Table from "react-bootstrap/Table";
 import Alert from "react-bootstrap/Alert";
@@ -176,6 +177,7 @@ const SetIndividual = (props: Props) => {
   const [inputs, setInputs] = useState<Individual>(defaultIndividual);
   const [dirty, setDirty] = useState(false);
   const [errors, setErrors] = useState<string[]>([]);
+  const modalAnim = useModalAnimation();
   
   // Custom type selector state
   const [typeOpen, setTypeOpen] = useState(false);
@@ -3002,6 +3004,74 @@ const SetIndividual = (props: Props) => {
       : pendingChangeScope === "both"
       ? "Changing the bounds or installation periods for"
       : "Changing the bounds of";
+  const boundsChangeSummary = (() => {
+    if (pendingChangeScope === "installations") return null;
+    if (!pendingSaveIndividual?.id) return null;
+
+    const originalIndividual = dataset.individuals.get(pendingSaveIndividual.id);
+    if (!originalIndividual) return null;
+
+    const originalBounds = `${formatBound(normalizeStart(originalIndividual.beginning), true)}-${formatBound(
+      normalizeEnd(originalIndividual.ending),
+      false
+    )}`;
+    const nextBounds = `${formatBound(normalizeStart(pendingSaveIndividual.beginning), true)}-${formatBound(
+      normalizeEnd(pendingSaveIndividual.ending),
+      false
+    )}`;
+
+    if (originalBounds === nextBounds) return null;
+
+    return `${originalBounds} -> ${nextBounds}`;
+  })();
+  const installationPeriodChangeSummaries = (() => {
+    if (pendingChangeScope === "bounds") return [] as string[];
+    if (!pendingSaveIndividual?.id) return [] as string[];
+
+    const originalIndividual = dataset.individuals.get(pendingSaveIndividual.id);
+    if (!originalIndividual) return [] as string[];
+
+    const originalById = new Map(
+      getInstallationPeriods(originalIndividual).map((period) => [period.id, period])
+    );
+    const changes = getInstallationPeriods(pendingSaveIndividual)
+      .map((nextPeriod) => {
+        const originalPeriod = originalById.get(nextPeriod.id);
+        if (!originalPeriod) return null;
+
+        const sameComponent =
+          originalPeriod.systemComponentId === nextPeriod.systemComponentId;
+        const sameBounds =
+          originalPeriod.beginning === nextPeriod.beginning &&
+          originalPeriod.ending === nextPeriod.ending;
+        if (sameComponent && sameBounds) return null;
+
+        const originalComponentName =
+          dataset.individuals.get(originalPeriod.systemComponentId)?.name ??
+          originalPeriod.systemComponentId;
+        const nextComponentName =
+          dataset.individuals.get(nextPeriod.systemComponentId)?.name ??
+          nextPeriod.systemComponentId;
+        const originalRange = `${formatBound(originalPeriod.beginning, true)}-${formatBound(
+          originalPeriod.ending,
+          false
+        )}`;
+        const nextRange = `${formatBound(nextPeriod.beginning, true)}-${formatBound(
+          nextPeriod.ending,
+          false
+        )}`;
+
+        if (sameComponent) {
+          return `(${nextComponentName} ${originalRange} -> ${nextRange})`;
+        }
+
+        return `(${originalComponentName} ${originalRange} -> ${nextComponentName} ${nextRange})`;
+      })
+      .filter((value): value is string => !!value)
+      .sort((left, right) => left.localeCompare(right));
+
+    return changes;
+  })();
   const cascadeHasTrimAction =
     !!cascadeWarning &&
     (
@@ -3110,7 +3180,8 @@ const SetIndividual = (props: Props) => {
         </Button>
       ) : null}
 
-      <Modal dialogAs={DraggableModalDialog} 
+      <Modal dialogAs={DraggableModalDialog}
+        className={modalAnim.className}
         show={
           show &&
           !showInstallationsModal &&
@@ -3119,6 +3190,7 @@ const SetIndividual = (props: Props) => {
         }
         onHide={handleModalHide}
       >
+        {modalAnim.sketchSvg}
         <Modal.Header closeButton>
           <Modal.Title>{isEditMode ? "Edit Entity" : "Add Entity"}</Modal.Title>
         </Modal.Header>
@@ -3498,11 +3570,13 @@ const SetIndividual = (props: Props) => {
         </Modal.Footer>
       </Modal>
 
-      <Modal dialogAs={DraggableModalDialog} 
+      <Modal dialogAs={DraggableModalDialog}
+        className={modalAnim.className}
         show={showInstallationsModal}
         onHide={handleInstallationsModalHide}
         size="xl"
       >
+        {modalAnim.sketchSvg}
         <Modal.Header closeButton>
           <Modal.Title>
             Add Installation for {inputs.name || "Entity"} ({inputs.beginning === -1 ? "0" : inputs.beginning} - {inputs.ending >= Model.END_OF_TIME ? "∞" : inputs.ending})
@@ -3628,7 +3702,8 @@ const SetIndividual = (props: Props) => {
         </Modal.Footer>
       </Modal>
 
-      <Modal dialogAs={DraggableModalDialog} 
+      <Modal dialogAs={DraggableModalDialog}
+        className={modalAnim.className}
         show={showBoundsWarningModal}
         onHide={() => {
           setShowBoundsWarningModal(false);
@@ -3639,6 +3714,7 @@ const SetIndividual = (props: Props) => {
         centered
         size="lg"
       >
+        {modalAnim.sketchSvg}
         <Modal.Header closeButton>
           <Modal.Title>
             Affected Items — {inputs.name || "Entity"}
@@ -3646,8 +3722,18 @@ const SetIndividual = (props: Props) => {
         </Modal.Header>
         <Modal.Body>
           <p>
-            {boundsWarningLeadText} <strong>{inputs.name || "Entity"}</strong> will
-            affect the following items:
+            {boundsWarningLeadText} <strong>{inputs.name || "Entity"}</strong>
+            {boundsChangeSummary && (
+              <strong>{` (${boundsChangeSummary})`}</strong>
+            )}
+            {installationPeriodChangeSummaries.length > 0 && (
+              <strong>
+                {" ["}
+                {installationPeriodChangeSummaries.join(", ")}
+                {"]"}
+              </strong>
+            )}
+            {" will affect the following items:"}
           </p>
           {pendingBoundsChanges.length > 0 && (
             <div className="mb-3">
@@ -3881,7 +3967,8 @@ const SetIndividual = (props: Props) => {
       </Modal>
 
       {/* Cascade warning modal for System / System Component bounds changes */}
-      <Modal dialogAs={DraggableModalDialog} 
+      <Modal dialogAs={DraggableModalDialog}
+        className={modalAnim.className}
         show={showCascadeWarningModal}
         onHide={() => {
           setShowCascadeWarningModal(false);
@@ -3894,6 +3981,7 @@ const SetIndividual = (props: Props) => {
         centered
         size="lg"
       >
+        {modalAnim.sketchSvg}
         <Modal.Header closeButton>
           <Modal.Title>
             Affected Items — {cascadeWarning?.entityName ?? "Entity"}

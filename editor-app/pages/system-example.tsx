@@ -36,7 +36,6 @@ const systemExampleSections: JumpLinkItem[] = [
   { id: "system-example-step-2", label: "Step 2: Define the slots" },
   { id: "system-example-step-3", label: "Step 3: Fuse equipment" },
   { id: "system-example-step-4", label: "Step 4: Model activities" },
-  { id: "system-example-warnings", label: "Use the affected-items warnings" },
   { id: "system-example-full", label: "Load the full example" },
 ];
 
@@ -226,32 +225,6 @@ export default function Page({ imageMap }: { imageMap: Record<string, string> })
               </Col>
               <Col className="col-md text-center align-self-center">
                 <ImageComponent imageMap={imageMap} alt="activity validation against installations" />
-              </Col>
-            </Row>
-
-            {/* Affected-items warnings */}
-            <Row className="justify-content-center row-cols-1 row-cols-lg-2 mt-5">
-              <Col>
-                <h2 id="system-example-warnings" className="doc-section-heading">
-                  Use the affected-items warnings
-                </h2>
-                <p>
-                  After saving the activities above, reopen <strong>Camera Unit 01</strong> and shorten its bounds
-                  so they no longer cover the full period from <strong>0 to 5</strong>. For example,
-                  change it to <strong>2 to 3</strong> and save the edit.
-                </p>
-                <p>
-                  That should produce a review dialog. The editor will list downstream items that
-                  would be trimmed or removed, such as the installation of <strong>Camera Unit 01</strong>
-                  into <strong>Vision Camera Mount</strong> and any activities that depend on it. In
-                  practice, an activity like <strong>Inspect Vision Station A</strong> may be trimmed
-                  if only part of its time range still overlaps, while an activity with no remaining
-                  overlap would be removed. This is useful because it makes the consequences of
-                  changing entity bounds explicit before the edit is applied.
-                </p>
-              </Col>
-              <Col className="col-md text-center align-self-center">
-                <ImageComponent imageMap={imageMap} alt="affected-items warning dialog" />
               </Col>
             </Row>
 

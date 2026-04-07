@@ -51,7 +51,7 @@ function buildCascadingHistoryDescription(
 
 function isCascadeDriverFragment(fragment: string) {
   return (
-    fragment.startsWith("Changed timing of ") ||
+    fragment.startsWith("Changed bounds of ") ||
     fragment.startsWith("Added installation ") ||
     fragment.startsWith("Removed installation ") ||
     fragment.startsWith("Moved installation ") ||
@@ -61,7 +61,7 @@ function isCascadeDriverFragment(fragment: string) {
 }
 
 function isTimingCascadeDriverFragment(fragment: string) {
-  return fragment.startsWith("Changed timing of ");
+  return fragment.startsWith("Changed bounds of ");
 }
 
 function isInstallationCascadeDriverFragment(fragment: string) {
@@ -95,6 +95,22 @@ function getActivityLabel(model: Model, activityId: string | undefined) {
 function getIndividualLabel(model: Model, individualId: string | undefined) {
   if (!individualId) return "Unknown individual";
   return model.individuals.get(individualId)?.name || individualId;
+}
+
+function getResolvedIndividualLabel(
+  primaryModel: Model,
+  individualId: string | undefined,
+  secondaryModel?: Model
+) {
+  if (!individualId) return "Unknown individual";
+
+  const primaryName = primaryModel.individuals.get(individualId)?.name;
+  if (primaryName) return primaryName;
+
+  const secondaryName = secondaryModel?.individuals.get(individualId)?.name;
+  if (secondaryName) return secondaryName;
+
+  return individualId;
 }
 
 function getParticipationInstallationRanges(
@@ -458,6 +474,19 @@ function formatInstallationPeriodSummary(
   return `"${componentName}" (${formatRange(period.beginning, period.ending)})`;
 }
 
+function formatInstallationPeriodSummaryAcrossModels(
+  primaryModel: Model,
+  period: ReturnType<typeof getInstallationPeriods>[number],
+  secondaryModel?: Model
+) {
+  const componentName = getResolvedIndividualLabel(
+    primaryModel,
+    period.systemComponentId,
+    secondaryModel
+  );
+  return `"${componentName}" (${formatRange(period.beginning, period.ending)})`;
+}
+
 function summarizePeriodsByComponent(
   model: Model,
   periods: ReturnType<typeof getInstallationPeriods>
@@ -466,6 +495,29 @@ function summarizePeriodsByComponent(
 
   periods.forEach((period) => {
     const componentName = getIndividualLabel(model, period.systemComponentId);
+    const ranges = rangesByComponent.get(componentName) || [];
+    ranges.push(formatRange(period.beginning, period.ending));
+    rangesByComponent.set(componentName, ranges);
+  });
+
+  return Array.from(rangesByComponent.entries()).map(
+    ([componentName, ranges]) => `"${componentName}" (${ranges.join(", ")})`
+  );
+}
+
+function summarizePeriodsByComponentAcrossModels(
+  primaryModel: Model,
+  periods: ReturnType<typeof getInstallationPeriods>,
+  secondaryModel?: Model
+) {
+  const rangesByComponent = new Map<string, string[]>();
+
+  periods.forEach((period) => {
+    const componentName = getResolvedIndividualLabel(
+      primaryModel,
+      period.systemComponentId,
+      secondaryModel
+    );
     const ranges = rangesByComponent.get(componentName) || [];
     ranges.push(formatRange(period.beginning, period.ending));
     rangesByComponent.set(componentName, ranges);
@@ -662,7 +714,11 @@ function summarizeInstallationChangeForIndividual(
 
   if (added.length === 1 && removed.length === 0 && changed.length === 0) {
     const period = added[0];
-    const componentName = getIndividualLabel(newModel, period.systemComponentId);
+    const componentName = getResolvedIndividualLabel(
+      newModel,
+      period.systemComponentId,
+      oldModel
+    );
     return createHistoryDetails(
       "Installation",
       `Added installation for "${individualName}" in "${componentName}" (${formatRange(period.beginning, period.ending)})`,
@@ -673,7 +729,11 @@ function summarizeInstallationChangeForIndividual(
 
   if (removed.length === 1 && added.length === 0 && changed.length === 0) {
     const period = removed[0];
-    const componentName = getIndividualLabel(oldModel, period.systemComponentId);
+    const componentName = getResolvedIndividualLabel(
+      oldModel,
+      period.systemComponentId,
+      newModel
+    );
     return createHistoryDetails(
       "Installation",
       `Removed installation for "${individualName}" from "${componentName}" (${formatRange(period.beginning, period.ending)})`,
@@ -684,8 +744,16 @@ function summarizeInstallationChangeForIndividual(
 
   if (changed.length === 1 && added.length === 0 && removed.length === 0) {
     const { previous, next } = changed[0];
-    const previousComponentName = getIndividualLabel(oldModel, previous.systemComponentId);
-    const nextComponentName = getIndividualLabel(newModel, next.systemComponentId);
+    const previousComponentName = getResolvedIndividualLabel(
+      oldModel,
+      previous.systemComponentId,
+      newModel
+    );
+    const nextComponentName = getResolvedIndividualLabel(
+      newModel,
+      next.systemComponentId,
+      oldModel
+    );
     if (previous.systemComponentId !== next.systemComponentId) {
       return createHistoryDetails(
         "Installation",
@@ -716,9 +784,9 @@ function summarizeInstallationChangeForIndividual(
 
     return createHistoryDetails(
       "Installation",
-      `Changed installation timing for "${individualName}" in "${nextComponentName}" (beginning ${normalizeStart(previous.beginning)} → ${normalizeStart(next.beginning)}, ending ${normalizeEnd(previous.ending) >= Model.END_OF_TIME ? "∞" : normalizeEnd(previous.ending)} → ${normalizeEnd(next.ending) >= Model.END_OF_TIME ? "∞" : normalizeEnd(next.ending)})`,
-      `Restore previous installation timing for "${individualName}"`,
-      `Apply new installation timing for "${individualName}"`
+      `Changed installation period for "${individualName}" in "${nextComponentName}" (beginning ${normalizeStart(previous.beginning)} → ${normalizeStart(next.beginning)}, ending ${normalizeEnd(previous.ending) >= Model.END_OF_TIME ? "∞" : normalizeEnd(previous.ending)} → ${normalizeEnd(next.ending) >= Model.END_OF_TIME ? "∞" : normalizeEnd(next.ending)})`,
+      `Restore previous installation period for "${individualName}"`,
+      `Apply new installation period for "${individualName}"`
     );
   }
 
@@ -729,19 +797,19 @@ function summarizeInstallationChangeForIndividual(
     if (changed.length > 0) parts.push(`${changed.length} updated`);
 
     const detailParts: string[] = [];
-    const groupedAdded = summarizePeriodsByComponent(newModel, added);
+    const groupedAdded = summarizePeriodsByComponentAcrossModels(newModel, added, oldModel);
     if (groupedAdded.length > 0) {
       detailParts.push(`added ${groupedAdded.join("; ")}`);
     }
 
-    const groupedRemoved = summarizePeriodsByComponent(oldModel, removed);
+    const groupedRemoved = summarizePeriodsByComponentAcrossModels(oldModel, removed, newModel);
     if (groupedRemoved.length > 0) {
       detailParts.push(`removed ${groupedRemoved.join("; ")}`);
     }
 
     changed.forEach(({ previous, next }) => {
       detailParts.push(
-        `updated ${formatInstallationPeriodSummary(oldModel, previous)} → ${formatInstallationPeriodSummary(newModel, next)}`
+        `updated ${formatInstallationPeriodSummaryAcrossModels(oldModel, previous, newModel)} → ${formatInstallationPeriodSummaryAcrossModels(newModel, next, oldModel)}`
       );
     });
 
@@ -770,7 +838,7 @@ function summarizeCombinedIndividualChange(oldModel: Model, newModel: Model) {
       oldActivity.ending !== newActivity.ending
     ) {
       activitySideEffectFragments.push(
-        `Changed timing of activity "${newActivity.name}" (${formatRange(oldActivity.beginning, oldActivity.ending)} → ${formatRange(newActivity.beginning, newActivity.ending)})`
+        `Changed bounds of activity "${newActivity.name}" (${formatRange(oldActivity.beginning, oldActivity.ending)} → ${formatRange(newActivity.beginning, newActivity.ending)})`
       );
     }
   }
@@ -833,7 +901,7 @@ function summarizeCombinedIndividualChange(oldModel: Model, newModel: Model) {
 
     if (oldIndividual.beginning !== newIndividual.beginning || oldIndividual.ending !== newIndividual.ending) {
       const entityCopy = getEntityHistoryCopy(newIndividual, id);
-      const fragment = `Changed timing of ${entityCopy.noun} "${entityCopy.name}" (${formatRange(oldIndividual.beginning, oldIndividual.ending)} → ${formatRange(newIndividual.beginning, newIndividual.ending)})`;
+      const fragment = `Changed bounds of ${entityCopy.noun} "${entityCopy.name}" (${formatRange(oldIndividual.beginning, oldIndividual.ending)} → ${formatRange(newIndividual.beginning, newIndividual.ending)})`;
       fragments.push(fragment);
       directFragments.push(fragment);
       priority = Math.min(priority, 0);
@@ -1076,7 +1144,7 @@ function getParticipationChangeFragmentsForIndividual(
       oldRange.ending !== newRange.ending
     ) {
       fragments.push(
-        `Changed participation timing for "${individualName}" in "${activityName}" (${formatRange(oldRange.beginning, oldRange.ending)} → ${formatRange(newRange.beginning, newRange.ending)})`
+        `Changed participation bounds for "${individualName}" in "${activityName}" (${formatRange(oldRange.beginning, oldRange.ending)} → ${formatRange(newRange.beginning, newRange.ending)})`
       );
     }
   });
@@ -1097,7 +1165,7 @@ function summarizeParticipationTimingChange(oldModel: Model, newModel: Model) {
       individualId
     );
     const timingFragment = fragments.find((fragment) =>
-      fragment.startsWith("Changed participation timing")
+      fragment.startsWith("Changed participation bounds")
     );
 
     if (!timingFragment) continue;
@@ -1106,8 +1174,8 @@ function summarizeParticipationTimingChange(oldModel: Model, newModel: Model) {
     return createHistoryDetails(
       "Participation",
       timingFragment,
-      `Restore previous participation timing for "${individualName}"`,
-      `Apply participation timing change for "${individualName}"`
+      `Restore previous participation bounds for "${individualName}"`,
+      `Apply participation bounds change for "${individualName}"`
     );
   }
 
@@ -1153,7 +1221,7 @@ function summarizeSystemComponentParentChange(oldModel: Model, newModel: Model) 
       oldIndividual.ending !== newIndividual.ending
     ) {
       sideEffectFragments.push(
-        `Changed timing of ${entityCopy.noun} "${entityCopy.name}" (${formatRange(oldIndividual.beginning, oldIndividual.ending)} → ${formatRange(newIndividual.beginning, newIndividual.ending)})`
+        `Changed bounds of ${entityCopy.noun} "${entityCopy.name}" (${formatRange(oldIndividual.beginning, oldIndividual.ending)} → ${formatRange(newIndividual.beginning, newIndividual.ending)})`
       );
     }
 
@@ -1427,10 +1495,10 @@ export function generateHistoryDetails(oldModel: Model, newModel: Model): Omit<H
         if (oldInd.beginning !== newInd.beginning || oldInd.ending !== newInd.ending) {
           const entityCopy = getEntityHistoryCopy(newInd, id);
           return createHistoryDetails(
-            "Timing",
-            `Changed timing of ${entityCopy.noun} "${entityCopy.name}" (${formatRange(oldInd.beginning, oldInd.ending)} → ${formatRange(newInd.beginning, newInd.ending)})`,
-            `Restore previous timing for ${entityCopy.noun} "${entityCopy.name}"`,
-            `Apply timing change for ${entityCopy.noun} "${entityCopy.name}"`
+            "Bounds",
+            `Changed bounds of ${entityCopy.noun} "${entityCopy.name}" (${formatRange(oldInd.beginning, oldInd.ending)} → ${formatRange(newInd.beginning, newInd.ending)})`,
+            `Restore previous bounds for ${entityCopy.noun} "${entityCopy.name}"`,
+            `Apply bounds change for ${entityCopy.noun} "${entityCopy.name}"`
           );
         }
       }
@@ -1445,10 +1513,10 @@ export function generateHistoryDetails(oldModel: Model, newModel: Model): Omit<H
       if (oldAct && newAct) {
         if (oldAct.beginning !== newAct.beginning || oldAct.ending !== newAct.ending) {
           return createHistoryDetails(
-            "Timing",
-            `Changed timing of activity "${newAct.name}" (${formatRange(oldAct.beginning, oldAct.ending)} → ${formatRange(newAct.beginning, newAct.ending)})`,
-            `Restore previous timing for activity "${newAct.name}"`,
-            `Apply timing change for activity "${newAct.name}"`
+            "Bounds",
+            `Changed bounds of activity "${newAct.name}" (${formatRange(oldAct.beginning, oldAct.ending)} → ${formatRange(newAct.beginning, newAct.ending)})`,
+            `Restore previous bounds for activity "${newAct.name}"`,
+            `Apply bounds change for activity "${newAct.name}"`
           );
         }
       }

@@ -42,6 +42,8 @@ const manualSections: JumpLinkItem[] = [
         label: "Adding Entities",
         children: [
           { id: "editing", label: "Type Editing" },
+          { id: "begins-ends-participant", label: "Begins / Ends With Participant" },
+          { id: "installations", label: "Managing Installations" },
         ],
       },
       {
@@ -53,6 +55,14 @@ const manualSections: JumpLinkItem[] = [
         ],
       },
       { id: "sub-tasks", label: "Breaking Down Activities" },
+      {
+        id: "affected-items",
+        label: "Affected-Items Warnings",
+        children: [
+          { id: "warning-dialogs", label: "Warning Dialogs" },
+          { id: "trim-remove-keep", label: "Trim, Remove and Keep" },
+        ],
+      },
     ],
   },
   {
@@ -69,7 +79,14 @@ const manualSections: JumpLinkItem[] = [
     id: "interface-reference",
     label: "Interface Reference",
     children: [
-      { id: "appearance-settings", label: "Appearance" },
+      {
+        id: "navigation",
+        label: "Navigation",
+        children: [
+          { id: "navigation-settings", label: "Settings" },
+        ],
+      },
+      { id: "modal-behaviour", label: "Modal Behaviour" },
       {
         id: "lefthand-toolbar",
         label: "Lefthand Toolbar",
@@ -220,6 +237,10 @@ export default function Page({ imageMap }: { imageMap: Record<string, string> })
                   Entities appear as rows on the vertical axis. You can categorize them using types
                   to support downstream analysis and consistent modeling.
                 </p>
+                <p>
+                  The entity type is set once and cannot be changed after creation. 
+                  Each type determines which additional controls are available in the entity editor (for example, system components show a “Component Of” dropdown, and individuals show the Installations panel).
+                </p>
               </Col>
               <Col className="col-md text-center align-self-center">
                 <ImageComponent alt="add entity panel" imageMap={imageMap} />
@@ -236,6 +257,71 @@ export default function Page({ imageMap }: { imageMap: Record<string, string> })
               </Col>
               <Col className="col-md text-center align-self-center">
                 <ImageComponent alt="type editing panel" imageMap={imageMap} />
+              </Col>
+            </Row>
+
+            {/* Begins / Ends With Participant */}
+            <Row className="justify-content-center row-cols-1 row-cols-lg-2 mt-5">
+              <Col>
+                <h4 id="begins-ends-participant" className="doc-section-heading">Begins / Ends With Participant</h4>
+                <p>
+                  When editing an <strong>Individual</strong>, two toggle
+                  switches appear next to the time-bound fields:
+                  <strong> Begins With Participant</strong> and
+                  <strong> Ends With Participant</strong>.
+                </p>
+                <p>
+                  Enabling either toggle locks the corresponding bound so
+                  that it automatically tracks the earliest (or latest)
+                  participation time of that individual. This is useful when
+                  an entity&apos;s existence in the model should be defined
+                  purely by the activities it takes part in, rather than by
+                  an independently set time range.
+                </p>
+                <p>
+                  While a toggle is active, the matching time-bound input is
+                  disabled and updates itself whenever participations change.
+                </p>
+              </Col>
+              <Col className="col-md text-center align-self-center">
+                <ImageComponent alt="begins ends with participant" maxWidth="440px" imageMap={imageMap} />
+              </Col>
+            </Row>
+
+            {/* Managing Installations */}
+            <Row className="justify-content-center row-cols-1 row-cols-lg-2 mt-5">
+              <Col>
+                <h4 id="installations" className="doc-section-heading">Managing Installations</h4>
+                <p>
+                  When editing an <strong>Individual</strong>, an
+                  <strong> Installations</strong> card shows the current
+                  installation count and a button to open the Installations
+                  modal. An installation fuses an individual into a system
+                  component slot for a specified time range.
+                </p>
+                <p>
+                  Inside the modal, each row contains:
+                </p>
+                <ul>
+                  <li><strong>System Component</strong> &mdash; a dropdown listing every component, labelled with its parent system and bounds.</li>
+                  <li><strong>From / Until</strong> &mdash; numeric fields for the installation start and end times.</li>
+                  <li><strong>Availability</strong> &mdash; beneath the component dropdown, an indicator shows which time ranges in the selected slot are already occupied and which are available.</li>
+                </ul>
+                <p>
+                  Use <strong>Add Another</strong> to create additional rows.
+                  The editor enforces several rules: installations must stay
+                  within both the individual&apos;s and the component&apos;s
+                  bounds, the ending must be after the beginning, and two
+                  different individuals cannot occupy the same slot at the
+                  same time.
+                </p>
+                <p>
+                  For a worked example of creating installations, see
+                  the <Link href="/system-example">System Component Example</Link>.
+                </p>
+              </Col>
+              <Col className="col-md text-center align-self-center">
+                <ImageComponent alt="installations modal" maxWidth="440px" imageMap={imageMap} />
               </Col>
             </Row>
 
@@ -308,6 +394,112 @@ export default function Page({ imageMap }: { imageMap: Record<string, string> })
               </Col>
               <Col className="col-md text-center align-self-center">
                 <ImageComponent alt="subtasks diagram view" maxWidth="460px" imageMap={imageMap} />
+              </Col>
+            </Row>
+
+            {/* Affected-Items Warnings */}
+            <Row className="justify-content-center row-cols-1 row-cols-lg-2 mt-5">
+              <Col>
+                <h3 id="affected-items" className="doc-section-heading">Affected-Items Warnings</h3>
+                <p>
+                  If editing or deleting an entity would affect anything
+                  else, the editor opens an affected-items dialog before the
+                  change is applied. The dialog shows only the impacted items,
+                  so you can review the consequences before saving.
+                </p>
+              </Col>
+              <Col className="col-md text-center align-self-center"></Col>
+            </Row>
+
+            <Row className="justify-content-center row-cols-1 row-cols-lg-2 mt-5">
+              <Col>
+                <h4 id="warning-dialogs" className="doc-section-heading">Warning Dialogs</h4>
+                <p>
+                  The exact sections shown depend on the edit.
+                </p>
+                <p>
+                  For <strong>Individuals</strong>, the modal can reflect
+                  changes to the entity&apos;s bounds, its installation
+                  periods, and its participations in activities.
+                </p>
+                <p>
+                  For <strong>Systems</strong> and
+                  <strong> System Components</strong>, the modal can reflect
+                  changes to bounds, installation periods, and
+                  participations in activities. When a system is edited or
+                  deleted, that can also include affected system components.
+                </p>
+                <p>
+                  Required deletions are shown with a disabled checkbox;
+                  optional items have an interactive checkbox so you can
+                  change the proposed outcome. Activity-level annotations tell
+                  you whether the activity will be removed entirely, trimmed
+                  to the remaining participants, or left unchanged.
+                </p>
+                <p>
+                  In the warning dialog, activity
+                  headers can also show note markers. A
+                  <strong style={{ color: '#dc3545' }}>#</strong> marker means the activity itself will be
+                  removed because no participants remain. A
+                  <strong>*</strong> marker means the activity itself will be
+                  trimmed to the remaining participation bounds.
+                </p>
+                <p>
+                  The footer legend and notes are conditional. Each legend
+                  item only appears if that action is present in the current
+                  modal, and the notes section only appears when there is an
+                  extra outcome to explain.
+                </p>
+              </Col>
+              <Col className="col-md text-center align-self-center">
+                <ImageComponent alt="cascade warning modal" maxWidth="440px" imageMap={imageMap} />
+              </Col>
+            </Row>
+
+            <Row className="justify-content-center row-cols-1 row-cols-lg-2 mt-5">
+              <Col>
+                <h4 id="trim-remove-keep" className="doc-section-heading">Trim, Remove and Keep</h4>
+                <p>
+                  Both warning dialogs use three colour-coded action badges
+                  to communicate the outcome for each item:
+                </p>
+                <ul>
+                  <li>
+                    <span className="badge" style={{ backgroundColor: '#dc3545', color: '#fff' }}>Removed</span>{' '}
+                    &mdash; the item has no overlap with the new bounds and
+                    will be deleted.
+                  </li>
+                  <li>
+                    <span className="badge" style={{ backgroundColor: '#ffc107', color: '#000' }}>Trimmed to Fit</span>{' '}
+                    &mdash; the item partially overlaps and will be shortened
+                    to stay within the new bounds.
+                  </li>
+                  <li>
+                    <span className="badge" style={{ backgroundColor: '#0d6efd', color: '#fff' }}>Kept</span>{' '}
+                    &mdash; the installed participation itself is removed due
+                    to no overlap, but the participation returns to the parent
+                    entity instead of being deleted outright.
+                  </li>
+                </ul>
+                <p>
+                  You can click a <strong>Trimmed</strong> badge to upgrade
+                  it to <strong>Removed</strong> if you would rather delete
+                  the item outright. Conversely, unchecking a toggled badge
+                  reverts it to trim. This gives you fine-grained control
+                  over exactly which items survive the edit.
+                </p>
+                <p>
+                  Once you are happy with the selections, use the action
+                  button to apply the change. For edits this is
+                  <strong> Apply</strong>; for deletions it uses a delete
+                  label that includes the entity name. The affected
+                  installations, participations and activities are updated
+                  (or removed) in a single step, and the resulting change is
+                  recorded as one entry in the <a href="#undo-redo">undo history</a>.
+                </p>
+              </Col>
+              <Col className="col-md text-center align-self-center">
+                <ImageComponent alt="trim remove keep badges" maxWidth="440px" imageMap={imageMap} />
               </Col>
             </Row>
 
@@ -395,38 +587,89 @@ export default function Page({ imageMap }: { imageMap: Record<string, string> })
               </Col>
             </Row>
 
-            {/* Appearance */}
+            {/* Navigation */}
             <Row className="justify-content-center row-cols-1 row-cols-lg-2 mt-3">
               <Col>
-                <h3 id="appearance-settings" className="doc-section-heading">Appearance</h3>
+                <h3 id="navigation" className="doc-section-heading">Navigation</h3>
                 <p>
-                  Use <strong>Editor → Appearance</strong> to control the look of the application
-                  itself. This is separate from diagram configuration and affects the interface
-                  theme, link colour, highlights, and button styling across the editor.
+                  The fixed top navigation bar provides quick access to every
+                  part of the application.  From left to right it contains:
                 </p>
+                <ul>
+                  <li>
+                    <strong>Home</strong> &mdash; returns to the landing page.
+                  </li>
+                  <li>
+                    <strong>Editor</strong> &mdash; opens the interactive
+                    diagram editor.
+                  </li>
+                  <li>
+                    <strong>Activity Modelling</strong> (dropdown) &mdash;
+                    links to the <em>Introduction</em>, the
+                    <em> Example Analysis</em> (crane lift walkthrough) and
+                    <em> Integrated Information Management</em>.
+                  </li>
+                  <li>
+                    <strong>Guide</strong> (dropdown) &mdash; links to this
+                    <em> Editor Guide</em> and the <em>Terminology</em>
+                    reference. Below a divider, a <strong>System &amp; System
+                    Components</strong> sub-section links to the system
+                    modelling <em>Introduction</em> and <em>Example
+                    Analysis</em>.
+                  </li>
+                  <li>
+                    <strong>Settings</strong> (button) &mdash; opens the
+                    settings modal described below.
+                  </li>
+                </ul>
                 <p>
-                  The colour cards include a <strong>Default</strong> profile card (half blue and half grey),
-                  which is selected by default. Selecting this keeps the neutral interface profile, while
-                  the other preset cards apply a custom accent profile for links, highlights and button styling.
+                  On small screens the navbar collapses to a hamburger menu.
+                  Dropdown items and the active-page highlight work the same
+                  way in the collapsed view.
                 </p>
+                <h4 id="navigation-settings" className="doc-section-heading mt-4">Settings</h4>
                 <p>
-                  The <strong>Typography</strong> cards let you switch text styling across the editor and exports.
-                  <strong> Default</strong> keeps the standard Roboto-based look. <strong>Apollo Forum</strong> applies
-                  an editorial profile with Jost for headings, Merriweather for subheadings, and Source Sans 3
-                  for body copy and diagram labels.
+                  The <strong>Settings</strong> button in the navbar opens the
+                  editor-wide appearance modal. This is where you configure
+                  the application chrome rather than the diagram itself.
                 </p>
+                <ul>
+                  <li><strong>Theme</strong> &mdash; choose Light, Dark, or System.</li>
+                  <li><strong>Accent</strong> &mdash; use the default profile or switch to one of the preset accent colours for links, highlights, and buttons.</li>
+                  <li><strong>Typography</strong> &mdash; choose the default Roboto-based profile or the Apollo Forum profile with Jost, Merriweather, and Source Sans 3.</li>
+                  <li><strong>Modal Animation</strong> &mdash; choose Default, Meep Meep, or Sketch for dialog transitions.</li>
+                </ul>
                 <p>
-                  Appearance preferences are stored in local storage, so your chosen theme is restored
-                  the next time you open the editor.
+                  These settings are stored in local storage, so the editor
+                  restores them the next time you open the app.
                 </p>
               </Col>
               <Col className="col-md text-center align-self-center">
-                <ImageComponent
-                  src="/manual/appearance_settings_placeholder.png"
-                  alt="appearance settings"
-                  maxWidth="380px"
-                  imageMap={imageMap}
-                />
+                <ImageComponent alt="appearance settings" maxWidth="460px" imageMap={imageMap} />
+              </Col>
+            </Row>
+
+            {/* Modal Behaviour */}
+            <Row className="justify-content-center row-cols-1 row-cols-lg-2 mt-5">
+              <Col>
+                <h3 id="modal-behaviour" className="doc-section-heading">Modal Behaviour</h3>
+                <p>
+                  All dialog modals in the editor &mdash; including the
+                  entity editor, activity editor, warnings, settings, and the
+                  search popover &mdash; are <strong>draggable</strong>.
+                  Click and hold the header bar of any modal and drag it to
+                  a new position so it does not obscure the part of the
+                  diagram you are working on.
+                </p>
+                <p>
+                  Modal animation is configured from the
+                  <a href="#navigation-settings"> Settings</a> subsection above,
+                  and the selected style is applied consistently across the
+                  editor.
+                </p>
+              </Col>
+              <Col className="col-md text-center align-self-center">
+                <ImageComponent alt="modal behaviour" maxWidth="440px" imageMap={imageMap} />
               </Col>
             </Row>
 
@@ -545,10 +788,14 @@ export default function Page({ imageMap }: { imageMap: Record<string, string> })
                   diagram immediately, so you can iterate quickly.
                 </p>
                 <p>
-                  When time bounds edits have cascade effects, the editor preserves consistency automatically.
-                  For example, tightening a system timeline can trim installation endings, trim participation
-                  timing, and in some cases remove an activity that no longer has valid participation.
-    
+                  When time bounds edits have cascade effects, the editor
+                  shows an <a href="#affected-items">affected-items warning</a> before
+                  applying the change. For example, tightening a system
+                  timeline can trim installation endings, trim participation
+                  timing, and in some cases remove an activity that no
+                  longer has valid participation &mdash; and the warning
+                  dialog lets you review and adjust every one of these
+                  outcomes before confirming.
                 </p>
               </Col>
               <Col className="col-md text-center align-self-center">
@@ -837,7 +1084,7 @@ export default function Page({ imageMap }: { imageMap: Record<string, string> })
                 </ul>
               </Col>
               <Col className="col-md text-center align-self-center">
-                <ImageComponent alt="settings Presentation Styles tab" imageMap={imageMap} />
+                <ImageComponent alt="settings Presentation Styles tab" maxWidth="460px" imageMap={imageMap} />
               </Col>
             </Row>
 
@@ -884,7 +1131,7 @@ export default function Page({ imageMap }: { imageMap: Record<string, string> })
                 </ul>
               </Col>
               <Col className="col-md text-center align-self-center">
-                <ImageComponent alt="settings Layout and Configuration tab" imageMap={imageMap} />
+                <ImageComponent alt="settings Layout and Configuration tab" maxWidth="460px" imageMap={imageMap} />
               </Col>
             </Row>
 

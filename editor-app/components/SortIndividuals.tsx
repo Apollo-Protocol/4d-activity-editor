@@ -1,9 +1,9 @@
 import { Individual } from "@/lib/Schema";
 import React, { useState, useEffect } from "react";
-import { SortableList } from "@/components/SortableList/SortableList";
+import { SortableList } from "@/components/sortableList/SortableList";
 import Button from "react-bootstrap/Button";
 import Modal from "react-bootstrap/Modal";
-import DraggableModalDialog from "@/components/DraggableModalDialog";
+import DraggableModalDialog from "@/modals/DraggableModalDialog";
 import { useModalAnimation } from "@/utils/useModalAnimation";
 import { ENTITY_TYPE_IDS, getEntityTypeIdFromIndividual } from "@/lib/entityTypes";
 

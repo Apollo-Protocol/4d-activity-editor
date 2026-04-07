@@ -9,7 +9,7 @@ import {
   loadRefDataFromTTL,
 } from "lib/ActivityLib";
 
-import { saveFile, loadFile } from "./save_load";
+import { saveFile, loadFile } from "@/helpers/saveLoad";
 
 interface Example {
   name: string;

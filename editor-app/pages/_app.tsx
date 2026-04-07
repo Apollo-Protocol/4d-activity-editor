@@ -6,7 +6,7 @@ import { useEffect, useState } from "react";
 import Navbar from "@/components/NavBar";
 import Footer from "@/components/Footer";
 import Breadcrumbs from "@/components/Breadcrumbs";
-import AppearanceModal from "@/components/AppearanceModal";
+import AppearanceModal from "@/modals/AppearanceModal";
 import { ThemeProvider } from "next-themes";
 import { applyTypographyProfile, getStoredTypographyProfile } from "@/utils/appearance";
 

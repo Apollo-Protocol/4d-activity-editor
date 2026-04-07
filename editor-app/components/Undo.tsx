@@ -2,7 +2,7 @@ import React, { useCallback, useEffect, useRef, useState } from "react";
 import Button from "react-bootstrap/Button";
 import Modal from "react-bootstrap/Modal";
 import Table from "react-bootstrap/Table";
-import DraggableModalDialog from "@/components/DraggableModalDialog";
+import DraggableModalDialog from "@/modals/DraggableModalDialog";
 import { useModalAnimation } from "@/utils/useModalAnimation";
 
 export interface HistoryEntry<T> {

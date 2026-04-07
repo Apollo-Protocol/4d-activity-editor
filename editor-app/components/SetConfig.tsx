@@ -6,12 +6,12 @@ import Row from "react-bootstrap/Row";
 import Col from "react-bootstrap/Col";
 import Tabs from "react-bootstrap/Tabs";
 import Tab from "react-bootstrap/Tab";
-import DraggableModalDialog, { shouldSuppressModalHide } from "@/components/DraggableModalDialog";
+import DraggableModalDialog, { shouldSuppressModalHide } from "@/modals/DraggableModalDialog";
 import { useModalAnimation } from "@/utils/useModalAnimation";
 
 import { config, ConfigData } from "@/diagram/config";
 
-import { saveFile, loadFile } from "./save_load";
+import { saveFile, loadFile } from "@/helpers/saveLoad";
 
 const _ = require("lodash");
 

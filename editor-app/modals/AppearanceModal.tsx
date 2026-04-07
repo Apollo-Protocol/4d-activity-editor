@@ -2,7 +2,7 @@ import React, { useEffect, useState } from "react";
 import Button from "react-bootstrap/Button";
 import Modal from "react-bootstrap/Modal";
 import Form from "react-bootstrap/Form";
-import DraggableModalDialog, { shouldSuppressModalHide } from "@/components/DraggableModalDialog";
+import DraggableModalDialog, { shouldSuppressModalHide } from "@/modals/DraggableModalDialog";
 import { useTheme } from "next-themes";
 import {
   applyTypographyProfile,

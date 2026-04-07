@@ -125,6 +125,14 @@ type AffectedActivity = {
 type CascadeWarning = {
   mode?: "bounds" | "delete";
   leadText?: string;
+  entityBoundsText?: string;
+  parentSwitchSummary?: {
+    componentBoundsText: string;
+    oldParentName: string;
+    oldParentBoundsText: string;
+    newParentName: string;
+    newParentBoundsText: string;
+  };
   removeButtonLabel?: string;
   trimButtonLabel?: string;
   entityName: string;
@@ -274,6 +282,17 @@ const SetIndividual = (props: Props) => {
     if (!isBeginning && value >= Model.END_OF_TIME) return "∞";
     return String(value);
   };
+
+  const formatIndividualBounds = (individual: Pick<Individual, "beginning" | "ending">) =>
+    `${formatBound(normalizeStart(individual.beginning), true)}-${formatBound(
+      normalizeEnd(individual.ending),
+      false
+    )}`;
+
+  const formatBoundsChangeSummary = (
+    previousIndividual: Pick<Individual, "beginning" | "ending">,
+    nextIndividual: Pick<Individual, "beginning" | "ending">
+  ) => `${formatIndividualBounds(previousIndividual)} -> ${formatIndividualBounds(nextIndividual)}`;
 
   const getAffectedActivitySelectionKey = (aa: AffectedActivity) =>
     `${aa.activityId}:${aa.participationKey ?? aa.individualId}`;
@@ -1510,6 +1529,7 @@ const SetIndividual = (props: Props) => {
       let trimmedCount = 0;
       let droppedCount = 0;
       const boundsChanges: PendingBoundsChange[] = [];
+      const ownBoundsChanged = ownStart !== oldOwnStart || ownEnd !== oldOwnEnd;
 
       periods = periods
         .map((period) => {
@@ -1579,12 +1599,13 @@ const SetIndividual = (props: Props) => {
           boundsAffectedActivities,
           installationAffectedActivities
         );
-        const warningScope =
-          boundsAffectedActivities.length > 0 && installationAffectedActivities.length > 0
-            ? "both"
-            : installationAffectedActivities.length > 0
-            ? "installations"
-            : "bounds";
+        const warningScope = ownBoundsChanged
+          ? "bounds"
+          : boundsAffectedActivities.length > 0 && installationAffectedActivities.length > 0
+          ? "both"
+          : installationAffectedActivities.length > 0
+          ? "installations"
+          : "bounds";
 
         const pending = syncLegacyInstallationFields({
           ...next,
@@ -1670,12 +1691,13 @@ const SetIndividual = (props: Props) => {
             return;
           }
 
-          const warningScope =
-            boundsAffectedActivities.length > 0 && installationAffectedActivities.length > 0
-              ? "both"
-              : installationAffectedActivities.length > 0
-              ? "installations"
-              : "bounds";
+          const warningScope = ownBoundsChanged
+            ? "bounds"
+            : boundsAffectedActivities.length > 0 && installationAffectedActivities.length > 0
+            ? "both"
+            : installationAffectedActivities.length > 0
+            ? "installations"
+            : "bounds";
           const pending = syncLegacyInstallationFields({
             ...next,
             installedIn: undefined,
@@ -2010,6 +2032,9 @@ const SetIndividual = (props: Props) => {
           const pending = { ...next };
           setCascadeWarning({
             entityName: next.name,
+            entityBoundsText: oldSystem
+              ? formatBoundsChangeSummary(oldSystem, pending)
+              : undefined,
             affectedComponents: affectedComps,
             affectedComponentOfSystems: [],
             affectedInstallations: affectedInstalls,
@@ -2171,6 +2196,14 @@ const SetIndividual = (props: Props) => {
         selectedEntityTypeId === ENTITY_TYPE_IDS.SYSTEM_COMPONENT &&
         isEditMode
       ) {
+        const existingComp = dataset.individuals.get(next.id);
+        const oldParentSystem = existingComp?.installedIn
+          ? dataset.individuals.get(existingComp.installedIn)
+          : undefined;
+        const newParentSystem = next.installedIn
+          ? dataset.individuals.get(next.installedIn)
+          : undefined;
+
         // Compute effective bounds: intersection of component bounds and parent system bounds
         let effectiveStart = newStart;
         let effectiveEnd = newEnd;
@@ -2226,7 +2259,6 @@ const SetIndividual = (props: Props) => {
         }
 
         // Check activities that participate the system component
-        const existingComp = dataset.individuals.get(next.id);
         let oldEffStart = existingComp ? normalizeStart(existingComp.beginning) : effectiveStart;
         let oldEffEnd = existingComp ? normalizeEnd(existingComp.ending) : effectiveEnd;
         let parentSystemName = undefined;
@@ -2292,9 +2324,28 @@ const SetIndividual = (props: Props) => {
 
         if (affectedInstalls.length > 0 || dedupedCompActivities.length > 0) {
           const pending = { ...next };
+          const parentSwitchSummary =
+            existingComp &&
+            oldParentSystem &&
+            newParentSystem &&
+            oldParentSystem.id !== newParentSystem.id
+              ? {
+                  componentBoundsText: formatIndividualBounds(pending),
+                  oldParentName: oldParentSystem.name,
+                  oldParentBoundsText: formatIndividualBounds(oldParentSystem),
+                  newParentName: newParentSystem.name,
+                  newParentBoundsText: formatIndividualBounds(newParentSystem),
+                }
+              : undefined;
 
           setCascadeWarning({
             entityName: next.name,
+            entityBoundsText: parentSwitchSummary
+              ? undefined
+              : existingComp
+              ? formatBoundsChangeSummary(existingComp, pending)
+              : undefined,
+            parentSwitchSummary,
             affectedComponents: [],
             affectedComponentOfSystems: [],
             affectedInstallations: affectedInstalls,
@@ -3989,10 +4040,33 @@ const SetIndividual = (props: Props) => {
         </Modal.Header>
         <Modal.Body>
           <p>
-            {cascadeWarning?.leadText ?? "Changing the bounds of"} <strong>{cascadeWarning?.entityName}</strong>
-            {cascadeWarning?.mode === "delete"
-              ? " will remove it and affect the following items:"
-              : " will affect the following items:"}
+            {cascadeWarning?.mode === "delete" ? (
+              <>
+                {cascadeWarning?.leadText ?? "Deleting"} <strong>{cascadeWarning?.entityName}</strong>
+                {" will remove it and affect the following items:"}
+              </>
+            ) : cascadeWarning?.parentSwitchSummary ? (
+              <>
+                {"Changing system of "}
+                <strong>{cascadeWarning.entityName}</strong>
+                <strong>{` (${cascadeWarning.parentSwitchSummary.componentBoundsText})`}</strong>
+                {" from "}
+                <strong>{cascadeWarning.parentSwitchSummary.oldParentName}</strong>
+                <strong>{` (${cascadeWarning.parentSwitchSummary.oldParentBoundsText})`}</strong>
+                {" to "}
+                <strong>{cascadeWarning.parentSwitchSummary.newParentName}</strong>
+                <strong>{` (${cascadeWarning.parentSwitchSummary.newParentBoundsText})`}</strong>
+                {" will affect the following items:"}
+              </>
+            ) : (
+              <>
+                {cascadeWarning?.leadText ?? "Changing the bounds of"} <strong>{cascadeWarning?.entityName}</strong>
+                {cascadeWarning?.entityBoundsText && (
+                  <strong>{` (${cascadeWarning.entityBoundsText})`}</strong>
+                )}
+                {" will affect the following items:"}
+              </>
+            )}
           </p>
 
           {cascadeWarning?.mode === "delete" &&

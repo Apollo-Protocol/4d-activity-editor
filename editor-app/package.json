@@ -32,7 +32,6 @@
     "react-draggable": "^4.5.0",
     "react-modal-image": "^2.6.0",
     "react-select": "^5.8.0",
-    "typescript": "5.8.3",
     "uuidv4": "^6.2.13"
   },
   "overrides": {
@@ -47,5 +46,8 @@
     },
     "@eslint/plugin-kit": "0.3.4",
     "js-yaml": "4.1.1"
+  },
+  "devDependencies": {
+    "typescript": "^6.0.2"
   }
 }

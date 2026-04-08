@@ -3,6 +3,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { Button, Col, Container, Row } from "react-bootstrap";
 import { ButtonRow, LinkButton } from "@/components/Util";
+import { publicPath } from "@/utils/publicPath";
 import styles from "@/styles/Home.module.css";
 
 export default function Home() {
@@ -70,7 +71,7 @@ export default function Home() {
     <div className="col-md text-center align-self-center my-4 my-md-0 d-flex justify-content-center">
       <picture className="content-image-surface" style={{ width: "100%", display: "flex", justifyContent: "center" }}>
         <img 
-          src="dynamic_systems.svg" 
+          src={publicPath("/dynamic_systems.svg")} 
           className="img-fluid border rounded shadow-sm w-100 themed-content-image" 
           alt="System component validaton showing camera installations passing checks"
           style={{ maxWidth: "90%" }}
@@ -111,7 +112,7 @@ export default function Home() {
     </div>
     <div className="col text-center align-self-center">
       <picture className="content-image-surface">
-        <img src="CraneLift-20230329b.png" className="img-fluid themed-content-image" alt="
+        <img src={publicPath("/CraneLift-20230329b.png")} className="img-fluid themed-content-image" alt="
                 A space-time diagram has two axes, Time horizontally and
                 Space vertically. Resources are displayed as horizontal
                 bars spaced along the Space axis. Activities are displayed

@@ -24,6 +24,9 @@ const nextConfig = {
   assetPrefix: assetPrefix,
   basePath: basePath,
   images: images,
+  env: {
+    NEXT_PUBLIC_BASE_PATH: basePath,
+  },
   output: 'export',
 };
 

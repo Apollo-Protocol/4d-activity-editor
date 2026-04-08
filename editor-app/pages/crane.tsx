@@ -6,6 +6,7 @@ import path from "path";
 import { Col, Container, Row } from "react-bootstrap";
 import styles from "@/styles/Home.module.css";
 import JumpLinks, { JumpLinkItem } from "@/components/JumpLinks";
+import { publicPath } from "@/utils/publicPath";
 // @ts-ignore
 import ModalImage from "react-modal-image";
 
@@ -58,7 +59,7 @@ const craneSections: JumpLinkItem[] = [
 ];
 
 const getCraneImageSrc = (baseName: string, imageMap: Record<string, string>, fallbackExt: string = "svg") =>
-  `/crane/${baseName}.${imageMap[baseName] ?? fallbackExt}`;
+  publicPath(`/crane/${baseName}.${imageMap[baseName] ?? fallbackExt}`);
 
 const getCraneImageAlt = (baseName: string) =>
   baseName

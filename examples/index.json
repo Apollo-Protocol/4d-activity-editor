@@ -4,5 +4,8 @@
     },
     {   "name": "Crane lift",
         "path": "examples/crane.ttl"
+    },
+    {   "name": "Packaging Cell",
+        "path": "examples/packaging-cell.ttl"
     }
 ]

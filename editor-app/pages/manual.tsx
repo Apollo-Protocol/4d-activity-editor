@@ -57,9 +57,8 @@ const manualSections: JumpLinkItem[] = [
       { id: "sub-tasks", label: "Breaking Down Activities" },
       {
         id: "affected-items",
-        label: "Affected-Items Warnings",
+        label: "Affected Items Warnings",
         children: [
-          { id: "warning-dialogs", label: "Warning Dialogs" },
           { id: "trim-remove-keep", label: "Trim, Remove and Keep" },
         ],
       },
@@ -303,9 +302,9 @@ export default function Page({ imageMap }: { imageMap: Record<string, string> })
                   Inside the modal, each row contains:
                 </p>
                 <ul>
-                  <li><strong>System Component</strong> &mdash; a dropdown listing every component, labelled with its parent system and bounds.</li>
-                  <li><strong>From / Until</strong> &mdash; numeric fields for the installation start and end times.</li>
-                  <li><strong>Availability</strong> &mdash; beneath the component dropdown, an indicator shows which time ranges in the selected slot are already occupied and which are available.</li>
+                  <li><strong>System Component</strong> - a dropdown listing every component, labelled with its parent system and bounds.</li>
+                  <li><strong>From / Until</strong> - numeric fields for the installation start and end times.</li>
+                  <li><strong>Availability</strong> - beneath the component dropdown, an indicator shows which time ranges in the selected slot are already occupied and which are available.</li>
                 </ul>
                 <p>
                   Use <strong>Add Another</strong> to create additional rows.
@@ -329,7 +328,7 @@ export default function Page({ imageMap }: { imageMap: Record<string, string> })
               <Col>
                 <h3 id="activities" className="doc-section-heading">Adding Activities</h3>
                 <p>
-                  Activities are the temporal blocks in your model. Use <strong>Add Activity</strong>
+                  Activities are the temporal blocks in your model. Use <strong>Add Activity </strong>
                   to set name, start/end time, and participants. Activities can overlap and are
                   shown as colored blocks on the timeline.
                 </p>
@@ -400,58 +399,44 @@ export default function Page({ imageMap }: { imageMap: Record<string, string> })
             {/* Affected-Items Warnings */}
             <Row className="justify-content-center row-cols-1 row-cols-lg-2 mt-5">
               <Col>
-                <h3 id="affected-items" className="doc-section-heading">Affected-Items Warnings</h3>
+                <h3 id="affected-items" className="doc-section-heading">Affected Items Warnings</h3>
                 <p>
-                  If editing or deleting an entity would affect anything
-                  else, the editor opens an affected-items dialog before the
-                  change is applied. The dialog shows only the impacted items,
-                  so you can review the consequences before saving.
-                </p>
-              </Col>
-              <Col className="col-md text-center align-self-center"></Col>
-            </Row>
-
-            <Row className="justify-content-center row-cols-1 row-cols-lg-2 mt-5">
-              <Col>
-                <h4 id="warning-dialogs" className="doc-section-heading">Warning Dialogs</h4>
-                <p>
-                  The exact sections shown depend on the edit.
+                  If an edit or delete would affect related items, the editor
+                  opens an affected-items dialog before anything is applied.
+                  The dialog only lists the items touched by that change, so
+                  you can review the knock-on effects before saving.
                 </p>
                 <p>
-                  For <strong>Individuals</strong>, the modal can reflect
-                  changes to the entity&apos;s bounds, its installation
-                  periods, and its participations in activities.
+                  The core sections are the same for <strong>Individuals</strong>,
+                  <strong> Systems</strong>, and <strong>System Components</strong>:
+                  bounds changes, installation periods, and participations in
+                  activities. When the edited entity is a <strong>System</strong>,
+                  the dialog can also list affected System Components inside
+                  that system.
                 </p>
                 <p>
-                  For <strong>Systems</strong> and
-                  <strong> System Components</strong>, the modal can reflect
-                  changes to bounds, installation periods, and
-                  participations in activities. When a system is edited or
-                  deleted, that can also include affected system components.
+                  Required deletions are shown with disabled checkboxes.
+                  Optional items have interactive checkboxes so you can accept
+                  the proposed result or switch the outcome before saving.
+                  Activity-level annotations show whether an activity will be
+                  removed entirely, trimmed to the remaining participants, or
+                  left unchanged.
                 </p>
                 <p>
-                  Required deletions are shown with a disabled checkbox;
-                  optional items have an interactive checkbox so you can
-                  change the proposed outcome. Activity-level annotations tell
-                  you whether the activity will be removed entirely, trimmed
-                  to the remaining participants, or left unchanged.
-                </p>
-                <p>
-                  In the warning dialog, activity
-                  headers can also show note markers. A
-                  <strong style={{ color: '#dc3545' }}>#</strong> marker means the activity itself will be
+                  Activity headers can also show note markers. A
+                  '<strong style={{ color: '#dc3545' }}>#</strong>' marker means the activity itself will be
                   removed because no participants remain. A
-                  <strong>*</strong> marker means the activity itself will be
+                  '<strong>*</strong>' marker means the activity itself will be
                   trimmed to the remaining participation bounds.
                 </p>
                 <p>
-                  The footer legend and notes are conditional. Each legend
-                  item only appears if that action is present in the current
+                  The footer legend and any notes are conditional. Each legend
+                  item only appears when that action is present in the current
                   modal, and the notes section only appears when there is an
                   extra outcome to explain.
                 </p>
               </Col>
-              <Col className="col-md text-center align-self-center">
+              <Col className="col-md text-center align-self-start">
                 <ImageComponent alt="cascade warning modal" maxWidth="440px" imageMap={imageMap} />
               </Col>
             </Row>
@@ -466,17 +451,17 @@ export default function Page({ imageMap }: { imageMap: Record<string, string> })
                 <ul>
                   <li>
                     <span className="badge" style={{ backgroundColor: '#dc3545', color: '#fff' }}>Removed</span>{' '}
-                    &mdash; the item has no overlap with the new bounds and
+                    - the item has no overlap with the new bounds and
                     will be deleted.
                   </li>
                   <li>
                     <span className="badge" style={{ backgroundColor: '#ffc107', color: '#000' }}>Trimmed to Fit</span>{' '}
-                    &mdash; the item partially overlaps and will be shortened
+                    - the item partially overlaps and will be shortened
                     to stay within the new bounds.
                   </li>
                   <li>
                     <span className="badge" style={{ backgroundColor: '#0d6efd', color: '#fff' }}>Kept</span>{' '}
-                    &mdash; the installed participation itself is removed due
+                    - the installed participation itself is removed due
                     to no overlap, but the participation returns to the parent
                     entity instead of being deleted outright.
                   </li>
@@ -597,36 +582,62 @@ export default function Page({ imageMap }: { imageMap: Record<string, string> })
                 </p>
                 <ul>
                   <li>
-                    <strong>Home</strong> &mdash; returns to the landing page.
+                    <strong>Home</strong> - returns to the landing page.
                   </li>
                   <li>
-                    <strong>Editor</strong> &mdash; opens the interactive
+                    <strong>Editor</strong> - opens the interactive
                     diagram editor.
                   </li>
                   <li>
-                    <strong>Activity Modelling</strong> (dropdown) &mdash;
+                    <strong>Activity Modelling</strong> (dropdown) -
                     links to the <em>Introduction</em>, the
                     <em> Example Analysis</em> (crane lift walkthrough) and
                     <em> Integrated Information Management</em>.
                   </li>
                   <li>
-                    <strong>Guide</strong> (dropdown) &mdash; links to this
-                    <em> Editor Guide</em> and the <em>Terminology</em>
+                    <strong>Guide</strong> (dropdown) - links to this
+                    <em> Editor Guide</em> and the <em>Terminology </em>
                     reference. Below a divider, a <strong>System &amp; System
                     Components</strong> sub-section links to the system
                     modelling <em>Introduction</em> and <em>Example
                     Analysis</em>.
                   </li>
                   <li>
-                    <strong>Settings</strong> (button) &mdash; opens the
+                    <strong>Settings</strong> (button) - opens the
                     settings modal described below.
                   </li>
                 </ul>
+              </Col>
+              <Col className="col-md text-center align-self-center">
+                <ImageComponent
+                  alt="Top Navigation Bar"
+                  src="/manual/navigation_bar_desktop.png"
+                  maxWidth="530px"
+                  imageMap={imageMap}
+                />
+              </Col>
+            </Row>
+
+            <Row className="justify-content-center row-cols-1 row-cols-lg-2 mt-4">
+              <Col>
                 <p>
                   On small screens the navbar collapses to a hamburger menu.
                   Dropdown items and the active-page highlight work the same
                   way in the collapsed view.
                 </p>
+              </Col>
+              <Col className="col-md text-center align-self-center">
+                <ImageComponent
+                  alt="Collapsed Mobile Navigation"
+                  src="/manual/navigation_bar_mobile.png"
+                  maxWidth="360px"
+                  imageMap={imageMap}
+                />
+              </Col>
+            </Row>
+
+            <Row className="justify-content-center row-cols-1 row-cols-lg-2 mt-4">
+              <Col>
                 <h4 id="navigation-settings" className="doc-section-heading mt-4">Settings</h4>
                 <p>
                   The <strong>Settings</strong> button in the navbar opens the
@@ -634,10 +645,10 @@ export default function Page({ imageMap }: { imageMap: Record<string, string> })
                   the application chrome rather than the diagram itself.
                 </p>
                 <ul>
-                  <li><strong>Theme</strong> &mdash; choose Light, Dark, or System.</li>
-                  <li><strong>Accent</strong> &mdash; use the default profile or switch to one of the preset accent colours for links, highlights, and buttons.</li>
-                  <li><strong>Typography</strong> &mdash; choose the default Roboto-based profile or the Apollo Forum profile with Jost, Merriweather, and Source Sans 3.</li>
-                  <li><strong>Modal Animation</strong> &mdash; choose Default, Meep Meep, or Sketch for dialog transitions.</li>
+                  <li><strong>Theme</strong> - choose Light, Dark, or System.</li>
+                  <li><strong>Accent</strong> - use the default profile or switch to one of the preset accent colours for links, highlights, and buttons.</li>
+                  <li><strong>Typography</strong> - choose the default Roboto-based profile or the Apollo Forum profile with Jost, Merriweather, and Source Sans 3.</li>
+                  <li><strong>Modal Animation</strong> - choose Default, Meep Meep, or Sketch for dialog transitions.</li>
                 </ul>
                 <p>
                   These settings are stored in local storage, so the editor
@@ -645,7 +656,12 @@ export default function Page({ imageMap }: { imageMap: Record<string, string> })
                 </p>
               </Col>
               <Col className="col-md text-center align-self-center">
-                <ImageComponent alt="appearance settings" maxWidth="460px" imageMap={imageMap} />
+                <ImageComponent
+                  alt="Appearance Settings Modal"
+                  src="/manual/navigation_settings_modal.png"
+                  maxWidth="460px"
+                  imageMap={imageMap}
+                />
               </Col>
             </Row>
 
@@ -654,9 +670,9 @@ export default function Page({ imageMap }: { imageMap: Record<string, string> })
               <Col>
                 <h3 id="modal-behaviour" className="doc-section-heading">Modal Behaviour</h3>
                 <p>
-                  All dialog modals in the editor &mdash; including the
+                  All dialog modals in the editor - including the
                   entity editor, activity editor, warnings, settings, and the
-                  search popover &mdash; are <strong>draggable</strong>.
+                  search popover - are <strong>draggable</strong>.
                   Click and hold the header bar of any modal and drag it to
                   a new position so it does not obscure the part of the
                   diagram you are working on.
@@ -669,7 +685,12 @@ export default function Page({ imageMap }: { imageMap: Record<string, string> })
                 </p>
               </Col>
               <Col className="col-md text-center align-self-center">
-                <ImageComponent alt="modal behaviour" maxWidth="440px" imageMap={imageMap} />
+                <ImageComponent
+                  alt="Draggable Modal Behaviour"
+                  src="/manual/modal_behaviour_draggable.gif"
+                  maxWidth="440px"
+                  imageMap={imageMap}
+                />
               </Col>
             </Row>
 
@@ -793,7 +814,7 @@ export default function Page({ imageMap }: { imageMap: Record<string, string> })
                   applying the change. For example, tightening a system
                   timeline can trim installation endings, trim participation
                   timing, and in some cases remove an activity that no
-                  longer has valid participation &mdash; and the warning
+                  longer has valid participation - and the warning
                   dialog lets you review and adjust every one of these
                   outcomes before confirming.
                 </p>

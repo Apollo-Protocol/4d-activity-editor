@@ -287,6 +287,28 @@ h4.doc-section-heading {
   border-radius: 0.35rem;
 }
 
+@media (max-width: 991.98px) {
+  .navbar .navbar-collapse {
+    align-items: stretch;
+  }
+
+  .navbar .navbar-nav {
+    width: 100%;
+    align-items: stretch;
+  }
+
+  .navbar .nav-link,
+  .navbar .dropdown-toggle,
+  .navbar .nav-settings-trigger {
+    width: 100%;
+    text-align: left;
+  }
+
+  .navbar .nav-settings-trigger {
+    display: block;
+  }
+}
+
 .navbar .nav-link:hover {
   color: var(--bs-emphasis-color) !important;
 }
@@ -4027,7 +4049,90 @@ html.app-custom-theme .breadcrumb-wrapper .breadcrumb-item a:hover {
 
 @media (max-width: 575.98px) {
   .theme-cards {
-    flex-direction: column;
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.5rem;
+  }
+
+  .theme-card {
+    gap: 0.35rem;
+  }
+
+  .theme-card-preview {
+    padding: 0.3rem;
+    border-radius: 0.5rem;
+  }
+
+  .theme-card-label {
+    font-size: 0.75rem;
+  }
+
+  .modal-anim-grid {
+    gap: 0.5rem;
+  }
+
+  .modal-anim-btn {
+    padding: 0.5rem;
+    border-radius: 0.65rem;
+    min-height: 0;
+  }
+
+  .modal-anim-preview {
+    height: 4.75rem;
+  }
+
+  .modal-anim-label {
+    font-size: 0.78rem;
+  }
+
+  .modal-anim-description {
+    font-size: 0.76rem;
+    line-height: 1.35;
+  }
+
+  .typography-cards {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.5rem;
+  }
+
+  .typography-card {
+    padding: 0.55rem;
+    border-radius: 0.7rem;
+  }
+
+  .typography-card-header {
+    min-height: 0;
+    margin-bottom: 0.45rem;
+  }
+
+  .typography-card-fonts {
+    grid-template-columns: 1fr;
+    row-gap: 0.25rem;
+  }
+
+  .typography-card-fonts span {
+    font-size: 0.7rem;
+    padding: 0.14rem 0.35rem;
+    white-space: normal;
+  }
+
+  .typography-card-preview-block {
+    min-height: 0;
+    padding: 0.55rem;
+    border-radius: 0.55rem;
+    gap: 0.25rem;
+  }
+
+  .typography-card-heading {
+    font-size: 0.95rem;
+  }
+
+  .typography-card-subheading {
+    font-size: 0.78rem;
+  }
+
+  .typography-card-body {
+    font-size: 0.72rem;
   }
 }
 

@@ -157,8 +157,9 @@ export default function Page({ imageMap }: { imageMap: Record<string, string> })
                 <p>
                   The system lifespan matters because dependent system components and installation
                   periods are checked against it. If the system is shortened later, the editor can
-                  warn that nested components, installations, and activity participations will need
-                  to be trimmed or removed.
+                  warn that related items such as system components,
+                  installation periods, and activity participations may need
+                  to be updated or removed.
                 </p>
               </Col>
               <Col className="col-md text-center align-self-start">
@@ -311,10 +312,11 @@ export default function Page({ imageMap }: { imageMap: Record<string, string> })
             <Row className="justify-content-center row-cols-1 row-cols-lg-2 mt-3">
               <Col>
                 <p>
-                  When you shorten a system or a system component, the editor opens an affected-items
-                  warning before saving. That warning shows which nested components, installation
-                  periods, and activity participations would be trimmed or removed so you can decide
-                  whether to resolve or delete the affected records.
+                  If editing or deleting a system or system component would
+                  affect anything else, the editor opens an affected-items
+                  dialog before the change is applied. The dialog shows only
+                  the impacted items, so you can review the consequences
+                  before saving.
                 </p>
               </Col>
               <Col className="col-md text-center align-self-start mt-4 mt-lg-0">

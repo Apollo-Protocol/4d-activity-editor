@@ -4,8 +4,7 @@ import fs from "fs";
 import path from "path";
 import { Col, Container, Row } from "react-bootstrap";
 import JumpLinks, { JumpLinkItem } from "@/components/JumpLinks";
-// @ts-ignore
-import ModalImage from "react-modal-image";
+import DocImage from "@/components/DocImage";
 
 export async function getStaticProps() {
   const imagesDir = path.join(process.cwd(), 'public', 'system-intro');
@@ -49,41 +48,19 @@ const ImageComponent = ({
   src?: string;
   maxWidth?: string;
   imageMap?: Record<string, string>;
-}) => {
-  const filenameBase = alt.toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '');
-  const modalAlt = filenameBase
-    .split(/[_-]+/)
-    .filter(Boolean)
-    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
-    .join(' ');
-  const finalExt = (imageMap && imageMap[filenameBase]) ?? "png";
-  const generatedSrc = src ?? `/system-intro/${filenameBase}.${finalExt}`;
-  const isSvg = finalExt.toLowerCase() === "svg";
-
-  if (isSvg) {
-    return (
-      <picture>
-        <img
-          src={generatedSrc}
-          className="img-fluid mb-5 mt-3"
-          alt={modalAlt}
-        />
-      </picture>
-    );
-  }
-
-  return (
-    <div style={{ width: "100%", maxWidth: maxWidth ?? "300px", margin: "0 auto" }}>
-      <ModalImage 
-        small={generatedSrc}
-        large={generatedSrc}
-        alt={modalAlt}
-        className="img-fluid mb-3 mt-3 border rounded shadow-sm w-100 zoom-cursor-img"
-        imageBackgroundColor="#fff"
-      />
-    </div>
-  );
-};
+}) => (
+  <DocImage
+    alt={alt}
+    src={src}
+    maxWidth={maxWidth}
+    imageMap={imageMap}
+    subfolder="system-intro"
+    modalClassName="img-fluid mb-3 mt-3 border rounded shadow-sm w-100 zoom-cursor-img"
+    plainImgExts={["svg"]}
+    plainImgClassName="img-fluid mb-5 mt-3"
+    getDefaultMaxWidth={() => "300px"}
+  />
+);
 
 export default function Page({ imageMap }: { imageMap: Record<string, string> }) {
   return (

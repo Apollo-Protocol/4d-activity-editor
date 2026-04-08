@@ -4,6 +4,7 @@ import Image from "next/image";
 import { Col, Container, Row } from "react-bootstrap";
 import { ButtonRow, LinkButton } from "@/components/Util";
 import JumpLinks, { JumpLinkItem } from "@/components/JumpLinks";
+import { publicPath } from "@/utils/publicPath";
 
 import styles from "@/styles/Home.module.css";
 
@@ -57,7 +58,7 @@ export default function Page() {
             subsequent information system development.</p>
           </Col>
           <Col className="col-md text-center align-self-center">
-            <picture><img src="process-for-identifying-decisions-with-numbers.svg" className="img-fluid mb-5 mt-3" alt="The four-step activity modelling 
+            <picture><img src={publicPath("/process-for-identifying-decisions-with-numbers.svg")} className="img-fluid mb-5 mt-3" alt="The four-step activity modelling 
             method as a flowchart."></img></picture>
           </Col>
         </Row>
@@ -113,7 +114,7 @@ export default function Page() {
             here</Link>.</p>
           </Col>
           <Col className="col-md text-center align-self-center">
-            <picture><img src="CraneLift-20230329b.png" className="img-fluid mb-5" alt="
+            <picture><img src={publicPath("/CraneLift-20230329b.png")} className="img-fluid mb-5" alt="
               A space-time diagram has two axes, Time horizontally and
               Space vertically. Resources are displayed as horizontal
               bars spaced along the Space axis. Activities are displayed

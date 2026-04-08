@@ -2,8 +2,7 @@ import Head from "next/head";
 import Link from "next/link";
 import { Col, Container, Row } from "react-bootstrap";
 import JumpLinks, { JumpLinkItem } from "@/components/JumpLinks";
-// @ts-ignore
-import ModalImage from "react-modal-image";
+import DocImage from "@/components/DocImage";
 
 const managementSections: JumpLinkItem[] = [
   { id: "management-overview", label: "Overview" },
@@ -21,20 +20,16 @@ const ImageComponent = ({
   alt: string;
   caption?: string;
   maxWidth?: string;
-}) => {
-  return (
-    <div style={{ width: "100%", maxWidth: maxWidth ?? "420px", margin: "0 auto" }}>
-      <ModalImage
-        small={src}
-        large={src}
-        alt={alt}
-        className="img-fluid mb-2 mt-3 border rounded shadow-sm w-100 zoom-cursor-img"
-        imageBackgroundColor="#fff"
-      />
-      {caption ? <p className="text-muted small mb-0 text-center">{caption}</p> : null}
-    </div>
-  );
-};
+}) => (
+  <DocImage
+    alt={alt}
+    src={src}
+    maxWidth={maxWidth}
+    caption={caption}
+    modalClassName="img-fluid mb-2 mt-3 border rounded shadow-sm w-100 zoom-cursor-img"
+    getDefaultMaxWidth={() => "420px"}
+  />
+);
 
 export default function Page() {
   return (

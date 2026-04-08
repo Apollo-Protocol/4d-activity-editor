@@ -3,8 +3,8 @@ import React from "react";
 export const Target = () => (
   <svg
     xmlns="http://www.w3.org/2000/svg"
-    width="16"
-    height="16"
+    width="1.1em"
+    height="1.1em"
     fill="none"
     stroke="currentColor"
     strokeWidth="2.5"

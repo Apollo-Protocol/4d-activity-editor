@@ -1,0 +1,265 @@
+import { Activity, Individual, InstallationPeriod, participationMapKey, findParticipationsForIndividual } from "@/lib/Schema";
+import { Model } from "@/lib/Model";
+import { ENTITY_TYPE_IDS, getEntityTypeIdFromIndividual } from "@/lib/entityTypes";
+
+export const normalizeStart = (value: number | undefined) =>
+  Number.isFinite(value) && (value as number) >= 0 ? (value as number) : 0;
+
+export const normalizeEnd = (value: number | undefined) =>
+  Number.isFinite(value) && (value as number) > 0
+    ? (value as number)
+    : Model.END_OF_TIME;
+
+export function getInstallationPeriods(individual: Individual): InstallationPeriod[] {
+  if (individual.installations && individual.installations.length > 0) {
+    return [...individual.installations]
+      .filter(
+        (period) =>
+          !!period.systemComponentId &&
+          Number.isFinite(period.beginning) &&
+          Number.isFinite(period.ending) &&
+          period.ending > period.beginning
+      )
+      .sort((first, second) => first.beginning - second.beginning);
+  }
+
+  if (!individual.installedIn) return [];
+
+  const beginning = normalizeStart(
+    individual.installedBeginning ??
+      (Number.isFinite(individual.beginning) ? individual.beginning : 0)
+  );
+  const ending = normalizeEnd(
+    individual.installedEnding ??
+      (Number.isFinite(individual.ending) ? individual.ending : Model.END_OF_TIME)
+  );
+
+  if (ending <= beginning) return [];
+
+  return [
+    {
+      id: `${individual.id}::legacy-installation`,
+      systemComponentId: individual.installedIn,
+      beginning,
+      ending,
+    },
+  ];
+}
+
+export function syncLegacyInstallationFields(individual: Individual): Individual {
+  const periods = getInstallationPeriods(individual);
+  if (periods.length === 0) {
+    return {
+      ...individual,
+      installedIn: undefined,
+      installedBeginning: undefined,
+      installedEnding: undefined,
+      installations: [],
+    };
+  }
+
+  const primary = periods[0];
+  return {
+    ...individual,
+    installedIn: primary.systemComponentId,
+    installedBeginning: primary.beginning,
+    installedEnding: primary.ending,
+    installations: periods,
+  };
+}
+
+export function getActiveInstallationForActivity(
+  individual: Individual,
+  activity: Activity
+): InstallationPeriod | undefined {
+  const periods = getInstallationPeriods(individual);
+  // Find participation(s) for this individual in the activity
+  const entries = findParticipationsForIndividual(activity.participations, individual.id);
+  // Use the first matching entry (or fall back to legacy key lookup)
+  const participation = entries.length > 0
+    ? entries[0][1]
+    : activity.participations.get(individual.id);
+  const participationBeginning = normalizeStart(
+    participation?.beginning ?? activity.beginning
+  );
+  const participationEnding = normalizeEnd(
+    participation?.ending ?? activity.ending
+  );
+
+  if (participation?.installationPeriodId) {
+    return periods.find(
+      (period) =>
+        period.id === participation.installationPeriodId &&
+        participationBeginning >= period.beginning &&
+        participationEnding <= period.ending
+    );
+  }
+
+  return periods.find(
+    (period) =>
+      participationBeginning >= period.beginning && participationEnding <= period.ending
+  );
+}
+
+export function getIndividualInstallationBounds(individual: Individual) {
+  const periods = getInstallationPeriods(individual);
+  if (periods.length === 0) return { periods, beginning: undefined, ending: undefined };
+  return {
+    periods,
+    beginning: Math.min(...periods.map((period) => period.beginning)),
+    ending: Math.max(...periods.map((period) => period.ending)),
+  };
+}
+
+export function isInstalledInSystemComponent(
+  individual: Individual,
+  individualsById: Map<string, Individual>
+) {
+  const periods = getInstallationPeriods(individual);
+  if (periods.length === 0) return false;
+
+  return periods.some((period) => {
+    const component = individualsById.get(period.systemComponentId);
+    return (
+      !!component &&
+      getEntityTypeIdFromIndividual(component) === ENTITY_TYPE_IDS.SYSTEM_COMPONENT
+    );
+  });
+}
+
+export function isActivityInsideAnyInstallation(individual: Individual, activity: Activity) {
+  return !!getActiveInstallationForActivity(individual, activity);
+}
+
+/** A time-slice of a participation, optionally tied to an installation period. */
+export interface ParticipationSegment {
+  beginning: number;
+  ending: number;
+  /** When set, this segment falls during the given installation period. */
+  installationPeriod?: InstallationPeriod;
+}
+
+/**
+ * Split a participation's effective time range into segments aligned with
+ * installation periods.  Segments that overlap an installation carry the
+ * `installationPeriod` reference; gap segments do not.
+ *
+ * When the participation has a `systemComponentId`, only installation periods
+ * for that specific component are considered (per-installation model).
+ *
+ * If the individual has no overlapping installations the function returns a
+ * single segment covering the whole participation.
+ */
+export function splitParticipationByInstallations(
+  individual: Individual,
+  activity: Activity,
+  participationKey?: string
+): ParticipationSegment[] {
+  const periods = getInstallationPeriods(individual);
+  // Find the participation: try composite key first, then plain individualId
+  const participation = participationKey
+    ? activity.participations.get(participationKey)
+    : (activity.participations.get(individual.id) ??
+       findParticipationsForIndividual(activity.participations, individual.id)[0]?.[1]);
+  const partBegin = normalizeStart(participation?.beginning ?? activity.beginning);
+  const partEnd = normalizeEnd(participation?.ending ?? activity.ending);
+
+  if (partEnd <= partBegin) return [{ beginning: partBegin, ending: partEnd }];
+
+  // If this is a per-installation participation, only consider periods for that component
+  const targetComponentId = participation?.systemComponentId;
+  const targetInstallationPeriodId = participation?.installationPeriodId;
+  const relevantPeriods = targetComponentId
+    ? periods.filter(
+        (p) =>
+          p.systemComponentId === targetComponentId &&
+          (!targetInstallationPeriodId || p.id === targetInstallationPeriodId)
+      )
+    : periods;
+
+  const overlapping = relevantPeriods
+    .filter((p) => p.beginning < partEnd && p.ending > partBegin)
+    .sort((a, b) => a.beginning - b.beginning);
+
+  if (overlapping.length === 0) {
+    return [{ beginning: partBegin, ending: partEnd }];
+  }
+
+  // For per-installation participations, produce only the installation segments
+  // (no gap segments — the individual's "free" row isn't relevant)
+  if (targetComponentId) {
+    const segments: ParticipationSegment[] = [];
+    for (const period of overlapping) {
+      const overlapStart = Math.max(partBegin, period.beginning);
+      const overlapEnd = Math.min(partEnd, period.ending);
+      if (overlapStart < overlapEnd) {
+        segments.push({
+          beginning: overlapStart,
+          ending: overlapEnd,
+          installationPeriod: period,
+        });
+      }
+    }
+    return segments.length > 0 ? segments : [{ beginning: partBegin, ending: partEnd }];
+  }
+
+  // Non-installed (plain-key) participation: produce one segment per
+  // overlapping installation period (even when different component periods
+  // cover the same time range) plus gap segments for uncovered time.
+  const segments: ParticipationSegment[] = [];
+
+  // First, produce a segment for each overlapping installation period
+  for (const period of overlapping) {
+    const overlapStart = Math.max(partBegin, period.beginning);
+    const overlapEnd = Math.min(partEnd, period.ending);
+    if (overlapStart < overlapEnd) {
+      segments.push({
+        beginning: overlapStart,
+        ending: overlapEnd,
+        installationPeriod: period,
+      });
+    }
+  }
+
+  // Now produce gap segments for time ranges not covered by ANY period.
+  // Merge all installation coverage intervals then find uncovered gaps.
+  const coverageIntervals = overlapping
+    .map((p) => ({
+      start: Math.max(partBegin, p.beginning),
+      end: Math.min(partEnd, p.ending),
+    }))
+    .filter((iv) => iv.start < iv.end)
+    .sort((a, b) => a.start - b.start);
+
+  const merged: { start: number; end: number }[] = [];
+  for (const iv of coverageIntervals) {
+    const last = merged[merged.length - 1];
+    if (last && iv.start <= last.end) {
+      last.end = Math.max(last.end, iv.end);
+    } else {
+      merged.push({ ...iv });
+    }
+  }
+
+  let cursor = partBegin;
+  for (const iv of merged) {
+    if (cursor < iv.start) {
+      segments.push({ beginning: cursor, ending: iv.start });
+    }
+    cursor = iv.end;
+  }
+  if (cursor < partEnd) {
+    segments.push({ beginning: cursor, ending: partEnd });
+  }
+
+  // Sort all segments by beginning time, then installation segments before gaps
+  segments.sort((a, b) => {
+    if (a.beginning !== b.beginning) return a.beginning - b.beginning;
+    // Installation segments first
+    if (a.installationPeriod && !b.installationPeriod) return -1;
+    if (!a.installationPeriod && b.installationPeriod) return 1;
+    return 0;
+  });
+
+  return segments;
+}

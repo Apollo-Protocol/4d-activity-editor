@@ -2,6 +2,8 @@ export interface ConfigData {
   viewPort: {
     zoom: number;
     x: number;
+    minTimelineSpan: number;
+    timelineBuffer: number;
   };
   layout: {
     individual: {
@@ -12,6 +14,16 @@ export interface ConfigData {
       xMargin: number;
       temporalMargin: number;
       textLength: number;
+      openEndAlignmentPadding: number;
+    };
+    system: {
+      containerInset: number;
+      horizontalInset: number;
+      componentGap: number;
+      componentHeightFactor: number;
+      minHostHeightFactor: number;
+      hostHeightGrowthPerComponent: number;
+      hostComponentPadding: number;
     };
   };
   presentation: {
@@ -69,6 +81,8 @@ export const config: ConfigData = {
   viewPort: {
     zoom: 1,
     x: 1000,
+    minTimelineSpan: 11,
+    timelineBuffer: 2,
   },
   layout: {
     individual: {
@@ -79,18 +93,28 @@ export const config: ConfigData = {
       xMargin: 40,
       temporalMargin: 10,
       textLength: 100,
+      openEndAlignmentPadding: 12,
+    },
+    system: {
+      containerInset: 4,
+      horizontalInset: 24,
+      componentGap: 10,
+      componentHeightFactor: 1,
+      minHostHeightFactor: 3,
+      hostHeightGrowthPerComponent: 1,
+      hostComponentPadding: 8,
     },
   },
   presentation: {
     individual: {
       strokeWidth: "1px",
-      stroke: "#7F7F7F",
-      fill: "#B1B1B0",
-      fillHover: "#8d8d8b",
+      stroke: "var(--diagram-individual-stroke, #707071)",
+      fill: "var(--diagram-individual-fill, #909091)",
+      fillHover: "var(--diagram-individual-fill-hover, #787879)",
     },
     activity: {
       strokeWidth: "1px",
-      stroke: ["#29123b"],
+      stroke: ["var(--diagram-activity-stroke, #29123b)"],
       strokeDasharray: "5,3",
       fill: [
         "#440099",
@@ -106,19 +130,19 @@ export const config: ConfigData = {
         "#000000",
         "#ffffff",
       ],
-      opacity: "0.5",
-      opacityHover: "0.7",
+      opacity: "var(--diagram-activity-opacity, 0.5)",
+      opacityHover: "var(--diagram-activity-opacity-hover, 0.7)",
     },
     participation: {
       strokeWidth: "1px",
-      stroke: "#29123b",
+      stroke: "var(--diagram-participation-stroke, #29123b)",
       strokeDasharray: "5,3",
-      fill: "#F2F2F2",
-      opacity: "0.5",
-      opacityHover: "0.9",
+      fill: "var(--diagram-participation-fill, #F2F2F2)",
+      opacity: "var(--diagram-participation-opacity, 0.5)",
+      opacityHover: "var(--diagram-participation-opacity-hover, 0.9)",
     },
     axis: {
-      colour: "#7F7F7F",
+      colour: "var(--diagram-axis-colour, #7F7F7F)",
       width: 15,
       margin: 20,
       textOffsetX: 5,
@@ -131,14 +155,14 @@ export const config: ConfigData = {
       enabled: true,
       leftMargin: 5,
       topMargin: 5,
-      color: "black",
+      color: "var(--diagram-label-individual-color, black)",
       fontSize: "0.8em",
       maxChars: 24,
     },
     activity: {
       enabled: true,
       topMargin: 5,
-      color: "#441d62",
+      color: "var(--diagram-label-activity-color, #441d62)",
       fontSize: "0.7em",
       maxChars: 24,
     },

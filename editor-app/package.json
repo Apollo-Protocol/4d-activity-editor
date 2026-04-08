@@ -24,17 +24,30 @@
     "eslint-config-next": "16.1.5",
     "lodash": "^4.17.23",
     "lucide-react": "^0.554.0",
-    "next": "16.1.5",
+    "next": "16.1.7",
+    "next-themes": "^0.4.6",
     "react": "19.1.0",
     "react-bootstrap": "^2.10.2",
     "react-dom": "19.1.0",
+    "react-draggable": "^4.5.0",
     "react-modal-image": "^2.6.0",
     "react-select": "^5.8.0",
-    "typescript": "5.8.3",
     "uuidv4": "^6.2.13"
   },
   "overrides": {
+    "flatted": "3.4.2",
+    "micromatch": {
+      "picomatch": "2.3.2"
+    },
+    "yaml": "1.10.3",
+    "eslint": {
+      "minimatch": "3.1.5",
+      "ajv": "6.14.0"
+    },
     "@eslint/plugin-kit": "0.3.4",
     "js-yaml": "4.1.1"
+  },
+  "devDependencies": {
+    "typescript": "^6.0.2"
   }
 }

@@ -1,7 +1,16 @@
 /* eslint-disable max-classes-per-file */
 import { HQDM_NS } from "@apollo-protocol/hqdm-lib";
-import type { Activity, Id, Individual, Maybe } from "./Schema.js";
+import type { Activity, Id, Individual, Maybe } from "./Schema";
+import { participationMapKey, findParticipationsForIndividual } from "./Schema";
 import { EPOCH_END } from "./ActivityLib";
+import { ENTITY_TYPE_IDS, getEntityTypeIdFromIndividual } from "./entityTypes";
+import {
+  getActiveInstallationForActivity,
+  getInstallationPeriods,
+  normalizeEnd,
+  normalizeStart,
+  syncLegacyInstallationFields,
+} from "@/utils/installations";
 
 /**
  * A class used to list the types needed for drop-downs in the UI.
@@ -72,10 +81,20 @@ export class Model {
     const newModel = new Model(this.name, this.description);
     newModel.filename = this.filename;
     this.activities.forEach((a) => {
-      newModel.addActivity(a);
+      const clonedParticipations = new Map();
+      if (a.participations) {
+        a.participations.forEach((p, key) => clonedParticipations.set(key, { ...p }));
+      }
+      newModel.addActivity({
+        ...a,
+        participations: clonedParticipations,
+      });
     });
     this.individuals.forEach((i) => {
-      newModel.addIndividual(i);
+      newModel.addIndividual({
+        ...i,
+        installations: i.installations ? i.installations.map(inst => ({ ...inst })) : undefined,
+      });
     });
     this.roles
       .filter((r) => !r.isCoreHqdm)
@@ -130,7 +149,343 @@ export class Model {
       );
     } else {
       this.individuals.set(individual.id, individual);
+      this.normalizeIndividualOrder();
     }
+  }
+
+  reconcileParticipationsForInstallations(individual: Individual): void {
+    const periods = getInstallationPeriods(individual);
+
+    this.activities.forEach((activity) => {
+      const entries = findParticipationsForIndividual(
+        activity.participations,
+        individual.id
+      );
+      if (entries.length === 0) return;
+
+      let changed = false;
+      const nextParticipations = new Map(activity.participations);
+
+      entries.forEach(([key, participation]) => {
+        if (!participation.systemComponentId) {
+          return;
+        }
+
+        const participationStart = normalizeStart(
+          participation.beginning ?? activity.beginning
+        );
+        const participationEnd = normalizeEnd(
+          participation.ending ?? activity.ending
+        );
+        const isFullyContained = periods.some(
+          (period) =>
+            period.systemComponentId === participation.systemComponentId &&
+            (!participation.installationPeriodId ||
+              period.id === participation.installationPeriodId) &&
+            participationStart >= period.beginning &&
+            participationEnd <= period.ending
+        );
+
+        if (isFullyContained) {
+          return;
+        }
+
+        nextParticipations.delete(key);
+
+        const plainKey = participationMapKey(participation.individualId);
+        if (!nextParticipations.has(plainKey)) {
+          nextParticipations.set(plainKey, {
+            ...participation,
+            systemComponentId: undefined,
+            installationPeriodId: undefined,
+          });
+        }
+
+        changed = true;
+      });
+
+      if (changed) {
+        this.activities.set(activity.id, {
+          ...activity,
+          participations: nextParticipations,
+        });
+      }
+    });
+  }
+
+  normalizeActivityParticipations(activity: Activity): Activity {
+    const nextParticipations = new Map(activity.participations);
+    const grouped = new Map<string, Array<[string, Activity["participations"] extends Map<string, infer P> ? P : never]>>();
+
+    nextParticipations.forEach((participation, key) => {
+      if (!participation.systemComponentId) {
+        return;
+      }
+
+      const individual = this.individuals.get(participation.individualId);
+      if (!individual) {
+        return;
+      }
+
+      const participationStart = normalizeStart(
+        participation.beginning ?? activity.beginning
+      );
+      const participationEnd = normalizeEnd(
+        participation.ending ?? activity.ending
+      );
+      const periods = getInstallationPeriods(individual).filter(
+        (period) =>
+          period.systemComponentId === participation.systemComponentId &&
+          (!participation.installationPeriodId ||
+            period.id === participation.installationPeriodId)
+      );
+      const isFullyContained = periods.some(
+        (period) =>
+          participationStart >= period.beginning &&
+          participationEnd <= period.ending
+      );
+
+      if (!isFullyContained) {
+        nextParticipations.delete(key);
+        const plainKey = participationMapKey(participation.individualId);
+        if (!nextParticipations.has(plainKey)) {
+          nextParticipations.set(plainKey, {
+            ...participation,
+            systemComponentId: undefined,
+            installationPeriodId: undefined,
+          });
+        }
+      }
+    });
+
+    nextParticipations.forEach((participation, key) => {
+      const list = grouped.get(participation.individualId);
+      if (list) list.push([key, participation]);
+      else grouped.set(participation.individualId, [[key, participation]]);
+    });
+
+    grouped.forEach((entries) => {
+      const plainEntry = entries.find(
+        ([key, participation]) =>
+          key === participation.individualId && !participation.systemComponentId
+      );
+      if (!plainEntry) return;
+
+      const installedEntries = entries.filter(
+        ([, participation]) => !!participation.systemComponentId
+      );
+      if (installedEntries.length === 0) return;
+
+      const plainParticipation = plainEntry[1];
+      const plainStart = normalizeStart(
+        plainParticipation.beginning ?? activity.beginning
+      );
+      const plainEnd = normalizeEnd(
+        plainParticipation.ending ?? activity.ending
+      );
+
+      const coverage = installedEntries
+        .map(([, participation]) => ({
+          start: normalizeStart(participation.beginning ?? activity.beginning),
+          end: normalizeEnd(participation.ending ?? activity.ending),
+        }))
+        .filter((interval) => interval.start < interval.end)
+        .sort((left, right) => left.start - right.start);
+
+      if (coverage.length === 0) return;
+
+      const merged: Array<{ start: number; end: number }> = [];
+      for (const interval of coverage) {
+        const last = merged[merged.length - 1];
+        if (last && interval.start <= last.end) {
+          last.end = Math.max(last.end, interval.end);
+        } else {
+          merged.push({ ...interval });
+        }
+      }
+
+      const isPlainCovered = merged.some(
+        (interval) => plainStart >= interval.start && plainEnd <= interval.end
+      );
+
+      if (isPlainCovered) {
+        nextParticipations.delete(plainEntry[0]);
+      }
+    });
+
+    return {
+      ...activity,
+      participations: nextParticipations,
+    };
+  }
+
+  /**
+   * Re-orders the individuals map so that every System Component
+   * appears immediately after its parent System.  This prevents
+   * rendering issues where a component drawn before its system
+   * gets hidden behind the system's white background.
+   */
+  private normalizeIndividualOrder(): void {
+    const items = Array.from(this.individuals.values());
+
+    const systems = new Set(
+      items
+        .filter(
+          (item) =>
+            getEntityTypeIdFromIndividual(item) === ENTITY_TYPE_IDS.SYSTEM
+        )
+        .map((item) => item.id)
+    );
+
+    const componentsBySystem = new Map<string, Individual[]>();
+    items.forEach((item) => {
+      if (
+        getEntityTypeIdFromIndividual(item) !==
+        ENTITY_TYPE_IDS.SYSTEM_COMPONENT
+      )
+        return;
+      if (!item.installedIn || !systems.has(item.installedIn)) return;
+      const list = componentsBySystem.get(item.installedIn);
+      if (list) list.push(item);
+      else componentsBySystem.set(item.installedIn, [item]);
+    });
+
+    // Nothing to reorder if there are no system-component relationships
+    if (componentsBySystem.size === 0) return;
+
+    const normalized: Individual[] = [];
+    const emitted = new Set<string>();
+
+    items.forEach((item) => {
+      if (emitted.has(item.id)) return;
+
+      const type = getEntityTypeIdFromIndividual(item);
+      if (
+        type === ENTITY_TYPE_IDS.SYSTEM_COMPONENT &&
+        item.installedIn &&
+        systems.has(item.installedIn)
+      ) {
+        return; // will be emitted after parent system
+      }
+
+      normalized.push(item);
+      emitted.add(item.id);
+
+      if (type === ENTITY_TYPE_IDS.SYSTEM) {
+        (componentsBySystem.get(item.id) ?? []).forEach((child) => {
+          if (!emitted.has(child.id)) {
+            normalized.push(child);
+            emitted.add(child.id);
+          }
+        });
+      }
+    });
+
+    this.individuals.clear();
+    normalized.forEach((item) => {
+      this.individuals.set(item.id, item);
+    });
+  }
+
+  private collectDeletedIndividualIds(id: string): Set<string> {
+    const queue: string[] = [id];
+    const deleted = new Set<string>();
+
+    while (queue.length > 0) {
+      const nextId = queue.shift()!;
+      if (deleted.has(nextId)) continue;
+      deleted.add(nextId);
+
+      const current = this.individuals.get(nextId);
+      if (
+        current &&
+        getEntityTypeIdFromIndividual(current) === ENTITY_TYPE_IDS.SYSTEM
+      ) {
+        this.individuals.forEach((candidate) => {
+          if (
+            candidate.installedIn === current.id &&
+            getEntityTypeIdFromIndividual(candidate) ===
+              ENTITY_TYPE_IDS.SYSTEM_COMPONENT
+          ) {
+            queue.push(candidate.id);
+          }
+        });
+      }
+    }
+
+    return deleted;
+  }
+
+  getIndividualRemovalCascade(id: string) {
+    const deletedIndividualIds = this.collectDeletedIndividualIds(id);
+    const removedInstallations: Array<{
+      individualId: string;
+      systemComponentId: string;
+      beginning: number;
+      ending: number;
+    }> = [];
+    const removedActivityIds = new Set<string>();
+    const removedParticipations: Array<{
+      activityId: string;
+      individualId: string;
+      participationKey: string;
+    }> = [];
+
+    this.individuals.forEach((individual) => {
+      const periods = getInstallationPeriods(individual);
+      periods.forEach((period) => {
+        if (
+          deletedIndividualIds.has(individual.id) ||
+          deletedIndividualIds.has(period.systemComponentId)
+        ) {
+          removedInstallations.push({
+            individualId: individual.id,
+            systemComponentId: period.systemComponentId,
+            beginning: period.beginning,
+            ending: period.ending,
+          });
+        }
+      });
+    });
+
+    this.activities.forEach((activity) => {
+      const allKeys = Array.from(activity.participations.keys());
+      const affectedKeys = allKeys.filter((key) => {
+        const p = activity.participations.get(key)!;
+        if (deletedIndividualIds.has(p.individualId)) {
+          return true;
+        }
+
+        // If the component is being deleted but the individual still exists,
+        // the participation should fall back to the individual's own row.
+        return false;
+      });
+
+      if (affectedKeys.length === 0) {
+        return;
+      }
+
+      if (affectedKeys.length === allKeys.length) {
+        removedActivityIds.add(activity.id);
+        return;
+      }
+
+      affectedKeys.forEach((key) => {
+        const p = activity.participations.get(key)!;
+        removedParticipations.push({
+          activityId: activity.id,
+          individualId: p.individualId,
+          participationKey: key,
+        });
+      });
+    });
+
+    return {
+      deletedIndividualIds: Array.from(deletedIndividualIds),
+      removedInstallations,
+      removedActivityIds: Array.from(removedActivityIds),
+      removedParticipations,
+    };
   }
 
   /**
@@ -139,13 +494,45 @@ export class Model {
    * @param id The id of the individual to remove.
    */
   removeIndividual(id: string): void {
-    this.individuals.delete(id);
-    this.activities.forEach((a) => {
-      a.participations?.forEach((p) => {
-        if (p.individualId === id) {
-          a.participations?.delete(id);
+    const cascade = this.getIndividualRemovalCascade(id);
+    const deleted = new Set(cascade.deletedIndividualIds);
+
+    deleted.forEach((deletedId) => {
+      this.individuals.delete(deletedId);
+    });
+
+    this.individuals.forEach((individual) => {
+      const filteredPeriods = getInstallationPeriods(individual).filter(
+        (period) => !deleted.has(period.systemComponentId)
+      );
+
+      if (filteredPeriods.length !== getInstallationPeriods(individual).length) {
+        const updated = syncLegacyInstallationFields({
+          ...individual,
+          installations: filteredPeriods,
+        });
+        this.individuals.set(individual.id, updated);
+        this.reconcileParticipationsForInstallations(updated);
+      }
+    });
+
+    cascade.removedActivityIds.forEach((activityId) => {
+      this.activities.delete(activityId);
+    });
+
+    this.activities.forEach((activity) => {
+      const keysToDelete: string[] = [];
+      activity.participations?.forEach((participation, key) => {
+        if (deleted.has(participation.individualId)) {
+          keysToDelete.push(key);
         }
       });
+      keysToDelete.forEach((key) => activity.participations?.delete(key));
+    });
+
+    cascade.removedParticipations.forEach(({ activityId, participationKey: pKey }) => {
+      const activity = this.activities.get(activityId);
+      activity?.participations?.delete(pKey);
     });
   }
 

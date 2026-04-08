@@ -1,0 +1,62 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="760" viewBox="0 0 1200 760" role="img" aria-labelledby="title desc">
+  <title id="title">System and System Component Modelling Overview</title>
+  <desc id="desc">Flow diagram showing system definition, component slot definition, installation timeline modelling, validation against activities, and affected-items review.</desc>
+
+  <defs>
+    <style>
+      .bg { fill: #f5f7fb; }
+      .card { fill: #0b5cad; }
+      .cardText { fill: #ffffff; font-family: Arial, Helvetica, sans-serif; font-size: 30px; font-weight: 600; text-anchor: middle; dominant-baseline: middle; }
+      .title { fill: #1e2a3a; font-family: Arial, Helvetica, sans-serif; font-size: 42px; font-weight: 700; text-anchor: middle; }
+      .sub { fill: #415065; font-family: Arial, Helvetica, sans-serif; font-size: 22px; text-anchor: middle; }
+      .note { fill: #43536b; font-family: Arial, Helvetica, sans-serif; font-size: 22px; font-weight: 600; text-anchor: middle; }
+      .line { stroke: #2b6eb8; stroke-width: 4; fill: none; }
+      .step { fill: #5f6c80; font-family: Arial, Helvetica, sans-serif; font-size: 28px; font-weight: 700; text-anchor: middle; dominant-baseline: middle; }
+    </style>
+
+    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="10" markerHeight="10" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#2b6eb8" />
+    </marker>
+  </defs>
+
+  <rect class="bg" x="0" y="0" width="1200" height="760" rx="12" />
+
+  <text class="title" x="600" y="58">System &amp; Component Modelling</text>
+  <text class="sub" x="600" y="96">Structure + Time + Validation</text>
+
+  <text class="step" x="130" y="190">1</text>
+  <text class="step" x="130" y="310">2</text>
+  <text class="step" x="130" y="430">3</text>
+  <text class="step" x="130" y="550">4</text>
+  <text class="step" x="130" y="670">5</text>
+
+  <rect class="card" x="170" y="140" width="520" height="92" rx="18" />
+  <text class="cardText" x="430" y="186">Define system boundary</text>
+
+  <rect class="card" x="170" y="260" width="520" height="92" rx="18" />
+  <text class="cardText" x="430" y="298">Define component slots</text>
+
+  <rect class="card" x="170" y="380" width="520" height="92" rx="18" />
+  <text class="cardText" x="430" y="418">Install individuals over time</text>
+
+  <rect class="card" x="170" y="500" width="520" height="92" rx="18" />
+  <text class="cardText" x="430" y="538">Validate activities vs installations</text>
+
+  <rect class="card" x="170" y="620" width="520" height="92" rx="18" />
+  <text class="cardText" x="430" y="658">Review affected-items warnings</text>
+
+  <path class="line" marker-end="url(#arrow)" d="M430 232 L430 258" />
+  <path class="line" marker-end="url(#arrow)" d="M430 352 L430 378" />
+  <path class="line" marker-end="url(#arrow)" d="M430 472 L430 498" />
+  <path class="line" marker-end="url(#arrow)" d="M430 592 L430 618" />
+
+  <rect class="card" x="790" y="310" width="320" height="140" rx="18" />
+  <text class="cardText" x="950" y="355">If invalid:</text>
+  <text class="cardText" x="950" y="395">Adjust bounds or</text>
+  <text class="cardText" x="950" y="435">replace installation</text>
+
+  <path class="line" marker-end="url(#arrow)" d="M690 418 L790 418" />
+  <path class="line" marker-end="url(#arrow)" d="M950 310 L950 215 L690 215" />
+
+  <text class="note" x="950" y="510">Iterate until checks pass</text>
+</svg>

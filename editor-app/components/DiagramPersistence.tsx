@@ -9,15 +9,35 @@ import {
   loadRefDataFromTTL,
 } from "lib/ActivityLib";
 
-import { saveFile, loadFile } from "./save_load";
+import { saveFile, loadFile } from "@/helpers/saveLoad";
 
 interface Example {
   name: string;
   path: string;
 }
 
-const DiagramPersistence = (props: any) => {
-  const { dataset, setDataset, svgRef, setDirty } = props;
+interface Props {
+  dataset: any;
+  setDataset: (dataset: any) => void;
+  svgRef: any;
+  setDirty: (dirty: boolean) => void;
+  showSaveButton?: boolean;
+  showReferenceToggle?: boolean;
+  className?: string;
+  buttonVariant?: string;
+}
+
+const DiagramPersistence = (props: Props) => {
+  const {
+    dataset,
+    setDataset,
+    svgRef,
+    setDirty,
+    showSaveButton = true,
+    showReferenceToggle = true,
+    className = "",
+    buttonVariant = "primary",
+  } = props;
   const [uploadText, setUploadText] = useState("");
   const [refDataOnly, setRefDataOnly] = useState(false);
   const [examples, setExamples] = useState<Example[]>([]);
@@ -81,10 +101,10 @@ const DiagramPersistence = (props: any) => {
   }
 
   return (
-    <div className="d-flex flex-wrap align-items-center justify-content-center gap-2 mobile-contents">
+    <div className={`d-flex flex-wrap align-items-center justify-content-center gap-2 mobile-contents ${className}`.trim()}>
       {/* Load Example dropdown */}
       <Dropdown className="toolbar-dropdown" align="start">
-        <Dropdown.Toggle id="load-example-toggle" variant="primary">
+        <Dropdown.Toggle id="load-example-toggle" variant={buttonVariant}>
           Load example
         </Dropdown.Toggle>
         <Dropdown.Menu renderOnMount>
@@ -97,42 +117,46 @@ const DiagramPersistence = (props: any) => {
       </Dropdown>
 
       {/* TTL Load/Save buttons */}
-      <Button variant="primary" onClick={uploadTtl}>
+      <Button variant={buttonVariant} onClick={uploadTtl}>
         Load TTL
       </Button>
-      <Button variant="primary" onClick={downloadTtl}>
-        Save TTL
-      </Button>
+      {showSaveButton ? (
+        <Button variant={buttonVariant} onClick={downloadTtl}>
+          Save TTL
+        </Button>
+      ) : null}
 
       {/* Reference Types Only toggle */}
-      <button
-        type="button"
-        className="btn btn-primary d-inline-flex align-items-center"
-        style={{
-          lineHeight: 1.5,
-          padding: "0.375rem 0.75rem",
-        }}
-        onClick={() => setRefDataOnly(!refDataOnly)}
-      >
-        <Form.Check
-          type="checkbox"
-          id="refDataOnlyCheck"
-          checked={refDataOnly}
-          onChange={() => setRefDataOnly(!refDataOnly)}
+      {showReferenceToggle ? (
+        <button
+          type="button"
+          className={`btn btn-${buttonVariant} d-inline-flex align-items-center`}
           style={{
-            margin: 0,
-            marginRight: "0.35rem",
+            lineHeight: 1.5,
+            padding: "0.375rem 0.75rem",
           }}
-        />
-        <span
-          style={{
-            fontWeight: 400,
-            whiteSpace: "nowrap",
-          }}
+          onClick={() => setRefDataOnly(!refDataOnly)}
         >
-          Reference Types only
-        </span>
-      </button>
+          <Form.Check
+            type="checkbox"
+            id="refDataOnlyCheck"
+            checked={refDataOnly}
+            onChange={() => setRefDataOnly(!refDataOnly)}
+            style={{
+              margin: 0,
+              marginRight: "0.35rem",
+            }}
+          />
+          <span
+            style={{
+              fontWeight: 400,
+              whiteSpace: "nowrap",
+            }}
+          >
+            Reference Types only
+          </span>
+        </button>
+      ) : null}
 
       {/* Error message if any */}
       {uploadText && <span className="text-danger small">{uploadText}</span>}

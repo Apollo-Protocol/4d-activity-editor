@@ -7,8 +7,10 @@ import React, {
 } from "react";
 import Button from "react-bootstrap/Button";
 import Modal from "react-bootstrap/Modal";
+import DraggableModalDialog, { shouldSuppressModalHide } from "@/modals/DraggableModalDialog";
+import { useModalAnimation } from "@/utils/useModalAnimation";
 import Form from "react-bootstrap/Form";
-import { Activity, Participation } from "@/lib/Schema";
+import { Activity, Participation, participationMapKey } from "@/lib/Schema";
 import { InputGroup } from "react-bootstrap";
 import { v4 as uuidv4 } from "uuid";
 import { Model } from "@/lib/Model";
@@ -39,8 +41,7 @@ const SetParticipation = (props: Props) => {
   } = props;
 
   const [dirty, setDirty] = useState(false);
-
-  // Custom role selector state (search / create / inline edit)
+  const modalAnim = useModalAnimation();
   const [roleOpen, setRoleOpen] = useState(false);
   const [roleSearch, setRoleSearch] = useState("");
   const [editingRoleId, setEditingRoleId] = useState<string | null>(null);
@@ -79,6 +80,17 @@ const SetParticipation = (props: Props) => {
     setSelectedActivity(undefined);
     setDirty(false);
   };
+
+  // Prevent closing the Modal while inline "edit role" is active. Backdrop
+  // clicks or mouseup outside the dialog during a text selection can close
+  // the modal — ignore those when `editingRoleId` is set.
+  const handleModalHide = () => {
+    if (editingRoleId || shouldSuppressModalHide()) {
+      return; // keep modal open while user is editing a role name
+    }
+    handleClose();
+  };
+
   const handleShow = () => {};
   const handleAdd = (event: any) => {
     event.preventDefault();
@@ -90,11 +102,16 @@ const SetParticipation = (props: Props) => {
       selectedParticipation.individualId
     ) {
       let localActivity: Activity = { ...selectedActivity };
-      localActivity.participations.set(
+      const key = participationMapKey(
         selectedParticipation.individualId,
+        selectedParticipation.systemComponentId,
+        selectedParticipation.installationPeriodId
+      );
+      localActivity.participations.set(
+        key,
         selectedParticipation
       );
-      setActivity(localActivity);
+      setActivity(dataset.normalizeActivityParticipations(localActivity));
     }
     handleClose();
   };
@@ -243,7 +260,8 @@ const SetParticipation = (props: Props) => {
 
   return (
     <>
-      <Modal show={show} onHide={handleClose} onShow={handleShow}>
+      <Modal dialogAs={DraggableModalDialog} className={modalAnim.className} show={show} onHide={handleModalHide} onShow={handleShow}>
+        {modalAnim.sketchSvg}
         <Modal.Header closeButton>
           <Modal.Title>Edit Participation</Modal.Title>
         </Modal.Header>
@@ -269,7 +287,7 @@ const SetParticipation = (props: Props) => {
 
                 {roleOpen && (
                   <div
-                    className="card mt-1"
+                    className="card mt-1 themed-selector-menu"
                     style={{ maxHeight: 300, overflow: "hidden" }}
                   >
                     <div className="card-body p-2 border-bottom">
@@ -324,7 +342,7 @@ const SetParticipation = (props: Props) => {
                             itemRefs.current[idx] = el;
                           }}
                           tabIndex={-1}
-                          className={`d-flex align-items-center justify-content-between px-3 py-2 ${
+                          className={`themed-selector-item d-flex align-items-center justify-content-between px-3 py-2 ${
                             highlightedIndex === idx
                               ? "bg-primary text-white"
                               : ""
@@ -406,7 +424,7 @@ const SetParticipation = (props: Props) => {
 
                       {showCreateRoleOption && (
                         <div
-                          className="px-3 py-2 text-primary fw-medium border-top"
+                          className="themed-selector-create px-3 py-2 text-primary fw-medium border-top"
                           style={{ cursor: "pointer" }}
                           onClick={handleCreateRoleFromSearch}
                         >
@@ -415,7 +433,7 @@ const SetParticipation = (props: Props) => {
                       )}
 
                       {filteredRoles.length === 0 && !showCreateRoleOption && (
-                        <div className="p-3 text-muted small">
+                        <div className="themed-selector-empty p-3 small">
                           No results found
                         </div>
                       )}

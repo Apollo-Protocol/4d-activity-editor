@@ -1,21 +1,69 @@
 import { MouseEvent } from "react";
 import { Activity, Individual, Participation } from "@/lib/Schema";
+import { Model } from "@/lib/Model";
 import {
   DrawContext,
   Label,
   removeLabelIfItOverlaps,
   keepIndividualLabels,
 } from "./DrawHelpers";
+import { ENTITY_TYPE_IDS, getEntityTypeIdFromIndividual } from "@/lib/entityTypes";
 import { ConfigData } from "./config";
 import { activity } from "@apollo-protocol/hqdm-lib";
+import {
+  getActiveInstallationForActivity,
+  getInstallationPeriods,
+  splitParticipationByInstallations,
+  ParticipationSegment,
+} from "@/utils/installations";
 
 let mouseOverElement: any | null = null;
 
 export function drawActivities(ctx: DrawContext) {
-  const { config, svgElement, activities, individuals, dataset } = ctx;
+  const { config, svgElement, activities, individuals, dataset, collapsedSystems } = ctx;
 
-  let startOfTime = Math.min(...activities.map((a) => a.beginning));
-  let endOfTime = Math.max(...activities.map((a) => a.ending));
+  if (activities.length === 0) {
+    return svgElement;
+  }
+
+  const activityTimes = activities
+    .flatMap((a) => [a.beginning, a.ending])
+    .filter((t) => Number.isFinite(t) && t !== -1 && t < Model.END_OF_TIME);
+  const individualTimes = individuals
+    .flatMap((i) => [i.beginning, i.ending])
+    .filter((t) => Number.isFinite(t) && t !== -1 && t < Model.END_OF_TIME);
+
+  const installationTimes = individuals
+    .flatMap((individual) =>
+      getInstallationPeriods(individual).flatMap((period) => [
+        period.beginning,
+        period.ending,
+      ])
+    )
+    .filter((t) => Number.isFinite(t) && t >= 0 && t < Model.END_OF_TIME);
+
+  const allTimes = [...activityTimes, ...individualTimes, ...installationTimes];
+  let startOfTime = 0;
+  let endOfTime = 1;
+  if (allTimes.length > 0) {
+    startOfTime = Math.min(0, ...allTimes);
+    endOfTime = Math.max(...allTimes);
+    const duration = endOfTime - startOfTime;
+    if (duration > 0) {
+      const bufferPct = (config.viewPort.timelineBuffer ?? 2) / 100;
+      endOfTime += duration * bufferPct; // configurable buffer for ribbons and chevrons
+    }
+  }
+  if (endOfTime <= startOfTime) {
+    endOfTime = startOfTime + 1;
+  }
+
+  // Enforce minimum timeline span (configurable)
+  const minSpan = config.viewPort.minTimelineSpan ?? 11;
+  if (minSpan > 0 && endOfTime - startOfTime < minSpan) {
+    endOfTime = startOfTime + minSpan;
+  }
+
   let duration = endOfTime - startOfTime;
   let totalLeftMargin =
     config.viewPort.x * config.viewPort.zoom -
@@ -36,8 +84,7 @@ export function drawActivities(ctx: DrawContext) {
     x += config.layout.individual.textLength;
   }
 
-  svgElement
-    .selectAll(".activity")
+  svgElement.selectAll(".activity")
     .data(activities.values())
     .join("rect")
     .attr("class", "activity")
@@ -47,7 +94,7 @@ export function drawActivities(ctx: DrawContext) {
     })
     .attr("y", (a: Activity) => {
       return (
-        calculateTopPositionOfNewActivity(svgElement, a) -
+        calculateTopPositionOfNewActivity(svgElement, a, individuals, dataset, collapsedSystems) -
         config.layout.individual.gap * 0.3
       );
     })
@@ -55,12 +102,10 @@ export function drawActivities(ctx: DrawContext) {
       return (a.ending - a.beginning) * timeInterval;
     })
     .attr("height", (a: Activity) => {
-      const height = calculateLengthOfNewActivity(svgElement, a);
-      return height
-        ? height -
-            calculateTopPositionOfNewActivity(svgElement, a) +
-            config.layout.individual.gap * 0.6 +
-            config.layout.individual.height
+      const bottomY = calculateLengthOfNewActivity(svgElement, a, individuals, dataset, collapsedSystems);
+      const topY = calculateTopPositionOfNewActivity(svgElement, a, individuals, dataset, collapsedSystems);
+      return bottomY
+        ? bottomY - topY + config.layout.individual.gap * 0.6
         : 0;
     })
     .attr("stroke", (a: Activity, i: number) => {
@@ -80,17 +125,13 @@ export function drawActivities(ctx: DrawContext) {
   // small helper functions to reuse computations
   const xOf = (a: Activity) => x + timeInterval * (a.beginning - startOfTime);
   const yOf = (a: Activity) =>
-    calculateTopPositionOfNewActivity(svgElement, a) -
+    calculateTopPositionOfNewActivity(svgElement, a, individuals, dataset, collapsedSystems) -
     config.layout.individual.gap * 0.3;
   const widthOf = (a: Activity) => (a.ending - a.beginning) * timeInterval;
   const heightOf = (a: Activity) => {
-    const h = calculateLengthOfNewActivity(svgElement, a);
-    return h
-      ? h -
-          calculateTopPositionOfNewActivity(svgElement, a) +
-          config.layout.individual.gap * 0.6 +
-          config.layout.individual.height
-      : 0;
+    const bottomY = calculateLengthOfNewActivity(svgElement, a, individuals, dataset, collapsedSystems);
+    const topY = calculateTopPositionOfNewActivity(svgElement, a, individuals, dataset, collapsedSystems);
+    return bottomY ? bottomY - topY + config.layout.individual.gap * 0.6 : 0;
   };
 
   // Subtask badge rendering removed — badge no longer drawn on activities.
@@ -123,7 +164,7 @@ export function hoverActivities(ctx: DrawContext) {
     })
     .on("mouseout", function (event: MouseEvent) {
       if (mouseOverElement) {
-        mouseOverElement.style.opacity = config.presentation.activity.opacity;
+        mouseOverElement.style.opacity = "";
         mouseOverElement = null;
       }
       tooltip.style("display", "none");
@@ -179,31 +220,140 @@ export function clickActivities(
   });
 }
 
-function calculateLengthOfNewActivity(svgElement: any, activity: Activity) {
-  let highestY = 0;
-  activity?.participations?.forEach((a: Participation) => {
-    const element = svgElement
-      .select("#i" + a.individualId)
-      .node()
-      .getBBox();
-    highestY = Math.max(highestY, element.y);
+function calculateLengthOfNewActivity(
+  svgElement: any,
+  activity: Activity,
+  individuals: Individual[],
+  dataset?: Model,
+  collapsedSystems?: ReadonlySet<string>
+) {
+  return calculateActivityBottom(svgElement, activity, individuals, dataset, collapsedSystems);
+}
+
+/**
+ * Resolve the bounding-box row ID for a single participation segment.
+ * For activity rect bounds we resolve to the SYSTEM row (not component)
+ * so that the activity background spans the full system block.
+ */
+function resolveSegmentRowIdForBounds(
+  segment: ParticipationSegment,
+  individual: Individual,
+  individuals: Individual[],
+  dataset?: Model,
+  collapsedSystems?: ReadonlySet<string>
+): string {
+  if (!segment.installationPeriod) {
+    return individual.id;
+  }
+
+  const componentId = segment.installationPeriod.systemComponentId;
+  const installedTarget = individuals.find((i) => i.id === componentId);
+  const isInstalledInComponent =
+    !!installedTarget &&
+    getEntityTypeIdFromIndividual(installedTarget) === ENTITY_TYPE_IDS.SYSTEM_COMPONENT;
+
+  if (!isInstalledInComponent) {
+    // Component not in the filtered list — may be hidden because its
+    // parent system is collapsed.
+    if (collapsedSystems && collapsedSystems.size > 0 && dataset) {
+      const fullComponent = dataset.individuals.get(componentId);
+      if (
+        fullComponent &&
+        getEntityTypeIdFromIndividual(fullComponent) === ENTITY_TYPE_IDS.SYSTEM_COMPONENT &&
+        fullComponent.installedIn &&
+        collapsedSystems.has(fullComponent.installedIn)
+      ) {
+        return fullComponent.installedIn;
+      }
+    }
+    return individual.id;
+  }
+
+  const installedSystem = installedTarget.installedIn
+    ? individuals.find((i) => i.id === installedTarget.installedIn)
+    : undefined;
+  const isInstalledInSystem =
+    !!installedSystem &&
+    getEntityTypeIdFromIndividual(installedSystem) === ENTITY_TYPE_IDS.SYSTEM;
+
+  return isInstalledInSystem ? installedSystem.id : installedTarget.id;
+}
+
+/**
+ * Return all distinct row IDs that a participation's segments resolve to
+ * (for activity bounding-box calculations).
+ */
+function resolveParticipationRowIds(
+  activity: Activity,
+  individual: Individual,
+  individuals: Individual[],
+  dataset?: Model,
+  collapsedSystems?: ReadonlySet<string>,
+  participationKey?: string
+): string[] {
+  const segments = splitParticipationByInstallations(individual, activity, participationKey);
+  const rowIds = new Set<string>();
+  for (const segment of segments) {
+    rowIds.add(
+      resolveSegmentRowIdForBounds(segment, individual, individuals, dataset, collapsedSystems)
+    );
+  }
+  return Array.from(rowIds);
+}
+
+function calculateActivityBottom(
+  svgElement: any,
+  activity: Activity,
+  individuals: Individual[],
+  dataset?: Model,
+  collapsedSystems?: ReadonlySet<string>
+) {
+  let maxBottom = 0;
+  activity?.participations?.forEach((a: Participation, mapKey: string) => {
+    const individual = individuals.find((i) => i.id === a.individualId);
+    if (!individual) return;
+    const rowIds = resolveParticipationRowIds(activity, individual, individuals, dataset, collapsedSystems, mapKey);
+    for (const rowId of rowIds) {
+      const node = svgElement.select("#i" + rowId).node();
+      if (node) {
+        const bbox = node.getBBox();
+        maxBottom = Math.max(maxBottom, bbox.y + bbox.height);
+      }
+    }
   });
-  return highestY > 0 ? highestY : null;
+  return maxBottom > 0 ? maxBottom : null;
 }
 
 function calculateTopPositionOfNewActivity(
   svgElement: any,
-  activity: Activity
+  activity: Activity,
+  individuals: Individual[],
+  dataset?: Model,
+  collapsedSystems?: ReadonlySet<string>
+) {
+  return calculateActivityTop(svgElement, activity, individuals, dataset, collapsedSystems);
+}
+
+function calculateActivityTop(
+  svgElement: any,
+  activity: Activity,
+  individuals: Individual[],
+  dataset?: Model,
+  collapsedSystems?: ReadonlySet<string>
 ) {
   let lowestY = Number.MAX_VALUE;
-  activity?.participations?.forEach((a: Participation) => {
-    const element = svgElement
-      .select("#i" + a.individualId)
-      .node()
-      .getBBox();
-    lowestY = Math.min(lowestY, element.y);
+  activity?.participations?.forEach((a: Participation, mapKey: string) => {
+    const individual = individuals.find((i) => i.id === a.individualId);
+    if (!individual) return;
+    const rowIds = resolveParticipationRowIds(activity, individual, individuals, dataset, collapsedSystems, mapKey);
+    for (const rowId of rowIds) {
+      const node = svgElement.select("#i" + rowId).node();
+      if (!node) continue;
+      const element = node.getBBox();
+      lowestY = Math.min(lowestY, element.y);
+    }
   });
-  return lowestY;
+  return lowestY === Number.MAX_VALUE ? 0 : lowestY;
 }
 
 function getBoxOfExistingActivity(svgElement: any, activity: Activity) {
@@ -212,3 +362,5 @@ function getBoxOfExistingActivity(svgElement: any, activity: Activity) {
     .node()
     .getBBox();
 }
+
+

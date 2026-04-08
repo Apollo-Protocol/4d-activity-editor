@@ -1,5 +1,6 @@
-import type { Kind } from './Model.js';
-import type { Activity, Id, Individual, Maybe, Participation } from './Schema.js';
+import type { Kind } from './Model';
+import type { Activity, Id, Individual, Maybe, Participation } from './Schema';
+import { participationMapKey } from './Schema';
 
 /**
  * An Activity is a period of time during which a set of Individuals are involved in an activity.
@@ -44,7 +45,14 @@ export class ActivityImpl implements Activity {
    * @param individual A participant
    * @returns The updated activity, meaning this function can be chained
    */
-  addParticipation(individual: Individual, role: Kind): Activity {
+  addParticipation(
+    individual: Individual,
+    role: Kind,
+    beginning?: number,
+    ending?: number,
+    systemComponentId?: string,
+    installationPeriodId?: string
+  ): Activity {
     if (!individual.id) {
       console.error(
         'Cannot add a participation to an activity when the pariticipant id is null or undefined: ',
@@ -54,8 +62,13 @@ export class ActivityImpl implements Activity {
       const participation: Participation = {
         individualId: individual.id,
         role,
+        beginning,
+        ending,
+        systemComponentId,
+        installationPeriodId,
       };
-      this.participations.set(participation.individualId, participation);
+      const key = participationMapKey(individual.id, systemComponentId, installationPeriodId);
+      this.participations.set(key, participation);
     }
     return this;
   }
@@ -63,11 +76,13 @@ export class ActivityImpl implements Activity {
   /**
    * Remove an Individual from an Activity
    *
-   * @param id The id of the Individual to remove from the Activity
+   * @param individualId The id of the Individual to remove from the Activity
+   * @param systemComponentId Optional component id for per-installation participations
    * @returns The updated Activity, meaning this function can be chained
    */
-  removeParticipation(individualId: string): Activity {
-    this.participations.delete(individualId);
+  removeParticipation(individualId: string, systemComponentId?: string, installationPeriodId?: string): Activity {
+    const key = participationMapKey(individualId, systemComponentId, installationPeriodId);
+    this.participations.delete(key);
     return this;
   }
 }

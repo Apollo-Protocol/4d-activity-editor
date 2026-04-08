@@ -7,6 +7,8 @@ import React, {
 } from "react";
 import Button from "react-bootstrap/Button";
 import Modal from "react-bootstrap/Modal";
+import DraggableModalDialog, { shouldSuppressModalHide } from "@/modals/DraggableModalDialog";
+import { useModalAnimation } from "@/utils/useModalAnimation";
 import Form from "react-bootstrap/Form";
 import ListGroup from "react-bootstrap/ListGroup";
 import Alert from "react-bootstrap/Alert";
@@ -15,9 +17,14 @@ import Row from "react-bootstrap/Row";
 import Col from "react-bootstrap/Col";
 import { v4 as uuidv4 } from "uuid";
 import Select from "react-select";
-import { Individual, Id, Activity, Maybe, Participation } from "@/lib/Schema";
+import { Individual, Id, Activity, Maybe, Participation, participationMapKey } from "@/lib/Schema";
 import { InputGroup } from "react-bootstrap";
 import { Model } from "@/lib/Model";
+import {
+  ENTITY_TYPE_IDS,
+  getEntityTypeIdFromIndividual,
+} from "@/lib/entityTypes";
+import { getInstallationPeriods, normalizeEnd, normalizeStart } from "@/utils/installations";
 
 interface Props {
   show: boolean;
@@ -31,6 +38,16 @@ interface Props {
   setActivityContext: Dispatch<Maybe<Id>>;
   autoActivityColor?: string;
 }
+
+type ParticipationOption = {
+  optionKey: string;
+  individual: Individual;
+  mode: "default" | "outside" | "installed";
+  label: string;
+  group: "System" | "System Component" | "Individual";
+  systemComponentId?: string;
+  installationPeriodId?: string;
+};
 
 const SetActivity = (props: Props) => {
   const {
@@ -60,6 +77,7 @@ const SetActivity = (props: Props) => {
   const [inputs, setInputs] = useState(defaultActivity);
   const [errors, setErrors] = useState([]);
   const [dirty, setDirty] = useState(false);
+  const modalAnim = useModalAnimation();
 
   // Custom activity-type selector state (search / create / inline edit)
   const [typeOpen, setTypeOpen] = useState(false);
@@ -88,16 +106,56 @@ const SetActivity = (props: Props) => {
   };
 
   function updateIndividuals(d: Model) {
-    d.individuals.forEach((individual) => {
+    const individualsSnapshot = Array.from(d.individuals.values());
+
+    individualsSnapshot.forEach((individual) => {
+      const periods = getInstallationPeriods(individual);
+      const installedTarget =
+        periods.length > 0
+          ? d.individuals.get(periods[0].systemComponentId)
+          : individual.installedIn
+          ? d.individuals.get(individual.installedIn)
+          : undefined;
+      const isInstalledInComponent =
+        getEntityTypeIdFromIndividual(individual) === ENTITY_TYPE_IDS.INDIVIDUAL &&
+        !!installedTarget &&
+        getEntityTypeIdFromIndividual(installedTarget) ===
+          ENTITY_TYPE_IDS.SYSTEM_COMPONENT;
+
+      if (isInstalledInComponent) {
+        d.individuals.set(individual.id, individual);
+        return;
+      }
+
       const earliestBeginning = d.earliestParticipantBeginning(individual.id);
       const latestEnding = d.lastParticipantEnding(individual.id);
-      if (individual.beginning >= 0) {
-        individual.beginning = earliestBeginning ? earliestBeginning : -1;
+      const hasParticipants = d.hasParticipants(individual.id);
+
+      const inferredBeginSync =
+        hasParticipants &&
+        !individual.beginsWithParticipant &&
+        individual.beginning >= 0 &&
+        individual.beginning === earliestBeginning;
+      const inferredEndSync =
+        hasParticipants &&
+        !individual.endsWithParticipant &&
+        individual.ending < Model.END_OF_TIME &&
+        individual.ending === latestEnding;
+
+      if (inferredBeginSync) {
+        individual.beginsWithParticipant = true;
       }
-      if (individual.ending < Model.END_OF_TIME) {
+      if (inferredEndSync) {
+        individual.endsWithParticipant = true;
+      }
+
+      if (individual.beginsWithParticipant) {
+        individual.beginning = earliestBeginning;
+      }
+      if (individual.endsWithParticipant) {
         individual.ending = latestEnding;
       }
-      d.addIndividual(individual);
+      d.individuals.set(individual.id, individual);
     });
   }
 
@@ -139,16 +197,20 @@ const SetActivity = (props: Props) => {
   // call `onHide` and close the modal — that causes the bug you reported.
   // Ignore onHide requests while `editingTypeId` is non-null.
   const handleModalHide = () => {
-    if (editingTypeId) {
+    if (editingTypeId || shouldSuppressModalHide()) {
       // keep modal open while editing a type to avoid losing focus/selection
       return;
     }
     handleClose();
   };
 
+  const normalizeParticipations = (activity: Activity): Activity => {
+    return dataset.normalizeActivityParticipations(activity);
+  };
+
   const handleShow = () => {
     if (selectedActivity) {
-      setInputs(selectedActivity);
+      setInputs(normalizeParticipations(selectedActivity));
     } else {
       defaultActivity.id = uuidv4();
       setInputs(defaultActivity);
@@ -159,8 +221,9 @@ const SetActivity = (props: Props) => {
     if (!dirty) return handleClose();
     const isValid = validateInputs();
     if (isValid) {
+      const normalizedInputs = normalizeParticipations(inputs);
       updateDataset((d) => {
-        d.addActivity(inputs);
+        d.addActivity(d.normalizeActivityParticipations(normalizedInputs));
         updateIndividuals(d);
       });
       handleClose();
@@ -204,32 +267,285 @@ const SetActivity = (props: Props) => {
 
   const handleChangeMultiselect = (e: any) => {
     const participations = new Map<string, Participation>();
-    e.forEach((i: Individual) => {
-      const old = inputs.participations.get(i.id)?.role;
+    const selectedParticipants: ParticipationOption[] = Array.isArray(e) ? e : [];
+    selectedParticipants.forEach((entry) => {
+      const i = entry.individual;
+      const mapKey = participationMapKey(
+        i.id,
+        entry.systemComponentId,
+        entry.installationPeriodId
+      );
+      const previousParticipation = inputs.participations.get(mapKey);
       let participation: Participation = {
         individualId: i.id,
-        role: old ?? dataset.defaultRole,
+        role: previousParticipation?.role ?? dataset.defaultRole,
+        beginning: previousParticipation?.beginning,
+        ending: previousParticipation?.ending,
+        systemComponentId: entry.systemComponentId,
+        installationPeriodId: entry.installationPeriodId,
       };
-      participations.set(i.id, participation);
+      participations.set(mapKey, participation);
     });
     updateInputs("participations", participations);
   };
 
-  const getSelectedIndividuals = () => {
-    if (
-      selectedActivity === undefined ||
-      selectedActivity.participations === undefined
-    ) {
-      return [];
+  const getSelectedParticipationKeys = () => {
+    if (inputs.participations === undefined) {
+      return new Set<string>();
     }
-    const individualIds = Array.from(
-      selectedActivity.participations,
-      ([key, value]) => key
-    );
-    const participatingIndividuals = individuals.filter((participant) => {
-      return individualIds.includes(participant.id);
+    return new Set(Array.from(inputs.participations.keys()));
+  };
+
+  const getParticipantWindow = (individual: Individual) => {
+    const periods = getInstallationPeriods(individual);
+    const firstComponentPeriod = periods.find((period) => {
+      const component = dataset.individuals.get(period.systemComponentId);
+      return (
+        !!component &&
+        getEntityTypeIdFromIndividual(component) === ENTITY_TYPE_IDS.SYSTEM_COMPONENT
+      );
     });
-    return participatingIndividuals;
+    const installedTarget =
+      firstComponentPeriod
+        ? dataset.individuals.get(firstComponentPeriod.systemComponentId)
+        : individual.installedIn
+        ? dataset.individuals.get(individual.installedIn)
+        : undefined;
+    const isInstalledInComponent =
+      getEntityTypeIdFromIndividual(individual) === ENTITY_TYPE_IDS.INDIVIDUAL &&
+      periods.some((period) => {
+        const component = dataset.individuals.get(period.systemComponentId);
+        return (
+          !!component &&
+          getEntityTypeIdFromIndividual(component) === ENTITY_TYPE_IDS.SYSTEM_COMPONENT
+        );
+      });
+
+    const periodsByComponent = new Map<string, { componentName: string; ranges: string[] }>();
+    periods.forEach((period) => {
+      const component = dataset.individuals.get(period.systemComponentId);
+      if (!component) return;
+      if (getEntityTypeIdFromIndividual(component) !== ENTITY_TYPE_IDS.SYSTEM_COMPONENT) return;
+
+      const componentName = component.name;
+      const rangeLabel = `${period.beginning}-${period.ending >= Model.END_OF_TIME ? "∞" : period.ending}`;
+      const existing = periodsByComponent.get(component.id);
+      if (existing) {
+        existing.ranges.push(rangeLabel);
+      } else {
+        periodsByComponent.set(component.id, {
+          componentName,
+          ranges: [rangeLabel],
+        });
+      }
+    });
+
+    const installationSummary = Array.from(periodsByComponent.values())
+      .map((entry) => `${entry.componentName} (${entry.ranges.join(", ")})`)
+      .join("; ");
+
+    const overallStart = Number.isFinite(individual.beginning)
+      ? individual.beginning
+      : -1;
+    const overallEnd = Number.isFinite(individual.ending)
+      ? individual.ending
+      : Model.END_OF_TIME;
+    const installStart = periods.length > 0 ? periods[0].beginning : undefined;
+    const installEnd = periods.length > 0 ? periods[0].ending : undefined;
+
+    return {
+      isInstalledInComponent,
+      overallStart,
+      overallEnd,
+      installStart,
+      installEnd,
+      periods,
+      installedTarget,
+      installationSummary,
+    };
+  };
+
+  const participantIsEligibleForMode = (
+    individual: Individual,
+    mode: "default" | "outside" | "installed"
+  ) => {
+    const window = getParticipantWindow(individual);
+
+    if (!window.isInstalledInComponent) {
+      return true;
+    }
+
+    const inInstalledWindow = window.periods.some(
+      (period) =>
+        inputs.beginning >= period.beginning && inputs.ending <= period.ending
+    );
+
+    const sortedPeriods = [...window.periods].sort(
+      (first, second) => first.beginning - second.beginning
+    );
+
+    let outsideEligible = false;
+    let cursor = window.overallStart;
+    sortedPeriods.forEach((period) => {
+      if (
+        inputs.beginning >= cursor &&
+        inputs.ending <= period.beginning
+      ) {
+        outsideEligible = true;
+      }
+      cursor = Math.max(cursor, period.ending);
+    });
+    if (inputs.beginning >= cursor && inputs.ending <= window.overallEnd) {
+      outsideEligible = true;
+    }
+
+    // Partial overlap: activity spans across installation boundary
+    const hasPartialOverlap = window.periods.some(
+      (period) =>
+        inputs.beginning < period.ending && inputs.ending > period.beginning
+    );
+
+    if (mode === "installed") return inInstalledWindow;
+    if (mode === "outside") return outsideEligible;
+    return inInstalledWindow || outsideEligible || hasPartialOverlap;
+  };
+
+  const selectedParticipationKeys = getSelectedParticipationKeys();
+
+  const participantOptions = (() => {
+    const options: ParticipationOption[] = [];
+
+    individuals.forEach((individual) => {
+      const window = getParticipantWindow(individual);
+
+      if (window.isInstalledInComponent && window.installedTarget) {
+        const outsideEligible = participantIsEligibleForMode(individual, "outside");
+
+        // Generate one option per installation period so repeated installs in the
+        // same component can participate independently.
+        window.periods.forEach((period) => {
+          const component = dataset.individuals.get(period.systemComponentId);
+          if (
+            !component ||
+            getEntityTypeIdFromIndividual(component) !== ENTITY_TYPE_IDS.SYSTEM_COMPONENT
+          ) return;
+
+          const mapKey = participationMapKey(individual.id, component.id, period.id);
+          const isSelected = selectedParticipationKeys.has(mapKey);
+
+          // Installed participation is only valid when the activity is fully
+          // contained within this installation period.
+          const periodEligible =
+            inputs.beginning >= period.beginning && inputs.ending <= period.ending;
+
+          if (periodEligible || isSelected) {
+            options.push({
+              optionKey: `${individual.id}::${component.id}::${period.id}::installed`,
+              individual,
+              mode: "installed",
+              label: `${individual.name} [installed in ${component.name} (${period.beginning}-${period.ending >= Model.END_OF_TIME ? "∞" : period.ending})]`,
+              group: "Individual",
+              systemComponentId: component.id,
+              installationPeriodId: period.id,
+            });
+          }
+        });
+
+        // "Outside" option for when the individual is free (not installed)
+        const outsideKey = individual.id; // non-installed key
+        const outsideSelected = selectedParticipationKeys.has(outsideKey);
+        if (outsideEligible || outsideSelected) {
+          options.push({
+            optionKey: `${individual.id}::outside`,
+            individual,
+            mode: "outside",
+            label: individual.name,
+            group: "Individual",
+          });
+        }
+
+        return;
+      }
+
+      if (!participantIsEligibleForMode(individual, "default") && !selectedParticipationKeys.has(individual.id)) {
+        return;
+      }
+
+      const typeId = getEntityTypeIdFromIndividual(individual);
+      const group: ParticipationOption["group"] =
+        typeId === ENTITY_TYPE_IDS.SYSTEM
+          ? "System"
+          : typeId === ENTITY_TYPE_IDS.SYSTEM_COMPONENT
+          ? "System Component"
+          : "Individual";
+
+      options.push({
+        optionKey: `${individual.id}::default`,
+        individual,
+        mode: "default",
+        label: individual.name,
+        group,
+      });
+    });
+
+    return options;
+  })();
+
+  const groupedParticipantOptions = (() => {
+    const groups = new Map<string, ParticipationOption[]>();
+
+    participantOptions.forEach((option) => {
+      const list = groups.get(option.group);
+      if (list) list.push(option);
+      else groups.set(option.group, [option]);
+    });
+
+    const orderedLabels = [
+      "System",
+      "System Component",
+      "Individual",
+    ];
+
+    return orderedLabels
+      .filter((label) => (groups.get(label)?.length ?? 0) > 0)
+      .map((label) => ({
+        label,
+        options: (groups.get(label) ?? []).sort((a, b) =>
+          a.label.localeCompare(b.label)
+        ),
+      }));
+  })();
+
+  const getSelectedParticipationOptions = () => {
+    const selectedKeys = getSelectedParticipationKeys();
+    return Array.from(selectedKeys)
+      .map((key) => {
+        const participation = inputs.participations.get(key);
+        if (!participation) return undefined;
+        // Find matching option by composite key
+        const mapKey = participationMapKey(
+          participation.individualId,
+          participation.systemComponentId,
+          participation.installationPeriodId
+        );
+        const matching = participantOptions.filter(
+          (option) =>
+            participationMapKey(
+              option.individual.id,
+              option.systemComponentId,
+              option.installationPeriodId
+            ) === mapKey
+        );
+        if (matching.length === 0) {
+          // Fallback: try to find by individual id alone
+          const fallback = participantOptions.find(
+            (option) => option.individual.id === participation.individualId
+          );
+          return fallback;
+        }
+        return matching[0];
+      })
+      .filter((option): option is ParticipationOption => !!option);
   };
 
   const validateInputs = () => {
@@ -243,11 +559,26 @@ const SetActivity = (props: Props) => {
       runningErrors.push("Type field is required");
     }
     //Ending and beginning
-    if (inputs.ending - inputs.beginning <= 0) {
-      runningErrors.push("Ending must be after beginning");
+    if (typeof inputs.beginning !== "number" || isNaN(inputs.beginning)) {
+      runningErrors.push("Beginning time is required");
+    } else if (inputs.beginning < 0) {
+      runningErrors.push("Beginning time cannot be negative");
     }
-    if (inputs.ending >= Model.END_OF_TIME) {
+
+    if (typeof inputs.ending !== "number" || isNaN(inputs.ending)) {
+      runningErrors.push("Ending time is required");
+    } else if (inputs.ending < 0) {
+      runningErrors.push("Ending time cannot be negative");
+    } else if (inputs.ending >= Model.END_OF_TIME) {
       runningErrors.push("Ending cannot be greater than " + Model.END_OF_TIME);
+    }
+
+    if (
+      typeof inputs.beginning === "number" && !isNaN(inputs.beginning) &&
+      typeof inputs.ending === "number" && !isNaN(inputs.ending) &&
+      inputs.ending <= inputs.beginning
+    ) {
+      runningErrors.push("Ending must be after beginning");
     }
     //Participant count
     if (
@@ -256,6 +587,20 @@ const SetActivity = (props: Props) => {
     ) {
       runningErrors.push("Select at least one participant");
     }
+
+    inputs.participations?.forEach((participation) => {
+      const participant = dataset.individuals.get(participation.individualId);
+      if (!participant) {
+        runningErrors.push("A selected participant no longer exists");
+        return;
+      }
+
+      if (!participantIsEligibleForMode(participant, "default")) {
+        runningErrors.push(
+          `Participant \"${participant.name}\" is outside installation window`
+        );
+      }
+    });
 
     if (runningErrors.length == 0) {
       return true;
@@ -426,7 +771,8 @@ const SetActivity = (props: Props) => {
         Add Activity
       </Button>
 
-      <Modal show={show} onHide={handleModalHide} onShow={handleShow}>
+      <Modal dialogAs={DraggableModalDialog} className={modalAnim.className} show={show} onHide={handleModalHide} onShow={handleShow}>
+        {modalAnim.sketchSvg}
         <Modal.Header closeButton>
           <Modal.Title>
             {selectedActivity ? "Edit Activity" : "Add Activity"}
@@ -464,7 +810,7 @@ const SetActivity = (props: Props) => {
 
                 {typeOpen && (
                   <div
-                    className="card mt-1"
+                    className="card mt-1 themed-selector-menu"
                     style={{ maxHeight: 300, overflow: "hidden" }}
                   >
                     <div className="card-body p-2 border-bottom">
@@ -520,7 +866,7 @@ const SetActivity = (props: Props) => {
                             itemRefs.current[idx] = el;
                           }}
                           tabIndex={-1}
-                          className={`d-flex align-items-center justify-content-between px-3 py-2 ${
+                          className={`themed-selector-item d-flex align-items-center justify-content-between px-3 py-2 ${
                             highlightedIndex === idx
                               ? "bg-primary text-white"
                               : ""
@@ -602,7 +948,7 @@ const SetActivity = (props: Props) => {
 
                       {showCreateTypeOption && (
                         <div
-                          className="px-3 py-2 text-primary fw-medium border-top"
+                          className="themed-selector-create px-3 py-2 text-primary fw-medium border-top"
                           style={{ cursor: "pointer" }}
                           onClick={handleCreateTypeFromSearch}
                         >
@@ -611,7 +957,7 @@ const SetActivity = (props: Props) => {
                       )}
 
                       {filteredTypes.length === 0 && !showCreateTypeOption && (
-                        <div className="p-3 text-muted small">
+                        <div className="themed-selector-empty p-3 small">
                           No results found
                         </div>
                       )}
@@ -644,17 +990,18 @@ const SetActivity = (props: Props) => {
                   type="text"
                   name="colorText"
                   value={inputs.color || ""}
-                  placeholder="Default (auto)"
+                  placeholder={autoActivityColor ? `Auto: ${autoActivityColor}` : "Default (auto)"}
                   onChange={(e) =>
                     updateInputs("color", e.target.value || undefined)
                   }
-                  style={{ maxWidth: "140px" }}
+                  style={{ maxWidth: "150px" }}
                 />
                 {inputs.color && (
                   <Button
                     variant="outline-secondary"
                     size="sm"
                     onClick={() => updateInputs("color", undefined)}
+                    title="Reset to auto color"
                   >
                     Reset
                   </Button>
@@ -668,7 +1015,7 @@ const SetActivity = (props: Props) => {
                 name="beginning"
                 value={inputs.beginning}
                 onChange={handleChangeNumeric}
-                step="1"
+                step="any"
                 min="0"
                 max={Model.END_OF_TIME - 2}
                 className="form-control"
@@ -679,7 +1026,7 @@ const SetActivity = (props: Props) => {
               <Form.Control
                 type="number"
                 name="ending"
-                step="1"
+                step="any"
                 min="1"
                 max={Model.END_OF_TIME - 1}
                 value={inputs.ending}
@@ -690,14 +1037,14 @@ const SetActivity = (props: Props) => {
             <Form.Group className="mb-3" controlId="formParticipants">
               <Form.Label>Participants</Form.Label>
               <Select
-                defaultValue={getSelectedIndividuals}
+                value={getSelectedParticipationOptions()}
                 isMulti
                 classNamePrefix="participants-select"
                 // @ts-ignore
-                options={individuals}
-                getOptionLabel={(option) => option.name}
+                options={groupedParticipantOptions}
+                getOptionLabel={(option) => option.label}
                 // @ts-ignore
-                getOptionValue={(option) => option.id}
+                getOptionValue={(option) => option.optionKey}
                 onChange={handleChangeMultiselect}
               />
             </Form.Group>
@@ -752,9 +1099,9 @@ const SetActivity = (props: Props) => {
                   }
                   variant="danger"
                   onClick={openChangeParent}
-                  title="Swap parent (assign as sub-task of another activity)"
+                  title="Change parent (assign as sub-task of another activity)"
                 >
-                  Swap Parent
+                  Change Parent
                 </Button>
               </div>
               <div className="activity-modal-group activity-modal-primary">
@@ -791,7 +1138,8 @@ const SetActivity = (props: Props) => {
       </Modal>
 
       {/* Parent chooser modal */}
-      <Modal show={showParentModal} onHide={() => setShowParentModal(false)}>
+      <Modal dialogAs={DraggableModalDialog} className={modalAnim.className} show={showParentModal} onHide={() => setShowParentModal(false)}>
+        {modalAnim.sketchSvg}
         <Modal.Header closeButton>
           <Modal.Title>Choose parent activity (or None)</Modal.Title>
         </Modal.Header>

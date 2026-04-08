@@ -2,6 +2,7 @@ import Head from "next/head";
 import Link from "next/link";
 import { Col, Container, Row } from "react-bootstrap";
 import JumpLinks, { JumpLinkItem } from "@/components/JumpLinks";
+import { publicPath } from "@/utils/publicPath";
 // @ts-ignore
 import ModalImage from "react-modal-image";
 
@@ -25,8 +26,8 @@ const ImageComponent = ({
   return (
     <div style={{ width: "100%", maxWidth: maxWidth ?? "420px", margin: "0 auto" }}>
       <ModalImage
-        small={src}
-        large={src}
+        small={publicPath(src)}
+        large={publicPath(src)}
         alt={alt}
         className="img-fluid mb-2 mt-3 border rounded shadow-sm w-100 zoom-cursor-img"
         imageBackgroundColor="#fff"

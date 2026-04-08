@@ -4,6 +4,7 @@ import fs from "fs";
 import path from "path";
 import { Col, Container, Row } from "react-bootstrap";
 import JumpLinks, { JumpLinkItem } from "@/components/JumpLinks";
+import { publicPath } from "@/utils/publicPath";
 // @ts-ignore
 import ModalImage from "react-modal-image";
 
@@ -57,7 +58,7 @@ const ImageComponent = ({
     .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
     .join(' ');
   const finalExt = (imageMap && imageMap[filenameBase]) ?? "png";
-  const generatedSrc = src ?? `/system-intro/${filenameBase}.${finalExt}`;
+  const generatedSrc = publicPath(src ?? `/system-intro/${filenameBase}.${finalExt}`);
   const isSvg = finalExt.toLowerCase() === "svg";
 
   if (isSvg) {

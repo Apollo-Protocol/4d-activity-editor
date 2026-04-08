@@ -4,6 +4,7 @@ import fs from "fs";
 import path from "path";
 import { Col, Container, Row } from "react-bootstrap";
 import JumpLinks, { JumpLinkItem } from "@/components/JumpLinks";
+import { publicPath } from "@/utils/publicPath";
 // @ts-ignore
 import ModalImage from "react-modal-image";
 
@@ -60,7 +61,7 @@ const ImageComponent = ({
   // Auto-detect extension from imageMap if available, else fallback to 'ext' prop or 'png'
   const finalExt = ext ?? (imageMap && imageMap[filenameBase]) ?? "png";
   
-  const generatedSrc = src ?? `/system-example/${filenameBase}.${finalExt}`;
+  const generatedSrc = publicPath(src ?? `/system-example/${filenameBase}.${finalExt}`);
   return (
     <div style={{ width: "100%", margin: "0 auto" }}>
       <ModalImage

@@ -4,6 +4,7 @@ import fs from "fs";
 import path from "path";
 import { Col, Container, Row } from "react-bootstrap";
 import JumpLinks, { JumpLinkItem } from "@/components/JumpLinks";
+import { publicPath } from "@/utils/publicPath";
 // @ts-ignore
 import ModalImage from "react-modal-image";
 
@@ -149,7 +150,7 @@ const ImageComponent = ({ alt, src, maxWidth, imageMap }: { alt: string, src?: s
     .join(' ');
   const extension = (imageMap && imageMap[filenameBase]) ?? "png";
   const finalExt = extension;
-  const generatedSrc = src || `/manual/${filenameBase}.${finalExt}`;
+  const generatedSrc = publicPath(src || `/manual/${filenameBase}.${finalExt}`);
   const resolvedMaxWidth = maxWidth
     ?? (finalExt === "gif"
       ? "460px"

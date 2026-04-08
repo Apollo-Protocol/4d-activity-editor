@@ -4,9 +4,7 @@ import fs from "fs";
 import path from "path";
 import { Col, Container, Row } from "react-bootstrap";
 import JumpLinks, { JumpLinkItem } from "@/components/JumpLinks";
-import { publicPath } from "@/utils/publicPath";
-// @ts-ignore
-import ModalImage from "react-modal-image";
+import DocImage from "@/components/DocImage";
 
 export async function getStaticProps() {
   const imagesDir = path.join(process.cwd(), "public", "manual");
@@ -138,37 +136,23 @@ const manualSections: JumpLinkItem[] = [
   },
 ];
 
-const getManualImageFilenameBase = (alt: string) =>
-  alt.toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '');
+const manualDefaultMaxWidth = (filenameBase: string, ext: string) =>
+  ext === "gif"
+    ? "460px"
+    : (filenameBase.startsWith("terminology_") || filenameBase.startsWith("settings_"))
+      ? "380px"
+      : "300px";
 
-const ImageComponent = ({ alt, src, maxWidth, imageMap }: { alt: string, src?: string, maxWidth?: string, imageMap?: Record<string, string> }) => {
-  const filenameBase = getManualImageFilenameBase(alt);
-  const modalAlt = filenameBase
-    .split(/[_-]+/)
-    .filter(Boolean)
-    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
-    .join(' ');
-  const extension = (imageMap && imageMap[filenameBase]) ?? "png";
-  const finalExt = extension;
-  const generatedSrc = publicPath(src || `/manual/${filenameBase}.${finalExt}`);
-  const resolvedMaxWidth = maxWidth
-    ?? (finalExt === "gif"
-      ? "460px"
-      : (filenameBase.startsWith("terminology_") || filenameBase.startsWith("settings_"))
-        ? "380px"
-        : "300px");
-  return (
-    <div style={{ width: "100%", maxWidth: resolvedMaxWidth, margin: "0 auto" }}>
-      <ModalImage
-        small={generatedSrc}
-        large={generatedSrc}
-        alt={modalAlt}
-        className="img-fluid mb-5 mt-3 border rounded shadow-sm w-100 zoom-cursor-img"
-        imageBackgroundColor="#fff"
-      />
-    </div>
-  );
-};
+const ImageComponent = ({ alt, src, maxWidth, imageMap }: { alt: string, src?: string, maxWidth?: string, imageMap?: Record<string, string> }) => (
+  <DocImage
+    alt={alt}
+    src={src}
+    maxWidth={maxWidth}
+    imageMap={imageMap}
+    subfolder="manual"
+    getDefaultMaxWidth={manualDefaultMaxWidth}
+  />
+);
 
 export default function Page({ imageMap }: { imageMap: Record<string, string> }) {
   return (

@@ -4,9 +4,7 @@ import fs from "fs";
 import path from "path";
 import { Col, Container, Row } from "react-bootstrap";
 import JumpLinks, { JumpLinkItem } from "@/components/JumpLinks";
-import { publicPath } from "@/utils/publicPath";
-// @ts-ignore
-import ModalImage from "react-modal-image";
+import DocImage from "@/components/DocImage";
 
 export async function getStaticProps() {
   const imagesDir = path.join(process.cwd(), 'public', 'system-example');
@@ -50,30 +48,16 @@ const ImageComponent = ({
   src?: string;
   ext?: string;
   imageMap?: Record<string, string>;
-}) => {
-  const filenameBase = alt.toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '');
-  const modalAlt = filenameBase
-    .split(/[_-]+/)
-    .filter(Boolean)
-    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
-    .join(' ');
-  
-  // Auto-detect extension from imageMap if available, else fallback to 'ext' prop or 'png'
-  const finalExt = ext ?? (imageMap && imageMap[filenameBase]) ?? "png";
-  
-  const generatedSrc = publicPath(src ?? `/system-example/${filenameBase}.${finalExt}`);
-  return (
-    <div style={{ width: "100%", margin: "0 auto" }}>
-      <ModalImage
-        small={generatedSrc}
-        large={generatedSrc}
-        alt={modalAlt}
-        className="img-fluid mb-1 mt-3 border rounded shadow-sm w-100 zoom-cursor-img"
-        imageBackgroundColor="#fff"
-      />
-    </div>
-  );
-};
+}) => (
+  <DocImage
+    alt={alt}
+    src={src}
+    ext={ext}
+    imageMap={imageMap}
+    subfolder="system-example"
+    modalClassName="img-fluid mb-1 mt-3 border rounded shadow-sm w-100 zoom-cursor-img"
+  />
+);
 
 export default function Page({ imageMap }: { imageMap: Record<string, string> }) {
   return (

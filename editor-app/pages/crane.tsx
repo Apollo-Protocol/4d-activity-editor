@@ -6,9 +6,7 @@ import path from "path";
 import { Col, Container, Row } from "react-bootstrap";
 import styles from "@/styles/Home.module.css";
 import JumpLinks, { JumpLinkItem } from "@/components/JumpLinks";
-import { publicPath } from "@/utils/publicPath";
-// @ts-ignore
-import ModalImage from "react-modal-image";
+import DocImage from "@/components/DocImage";
 
 export async function getStaticProps() {
   const imagesDir = path.join(process.cwd(), "public", "crane");
@@ -58,15 +56,29 @@ const craneSections: JumpLinkItem[] = [
   },
 ];
 
-const getCraneImageSrc = (baseName: string, imageMap: Record<string, string>, fallbackExt: string = "svg") =>
-  publicPath(`/crane/${baseName}.${imageMap[baseName] ?? fallbackExt}`);
-
-const getCraneImageAlt = (baseName: string) =>
-  baseName
-    .split(/[-_]+/)
-    .filter(Boolean)
-    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
-    .join(" ");
+const ImageComponent = ({
+  alt,
+  src,
+  fallbackExt = "svg",
+  imageMap,
+}: {
+  alt: string;
+  src?: string;
+  fallbackExt?: string;
+  imageMap: Record<string, string>;
+}) => (
+  <DocImage
+    alt={alt}
+    src={src}
+    imageMap={imageMap}
+    subfolder="crane"
+    separator="-"
+    fallbackExt={fallbackExt}
+    modalClassName="img-fluid border rounded shadow-sm zoom-cursor-img w-100"
+    plainImgExts={["jpeg", "jpg"]}
+    plainImgClassName="w-100"
+  />
+);
 
 export default function Page({ imageMap }: { imageMap: Record<string, string> }) {
   return (
@@ -103,7 +115,7 @@ export default function Page({ imageMap }: { imageMap: Record<string, string> })
               </Col>
               <Col className="col-md text-center align-self-center mt-4 mt-lg-0">
                 <picture>
-                  <img className="w-100" src={getCraneImageSrc("crane-lift", imageMap, "jpeg")} alt="" />
+                  <ImageComponent alt="crane lift" fallbackExt="jpeg" imageMap={imageMap} />
                 </picture>
               </Col>
             </Row>
@@ -205,7 +217,7 @@ export default function Page({ imageMap }: { imageMap: Record<string, string> })
                 kept.</p>
               </Col>
               <Col className="col-md text-center align-self-center mt-4 mt-lg-0">
-                <picture><ModalImage className="img-fluid border rounded shadow-sm zoom-cursor-img w-100" small={getCraneImageSrc("rams-briefing", imageMap)} large={getCraneImageSrc("rams-briefing", imageMap)} imageBackgroundColor="#fff" alt={getCraneImageAlt("rams-briefing")} /></picture>
+                <picture><ImageComponent alt="rams briefing" imageMap={imageMap} /></picture>
               </Col>
             </Row>
 
@@ -227,9 +239,9 @@ export default function Page({ imageMap }: { imageMap: Record<string, string> })
                 at what each step involves.</p>
               </Col>
               <Col className="col-md text-center align-self-center mt-4 mt-lg-0 d-flex flex-column gap-3">
-                <picture><ModalImage className="img-fluid border rounded shadow-sm zoom-cursor-img w-100" small={getCraneImageSrc("rams-review", imageMap)} large={getCraneImageSrc("rams-review", imageMap)} imageBackgroundColor="#fff" alt={getCraneImageAlt("rams-review")} /></picture>
-                <picture><ModalImage className="img-fluid border rounded shadow-sm zoom-cursor-img w-100" small={getCraneImageSrc("rams-walk-route", imageMap)} large={getCraneImageSrc("rams-walk-route", imageMap)} imageBackgroundColor="#fff" alt={getCraneImageAlt("rams-walk-route")} /></picture>
-                <picture><ModalImage className="img-fluid border rounded shadow-sm zoom-cursor-img w-100" small={getCraneImageSrc("rams-complete", imageMap)} large={getCraneImageSrc("rams-complete", imageMap)} imageBackgroundColor="#fff" alt={getCraneImageAlt("rams-complete")} /></picture>
+                <picture><ImageComponent alt="rams review" imageMap={imageMap} /></picture>
+                <picture><ImageComponent alt="rams walk route" imageMap={imageMap} /></picture>
+                <picture><ImageComponent alt="rams complete" imageMap={imageMap} /></picture>
               </Col>
             </Row>
 
@@ -262,7 +274,7 @@ export default function Page({ imageMap }: { imageMap: Record<string, string> })
                 model these situations; work is ongoing.</p>
               </Col>
               <Col className="col-md text-center align-self-center mt-4 mt-lg-0">
-                <picture><ModalImage className="img-fluid border rounded shadow-sm zoom-cursor-img w-100" small={getCraneImageSrc("sub-inspect-inspect", imageMap)} large={getCraneImageSrc("sub-inspect-inspect", imageMap)} imageBackgroundColor="#fff" alt={getCraneImageAlt("sub-inspect-inspect")} /></picture>
+                <picture><ImageComponent alt="sub inspect inspect" imageMap={imageMap} /></picture>
               </Col>
             </Row>
 
@@ -275,7 +287,7 @@ export default function Page({ imageMap }: { imageMap: Record<string, string> })
                 creating activities as before.</p>
               </Col>
               <Col className="col-md text-center align-self-center mt-4 mt-lg-0">
-                <picture><ModalImage className="img-fluid border rounded shadow-sm zoom-cursor-img w-100" small={getCraneImageSrc("sub-inspect-first", imageMap)} large={getCraneImageSrc("sub-inspect-first", imageMap)} imageBackgroundColor="#fff" alt={getCraneImageAlt("sub-inspect-first")} /></picture>
+                <picture><ImageComponent alt="sub inspect first" imageMap={imageMap} /></picture>
               </Col>
             </Row>
 
@@ -286,10 +298,10 @@ export default function Page({ imageMap }: { imageMap: Record<string, string> })
               </Col>
               <Col className="col-md align-self-center mt-4 mt-lg-0">
                 <div className="text-center mb-3">
-                  <picture><ModalImage className="img-fluid border rounded shadow-sm zoom-cursor-img w-100" small={getCraneImageSrc("sub-inspect-quarantine", imageMap)} large={getCraneImageSrc("sub-inspect-quarantine", imageMap)} imageBackgroundColor="#fff" alt={getCraneImageAlt("sub-inspect-quarantine")} /></picture>
+                  <picture><ImageComponent alt="sub inspect quarantine" imageMap={imageMap} /></picture>
                 </div>
                 <div className="text-center">
-                  <picture><ModalImage className="img-fluid border rounded shadow-sm zoom-cursor-img w-100" small={getCraneImageSrc("sub-inspect-inspect", imageMap)} large={getCraneImageSrc("sub-inspect-inspect", imageMap)} imageBackgroundColor="#fff" alt={getCraneImageAlt("sub-inspect-inspect")} /></picture>
+                  <picture><ImageComponent alt="sub inspect inspect" imageMap={imageMap} /></picture>
                 </div>
               </Col>
             </Row>
@@ -306,7 +318,7 @@ export default function Page({ imageMap }: { imageMap: Record<string, string> })
                 the examples menu.</p>
               </Col>
               <Col className="col-md text-center align-self-center mt-4 mt-lg-0">
-                <picture><ModalImage className="img-fluid border rounded shadow-sm zoom-cursor-img w-100" small={getCraneImageSrc("sub-inspect-top", imageMap)} large={getCraneImageSrc("sub-inspect-top", imageMap)} imageBackgroundColor="#fff" alt={getCraneImageAlt("sub-inspect-top")} /></picture>
+                <picture><ImageComponent alt="sub inspect top" imageMap={imageMap} /></picture>
               </Col>
             </Row>
 
@@ -370,7 +382,7 @@ export default function Page({ imageMap }: { imageMap: Record<string, string> })
                 supplied to us at the time the crane was bought.</p>
               </Col>
               <Col className="col-md text-center align-self-center mt-4 mt-lg-0">
-                <picture><ModalImage className="img-fluid border rounded shadow-sm zoom-cursor-img w-100" small={getCraneImageSrc("life-crane", imageMap)} large={getCraneImageSrc("life-crane", imageMap)} imageBackgroundColor="#fff" alt={getCraneImageAlt("life-crane")} /></picture>
+                <picture><ImageComponent alt="life crane" imageMap={imageMap} /></picture>
               </Col>
             </Row>
 

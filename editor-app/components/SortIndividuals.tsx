@@ -1,6 +1,6 @@
 import { Individual } from "@/lib/Schema";
 import React, { useState, useEffect } from "react";
-import { SortableList } from "@/components/sortableList/SortableList";
+import { SortableList } from "@/components/SortableList/SortableList";
 import Button from "react-bootstrap/Button";
 import Modal from "react-bootstrap/Modal";
 import DraggableModalDialog from "@/modals/DraggableModalDialog";

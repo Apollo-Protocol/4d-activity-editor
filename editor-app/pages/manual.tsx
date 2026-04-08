@@ -670,9 +670,9 @@ export default function Page({ imageMap }: { imageMap: Record<string, string> })
               <Col>
                 <h3 id="modal-behaviour" className="doc-section-heading">Modal Behaviour</h3>
                 <p>
-                  All dialog modals in the editor - including the
+                  All dialog modals in the editor including the
                   entity editor, activity editor, warnings, settings, and the
-                  search popover - are <strong>draggable</strong>.
+                  search popover are <strong>draggable</strong>.
                   Click and hold the header bar of any modal and drag it to
                   a new position so it does not obscure the part of the
                   diagram you are working on.

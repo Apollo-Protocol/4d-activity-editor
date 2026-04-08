@@ -8,10 +8,40 @@ import Footer from "@/components/Footer";
 import Breadcrumbs from "@/components/Breadcrumbs";
 import AppearanceModal from "@/modals/AppearanceModal";
 import { ThemeProvider } from "next-themes";
+import { useRouter } from "next/router";
 import { applyTypographyProfile, getStoredTypographyProfile } from "@/utils/appearance";
+
+type ScrollPosition = {
+  x: number;
+  y: number;
+};
+
+const SCROLL_STORAGE_KEY = "app-scroll-positions";
+
+function stripHash(url: string) {
+  return url.split("#", 1)[0];
+}
+
+function readScrollPositions() {
+  try {
+    const stored = sessionStorage.getItem(SCROLL_STORAGE_KEY);
+    return stored ? (JSON.parse(stored) as Record<string, ScrollPosition>) : {};
+  } catch {
+    return {};
+  }
+}
+
+function writeScrollPositions(positions: Record<string, ScrollPosition>) {
+  try {
+    sessionStorage.setItem(SCROLL_STORAGE_KEY, JSON.stringify(positions));
+  } catch {
+    // Ignore storage failures and keep navigation functional.
+  }
+}
 
 export default function App({ Component, pageProps }: AppProps) {
   const [showAppearanceModal, setShowAppearanceModal] = useState(false);
+  const router = useRouter();
 
   useEffect(() => {
     const stored = localStorage.getItem("app-accent-color");
@@ -58,6 +88,69 @@ export default function App({ Component, pageProps }: AppProps) {
 
     applyTypographyProfile(getStoredTypographyProfile());
   }, []);
+
+  useEffect(() => {
+    if (!router.isReady || typeof window === "undefined") {
+      return;
+    }
+
+    const saveCurrentPosition = () => {
+      const currentKey = stripHash(window.location.pathname + window.location.search);
+      const positions = readScrollPositions();
+      positions[currentKey] = {
+        x: window.scrollX,
+        y: window.scrollY,
+      };
+      writeScrollPositions(positions);
+    };
+
+    const restorePosition = (url: string, fallback?: ScrollPosition) => {
+      const targetKey = stripHash(url);
+      const positions = readScrollPositions();
+      const position = positions[targetKey] ?? fallback;
+
+      if (!position) {
+        return;
+      }
+
+      positions[targetKey] = position;
+      writeScrollPositions(positions);
+
+      window.requestAnimationFrame(() => {
+        window.requestAnimationFrame(() => {
+          window.scrollTo(position.x, position.y);
+        });
+      });
+    };
+
+    let pendingPosition: ScrollPosition | undefined;
+
+    const handleRouteChangeStart = () => {
+      pendingPosition = {
+        x: window.scrollX,
+        y: window.scrollY,
+      };
+      saveCurrentPosition();
+    };
+
+    const handleRouteChangeComplete = (url: string) => {
+      restorePosition(url, pendingPosition);
+      pendingPosition = undefined;
+    };
+
+    window.history.scrollRestoration = "manual";
+    restorePosition(stripHash(window.location.pathname + window.location.search));
+
+    router.events.on("routeChangeStart", handleRouteChangeStart);
+    router.events.on("routeChangeComplete", handleRouteChangeComplete);
+    window.addEventListener("beforeunload", saveCurrentPosition);
+
+    return () => {
+      router.events.off("routeChangeStart", handleRouteChangeStart);
+      router.events.off("routeChangeComplete", handleRouteChangeComplete);
+      window.removeEventListener("beforeunload", saveCurrentPosition);
+    };
+  }, [router]);
 
   return (
     <ThemeProvider attribute="data-bs-theme">

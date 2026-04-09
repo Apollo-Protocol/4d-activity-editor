@@ -161,7 +161,6 @@ export default function Page({ imageMap }: { imageMap: Record<string, string> })
         <title>Editor Guide | Activity Diagram Editor</title>
         <meta name="description" content="Comprehensive guide to the Activity Diagram Editor" />
         <meta name="viewport" content="width=device-width, initial-scale=1" />
-        <link rel="icon" href="favicon.ico" />
       </Head>
       <Container>
         <div className="row">
@@ -430,7 +429,7 @@ export default function Page({ imageMap }: { imageMap: Record<string, string> })
               <Col>
                 <h4 id="trim-remove-keep" className="doc-section-heading">Trim, Remove and Keep</h4>
                 <p>
-                  Both warning dialogs use three colour-coded action badges
+                  The warning dialog uses three colour-coded action badges
                   to communicate the outcome for each item:
                 </p>
                 <ul>
@@ -827,7 +826,7 @@ export default function Page({ imageMap }: { imageMap: Record<string, string> })
                   entity rows the same height so labels remain readable.
                 </p>
                 <p>
-                  To reset the zoom back to the normal level, right-click on the zoom icon.
+                  To reset the zoom back to the normal level, double-click or right-click on the zoom icon.
                 </p>
               </Col>
               <Col className="col-md text-center align-self-center">

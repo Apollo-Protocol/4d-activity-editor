@@ -18,6 +18,7 @@ export interface DrawContext {
   activities: Activity[];
   individuals: Individual[];
   collapsedSystems?: ReadonlySet<string>;
+  showActivityLabels?: boolean;
 }
 
 export interface Label {

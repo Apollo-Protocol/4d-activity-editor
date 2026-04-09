@@ -1046,6 +1046,8 @@ const SetActivity = (props: Props) => {
                 // @ts-ignore
                 getOptionValue={(option) => option.optionKey}
                 onChange={handleChangeMultiselect}
+                menuPortalTarget={typeof document !== "undefined" ? document.body : undefined}
+                styles={{ menuPortal: (base: any) => ({ ...base, zIndex: 9999 }) }}
               />
             </Form.Group>
           </Form>

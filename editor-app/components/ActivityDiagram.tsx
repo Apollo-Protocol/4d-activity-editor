@@ -192,6 +192,7 @@ const ActivityDiagram = (props: Props) => {
   }, [responsiveDefaultMinimapScale]);
 
   const isMobileLegendLayout = viewportWidth <= 767.98;
+  const mobileDiagramWidth = Math.max(plot.width, Math.round(viewportWidth * 1.9));
 
   const searchableEntities = useMemo(() => {
     return Array.from(dataset.individuals.values())
@@ -350,7 +351,8 @@ const ActivityDiagram = (props: Props) => {
         rightClickActivity,
         rightClickParticipation,
         hideNonParticipating,
-        collapsedSystems
+        collapsedSystems,
+        isMobileLegendLayout
       )
     );
   }, [
@@ -367,6 +369,7 @@ const ActivityDiagram = (props: Props) => {
     rightClickParticipation,
     hideNonParticipating,
     collapsedSystems,
+    isMobileLegendLayout,
   ]);
 
   useEffect(() => {
@@ -970,6 +973,17 @@ const ActivityDiagram = (props: Props) => {
             variant={interactionMode === "zoom" ? "primary" : "secondary"}
             size="sm"
             onClick={() => setInteractionMode("zoom")}
+            onDoubleClick={(e) => {
+              e.preventDefault();
+              zoomTransformRef.current = d3.zoomIdentity;
+              if (svgRef.current) {
+                const svg = d3.select(svgRef.current);
+                svg.select("#activity-diagram-group").attr("transform", d3.zoomIdentity.toString());
+                if (zoomRef.current) {
+                  svg.call(zoomRef.current.transform, d3.zoomIdentity);
+                }
+              }
+            }}
             onContextMenu={(e) => {
               e.preventDefault();
               zoomTransformRef.current = d3.zoomIdentity;
@@ -982,7 +996,7 @@ const ActivityDiagram = (props: Props) => {
               }
             }}
             aria-pressed={interactionMode === "zoom"}
-            title="Zoom mode (right-click to reset)"
+            title="Zoom mode (double-click or right-click to reset)"
             style={{ width: "2.2em", height: "2.2em", padding: 0, display: "flex", alignItems: "center", justifyContent: "center" }}
           >
             <svg width="1em" height="1em" viewBox="0 0 16 16" aria-hidden="true">
@@ -1231,8 +1245,9 @@ const ActivityDiagram = (props: Props) => {
             viewBox={`0 0 ${plot.width} ${plot.height}`}
             ref={svgRef}
             style={{
-              minWidth: "100%",
-              maxWidth: "100%",
+              width: isMobileLegendLayout ? `${mobileDiagramWidth}px` : "100%",
+              minWidth: isMobileLegendLayout ? `${mobileDiagramWidth}px` : "100%",
+              maxWidth: isMobileLegendLayout ? "none" : "100%",
             }}
           />
         </div>

@@ -61,7 +61,7 @@ const DraggableModalDialog = forwardRef<HTMLDivElement, ModalDialogProps>((props
   }, []);
 
   return (
-    <Draggable handle=".modal-header" nodeRef={nodeRef}>
+    <Draggable handle=".modal-header" cancel=".btn-close" nodeRef={nodeRef}>
       <ModalDialog {...props} ref={nodeRef} />
     </Draggable>
   );

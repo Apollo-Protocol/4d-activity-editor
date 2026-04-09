@@ -2029,6 +2029,12 @@ html.app-custom-theme .diagram-search-input:focus {
     width: 0.8rem;
     height: 0.8rem;
   }
+
+  .diagram-search-popover {
+    width: calc(100vw - 2rem);
+    max-width: 17.5rem;
+    right: -0.5rem;
+  }
 }
 
 /* React-select dark theme support */
@@ -4067,6 +4073,15 @@ html.app-custom-theme .breadcrumb-wrapper .breadcrumb-item a:hover {
     font-size: 0.75rem;
   }
 
+  .color-scheme-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .color-scheme-custom-btn {
+    flex: 0 0 calc((100% - 0.5rem) / 2);
+    max-width: calc((100% - 0.5rem) / 2);
+  }
+
   .modal-anim-grid {
     gap: 0.5rem;
   }
@@ -4146,7 +4161,7 @@ html.app-custom-theme .breadcrumb-wrapper .breadcrumb-item a:hover {
   border-radius: 8px;
   box-shadow: 0 2px 8px rgba(0,0,0,0.10);
   overflow: visible;
-  z-index: 30;
+  z-index: 1090;
   opacity: 1;
 }
 .diagram-minimap-header {
@@ -4218,7 +4233,7 @@ html.app-custom-theme .breadcrumb-wrapper .breadcrumb-item a:hover {
   background: var(--bs-body-bg, #fff);
   box-shadow: 0 2px 12px rgba(0,0,0,0.18);
   overflow: hidden;
-  z-index: 31;
+  z-index: 1091;
 }
 .diagram-minimap-lens svg {
   display: block;
@@ -4251,6 +4266,9 @@ html.app-custom-theme .breadcrumb-wrapper .breadcrumb-item a:hover {
 
   .editor-toolbar {
     align-self: start;
+    position: relative;
+    z-index: 1100;
+    overflow: visible;
   }
 
   .editor-legend .legend-card:first-child {
@@ -4261,6 +4279,9 @@ html.app-custom-theme .breadcrumb-wrapper .breadcrumb-item a:hover {
     display: block;
     grid-column: 1 / -1;
     min-width: 0;
+    position: relative;
+    z-index: 1100;
+    overflow: visible;
   }
 
   .toolbar-mobile-minimap-host:empty {

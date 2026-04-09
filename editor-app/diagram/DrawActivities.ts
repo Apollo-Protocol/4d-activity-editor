@@ -16,11 +16,13 @@ import {
   splitParticipationByInstallations,
   ParticipationSegment,
 } from "@/utils/installations";
+import { getDiagramFontFamily } from "@/utils/appearance";
 
 let mouseOverElement: any | null = null;
 
 export function drawActivities(ctx: DrawContext) {
   const { config, svgElement, activities, individuals, dataset, collapsedSystems } = ctx;
+  const activityVerticalScale = Math.max(0.1, Math.min(1, config.viewPort.activityVerticalScale ?? 1));
 
   if (activities.length === 0) {
     return svgElement;
@@ -93,20 +95,29 @@ export function drawActivities(ctx: DrawContext) {
       return x + timeInterval * (a.beginning - startOfTime);
     })
     .attr("y", (a: Activity) => {
-      return (
-        calculateTopPositionOfNewActivity(svgElement, a, individuals, dataset, collapsedSystems) -
-        config.layout.individual.gap * 0.3
-      );
+      return getActivityRectMetrics(
+        svgElement,
+        a,
+        individuals,
+        dataset,
+        collapsedSystems,
+        config.layout.individual.gap,
+        activityVerticalScale
+      ).y;
     })
     .attr("width", (a: Activity) => {
       return (a.ending - a.beginning) * timeInterval;
     })
     .attr("height", (a: Activity) => {
-      const bottomY = calculateLengthOfNewActivity(svgElement, a, individuals, dataset, collapsedSystems);
-      const topY = calculateTopPositionOfNewActivity(svgElement, a, individuals, dataset, collapsedSystems);
-      return bottomY
-        ? bottomY - topY + config.layout.individual.gap * 0.6
-        : 0;
+      return getActivityRectMetrics(
+        svgElement,
+        a,
+        individuals,
+        dataset,
+        collapsedSystems,
+        config.layout.individual.gap,
+        activityVerticalScale
+      ).height;
     })
     .attr("stroke", (a: Activity, i: number) => {
       return config.presentation.activity.stroke[
@@ -125,14 +136,26 @@ export function drawActivities(ctx: DrawContext) {
   // small helper functions to reuse computations
   const xOf = (a: Activity) => x + timeInterval * (a.beginning - startOfTime);
   const yOf = (a: Activity) =>
-    calculateTopPositionOfNewActivity(svgElement, a, individuals, dataset, collapsedSystems) -
-    config.layout.individual.gap * 0.3;
+    getActivityRectMetrics(
+      svgElement,
+      a,
+      individuals,
+      dataset,
+      collapsedSystems,
+      config.layout.individual.gap,
+      activityVerticalScale
+    ).y;
   const widthOf = (a: Activity) => (a.ending - a.beginning) * timeInterval;
-  const heightOf = (a: Activity) => {
-    const bottomY = calculateLengthOfNewActivity(svgElement, a, individuals, dataset, collapsedSystems);
-    const topY = calculateTopPositionOfNewActivity(svgElement, a, individuals, dataset, collapsedSystems);
-    return bottomY ? bottomY - topY + config.layout.individual.gap * 0.6 : 0;
-  };
+  const heightOf = (a: Activity) =>
+    getActivityRectMetrics(
+      svgElement,
+      a,
+      individuals,
+      dataset,
+      collapsedSystems,
+      config.layout.individual.gap,
+      activityVerticalScale
+    ).height;
 
   // Subtask badge rendering removed — badge no longer drawn on activities.
 
@@ -147,8 +170,39 @@ function labelActivities(
   timeInterval: number,
   startOfTime: number
 ) {
-  // Labels are now provided via the external legend; do not draw activity text on the SVG.
-  return;
+  if (!ctx.showActivityLabels) {
+    return;
+  }
+
+  const { svgElement, activities } = ctx;
+  const diagramFontFamily = getDiagramFontFamily();
+
+  svgElement.selectAll(".activityLabel").remove();
+
+  activities.forEach((activity) => {
+    const rect = svgElement.select(`#a${activity.id}`);
+    if (rect.empty()) return;
+
+    const x = parseFloat(rect.attr("x") || "0");
+    const y = parseFloat(rect.attr("y") || "0");
+    const width = parseFloat(rect.attr("width") || "0");
+    const height = parseFloat(rect.attr("height") || "0");
+
+    if (width <= 0 || height <= 0) return;
+
+    svgElement
+      .append("text")
+      .attr("class", "activityLabel")
+      .attr("id", `al${activity.id}`)
+      .attr("x", x + width / 2)
+      .attr("y", y + height / 2 + 4)
+      .attr("text-anchor", "middle")
+      .attr("font-family", diagramFontFamily)
+      .attr("font-size", "0.7em")
+      .attr("fill", "#441d62")
+      .attr("pointer-events", "none")
+      .text(activity.name || "");
+  });
 }
 
 export function hoverActivities(ctx: DrawContext) {
@@ -228,6 +282,31 @@ function calculateLengthOfNewActivity(
   collapsedSystems?: ReadonlySet<string>
 ) {
   return calculateActivityBottom(svgElement, activity, individuals, dataset, collapsedSystems);
+}
+
+function getActivityRectMetrics(
+  svgElement: any,
+  activity: Activity,
+  individuals: Individual[],
+  dataset: Model | undefined,
+  collapsedSystems: ReadonlySet<string> | undefined,
+  gap: number,
+  activityVerticalScale: number
+) {
+  const topY = calculateTopPositionOfNewActivity(svgElement, activity, individuals, dataset, collapsedSystems);
+  const bottomY = calculateLengthOfNewActivity(svgElement, activity, individuals, dataset, collapsedSystems);
+  const rawY = topY - gap * 0.3;
+  const rawHeight = bottomY ? bottomY - topY + gap * 0.6 : 0;
+
+  if (rawHeight <= 0 || activityVerticalScale === 1) {
+    return { y: rawY, height: rawHeight };
+  }
+
+  const scaledHeight = rawHeight * activityVerticalScale;
+  return {
+    y: rawY + (rawHeight - scaledHeight) / 2,
+    height: scaledHeight,
+  };
 }
 
 /**

@@ -4,6 +4,7 @@ export interface ConfigData {
     x: number;
     minTimelineSpan: number;
     timelineBuffer: number;
+    activityVerticalScale: number;
   };
   layout: {
     individual: {
@@ -83,6 +84,7 @@ export const config: ConfigData = {
     x: 1000,
     minTimelineSpan: 11,
     timelineBuffer: 2,
+    activityVerticalScale: 1,
   },
   layout: {
     individual: {

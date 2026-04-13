@@ -7,27 +7,28 @@ export const LAPTOP_DIAGRAM_BREAKPOINT = 1599.98;
 type ResponsiveRule = {
   path: string;
   laptop?: number | string;
+  tablet?: number | string;
   mobile?: number | string;
 };
 
 const RESPONSIVE_RULES: ResponsiveRule[] = [
-  { path: "layout.individual.topMargin", laptop: 30, mobile: 40 },
-  { path: "layout.individual.bottomMargin", laptop: 38, mobile: 50 },
-  { path: "layout.individual.height", laptop: 28, mobile: 50 },
-  { path: "layout.individual.gap", laptop: 13, mobile: 23 },
-  { path: "layout.individual.xMargin", laptop: 52, mobile: 64 },
-  { path: "layout.individual.textLength", mobile: 132 },
-  { path: "layout.system.componentGap", laptop: 12, mobile: 18 },
-  { path: "layout.system.hostComponentPadding", laptop: 10, mobile: 15 },
-  { path: "presentation.axis.width", laptop: 17, mobile: 20 },
-  { path: "presentation.axis.margin", laptop: 22, mobile: 26 },
-  { path: "presentation.axis.textOffsetX", laptop: 6, mobile: 7 },
-  { path: "presentation.axis.textOffsetY", laptop: 5, mobile: 6 },
-  { path: "presentation.axis.endMargin", laptop: 32, mobile: 36 },
-  { path: "presentation.axis.fontSize", laptop: "0.92em", mobile: "1.18em" },
-  { path: "labels.individual.fontSize", laptop: "1em", mobile: "1.32em" },
-  { path: "labels.individual.maxChars", mobile: 28 },
-  { path: "labels.activity.fontSize", laptop: "0.85em", mobile: "1.15em" },
+  { path: "layout.individual.topMargin", laptop: 30, tablet: 40, mobile: 40 },
+  { path: "layout.individual.bottomMargin", laptop: 38, tablet: 50, mobile: 50 },
+  { path: "layout.individual.height", laptop: 28, tablet: 50, mobile: 50 },
+  { path: "layout.individual.gap", laptop: 13, tablet: 23, mobile: 23 },
+  { path: "layout.individual.xMargin", laptop: 52, tablet: 64, mobile: 64 },
+  { path: "layout.individual.textLength", tablet: 132, mobile: 132 },
+  { path: "layout.system.componentGap", laptop: 12, tablet: 18, mobile: 18 },
+  { path: "layout.system.hostComponentPadding", laptop: 10, tablet: 15, mobile: 15 },
+  { path: "presentation.axis.width", laptop: 17, tablet: 20, mobile: 20 },
+  { path: "presentation.axis.margin", laptop: 22, tablet: 26, mobile: 26 },
+  { path: "presentation.axis.textOffsetX", laptop: 6, tablet: 7, mobile: 7 },
+  { path: "presentation.axis.textOffsetY", laptop: 5, tablet: 6, mobile: 6 },
+  { path: "presentation.axis.endMargin", laptop: 32, tablet: 36, mobile: 36 },
+  { path: "presentation.axis.fontSize", laptop: "0.92em", tablet: "1.18em", mobile: "1.18em" },
+  { path: "labels.individual.fontSize", laptop: "1em", tablet: "1.32em", mobile: "1.5em" },
+  { path: "labels.individual.maxChars", tablet: 28, mobile: 28 },
+  { path: "labels.activity.fontSize", laptop: "0.85em", tablet: "1.15em", mobile: "1.3em" },
 ];
 
 function getValueAtPath(source: Record<string, any>, path: string) {
@@ -49,8 +50,9 @@ function setValueAtPath(source: Record<string, any>, path: string, value: unknow
   parent[lastSegment] = value;
 }
 
-function getResponsiveMode(viewportWidth: number): "desktop" | "laptop" | "mobile" {
-  if (viewportWidth <= HAMBURGER_NAV_BREAKPOINT) return "mobile";
+function getResponsiveMode(viewportWidth: number): "desktop" | "laptop" | "tablet" | "mobile" {
+  if (viewportWidth <= MOBILE_DIAGRAM_BREAKPOINT) return "mobile";
+  if (viewportWidth <= HAMBURGER_NAV_BREAKPOINT) return "tablet";
   if (viewportWidth <= LAPTOP_DIAGRAM_BREAKPOINT) return "laptop";
   return "desktop";
 }
@@ -64,7 +66,7 @@ export function getResponsiveDiagramConfig(
   viewportWidth: number
 ): ConfigData {
   const responsiveMode = getResponsiveMode(viewportWidth);
-  const isHamburgerNavLayout = responsiveMode === "mobile";
+  const isHamburgerNavLayout = responsiveMode === "mobile" || responsiveMode === "tablet";
   const isLaptopDiagramLayout = responsiveMode === "laptop";
 
   if (!isHamburgerNavLayout && !isLaptopDiagramLayout) {
@@ -176,6 +178,9 @@ export function getResponsiveDiagramConfig(
     };
   }
 
+  const mobileIndividualLabelFontSize = responsiveMode === "mobile" ? "1.5em" : "1.32em";
+  const mobileActivityLabelFontSize = responsiveMode === "mobile" ? "1.3em" : "1.15em";
+
   return {
     ...configData,
     layout: {
@@ -270,7 +275,7 @@ export function getResponsiveDiagramConfig(
         fontSize: getResponsiveDefault(
           configData.labels.individual.fontSize,
           defaultConfig.labels.individual.fontSize,
-          "1.32em"
+          mobileIndividualLabelFontSize
         ),
         maxChars: getResponsiveDefault(
           configData.labels.individual.maxChars,
@@ -283,7 +288,7 @@ export function getResponsiveDiagramConfig(
         fontSize: getResponsiveDefault(
           configData.labels.activity.fontSize,
           defaultConfig.labels.activity.fontSize,
-          "1.15em"
+          mobileActivityLabelFontSize
         ),
       },
     },
@@ -305,7 +310,12 @@ export function getPersistedDiagramConfig(
   const effectiveBaseConfig = getResponsiveDiagramConfig(baseConfig, viewportWidth);
 
   for (const rule of RESPONSIVE_RULES) {
-    const responsiveValue = responsiveMode === "mobile" ? rule.mobile : rule.laptop;
+    const responsiveValue =
+      responsiveMode === "mobile"
+        ? rule.mobile
+        : responsiveMode === "tablet"
+          ? rule.tablet
+          : rule.laptop;
     if (responsiveValue === undefined) continue;
 
     const baseValue = getValueAtPath(baseConfig as Record<string, any>, rule.path);

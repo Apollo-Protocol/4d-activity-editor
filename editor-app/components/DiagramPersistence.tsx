@@ -130,7 +130,7 @@ const DiagramPersistence = (props: Props) => {
       {showReferenceToggle ? (
         <button
           type="button"
-          className={`btn btn-${buttonVariant} d-inline-flex align-items-center`}
+          className={`btn btn-${buttonVariant} d-inline-flex align-items-center reference-toggle`}
           style={{
             lineHeight: 1.5,
             padding: "0.375rem 0.75rem",
@@ -142,15 +142,16 @@ const DiagramPersistence = (props: Props) => {
             id="refDataOnlyCheck"
             checked={refDataOnly}
             onChange={() => setRefDataOnly(!refDataOnly)}
+            className="reference-toggle__check"
             style={{
               margin: 0,
               marginRight: "0.35rem",
             }}
           />
           <span
+            className="reference-toggle__label"
             style={{
               fontWeight: 400,
-              whiteSpace: "nowrap",
             }}
           >
             Reference Types only

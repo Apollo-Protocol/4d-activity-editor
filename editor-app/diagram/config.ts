@@ -57,6 +57,7 @@ export interface ConfigData {
       textOffsetX: number;
       textOffsetY: number;
       endMargin: number;
+      fontSize: string;
     };
   };
   labels: {
@@ -150,6 +151,7 @@ export const config: ConfigData = {
       textOffsetX: 5,
       textOffsetY: 4,
       endMargin: 30,
+      fontSize: "0.8em",
     },
   },
   labels: {

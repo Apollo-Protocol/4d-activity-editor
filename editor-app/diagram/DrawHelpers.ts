@@ -145,7 +145,7 @@ export function createTooltip() {
     .append("div")
     .attr("id", "tooltip")
     .style("position", "absolute")
-    .style("z-index", "1085")
+    .style("z-index", "1010")
     .style("pointer-events", "none")
     .style("display", "none")
     .style("background", "var(--bs-body-bg)")

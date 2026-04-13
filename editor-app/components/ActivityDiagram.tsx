@@ -33,6 +33,10 @@ interface Props {
 }
 
 const COLLAPSED_SYSTEMS_STORAGE_KEY = "4d-collapsed-systems";
+const MOBILE_DIAGRAM_BREAKPOINT = 767.98;
+const HAMBURGER_NAV_BREAKPOINT = 991.98;
+const LAPTOP_DIAGRAM_BREAKPOINT = 1599.98;
+const MOBILE_MINIMAP_CANVAS_HEIGHT_PX = 120;
 
 const ActivityDiagram = (props: Props) => {
   const {
@@ -191,8 +195,121 @@ const ActivityDiagram = (props: Props) => {
     });
   }, [responsiveDefaultMinimapScale]);
 
-  const isMobileLegendLayout = viewportWidth <= 767.98;
-  const mobileDiagramWidth = Math.max(plot.width, Math.round(viewportWidth * 1.9));
+  const isMobileLegendLayout = viewportWidth <= MOBILE_DIAGRAM_BREAKPOINT;
+  const isHamburgerNavLayout = viewportWidth <= HAMBURGER_NAV_BREAKPOINT;
+  const isLaptopDiagramLayout =
+    viewportWidth > HAMBURGER_NAV_BREAKPOINT && viewportWidth <= LAPTOP_DIAGRAM_BREAKPOINT;
+  const shouldShowActivityLabels = viewportWidth <= HAMBURGER_NAV_BREAKPOINT;
+
+  const renderConfig: ConfigData = useMemo(() => {
+    if (!isHamburgerNavLayout && !isLaptopDiagramLayout) {
+      return {
+        ...configData,
+        viewPort: {
+          ...configData.viewPort,
+          zoom: 1,
+        },
+      };
+    }
+
+    if (isLaptopDiagramLayout) {
+      return {
+        ...configData,
+        viewPort: {
+          ...configData.viewPort,
+          zoom: 1,
+        },
+        layout: {
+          ...configData.layout,
+          individual: {
+            ...configData.layout.individual,
+            topMargin: Math.max(configData.layout.individual.topMargin, 30),
+            bottomMargin: Math.max(configData.layout.individual.bottomMargin, 38),
+            height: Math.max(configData.layout.individual.height, 28),
+            gap: Math.max(configData.layout.individual.gap, 13),
+            xMargin: Math.max(configData.layout.individual.xMargin, 52),
+          },
+          system: {
+            ...configData.layout.system,
+            componentGap: Math.max(configData.layout.system.componentGap, 12),
+            hostComponentPadding: Math.max(configData.layout.system.hostComponentPadding, 10),
+          },
+        },
+        presentation: {
+          ...configData.presentation,
+          axis: {
+            ...configData.presentation.axis,
+            width: Math.max(configData.presentation.axis.width, 17),
+            margin: Math.max(configData.presentation.axis.margin, 22),
+            textOffsetX: Math.max(configData.presentation.axis.textOffsetX, 6),
+            textOffsetY: Math.max(configData.presentation.axis.textOffsetY, 5),
+            endMargin: Math.max(configData.presentation.axis.endMargin, 32),
+            fontSize: "0.92em",
+          },
+        },
+        labels: {
+          ...configData.labels,
+          individual: {
+            ...configData.labels.individual,
+            fontSize: "1em",
+          },
+          activity: {
+            ...configData.labels.activity,
+            fontSize: "0.85em",
+          },
+        },
+      };
+    }
+
+    return {
+      ...configData,
+      viewPort: {
+        ...configData.viewPort,
+        zoom: 1,
+      },
+      layout: {
+        ...configData.layout,
+        individual: {
+          ...configData.layout.individual,
+          topMargin: Math.max(configData.layout.individual.topMargin, 40),
+          bottomMargin: Math.max(configData.layout.individual.bottomMargin, 50),
+          height: Math.max(configData.layout.individual.height, 50),
+          gap: Math.max(configData.layout.individual.gap, 23),
+          xMargin: Math.max(configData.layout.individual.xMargin, 64),
+          textLength: Math.max(configData.layout.individual.textLength, 132),
+        },
+        system: {
+          ...configData.layout.system,
+          componentGap: Math.max(configData.layout.system.componentGap, 18),
+          hostComponentPadding: Math.max(configData.layout.system.hostComponentPadding, 15),
+        },
+      },
+      presentation: {
+        ...configData.presentation,
+        axis: {
+          ...configData.presentation.axis,
+          width: Math.max(configData.presentation.axis.width, 20),
+          margin: Math.max(configData.presentation.axis.margin, 26),
+          textOffsetX: Math.max(configData.presentation.axis.textOffsetX, 7),
+          textOffsetY: Math.max(configData.presentation.axis.textOffsetY, 6),
+          endMargin: Math.max(configData.presentation.axis.endMargin, 36),
+          fontSize: "1.18em",
+        },
+      },
+      labels: {
+        ...configData.labels,
+        individual: {
+          ...configData.labels.individual,
+          fontSize: "1.32em",
+          maxChars: Math.max(configData.labels.individual.maxChars, 28),
+        },
+        activity: {
+          ...configData.labels.activity,
+          fontSize: "1.15em",
+        },
+      },
+    };
+  }, [configData, isHamburgerNavLayout, isLaptopDiagramLayout]);
 
   const searchableEntities = useMemo(() => {
     return Array.from(dataset.individuals.values())
@@ -329,14 +446,6 @@ const ActivityDiagram = (props: Props) => {
     }, 2000);
   };
 
-  const renderConfig: ConfigData = {
-    ...configData,
-    viewPort: {
-      ...configData.viewPort,
-      zoom: 1,
-    },
-  };
-
   useEffect(() => {
     setPlot(
       drawActivityDiagram(
@@ -352,7 +461,7 @@ const ActivityDiagram = (props: Props) => {
         rightClickParticipation,
         hideNonParticipating,
         collapsedSystems,
-        isMobileLegendLayout
+        shouldShowActivityLabels
       )
     );
   }, [
@@ -369,7 +478,7 @@ const ActivityDiagram = (props: Props) => {
     rightClickParticipation,
     hideNonParticipating,
     collapsedSystems,
-    isMobileLegendLayout,
+    shouldShowActivityLabels,
   ]);
 
   useEffect(() => {
@@ -602,6 +711,21 @@ const ActivityDiagram = (props: Props) => {
     const aspect = plot.width / plot.height;
     return Math.min(360, Math.max(220, 180 * aspect));
   }, [plot]);
+
+  const mobileMinimapPanelWidth = useMemo(() => {
+    if (plot.width === 0 || plot.height === 0) {
+      return Math.min(320, Math.max(220, viewportWidth - 24));
+    }
+
+    const proportionalWidth = Math.round(
+      (MOBILE_MINIMAP_CANVAS_HEIGHT_PX / plot.height) * plot.width
+    );
+
+    return Math.min(
+      Math.max(180, proportionalWidth),
+      Math.max(180, viewportWidth - 24)
+    );
+  }, [plot.width, plot.height, viewportWidth]);
 
   const effectiveMinimapWidth = Math.round(minimapBaseWidth * minimapScale);
 
@@ -862,7 +986,7 @@ const ActivityDiagram = (props: Props) => {
       className="diagram-minimap"
       style={
         isMobileLegendLayout
-          ? { position: "static", width: "100%", maxWidth: "100%" }
+          ? { position: "static", width: `${mobileMinimapPanelWidth}px`, maxWidth: "calc(100vw - 24px)", margin: "0 auto" }
           : clampedMinimapPos
             ? { position: "fixed", width: minimapPanelWidth + "px", left: clampedMinimapPos.left, top: clampedMinimapPos.top, bottom: "auto", right: "auto" }
             : { position: "absolute", width: minimapPanelWidth + "px", maxWidth: "calc(100vw - 24px)" }
@@ -903,6 +1027,11 @@ const ActivityDiagram = (props: Props) => {
           ref={minimapRef}
           viewBox={`0 0 ${plot.width} ${plot.height}`}
           preserveAspectRatio="xMidYMid meet"
+          style={
+            isMobileLegendLayout
+              ? { width: "100%", height: `${MOBILE_MINIMAP_CANVAS_HEIGHT_PX}px` }
+              : undefined
+          }
           onPointerDown={(e) => {
             e.preventDefault();
             minimapRef.current?.setPointerCapture(e.pointerId);
@@ -925,6 +1054,7 @@ const ActivityDiagram = (props: Props) => {
         <svg
           ref={minimapLensSvgRef}
           viewBox={`0 0 ${plot.width} ${plot.height}`}
+          preserveAspectRatio="xMidYMid meet"
         />
       </div>
     </div>
@@ -1245,9 +1375,9 @@ const ActivityDiagram = (props: Props) => {
             viewBox={`0 0 ${plot.width} ${plot.height}`}
             ref={svgRef}
             style={{
-              width: isMobileLegendLayout ? `${mobileDiagramWidth}px` : "100%",
-              minWidth: isMobileLegendLayout ? `${mobileDiagramWidth}px` : "100%",
-              maxWidth: isMobileLegendLayout ? "none" : "100%",
+              width: "100%",
+              minWidth: "100%",
+              maxWidth: "100%",
             }}
           />
         </div>

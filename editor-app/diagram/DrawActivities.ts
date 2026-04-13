@@ -20,6 +20,14 @@ import { getDiagramFontFamily } from "@/utils/appearance";
 
 let mouseOverElement: any | null = null;
 
+interface ActivityLabelLayoutNode {
+  node: SVGTextElement;
+  x: number;
+  baseY: number;
+  rectTop: number;
+  rectHeight: number;
+}
+
 export function drawActivities(ctx: DrawContext) {
   const { config, svgElement, activities, individuals, dataset, collapsedSystems } = ctx;
   const activityVerticalScale = Math.max(0.1, Math.min(1, config.viewPort.activityVerticalScale ?? 1));
@@ -176,6 +184,12 @@ function labelActivities(
 
   const { svgElement, activities } = ctx;
   const diagramFontFamily = getDiagramFontFamily();
+  const placedLabelBoxes: Array<{
+    left: number;
+    right: number;
+    top: number;
+    bottom: number;
+  }> = [];
 
   svgElement.selectAll(".activityLabel").remove();
 
@@ -190,18 +204,100 @@ function labelActivities(
 
     if (width <= 0 || height <= 0) return;
 
+    const baseY = y + height / 2 + 4;
+
     svgElement
       .append("text")
       .attr("class", "activityLabel")
       .attr("id", `al${activity.id}`)
       .attr("x", x + width / 2)
-      .attr("y", y + height / 2 + 4)
+      .attr("y", baseY)
+      .attr("data-base-y", baseY)
+      .attr("data-rect-top", y)
+      .attr("data-rect-height", height)
       .attr("text-anchor", "middle")
       .attr("font-family", diagramFontFamily)
-      .attr("font-size", "0.7em")
+      .attr("font-size", ctx.config.labels.activity.fontSize)
       .attr("fill", "#441d62")
       .attr("pointer-events", "none")
       .text(activity.name || "");
+  });
+
+  const labelNodes: ActivityLabelLayoutNode[] = svgElement
+    .selectAll(".activityLabel")
+    .nodes()
+    .map((node: SVGTextElement) => ({
+      node,
+      x: parseFloat(node.getAttribute("x") || "0"),
+      baseY: parseFloat(node.getAttribute("data-base-y") || node.getAttribute("y") || "0"),
+      rectTop: parseFloat(node.getAttribute("data-rect-top") || "0"),
+      rectHeight: parseFloat(node.getAttribute("data-rect-height") || "0"),
+    }))
+    .sort((left: ActivityLabelLayoutNode, right: ActivityLabelLayoutNode) => {
+      if (left.baseY !== right.baseY) {
+        return left.baseY - right.baseY;
+      }
+      return left.x - right.x;
+    });
+
+  labelNodes.forEach(({ node, baseY, rectTop, rectHeight }) => {
+    const rectBottom = rectTop + rectHeight;
+    const selection = svgElement.select(`#${node.id}`);
+
+    selection.attr("y", baseY);
+    let bbox = node.getBBox();
+    const stepDown = Math.max(8, bbox.height * 0.9);
+    let bestBox = {
+      left: bbox.x,
+      right: bbox.x + bbox.width,
+      top: bbox.y,
+      bottom: bbox.y + bbox.height,
+    };
+    let bestY = baseY;
+    let bestOverlapCount = Number.POSITIVE_INFINITY;
+
+    for (let lane = 0; lane < 6; lane += 1) {
+      const candidateY = baseY + lane * stepDown;
+      selection.attr("y", candidateY);
+      bbox = node.getBBox();
+
+      const candidateBox = {
+        left: bbox.x,
+        right: bbox.x + bbox.width,
+        top: bbox.y,
+        bottom: bbox.y + bbox.height,
+      };
+
+      const fitsInsideActivity =
+        candidateBox.top >= rectTop + 2 &&
+        candidateBox.bottom <= rectBottom - 2;
+
+      if (!fitsInsideActivity) {
+        continue;
+      }
+
+      const overlapCount = placedLabelBoxes.filter((placed) => {
+        return (
+          candidateBox.left < placed.right &&
+          candidateBox.right > placed.left &&
+          candidateBox.top < placed.bottom &&
+          candidateBox.bottom > placed.top
+        );
+      }).length;
+
+      if (overlapCount < bestOverlapCount) {
+        bestOverlapCount = overlapCount;
+        bestBox = candidateBox;
+        bestY = candidateY;
+      }
+
+      if (overlapCount === 0) {
+        break;
+      }
+    }
+
+    selection.attr("y", bestY);
+    placedLabelBoxes.push(bestBox);
   });
 }
 

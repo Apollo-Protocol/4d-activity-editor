@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/router";
 import Container from "react-bootstrap/Container";
@@ -13,13 +13,16 @@ interface NavItemProps {
    * strings. But without this I can't see how to get tsc to let me pass
    * the children into React.createElement below. */
   children: string;
-  linkType?: React.FunctionComponent;
+  onNavigate?: () => void;
 }
 
 function NavItem(props: NavItemProps) {
-  const { href, children } = props;
+  const { href, children, onNavigate } = props;
   const router = useRouter();
   const isActive = router.pathname === "/" + href || router.pathname === href;
+  const handleClick = () => {
+    onNavigate?.();
+  };
 
   return (
     <Link
@@ -27,6 +30,7 @@ function NavItem(props: NavItemProps) {
       passHref
       style={{ textDecoration: "none" }}
       className={`nav-link ${isActive ? "active" : ""}`}
+      onClick={handleClick}
     >
       {children}
     </Link>
@@ -39,7 +43,7 @@ interface NavBarProps {
 
 function CollapsibleExample({ openAppearanceModal }: NavBarProps) {
   const router = useRouter();
-  const isEditorActive = router.pathname === "/editor";
+  const [expanded, setExpanded] = useState(false);
   const isActivityModellingActive = [
     "/intro",
     "/crane",
@@ -52,10 +56,18 @@ function CollapsibleExample({ openAppearanceModal }: NavBarProps) {
     "/system-example",
   ].includes(router.pathname);
 
+  const collapseNavbar = () => setExpanded(false);
+
+  useEffect(() => {
+    collapseNavbar();
+  }, [router.asPath]);
+
   return (
     <Navbar
       collapseOnSelect
       expand="lg"
+      expanded={expanded}
+      onToggle={(nextExpanded) => setExpanded(Boolean(nextExpanded))}
       className="app-navbar bg-body"
       fixed="top"
       style={{
@@ -73,8 +85,8 @@ function CollapsibleExample({ openAppearanceModal }: NavBarProps) {
         <Navbar.Toggle aria-controls="responsive-navbar-nav" />
         <Navbar.Collapse id="responsive-navbar-nav">
           <Nav className="ms-auto gap-2">
-            <NavItem href="/">Home</NavItem>
-            <NavItem href="/editor">Editor</NavItem>
+            <NavItem href="/" onNavigate={collapseNavbar}>Home</NavItem>
+            <NavItem href="/editor" onNavigate={collapseNavbar}>Editor</NavItem>
             <NavDropdown
               title="Activity Modelling"
               id="activity-modelling-dropdown"
@@ -85,6 +97,7 @@ function CollapsibleExample({ openAppearanceModal }: NavBarProps) {
                 as={Link}
                 href="/intro"
                 className={router.pathname === "/intro" ? "active" : ""}
+                onClick={collapseNavbar}
               >
                 Introduction
               </NavDropdown.Item>
@@ -92,6 +105,7 @@ function CollapsibleExample({ openAppearanceModal }: NavBarProps) {
                 as={Link}
                 href="/crane"
                 className={router.pathname === "/crane" ? "active" : ""}
+                onClick={collapseNavbar}
               >
                 Example Analysis
               </NavDropdown.Item>
@@ -99,6 +113,7 @@ function CollapsibleExample({ openAppearanceModal }: NavBarProps) {
                 as={Link}
                 href="/management"
                 className={router.pathname === "/management" ? "active" : ""}
+                onClick={collapseNavbar}
               >
                 Integrated Information Management
               </NavDropdown.Item>
@@ -113,6 +128,7 @@ function CollapsibleExample({ openAppearanceModal }: NavBarProps) {
                 as={Link}
                 href="/manual"
                 className={router.pathname === "/manual" ? "active" : ""}
+                onClick={collapseNavbar}
               >
                 Editor Guide
               </NavDropdown.Item>
@@ -120,6 +136,7 @@ function CollapsibleExample({ openAppearanceModal }: NavBarProps) {
                 as={Link}
                 href="/terminology"
                 className={router.pathname === "/terminology" ? "active" : ""}
+                onClick={collapseNavbar}
               >
                 Terminology
               </NavDropdown.Item>
@@ -129,6 +146,7 @@ function CollapsibleExample({ openAppearanceModal }: NavBarProps) {
                 as={Link}
                 href="/system-intro"
                 className={`nav-dropdown-subsection-link ${router.pathname === "/system-intro" ? "active" : ""}`}
+                onClick={collapseNavbar}
               >
                 Introduction
               </NavDropdown.Item>
@@ -136,6 +154,7 @@ function CollapsibleExample({ openAppearanceModal }: NavBarProps) {
                 as={Link}
                 href="/system-example"
                 className={`nav-dropdown-subsection-link ${router.pathname === "/system-example" ? "active" : ""}`}
+                onClick={collapseNavbar}
               >
                 Example Analysis
               </NavDropdown.Item>
@@ -143,7 +162,10 @@ function CollapsibleExample({ openAppearanceModal }: NavBarProps) {
             <button
               type="button"
               className="nav-link nav-settings-trigger"
-              onClick={openAppearanceModal}
+              onClick={() => {
+                collapseNavbar();
+                openAppearanceModal();
+              }}
               aria-label="Open appearance settings"
             >
               Settings

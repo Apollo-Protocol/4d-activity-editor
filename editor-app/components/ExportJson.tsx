@@ -33,7 +33,7 @@ const ExportJson = (props: any) => {
           dataset.individuals.size > 0 ? "mx-1 d-block" : "mx-1 d-none"
         }
       >
-        Export&nbsp;JSON
+        Export JSON
       </Button>
     </>
   );

@@ -1,4 +1,4 @@
-import React, { useRef, forwardRef, useEffect } from 'react';
+import React, { useRef, forwardRef, useEffect, useState } from 'react';
 import Draggable from 'react-draggable';
 import { ModalDialog, ModalDialogProps } from 'react-bootstrap';
 
@@ -10,6 +10,7 @@ export function shouldSuppressModalHide() {
 
 const DraggableModalDialog = forwardRef<HTMLDivElement, ModalDialogProps>((props, ref) => {
   const nodeRef = useRef<HTMLDivElement>(null);
+  const [dragDisabled, setDragDisabled] = useState(false);
   
   useEffect(() => {
     if (typeof ref === 'function') {
@@ -60,8 +61,29 @@ const DraggableModalDialog = forwardRef<HTMLDivElement, ModalDialogProps>((props
     };
   }, []);
 
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+
+    const mediaQueries = [
+      window.matchMedia('(max-width: 991.98px)'),
+      window.matchMedia('(pointer: coarse)'),
+      window.matchMedia('(hover: none)'),
+    ];
+
+    const updateDragDisabled = () => {
+      setDragDisabled(mediaQueries.some((query) => query.matches));
+    };
+
+    updateDragDisabled();
+    mediaQueries.forEach((query) => query.addEventListener('change', updateDragDisabled));
+
+    return () => {
+      mediaQueries.forEach((query) => query.removeEventListener('change', updateDragDisabled));
+    };
+  }, []);
+
   return (
-    <Draggable handle=".modal-header" cancel=".btn-close" nodeRef={nodeRef}>
+    <Draggable disabled={dragDisabled} handle=".modal-header" cancel=".btn-close,.btn-close *" nodeRef={nodeRef}>
       <ModalDialog {...props} ref={nodeRef} />
     </Draggable>
   );

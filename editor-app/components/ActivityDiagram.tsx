@@ -4,12 +4,18 @@ import Breadcrumb from "react-bootstrap/Breadcrumb";
 import Button from "react-bootstrap/Button";
 import Draggable from "react-draggable";
 import { drawActivityDiagram } from "@/diagram/DrawActivityDiagram";
-import { config as defaultConfig, ConfigData } from "@/diagram/config";
+import { ConfigData } from "@/diagram/config";
 import { Model } from "@/lib/Model";
 import { Activity, Id, Individual, Maybe, Participation } from "@/lib/Schema";
 import { ENTITY_TYPE_IDS, getEntityTypeIdFromIndividual, getEntityTypeLabel } from "@/lib/entityTypes";
 import * as d3 from "d3";
 import { useDiagramDragReorder } from "@/hooks/useDiagramDragReorder";
+import {
+  getResponsiveDiagramConfig,
+  HAMBURGER_NAV_BREAKPOINT,
+  LAPTOP_DIAGRAM_BREAKPOINT,
+  MOBILE_DIAGRAM_BREAKPOINT,
+} from "@/utils/responsiveDiagramConfig";
 
 interface Props {
   dataset: Model;
@@ -33,14 +39,7 @@ interface Props {
 }
 
 const COLLAPSED_SYSTEMS_STORAGE_KEY = "4d-collapsed-systems";
-const MOBILE_DIAGRAM_BREAKPOINT = 767.98;
-const HAMBURGER_NAV_BREAKPOINT = 991.98;
-const LAPTOP_DIAGRAM_BREAKPOINT = 1599.98;
 const MOBILE_MINIMAP_CANVAS_HEIGHT_PX = 120;
-
-function useResponsiveDefault<T>(value: T, defaultValue: T, responsiveValue: T) {
-  return value === defaultValue ? responsiveValue : value;
-}
 
 const ActivityDiagram = (props: Props) => {
   const {
@@ -206,241 +205,7 @@ const ActivityDiagram = (props: Props) => {
   const shouldShowActivityLabels = viewportWidth <= HAMBURGER_NAV_BREAKPOINT;
 
   const renderConfig: ConfigData = useMemo(() => {
-    if (!isHamburgerNavLayout && !isLaptopDiagramLayout) {
-      return {
-        ...configData,
-        viewPort: {
-          ...configData.viewPort,
-          zoom: 1,
-        },
-      };
-    }
-
-    if (isLaptopDiagramLayout) {
-      return {
-        ...configData,
-        viewPort: {
-          ...configData.viewPort,
-          zoom: 1,
-        },
-        layout: {
-          ...configData.layout,
-          individual: {
-            ...configData.layout.individual,
-            topMargin: useResponsiveDefault(
-              configData.layout.individual.topMargin,
-              defaultConfig.layout.individual.topMargin,
-              30
-            ),
-            bottomMargin: useResponsiveDefault(
-              configData.layout.individual.bottomMargin,
-              defaultConfig.layout.individual.bottomMargin,
-              38
-            ),
-            height: useResponsiveDefault(
-              configData.layout.individual.height,
-              defaultConfig.layout.individual.height,
-              28
-            ),
-            gap: useResponsiveDefault(
-              configData.layout.individual.gap,
-              defaultConfig.layout.individual.gap,
-              13
-            ),
-            xMargin: useResponsiveDefault(
-              configData.layout.individual.xMargin,
-              defaultConfig.layout.individual.xMargin,
-              52
-            ),
-          },
-          system: {
-            ...configData.layout.system,
-            componentGap: useResponsiveDefault(
-              configData.layout.system.componentGap,
-              defaultConfig.layout.system.componentGap,
-              12
-            ),
-            hostComponentPadding: useResponsiveDefault(
-              configData.layout.system.hostComponentPadding,
-              defaultConfig.layout.system.hostComponentPadding,
-              10
-            ),
-          },
-        },
-        presentation: {
-          ...configData.presentation,
-          axis: {
-            ...configData.presentation.axis,
-            width: useResponsiveDefault(
-              configData.presentation.axis.width,
-              defaultConfig.presentation.axis.width,
-              17
-            ),
-            margin: useResponsiveDefault(
-              configData.presentation.axis.margin,
-              defaultConfig.presentation.axis.margin,
-              22
-            ),
-            textOffsetX: useResponsiveDefault(
-              configData.presentation.axis.textOffsetX,
-              defaultConfig.presentation.axis.textOffsetX,
-              6
-            ),
-            textOffsetY: useResponsiveDefault(
-              configData.presentation.axis.textOffsetY,
-              defaultConfig.presentation.axis.textOffsetY,
-              5
-            ),
-            endMargin: useResponsiveDefault(
-              configData.presentation.axis.endMargin,
-              defaultConfig.presentation.axis.endMargin,
-              32
-            ),
-            fontSize: useResponsiveDefault(
-              configData.presentation.axis.fontSize,
-              defaultConfig.presentation.axis.fontSize,
-              "0.92em"
-            ),
-          },
-        },
-        labels: {
-          ...configData.labels,
-          individual: {
-            ...configData.labels.individual,
-            fontSize: useResponsiveDefault(
-              configData.labels.individual.fontSize,
-              defaultConfig.labels.individual.fontSize,
-              "1em"
-            ),
-          },
-          activity: {
-            ...configData.labels.activity,
-            fontSize: useResponsiveDefault(
-              configData.labels.activity.fontSize,
-              defaultConfig.labels.activity.fontSize,
-              "0.85em"
-            ),
-          },
-        },
-      };
-    }
-
-    return {
-      ...configData,
-      viewPort: {
-        ...configData.viewPort,
-        zoom: 1,
-      },
-      layout: {
-        ...configData.layout,
-        individual: {
-          ...configData.layout.individual,
-          topMargin: useResponsiveDefault(
-            configData.layout.individual.topMargin,
-            defaultConfig.layout.individual.topMargin,
-            40
-          ),
-          bottomMargin: useResponsiveDefault(
-            configData.layout.individual.bottomMargin,
-            defaultConfig.layout.individual.bottomMargin,
-            50
-          ),
-          height: useResponsiveDefault(
-            configData.layout.individual.height,
-            defaultConfig.layout.individual.height,
-            50
-          ),
-          gap: useResponsiveDefault(
-            configData.layout.individual.gap,
-            defaultConfig.layout.individual.gap,
-            23
-          ),
-          xMargin: useResponsiveDefault(
-            configData.layout.individual.xMargin,
-            defaultConfig.layout.individual.xMargin,
-            64
-          ),
-          textLength: useResponsiveDefault(
-            configData.layout.individual.textLength,
-            defaultConfig.layout.individual.textLength,
-            132
-          ),
-        },
-        system: {
-          ...configData.layout.system,
-          componentGap: useResponsiveDefault(
-            configData.layout.system.componentGap,
-            defaultConfig.layout.system.componentGap,
-            18
-          ),
-          hostComponentPadding: useResponsiveDefault(
-            configData.layout.system.hostComponentPadding,
-            defaultConfig.layout.system.hostComponentPadding,
-            15
-          ),
-        },
-      },
-      presentation: {
-        ...configData.presentation,
-        axis: {
-          ...configData.presentation.axis,
-          width: useResponsiveDefault(
-            configData.presentation.axis.width,
-            defaultConfig.presentation.axis.width,
-            20
-          ),
-          margin: useResponsiveDefault(
-            configData.presentation.axis.margin,
-            defaultConfig.presentation.axis.margin,
-            26
-          ),
-          textOffsetX: useResponsiveDefault(
-            configData.presentation.axis.textOffsetX,
-            defaultConfig.presentation.axis.textOffsetX,
-            7
-          ),
-          textOffsetY: useResponsiveDefault(
-            configData.presentation.axis.textOffsetY,
-            defaultConfig.presentation.axis.textOffsetY,
-            6
-          ),
-          endMargin: useResponsiveDefault(
-            configData.presentation.axis.endMargin,
-            defaultConfig.presentation.axis.endMargin,
-            36
-          ),
-          fontSize: useResponsiveDefault(
-            configData.presentation.axis.fontSize,
-            defaultConfig.presentation.axis.fontSize,
-            "1.18em"
-          ),
-        },
-      },
-      labels: {
-        ...configData.labels,
-        individual: {
-          ...configData.labels.individual,
-          fontSize: useResponsiveDefault(
-            configData.labels.individual.fontSize,
-            defaultConfig.labels.individual.fontSize,
-            "1.32em"
-          ),
-          maxChars: useResponsiveDefault(
-            configData.labels.individual.maxChars,
-            defaultConfig.labels.individual.maxChars,
-            28
-          ),
-        },
-        activity: {
-          ...configData.labels.activity,
-          fontSize: useResponsiveDefault(
-            configData.labels.activity.fontSize,
-            defaultConfig.labels.activity.fontSize,
-            "1.15em"
-          ),
-        },
-      },
-    };
+    return getResponsiveDiagramConfig(configData, viewportWidth);
   }, [configData, isHamburgerNavLayout, isLaptopDiagramLayout]);
 
   const searchableEntities = useMemo(() => {
@@ -598,7 +363,7 @@ const ActivityDiagram = (props: Props) => {
     );
   }, [
     dataset,
-    configData,
+    renderConfig,
     activityContext,
     themeAttribute,
     svgRef,

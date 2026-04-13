@@ -4,7 +4,7 @@ import Breadcrumb from "react-bootstrap/Breadcrumb";
 import Button from "react-bootstrap/Button";
 import Draggable from "react-draggable";
 import { drawActivityDiagram } from "@/diagram/DrawActivityDiagram";
-import { ConfigData } from "@/diagram/config";
+import { config as defaultConfig, ConfigData } from "@/diagram/config";
 import { Model } from "@/lib/Model";
 import { Activity, Id, Individual, Maybe, Participation } from "@/lib/Schema";
 import { ENTITY_TYPE_IDS, getEntityTypeIdFromIndividual, getEntityTypeLabel } from "@/lib/entityTypes";
@@ -37,6 +37,10 @@ const MOBILE_DIAGRAM_BREAKPOINT = 767.98;
 const HAMBURGER_NAV_BREAKPOINT = 991.98;
 const LAPTOP_DIAGRAM_BREAKPOINT = 1599.98;
 const MOBILE_MINIMAP_CANVAS_HEIGHT_PX = 120;
+
+function useResponsiveDefault<T>(value: T, defaultValue: T, responsiveValue: T) {
+  return value === defaultValue ? responsiveValue : value;
+}
 
 const ActivityDiagram = (props: Props) => {
   const {
@@ -223,39 +227,99 @@ const ActivityDiagram = (props: Props) => {
           ...configData.layout,
           individual: {
             ...configData.layout.individual,
-            topMargin: Math.max(configData.layout.individual.topMargin, 30),
-            bottomMargin: Math.max(configData.layout.individual.bottomMargin, 38),
-            height: Math.max(configData.layout.individual.height, 28),
-            gap: Math.max(configData.layout.individual.gap, 13),
-            xMargin: Math.max(configData.layout.individual.xMargin, 52),
+            topMargin: useResponsiveDefault(
+              configData.layout.individual.topMargin,
+              defaultConfig.layout.individual.topMargin,
+              30
+            ),
+            bottomMargin: useResponsiveDefault(
+              configData.layout.individual.bottomMargin,
+              defaultConfig.layout.individual.bottomMargin,
+              38
+            ),
+            height: useResponsiveDefault(
+              configData.layout.individual.height,
+              defaultConfig.layout.individual.height,
+              28
+            ),
+            gap: useResponsiveDefault(
+              configData.layout.individual.gap,
+              defaultConfig.layout.individual.gap,
+              13
+            ),
+            xMargin: useResponsiveDefault(
+              configData.layout.individual.xMargin,
+              defaultConfig.layout.individual.xMargin,
+              52
+            ),
           },
           system: {
             ...configData.layout.system,
-            componentGap: Math.max(configData.layout.system.componentGap, 12),
-            hostComponentPadding: Math.max(configData.layout.system.hostComponentPadding, 10),
+            componentGap: useResponsiveDefault(
+              configData.layout.system.componentGap,
+              defaultConfig.layout.system.componentGap,
+              12
+            ),
+            hostComponentPadding: useResponsiveDefault(
+              configData.layout.system.hostComponentPadding,
+              defaultConfig.layout.system.hostComponentPadding,
+              10
+            ),
           },
         },
         presentation: {
           ...configData.presentation,
           axis: {
             ...configData.presentation.axis,
-            width: Math.max(configData.presentation.axis.width, 17),
-            margin: Math.max(configData.presentation.axis.margin, 22),
-            textOffsetX: Math.max(configData.presentation.axis.textOffsetX, 6),
-            textOffsetY: Math.max(configData.presentation.axis.textOffsetY, 5),
-            endMargin: Math.max(configData.presentation.axis.endMargin, 32),
-            fontSize: "0.92em",
+            width: useResponsiveDefault(
+              configData.presentation.axis.width,
+              defaultConfig.presentation.axis.width,
+              17
+            ),
+            margin: useResponsiveDefault(
+              configData.presentation.axis.margin,
+              defaultConfig.presentation.axis.margin,
+              22
+            ),
+            textOffsetX: useResponsiveDefault(
+              configData.presentation.axis.textOffsetX,
+              defaultConfig.presentation.axis.textOffsetX,
+              6
+            ),
+            textOffsetY: useResponsiveDefault(
+              configData.presentation.axis.textOffsetY,
+              defaultConfig.presentation.axis.textOffsetY,
+              5
+            ),
+            endMargin: useResponsiveDefault(
+              configData.presentation.axis.endMargin,
+              defaultConfig.presentation.axis.endMargin,
+              32
+            ),
+            fontSize: useResponsiveDefault(
+              configData.presentation.axis.fontSize,
+              defaultConfig.presentation.axis.fontSize,
+              "0.92em"
+            ),
           },
         },
         labels: {
           ...configData.labels,
           individual: {
             ...configData.labels.individual,
-            fontSize: "1em",
+            fontSize: useResponsiveDefault(
+              configData.labels.individual.fontSize,
+              defaultConfig.labels.individual.fontSize,
+              "1em"
+            ),
           },
           activity: {
             ...configData.labels.activity,
-            fontSize: "0.85em",
+            fontSize: useResponsiveDefault(
+              configData.labels.activity.fontSize,
+              defaultConfig.labels.activity.fontSize,
+              "0.85em"
+            ),
           },
         },
       };
@@ -271,41 +335,109 @@ const ActivityDiagram = (props: Props) => {
         ...configData.layout,
         individual: {
           ...configData.layout.individual,
-          topMargin: Math.max(configData.layout.individual.topMargin, 40),
-          bottomMargin: Math.max(configData.layout.individual.bottomMargin, 50),
-          height: Math.max(configData.layout.individual.height, 50),
-          gap: Math.max(configData.layout.individual.gap, 23),
-          xMargin: Math.max(configData.layout.individual.xMargin, 64),
-          textLength: Math.max(configData.layout.individual.textLength, 132),
+          topMargin: useResponsiveDefault(
+            configData.layout.individual.topMargin,
+            defaultConfig.layout.individual.topMargin,
+            40
+          ),
+          bottomMargin: useResponsiveDefault(
+            configData.layout.individual.bottomMargin,
+            defaultConfig.layout.individual.bottomMargin,
+            50
+          ),
+          height: useResponsiveDefault(
+            configData.layout.individual.height,
+            defaultConfig.layout.individual.height,
+            50
+          ),
+          gap: useResponsiveDefault(
+            configData.layout.individual.gap,
+            defaultConfig.layout.individual.gap,
+            23
+          ),
+          xMargin: useResponsiveDefault(
+            configData.layout.individual.xMargin,
+            defaultConfig.layout.individual.xMargin,
+            64
+          ),
+          textLength: useResponsiveDefault(
+            configData.layout.individual.textLength,
+            defaultConfig.layout.individual.textLength,
+            132
+          ),
         },
         system: {
           ...configData.layout.system,
-          componentGap: Math.max(configData.layout.system.componentGap, 18),
-          hostComponentPadding: Math.max(configData.layout.system.hostComponentPadding, 15),
+          componentGap: useResponsiveDefault(
+            configData.layout.system.componentGap,
+            defaultConfig.layout.system.componentGap,
+            18
+          ),
+          hostComponentPadding: useResponsiveDefault(
+            configData.layout.system.hostComponentPadding,
+            defaultConfig.layout.system.hostComponentPadding,
+            15
+          ),
         },
       },
       presentation: {
         ...configData.presentation,
         axis: {
           ...configData.presentation.axis,
-          width: Math.max(configData.presentation.axis.width, 20),
-          margin: Math.max(configData.presentation.axis.margin, 26),
-          textOffsetX: Math.max(configData.presentation.axis.textOffsetX, 7),
-          textOffsetY: Math.max(configData.presentation.axis.textOffsetY, 6),
-          endMargin: Math.max(configData.presentation.axis.endMargin, 36),
-          fontSize: "1.18em",
+          width: useResponsiveDefault(
+            configData.presentation.axis.width,
+            defaultConfig.presentation.axis.width,
+            20
+          ),
+          margin: useResponsiveDefault(
+            configData.presentation.axis.margin,
+            defaultConfig.presentation.axis.margin,
+            26
+          ),
+          textOffsetX: useResponsiveDefault(
+            configData.presentation.axis.textOffsetX,
+            defaultConfig.presentation.axis.textOffsetX,
+            7
+          ),
+          textOffsetY: useResponsiveDefault(
+            configData.presentation.axis.textOffsetY,
+            defaultConfig.presentation.axis.textOffsetY,
+            6
+          ),
+          endMargin: useResponsiveDefault(
+            configData.presentation.axis.endMargin,
+            defaultConfig.presentation.axis.endMargin,
+            36
+          ),
+          fontSize: useResponsiveDefault(
+            configData.presentation.axis.fontSize,
+            defaultConfig.presentation.axis.fontSize,
+            "1.18em"
+          ),
         },
       },
       labels: {
         ...configData.labels,
         individual: {
           ...configData.labels.individual,
-          fontSize: "1.32em",
-          maxChars: Math.max(configData.labels.individual.maxChars, 28),
+          fontSize: useResponsiveDefault(
+            configData.labels.individual.fontSize,
+            defaultConfig.labels.individual.fontSize,
+            "1.32em"
+          ),
+          maxChars: useResponsiveDefault(
+            configData.labels.individual.maxChars,
+            defaultConfig.labels.individual.maxChars,
+            28
+          ),
         },
         activity: {
           ...configData.labels.activity,
-          fontSize: "1.15em",
+          fontSize: useResponsiveDefault(
+            configData.labels.activity.fontSize,
+            defaultConfig.labels.activity.fontSize,
+            "1.15em"
+          ),
         },
       },
     };

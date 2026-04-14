@@ -239,6 +239,17 @@ h4.doc-section-heading {
   width: 100%;
   background-color: var(--bs-body-bg) !important;
   border-bottom: 1px solid var(--bs-border-color-translucent);
+  transition: transform 0.3s ease;
+}
+
+.nav-scroll-hidden .app-navbar {
+  transform: translateY(-100%);
+}
+
+.nav-scroll-hidden .breadcrumb-wrapper {
+  transform: translateY(-200%);
+  opacity: 0;
+  pointer-events: none;
 }
 
 .brand-image-surface {
@@ -972,6 +983,7 @@ body.modal-open {
   column-gap: 1rem;
   row-gap: 0.75rem;
   align-items: start;
+  isolation: isolate;
 }
 
 .editor-layout.is-empty {
@@ -1861,6 +1873,13 @@ body.modal-open {
   top: 86px;
   z-index: 11;
   margin-top: -30px;
+  transition: transform 0.3s ease, opacity 0.3s ease;
+}
+
+.nav-scroll-hidden .diagram-icon-toggle {
+  transform: translateY(-200%);
+  opacity: 0;
+  pointer-events: none;
 }
 
 .diagram-search-wrap {
@@ -1877,7 +1896,7 @@ body.modal-open {
   border-radius: 0.375rem;
   padding: 0.375rem;
   box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.15);
-  z-index: 20;
+  z-index: 1080;
 }
 
 .diagram-search-input-wrap {
@@ -2091,20 +2110,34 @@ html.app-custom-theme .diagram-search-input:focus {
 }
 
 @media (max-width: 576px) {
-  .diagram-icon-toggle button {
+  .diagram-icon-toggle .btn {
     width: 1.6rem !important;
     height: 1.6rem !important;
   }
 
-  .diagram-icon-toggle svg {
+  .diagram-icon-toggle .btn svg {
     width: 0.8rem;
     height: 0.8rem;
   }
 
   .diagram-search-popover {
-    width: calc(100vw - 2rem);
-    max-width: 17.5rem;
-    right: -0.5rem;
+    top: 2.1rem;
+    width: min(14.5rem, calc(100vw - 3.25rem));
+    max-width: 14.5rem;
+    right: 0;
+    padding: 0.3rem;
+  }
+
+  .diagram-search-results {
+    max-height: 10.5rem;
+  }
+
+  .diagram-search-name {
+    font-size: 0.8rem;
+  }
+
+  .diagram-search-type {
+    font-size: 0.68rem;
   }
 }
 
@@ -2399,6 +2432,18 @@ html.app-custom-theme .diagram-search-input:focus {
   .editor-layout.is-empty .empty-toolbar {
     padding-left: var(--bs-gutter-x, 0.75rem);
     padding-right: var(--bs-gutter-x, 0.75rem);
+  }
+
+  .editor-diagram {
+    position: relative;
+  }
+
+  .editor-diagram:has(.diagram-viewport-search-open) {
+    z-index: 12;
+  }
+
+  .diagram-viewport-search-open {
+    z-index: 12;
   }
 
   .editor-legend {
@@ -2811,6 +2856,7 @@ html.app-custom-theme .diagram-search-input:focus {
   min-height: 52px;
   display: flex !important;
   align-items: center;
+  transition: transform 0.3s ease, opacity 0.3s ease;
 }
 
 .breadcrumb-wrapper::before {
@@ -2968,6 +3014,17 @@ html.app-custom-theme .breadcrumb-wrapper .breadcrumb-item a:hover {
     margin-right: -0.75rem !important;
     padding-left: 0.75rem !important;
     padding-right: 0.75rem !important;
+  }
+  .diagram-icon-toggle {
+    position: absolute !important;
+    top: -30px !important;
+    right: 0 !important;
+    margin-top: 0 !important;
+  }
+  .nav-scroll-hidden .diagram-icon-toggle {
+    transform: none !important;
+    opacity: 1 !important;
+    pointer-events: auto !important;
   }
   .doc-jump-links {
     top: 128px !important;

@@ -17,6 +17,7 @@ import {
   clickActivities,
   drawActivities,
   hoverActivities,
+  labelActivities,
 } from "./DrawActivities";
 import { clickParticipations, drawParticipations } from "./DrawParticipations";
 import * as d3 from "d3";
@@ -168,6 +169,7 @@ export function drawActivityDiagram(
   hoverActivities(drawCtx);
   clickActivities(drawCtx, clickActivity, rightClickActivity);
   drawParticipations(drawCtx);
+  labelActivities(drawCtx);
   clickParticipations(drawCtx, clickParticipation, rightClickParticipation);
   drawAxisArrows(drawCtx, height);
   let plot: Plot = {

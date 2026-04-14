@@ -83,6 +83,8 @@ const ActivityDiagram = (props: Props) => {
   const [highlightedSearchIndex, setHighlightedSearchIndex] = useState(-1);
   const searchResultsRef = useRef<HTMLDivElement>(null);
   const searchDragRef = useRef<HTMLDivElement>(null);
+  const searchButtonRef = useRef<HTMLButtonElement>(null);
+  const [searchPopoverAnchor, setSearchPopoverAnchor] = useState({ left: 16, top: 16 });
   const [viewportWidth, setViewportWidth] = useState(
     typeof window !== "undefined" ? window.innerWidth : 1440
   );
@@ -235,6 +237,34 @@ const ActivityDiagram = (props: Props) => {
   useEffect(() => {
     setHighlightedSearchIndex(-1);
   }, [filteredSearchResults]);
+
+  useEffect(() => {
+    if (!isSearchOpen || typeof window === "undefined") return;
+
+    const updateSearchPopoverAnchor = () => {
+      const buttonRect = searchButtonRef.current?.getBoundingClientRect();
+      if (!buttonRect) return;
+
+      const popoverWidth =
+        window.innerWidth <= 576
+          ? Math.min(14.5 * 16, window.innerWidth - 52)
+          : 17.5 * 16;
+      const left = Math.max(
+        16,
+        Math.min(buttonRect.right - popoverWidth, window.innerWidth - popoverWidth - 16)
+      );
+      const top = Math.max(16, buttonRect.bottom + 8);
+
+      setSearchPopoverAnchor({ left, top });
+    };
+
+    updateSearchPopoverAnchor();
+    window.addEventListener("resize", updateSearchPopoverAnchor, { passive: true });
+
+    return () => {
+      window.removeEventListener("resize", updateSearchPopoverAnchor);
+    };
+  }, [isSearchOpen, viewportWidth]);
 
   useEffect(() => {
     if (typeof document === "undefined") return;
@@ -957,11 +987,217 @@ const ActivityDiagram = (props: Props) => {
     </div>
   ) : null;
 
+  const searchPopoverRoot =
+    typeof document !== "undefined" ? document.getElementById("app-overlay-root") : null;
+
+  const searchPopover = isSearchOpen && searchPopoverRoot
+    ? createPortal(
+        <Draggable nodeRef={searchDragRef} handle=".diagram-search-drag-handle">
+          <div
+            className="diagram-search-popover"
+            ref={searchDragRef}
+            style={{
+              position: "fixed",
+              left: `${searchPopoverAnchor.left}px`,
+              top: `${searchPopoverAnchor.top}px`,
+              zIndex: 3000,
+            }}
+          >
+            <div
+              className="diagram-search-drag-handle"
+              style={{
+                cursor: "grab",
+                width: "100%",
+                height: "12px",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                marginBottom: "6px",
+                opacity: 0.3,
+              }}
+              title="Drag to move"
+              onMouseDown={(e) => (e.currentTarget.style.cursor = "grabbing")}
+              onMouseUp={(e) => (e.currentTarget.style.cursor = "grab")}
+            >
+              <svg width="24" height="6" viewBox="0 0 24 6" fill="currentColor">
+                <circle cx="2" cy="3" r="1.5" />
+                <circle cx="8" cy="3" r="1.5" />
+                <circle cx="14" cy="3" r="1.5" />
+                <circle cx="20" cy="3" r="1.5" />
+              </svg>
+            </div>
+            <div className="diagram-search-input-wrap">
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(event) => {
+                  setSearchQuery(event.target.value);
+                  setHighlightedSearchIndex(-1);
+                }}
+                onKeyDown={(e) => {
+                  const len = filteredSearchResults.length;
+                  if (len === 0) return;
+                  if (e.key === "ArrowDown") {
+                    e.preventDefault();
+                    setHighlightedSearchIndex((prev) => {
+                      const next = prev < len - 1 ? prev + 1 : 0;
+                      requestAnimationFrame(() => {
+                        const container = searchResultsRef.current;
+                        const child = container?.children[next] as HTMLElement | undefined;
+                        if (container && child) {
+                          const childTop = child.offsetTop;
+                          const childBottom = childTop + child.offsetHeight;
+                          if (childBottom > container.scrollTop + container.clientHeight) {
+                            container.scrollTop = childBottom - container.clientHeight;
+                          } else if (childTop < container.scrollTop) {
+                            container.scrollTop = childTop;
+                          }
+                        }
+                      });
+                      return next;
+                    });
+                  } else if (e.key === "ArrowUp") {
+                    e.preventDefault();
+                    setHighlightedSearchIndex((prev) => {
+                      const next = prev > 0 ? prev - 1 : len - 1;
+                      requestAnimationFrame(() => {
+                        const container = searchResultsRef.current;
+                        const child = container?.children[next] as HTMLElement | undefined;
+                        if (container && child) {
+                          const childTop = child.offsetTop;
+                          const childBottom = childTop + child.offsetHeight;
+                          if (childTop < container.scrollTop) {
+                            container.scrollTop = childTop;
+                          } else if (childBottom > container.scrollTop + container.clientHeight) {
+                            container.scrollTop = childBottom - container.clientHeight;
+                          }
+                        }
+                      });
+                      return next;
+                    });
+                  } else if (e.key === "Enter" && highlightedSearchIndex >= 0 && highlightedSearchIndex < len) {
+                    e.preventDefault();
+                    const entity = filteredSearchResults[highlightedSearchIndex];
+                    focusEntityFromSearch(entity.id);
+                  } else if (e.key === "Escape") {
+                    setIsSearchOpen(false);
+                    setSearchQuery("");
+                  }
+                }}
+                placeholder="Search entity"
+                className="diagram-search-input"
+                autoFocus
+              />
+              {searchQuery && (
+                <button
+                  type="button"
+                  className="diagram-search-clear"
+                  onClick={() => setSearchQuery("")}
+                  title="Clear search"
+                >
+                  <svg width="1em" height="1em" viewBox="0 0 16 16" aria-hidden="true">
+                    <path d="M4.646 4.646a.5.5 0 0 1 .708 0L8 7.293l2.646-2.647a.5.5 0 0 1 .708.708L8.707 8l2.647 2.646a.5.5 0 0 1-.708.708L8 8.707l-2.646 2.647a.5.5 0 0 1-.708-.708L7.293 8 4.646 5.354a.5.5 0 0 1 0-.708z" fill="currentColor" />
+                  </svg>
+                </button>
+              )}
+            </div>
+
+            <div className="diagram-search-results" ref={searchResultsRef}>
+              {filteredSearchResults.length === 0 ? (
+                <div className="diagram-search-empty">No results</div>
+              ) : (
+                filteredSearchResults.map((entity) =>
+                  editingEntityId === entity.id ? (
+                    <div key={entity.id} className="diagram-search-result-edit">
+                      <input
+                        type="text"
+                        value={editingEntityName}
+                        onChange={(e) => setEditingEntityName(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter") {
+                            if (renameIndividual && editingEntityName.trim()) {
+                              renameIndividual(entity.id, editingEntityName.trim());
+                            }
+                            setEditingEntityId(null);
+                          } else if (e.key === "Escape") {
+                            setEditingEntityId(null);
+                          }
+                        }}
+                        autoFocus
+                        className="diagram-search-edit-input"
+                      />
+                      <button
+                        type="button"
+                        className="diagram-search-edit-confirm"
+                        title="Confirm"
+                        onMouseDown={(e) => {
+                          e.preventDefault();
+                          if (renameIndividual && editingEntityName.trim()) {
+                            renameIndividual(entity.id, editingEntityName.trim());
+                          }
+                          setEditingEntityId(null);
+                        }}
+                      >
+                        <svg width="1em" height="1em" viewBox="0 0 16 16" aria-hidden="true">
+                          <path d="M13.485 1.929a.75.75 0 0 1 .086 1.057l-7.25 8.5a.75.75 0 0 1-1.1.042l-3.25-3.25a.75.75 0 0 1 1.06-1.06l2.663 2.663 6.734-7.893a.75.75 0 0 1 1.057-.059z" fill="currentColor" />
+                        </svg>
+                      </button>
+                    </div>
+                  ) : (
+                    <button
+                      key={entity.id}
+                      type="button"
+                      className={`diagram-search-result${filteredSearchResults.indexOf(entity) === highlightedSearchIndex ? " diagram-search-result-active" : ""}`}
+                      onClick={() => {
+                        focusEntityFromSearch(entity.id);
+                      }}
+                      onMouseEnter={() => setHighlightedSearchIndex(filteredSearchResults.indexOf(entity))}
+                    >
+                      <span className="diagram-search-name">{entity.name}</span>
+                      <span className="diagram-search-actions">
+                        <span className="diagram-search-type">{entity.typeLabel}</span>
+                        {renameIndividual && (
+                          <span
+                            className="diagram-search-edit-icon"
+                            role="button"
+                            tabIndex={0}
+                            title="Edit name"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setEditingEntityId(entity.id);
+                              setEditingEntityName(entity.name);
+                            }}
+                            onKeyDown={(e) => {
+                              if (e.key === "Enter" || e.key === " ") {
+                                e.stopPropagation();
+                                e.preventDefault();
+                                setEditingEntityId(entity.id);
+                                setEditingEntityName(entity.name);
+                              }
+                            }}
+                          >
+                            <svg width="1em" height="1em" viewBox="0 0 16 16" aria-hidden="true">
+                              <path d="M12.854.146a.5.5 0 0 0-.707 0L10.5 1.793 14.207 5.5l1.647-1.646a.5.5 0 0 0 0-.708L12.854.146zM13.5 6.207L9.793 2.5 3.622 8.671a.5.5 0 0 0-.121.196l-1.47 4.166a.5.5 0 0 0 .638.638l4.166-1.47a.5.5 0 0 0 .196-.12L13.5 6.207z" fill="currentColor" />
+                            </svg>
+                          </span>
+                        )}
+                      </span>
+                    </button>
+                  )
+                )
+              )}
+            </div>
+          </div>
+        </Draggable>,
+        searchPopoverRoot
+      )
+    : null;
+
   return (
     <>
       <Breadcrumb>{crumbs}</Breadcrumb>
       <div
-        className="diagram-viewport"
+        className={`diagram-viewport${isSearchOpen ? " diagram-viewport-search-open" : ""}`}
         style={{
           position: "relative",
           display: "flex",
@@ -1036,6 +1272,7 @@ const ActivityDiagram = (props: Props) => {
 
           <div className="diagram-search-wrap">
             <Button
+              ref={searchButtonRef}
               variant={isSearchOpen ? "primary" : "secondary"}
               size="sm"
               onClick={() => {
@@ -1051,197 +1288,6 @@ const ActivityDiagram = (props: Props) => {
                 <path d="M11 11l3 3" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
               </svg>
             </Button>
-
-            {isSearchOpen && (
-              <Draggable nodeRef={searchDragRef} handle=".diagram-search-drag-handle">
-              <div className="diagram-search-popover" ref={searchDragRef}>
-                <div
-                  className="diagram-search-drag-handle"
-                  style={{
-                    cursor: "grab",
-                    width: "100%",
-                    height: "12px",
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    marginBottom: "6px",
-                    opacity: 0.3,
-                  }}
-                  title="Drag to move"
-                  onMouseDown={(e) => (e.currentTarget.style.cursor = "grabbing")}
-                  onMouseUp={(e) => (e.currentTarget.style.cursor = "grab")}
-                >
-                  <svg width="24" height="6" viewBox="0 0 24 6" fill="currentColor">
-                    <circle cx="2" cy="3" r="1.5" />
-                    <circle cx="8" cy="3" r="1.5" />
-                    <circle cx="14" cy="3" r="1.5" />
-                    <circle cx="20" cy="3" r="1.5" />
-                  </svg>
-                </div>
-                <div className="diagram-search-input-wrap">
-                  <input
-                    type="text"
-                    value={searchQuery}
-                    onChange={(event) => {
-                      setSearchQuery(event.target.value);
-                      setHighlightedSearchIndex(-1);
-                    }}
-                    onKeyDown={(e) => {
-                      const len = filteredSearchResults.length;
-                      if (len === 0) return;
-                      if (e.key === "ArrowDown") {
-                        e.preventDefault();
-                        setHighlightedSearchIndex((prev) => {
-                          const next = prev < len - 1 ? prev + 1 : 0;
-                          requestAnimationFrame(() => {
-                            const container = searchResultsRef.current;
-                            const child = container?.children[next] as HTMLElement | undefined;
-                            if (container && child) {
-                              const childTop = child.offsetTop;
-                              const childBottom = childTop + child.offsetHeight;
-                              if (childBottom > container.scrollTop + container.clientHeight) {
-                                container.scrollTop = childBottom - container.clientHeight;
-                              } else if (childTop < container.scrollTop) {
-                                container.scrollTop = childTop;
-                              }
-                            }
-                          });
-                          return next;
-                        });
-                      } else if (e.key === "ArrowUp") {
-                        e.preventDefault();
-                        setHighlightedSearchIndex((prev) => {
-                          const next = prev > 0 ? prev - 1 : len - 1;
-                          requestAnimationFrame(() => {
-                            const container = searchResultsRef.current;
-                            const child = container?.children[next] as HTMLElement | undefined;
-                            if (container && child) {
-                              const childTop = child.offsetTop;
-                              const childBottom = childTop + child.offsetHeight;
-                              if (childTop < container.scrollTop) {
-                                container.scrollTop = childTop;
-                              } else if (childBottom > container.scrollTop + container.clientHeight) {
-                                container.scrollTop = childBottom - container.clientHeight;
-                              }
-                            }
-                          });
-                          return next;
-                        });
-                      } else if (e.key === "Enter" && highlightedSearchIndex >= 0 && highlightedSearchIndex < len) {
-                        e.preventDefault();
-                        const entity = filteredSearchResults[highlightedSearchIndex];
-                        focusEntityFromSearch(entity.id);
-                      } else if (e.key === "Escape") {
-                        setIsSearchOpen(false);
-                        setSearchQuery("");
-                      }
-                    }}
-                    placeholder="Search entity"
-                    className="diagram-search-input"
-                    autoFocus
-                  />
-                  {searchQuery && (
-                    <button
-                      type="button"
-                      className="diagram-search-clear"
-                      onClick={() => setSearchQuery("")}
-                      title="Clear search"
-                    >
-                      <svg width="1em" height="1em" viewBox="0 0 16 16" aria-hidden="true">
-                        <path d="M4.646 4.646a.5.5 0 0 1 .708 0L8 7.293l2.646-2.647a.5.5 0 0 1 .708.708L8.707 8l2.647 2.646a.5.5 0 0 1-.708.708L8 8.707l-2.646 2.647a.5.5 0 0 1-.708-.708L7.293 8 4.646 5.354a.5.5 0 0 1 0-.708z" fill="currentColor" />
-                      </svg>
-                    </button>
-                  )}
-                </div>
-
-                <div className="diagram-search-results" ref={searchResultsRef}>
-                  {filteredSearchResults.length === 0 ? (
-                    <div className="diagram-search-empty">No results</div>
-                  ) : (
-                    filteredSearchResults.map((entity) =>
-                      editingEntityId === entity.id ? (
-                        <div key={entity.id} className="diagram-search-result-edit">
-                          <input
-                            type="text"
-                            value={editingEntityName}
-                            onChange={(e) => setEditingEntityName(e.target.value)}
-                            onKeyDown={(e) => {
-                              if (e.key === "Enter") {
-                                if (renameIndividual && editingEntityName.trim()) {
-                                  renameIndividual(entity.id, editingEntityName.trim());
-                                }
-                                setEditingEntityId(null);
-                              } else if (e.key === "Escape") {
-                                setEditingEntityId(null);
-                              }
-                            }}
-                            autoFocus
-                            className="diagram-search-edit-input"
-                          />
-                          <button
-                            type="button"
-                            className="diagram-search-edit-confirm"
-                            title="Confirm"
-                            onMouseDown={(e) => {
-                              e.preventDefault();
-                              if (renameIndividual && editingEntityName.trim()) {
-                                renameIndividual(entity.id, editingEntityName.trim());
-                              }
-                              setEditingEntityId(null);
-                            }}
-                          >
-                            <svg width="1em" height="1em" viewBox="0 0 16 16" aria-hidden="true">
-                              <path d="M13.485 1.929a.75.75 0 0 1 .086 1.057l-7.25 8.5a.75.75 0 0 1-1.1.042l-3.25-3.25a.75.75 0 0 1 1.06-1.06l2.663 2.663 6.734-7.893a.75.75 0 0 1 1.057-.059z" fill="currentColor" />
-                            </svg>
-                          </button>
-                        </div>
-                      ) : (
-                        <button
-                          key={entity.id}
-                          type="button"
-                          className={`diagram-search-result${filteredSearchResults.indexOf(entity) === highlightedSearchIndex ? " diagram-search-result-active" : ""}`}
-                          onClick={() => {
-                            focusEntityFromSearch(entity.id);
-                          }}
-                          onMouseEnter={() => setHighlightedSearchIndex(filteredSearchResults.indexOf(entity))}
-                        >
-                          <span className="diagram-search-name">{entity.name}</span>
-                          <span className="diagram-search-actions">
-                            <span className="diagram-search-type">{entity.typeLabel}</span>
-                            {renameIndividual && (
-                              <span
-                                className="diagram-search-edit-icon"
-                                role="button"
-                                tabIndex={0}
-                                title="Edit name"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  setEditingEntityId(entity.id);
-                                  setEditingEntityName(entity.name);
-                                }}
-                                onKeyDown={(e) => {
-                                  if (e.key === "Enter" || e.key === " ") {
-                                    e.stopPropagation();
-                                    e.preventDefault();
-                                    setEditingEntityId(entity.id);
-                                    setEditingEntityName(entity.name);
-                                  }
-                                }}
-                              >
-                                <svg width="1em" height="1em" viewBox="0 0 16 16" aria-hidden="true">
-                                  <path d="M12.854.146a.5.5 0 0 0-.707 0L10.5 1.793 14.207 5.5l1.647-1.646a.5.5 0 0 0 0-.708L12.854.146zM13.5 6.207L9.793 2.5 3.622 8.671a.5.5 0 0 0-.121.196l-1.47 4.166a.5.5 0 0 0 .638.638l4.166-1.47a.5.5 0 0 0 .196-.12L13.5 6.207z" fill="currentColor" />
-                                </svg>
-                              </span>
-                            )}
-                          </span>
-                        </button>
-                      )
-                    )
-                  )}
-                </div>
-              </div>
-              </Draggable>
-            )}
           </div>
 
           <Button
@@ -1268,6 +1314,7 @@ const ActivityDiagram = (props: Props) => {
             cursor: interactionMode === "zoom" ? "zoom-in" : "default",
           }}
         >
+          {searchPopover}
           <svg
             viewBox={`0 0 ${plot.width} ${plot.height}`}
             ref={svgRef}

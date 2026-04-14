@@ -167,17 +167,10 @@ export function drawActivities(ctx: DrawContext) {
 
   // Subtask badge rendering removed — badge no longer drawn on activities.
 
-  labelActivities(ctx, x, timeInterval, startOfTime);
-
   return svgElement;
 }
 
-function labelActivities(
-  ctx: DrawContext,
-  startingPosition: number,
-  timeInterval: number,
-  startOfTime: number
-) {
+export function labelActivities(ctx: DrawContext) {
   if (!ctx.showActivityLabels) {
     return;
   }
@@ -218,7 +211,7 @@ function labelActivities(
       .attr("text-anchor", "middle")
       .attr("font-family", diagramFontFamily)
       .attr("font-size", ctx.config.labels.activity.fontSize)
-      .attr("fill", "#441d62")
+      .attr("fill", ctx.config.labels.activity.color)
       .attr("pointer-events", "none")
       .text(activity.name || "");
   });

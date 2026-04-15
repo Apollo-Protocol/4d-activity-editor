@@ -38,6 +38,7 @@ const DiagramPersistence = (props: Props) => {
     className = "",
     buttonVariant = "primary",
   } = props;
+  const isEmptyPersistence = className.split(/\s+/).includes("empty-persistence");
   const [uploadText, setUploadText] = useState("");
   const [refDataOnly, setRefDataOnly] = useState(false);
   const [examples, setExamples] = useState<Example[]>([]);
@@ -134,7 +135,12 @@ const DiagramPersistence = (props: Props) => {
   return (
     <div className={`d-flex flex-wrap align-items-center justify-content-center gap-2 mobile-contents ${className}`.trim()}>
       {/* Load Example dropdown */}
-      <Dropdown className="toolbar-dropdown load-example-dropdown load-example-desktop-dropdown d-none d-lg-flex" align="start">
+      <Dropdown
+        className={`toolbar-dropdown load-example-dropdown load-example-desktop-dropdown ${
+          isEmptyPersistence ? "" : "d-none d-lg-flex"
+        }`.trim()}
+        align="start"
+      >
         <Dropdown.Toggle
           id="load-example-toggle"
           variant={buttonVariant}
@@ -151,40 +157,42 @@ const DiagramPersistence = (props: Props) => {
         </Dropdown.Menu>
       </Dropdown>
 
-      <div
-        ref={mobileExampleMenuRef}
-        className="toolbar-dropdown load-example-dropdown load-example-mobile-dropdown d-flex d-lg-none"
-      >
-        <button
-          id="load-example-toggle-mobile"
-          type="button"
-          className={`btn btn-${buttonVariant} load-example-mobile-toggle`}
-          onClick={() => setShowMobileExampleMenu((open) => !open)}
-          aria-haspopup="menu"
-          aria-expanded={showMobileExampleMenu}
-        >
-          <span className="load-example-mobile-label">Load example</span>
-          <span className="load-example-mobile-caret" aria-hidden="true" />
-        </button>
+      {!isEmptyPersistence ? (
         <div
-          className={`dropdown-menu load-example-mobile-menu ${showMobileExampleMenu ? "show" : ""}`.trim()}
-          role="menu"
-          aria-labelledby="load-example-toggle-mobile"
+          ref={mobileExampleMenuRef}
+          className="toolbar-dropdown load-example-dropdown load-example-mobile-dropdown d-flex d-lg-none"
         >
-          {examples.map((e) => (
-            <button
-              key={e.path}
-              type="button"
-              className="dropdown-item"
-              onClick={() => {
-                loadExample(e.path);
-              }}
-            >
-              {e.name}
-            </button>
-          ))}
+          <button
+            id="load-example-toggle-mobile"
+            type="button"
+            className={`btn btn-${buttonVariant} load-example-mobile-toggle`}
+            onClick={() => setShowMobileExampleMenu((open) => !open)}
+            aria-haspopup="menu"
+            aria-expanded={showMobileExampleMenu}
+          >
+            <span className="load-example-mobile-label">Load example</span>
+            <span className="load-example-mobile-caret" aria-hidden="true" />
+          </button>
+          <div
+            className={`dropdown-menu load-example-mobile-menu ${showMobileExampleMenu ? "show" : ""}`.trim()}
+            role="menu"
+            aria-labelledby="load-example-toggle-mobile"
+          >
+            {examples.map((e) => (
+              <button
+                key={e.path}
+                type="button"
+                className="dropdown-item"
+                onClick={() => {
+                  loadExample(e.path);
+                }}
+              >
+                {e.name}
+              </button>
+            ))}
+          </div>
         </div>
-      </div>
+      ) : null}
 
       {/* TTL Load/Save buttons */}
       <Button variant={buttonVariant} onClick={uploadTtl}>

@@ -2456,8 +2456,12 @@ html.app-custom-theme .diagram-search-input:focus {
   }
 
   .editor-layout.is-empty .editor-legend {
-    justify-self: center;
-    width: min(100%, 20rem);
+    justify-self: stretch;
+    width: 100%;
+    max-width: none;
+    padding-left: calc(var(--bs-gutter-x, 1.5rem) * 0.5);
+    padding-right: calc(var(--bs-gutter-x, 1.5rem) * 0.5);
+    box-sizing: border-box;
   }
 
   .legend-sticky {
@@ -2465,9 +2469,10 @@ html.app-custom-theme .diagram-search-input:focus {
   }
 
   .editor-layout.is-empty .legend-sticky {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    align-items: start;
+    gap: 0.5rem;
     width: 100%;
   }
 
@@ -2477,6 +2482,7 @@ html.app-custom-theme .diagram-search-input:focus {
 
   .editor-layout.is-empty .legend-card {
     width: 100%;
+    margin-bottom: 0;
   }
 
   .legend-body {
@@ -4632,9 +4638,21 @@ html.app-custom-theme .breadcrumb-wrapper .breadcrumb-item a:hover {
     display: flex;
     flex-direction: column;
   }
+
+  .editor-layout.is-empty .legend-sticky {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    align-items: start;
+    gap: 0.5rem;
+  }
 }
 
 @media (min-width: 768px) and (max-width: 991.98px) {
+  .editor-layout.is-empty .editor-legend {
+    justify-self: center;
+    width: min(100%, 720px);
+  }
+
   .legend-body {
     padding: 0.65rem;
   }

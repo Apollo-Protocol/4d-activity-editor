@@ -4,6 +4,7 @@ export interface ConfigData {
     x: number;
     minTimelineSpan: number;
     timelineBuffer: number;
+    activityVerticalScale: number;
   };
   layout: {
     individual: {
@@ -56,6 +57,7 @@ export interface ConfigData {
       textOffsetX: number;
       textOffsetY: number;
       endMargin: number;
+      fontSize: string;
     };
   };
   labels: {
@@ -83,6 +85,7 @@ export const config: ConfigData = {
     x: 1000,
     minTimelineSpan: 11,
     timelineBuffer: 2,
+    activityVerticalScale: 1,
   },
   layout: {
     individual: {
@@ -148,6 +151,7 @@ export const config: ConfigData = {
       textOffsetX: 5,
       textOffsetY: 4,
       endMargin: 30,
+      fontSize: "0.8em",
     },
   },
   labels: {

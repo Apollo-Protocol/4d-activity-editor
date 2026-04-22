@@ -74,6 +74,17 @@ const SetActivity = (props: Props) => {
     color: undefined,
   };
 
+  const normalizeActivityForForm = (activity: Activity): Activity => ({
+    ...activity,
+    name: activity.name ?? "",
+    type: activity.type ?? dataset.defaultActivityType,
+    description: activity.description ?? "",
+    beginning: Number.isFinite(activity.beginning) ? activity.beginning : 0,
+    ending: Number.isFinite(activity.ending) ? activity.ending : 1,
+    participations: activity.participations ?? new Map<string, Participation>(),
+    color: activity.color,
+  });
+
   const [inputs, setInputs] = useState(defaultActivity);
   const [errors, setErrors] = useState([]);
   const [dirty, setDirty] = useState(false);
@@ -210,10 +221,10 @@ const SetActivity = (props: Props) => {
 
   const handleShow = () => {
     if (selectedActivity) {
-      setInputs(normalizeParticipations(selectedActivity));
+      setInputs(normalizeActivityForForm(normalizeParticipations(selectedActivity)));
     } else {
       defaultActivity.id = uuidv4();
-      setInputs(defaultActivity);
+      setInputs(normalizeActivityForForm(defaultActivity));
     }
   };
   const handleAdd = (event: any) => {
@@ -1046,6 +1057,8 @@ const SetActivity = (props: Props) => {
                 // @ts-ignore
                 getOptionValue={(option) => option.optionKey}
                 onChange={handleChangeMultiselect}
+                menuPortalTarget={typeof document !== "undefined" ? document.body : undefined}
+                styles={{ menuPortal: (base: any) => ({ ...base, zIndex: 9999 }) }}
               />
             </Form.Group>
           </Form>

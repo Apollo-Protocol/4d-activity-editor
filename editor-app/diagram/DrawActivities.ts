@@ -16,11 +16,21 @@ import {
   splitParticipationByInstallations,
   ParticipationSegment,
 } from "@/utils/installations";
+import { getDiagramFontFamily } from "@/utils/appearance";
 
 let mouseOverElement: any | null = null;
 
+interface ActivityLabelLayoutNode {
+  node: SVGTextElement;
+  x: number;
+  baseY: number;
+  rectTop: number;
+  rectHeight: number;
+}
+
 export function drawActivities(ctx: DrawContext) {
   const { config, svgElement, activities, individuals, dataset, collapsedSystems } = ctx;
+  const activityVerticalScale = Math.max(0.1, Math.min(1, config.viewPort.activityVerticalScale ?? 1));
 
   if (activities.length === 0) {
     return svgElement;
@@ -93,20 +103,29 @@ export function drawActivities(ctx: DrawContext) {
       return x + timeInterval * (a.beginning - startOfTime);
     })
     .attr("y", (a: Activity) => {
-      return (
-        calculateTopPositionOfNewActivity(svgElement, a, individuals, dataset, collapsedSystems) -
-        config.layout.individual.gap * 0.3
-      );
+      return getActivityRectMetrics(
+        svgElement,
+        a,
+        individuals,
+        dataset,
+        collapsedSystems,
+        config.layout.individual.gap,
+        activityVerticalScale
+      ).y;
     })
     .attr("width", (a: Activity) => {
       return (a.ending - a.beginning) * timeInterval;
     })
     .attr("height", (a: Activity) => {
-      const bottomY = calculateLengthOfNewActivity(svgElement, a, individuals, dataset, collapsedSystems);
-      const topY = calculateTopPositionOfNewActivity(svgElement, a, individuals, dataset, collapsedSystems);
-      return bottomY
-        ? bottomY - topY + config.layout.individual.gap * 0.6
-        : 0;
+      return getActivityRectMetrics(
+        svgElement,
+        a,
+        individuals,
+        dataset,
+        collapsedSystems,
+        config.layout.individual.gap,
+        activityVerticalScale
+      ).height;
     })
     .attr("stroke", (a: Activity, i: number) => {
       return config.presentation.activity.stroke[
@@ -125,30 +144,154 @@ export function drawActivities(ctx: DrawContext) {
   // small helper functions to reuse computations
   const xOf = (a: Activity) => x + timeInterval * (a.beginning - startOfTime);
   const yOf = (a: Activity) =>
-    calculateTopPositionOfNewActivity(svgElement, a, individuals, dataset, collapsedSystems) -
-    config.layout.individual.gap * 0.3;
+    getActivityRectMetrics(
+      svgElement,
+      a,
+      individuals,
+      dataset,
+      collapsedSystems,
+      config.layout.individual.gap,
+      activityVerticalScale
+    ).y;
   const widthOf = (a: Activity) => (a.ending - a.beginning) * timeInterval;
-  const heightOf = (a: Activity) => {
-    const bottomY = calculateLengthOfNewActivity(svgElement, a, individuals, dataset, collapsedSystems);
-    const topY = calculateTopPositionOfNewActivity(svgElement, a, individuals, dataset, collapsedSystems);
-    return bottomY ? bottomY - topY + config.layout.individual.gap * 0.6 : 0;
-  };
+  const heightOf = (a: Activity) =>
+    getActivityRectMetrics(
+      svgElement,
+      a,
+      individuals,
+      dataset,
+      collapsedSystems,
+      config.layout.individual.gap,
+      activityVerticalScale
+    ).height;
 
   // Subtask badge rendering removed — badge no longer drawn on activities.
-
-  labelActivities(ctx, x, timeInterval, startOfTime);
 
   return svgElement;
 }
 
-function labelActivities(
-  ctx: DrawContext,
-  startingPosition: number,
-  timeInterval: number,
-  startOfTime: number
-) {
-  // Labels are now provided via the external legend; do not draw activity text on the SVG.
-  return;
+export function labelActivities(ctx: DrawContext) {
+  if (!ctx.showActivityLabels) {
+    return;
+  }
+
+  const { svgElement, activities } = ctx;
+  const diagramFontFamily = getDiagramFontFamily();
+  const placedLabelBoxes: Array<{
+    left: number;
+    right: number;
+    top: number;
+    bottom: number;
+  }> = [];
+
+  svgElement.selectAll(".activityLabel").remove();
+
+  activities.forEach((activity) => {
+    const rect = svgElement.select(`#a${activity.id}`);
+    if (rect.empty()) return;
+
+    const x = parseFloat(rect.attr("x") || "0");
+    const y = parseFloat(rect.attr("y") || "0");
+    const width = parseFloat(rect.attr("width") || "0");
+    const height = parseFloat(rect.attr("height") || "0");
+
+    if (width <= 0 || height <= 0) return;
+
+    const baseY = y + height / 2 + 4;
+
+    svgElement
+      .append("text")
+      .attr("class", "activityLabel")
+      .attr("id", `al${activity.id}`)
+      .attr("x", x + width / 2)
+      .attr("y", baseY)
+      .attr("data-base-y", baseY)
+      .attr("data-rect-top", y)
+      .attr("data-rect-height", height)
+      .attr("text-anchor", "middle")
+      .attr("font-family", diagramFontFamily)
+      .attr("font-size", ctx.config.labels.activity.fontSize)
+      .attr("fill", ctx.config.labels.activity.color)
+      .attr("pointer-events", "none")
+      .text(activity.name || "");
+  });
+
+  const labelNodes: ActivityLabelLayoutNode[] = svgElement
+    .selectAll(".activityLabel")
+    .nodes()
+    .map((node: SVGTextElement) => ({
+      node,
+      x: parseFloat(node.getAttribute("x") || "0"),
+      baseY: parseFloat(node.getAttribute("data-base-y") || node.getAttribute("y") || "0"),
+      rectTop: parseFloat(node.getAttribute("data-rect-top") || "0"),
+      rectHeight: parseFloat(node.getAttribute("data-rect-height") || "0"),
+    }))
+    .sort((left: ActivityLabelLayoutNode, right: ActivityLabelLayoutNode) => {
+      if (left.baseY !== right.baseY) {
+        return left.baseY - right.baseY;
+      }
+      return left.x - right.x;
+    });
+
+  labelNodes.forEach(({ node, baseY, rectTop, rectHeight }) => {
+    const rectBottom = rectTop + rectHeight;
+    const selection = svgElement.select(`#${node.id}`);
+
+    selection.attr("y", baseY);
+    let bbox = node.getBBox();
+    const stepDown = Math.max(8, bbox.height * 0.9);
+    let bestBox = {
+      left: bbox.x,
+      right: bbox.x + bbox.width,
+      top: bbox.y,
+      bottom: bbox.y + bbox.height,
+    };
+    let bestY = baseY;
+    let bestOverlapCount = Number.POSITIVE_INFINITY;
+
+    for (let lane = 0; lane < 6; lane += 1) {
+      const candidateY = baseY + lane * stepDown;
+      selection.attr("y", candidateY);
+      bbox = node.getBBox();
+
+      const candidateBox = {
+        left: bbox.x,
+        right: bbox.x + bbox.width,
+        top: bbox.y,
+        bottom: bbox.y + bbox.height,
+      };
+
+      const fitsInsideActivity =
+        candidateBox.top >= rectTop + 2 &&
+        candidateBox.bottom <= rectBottom - 2;
+
+      if (!fitsInsideActivity) {
+        continue;
+      }
+
+      const overlapCount = placedLabelBoxes.filter((placed) => {
+        return (
+          candidateBox.left < placed.right &&
+          candidateBox.right > placed.left &&
+          candidateBox.top < placed.bottom &&
+          candidateBox.bottom > placed.top
+        );
+      }).length;
+
+      if (overlapCount < bestOverlapCount) {
+        bestOverlapCount = overlapCount;
+        bestBox = candidateBox;
+        bestY = candidateY;
+      }
+
+      if (overlapCount === 0) {
+        break;
+      }
+    }
+
+    selection.attr("y", bestY);
+    placedLabelBoxes.push(bestBox);
+  });
 }
 
 export function hoverActivities(ctx: DrawContext) {
@@ -228,6 +371,31 @@ function calculateLengthOfNewActivity(
   collapsedSystems?: ReadonlySet<string>
 ) {
   return calculateActivityBottom(svgElement, activity, individuals, dataset, collapsedSystems);
+}
+
+function getActivityRectMetrics(
+  svgElement: any,
+  activity: Activity,
+  individuals: Individual[],
+  dataset: Model | undefined,
+  collapsedSystems: ReadonlySet<string> | undefined,
+  gap: number,
+  activityVerticalScale: number
+) {
+  const topY = calculateTopPositionOfNewActivity(svgElement, activity, individuals, dataset, collapsedSystems);
+  const bottomY = calculateLengthOfNewActivity(svgElement, activity, individuals, dataset, collapsedSystems);
+  const rawY = topY - gap * 0.3;
+  const rawHeight = bottomY ? bottomY - topY + gap * 0.6 : 0;
+
+  if (rawHeight <= 0 || activityVerticalScale === 1) {
+    return { y: rawY, height: rawHeight };
+  }
+
+  const scaledHeight = rawHeight * activityVerticalScale;
+  return {
+    y: rawY + (rawHeight - scaledHeight) / 2,
+    height: scaledHeight,
+  };
 }
 
 /**

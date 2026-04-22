@@ -161,7 +161,6 @@ export default function Page({ imageMap }: { imageMap: Record<string, string> })
         <title>Editor Guide | Activity Diagram Editor</title>
         <meta name="description" content="Comprehensive guide to the Activity Diagram Editor" />
         <meta name="viewport" content="width=device-width, initial-scale=1" />
-        <link rel="icon" href="favicon.ico" />
       </Head>
       <Container>
         <div className="row">
@@ -178,28 +177,37 @@ export default function Page({ imageMap }: { imageMap: Record<string, string> })
             <Row className="justify-content-center row-cols-1 row-cols-lg-2">
               <Col id="overview" className="amrc-text doc-section-heading">
                 <p className="lead">
-                  The Activity Diagram Editor is a browser-based tool for
-                  creating, viewing and editing 4D activity diagrams.
-                  These diagrams plot activities against time along the
-                  horizontal axis and participating entities along the
-                  vertical axis, showing at a glance which entities are
-                  involved in which activities and when.
+                  The Activity Diagram Editor is a tool for creating, viewing and editing 4D activity diagrams on any device with access to a browser (desktop, tablets and mobile devices).
                 </p>
                 <p className="lead">
-                  This guide walks through every feature of the editor,
-                  from creating your first entity all the way to
-                  customising the diagram layout and exporting results.
-                  Each section below explains a single capability with
-                  step-by-step instructions.</p>
-                  <p className="lead mt-3">
-                    Before starting, you may also want to review the core concepts.
-                  </p>
-                  <Link href="/terminology" className="btn btn-outline-secondary mb-3">
-                    View Terminology Guide
-                  </Link>
-                </Col>
+                  These diagrams plot activities against time along the horizontal axis and participating entities along the vertical axis, showing at a glance which entities are involved in which activities and when.
+                </p>
+                <p className="lead">
+                  This guide walks through every feature of the editor, from creating your first entity all the way to customising the diagram layout and exporting results. Each section below explains a single capability with step-by-step instructions.
+                </p>
+                <p className="lead mt-3">
+                  Before starting, you may also want to review the core concepts.
+                </p>
+                <Link href="/terminology" className="btn btn-outline-secondary mb-3">
+                  View Terminology Guide
+                </Link>
+              </Col>
               <Col className="col-md text-center align-self-center">
                 <ImageComponent src="/manual/overview.png" alt="editor overview" maxWidth="530px" imageMap={imageMap} />
+                <div className="d-flex justify-content-center align-items-start gap-3 flex-wrap mt-3">
+                  <ImageComponent
+                    alt="tablet editor layout"
+                    src="/manual/tablet_editor_layout.png"
+                    maxWidth="280px"
+                    imageMap={imageMap}
+                  />
+                  <ImageComponent
+                    alt="mobile editor layout"
+                    src="/manual/mobile_editor_layout.png"
+                    maxWidth="170px"
+                    imageMap={imageMap}
+                  />
+                </div>
               </Col>
             </Row>
 
@@ -430,7 +438,7 @@ export default function Page({ imageMap }: { imageMap: Record<string, string> })
               <Col>
                 <h4 id="trim-remove-keep" className="doc-section-heading">Trim, Remove and Keep</h4>
                 <p>
-                  Both warning dialogs use three colour-coded action badges
+                  The warning dialog uses three colour-coded action badges
                   to communicate the outcome for each item:
                 </p>
                 <ul>
@@ -827,7 +835,7 @@ export default function Page({ imageMap }: { imageMap: Record<string, string> })
                   entity rows the same height so labels remain readable.
                 </p>
                 <p>
-                  To reset the zoom back to the normal level, right-click on the zoom icon.
+                  To reset the zoom back to the normal level, double-click or right-click on the zoom icon.
                 </p>
               </Col>
               <Col className="col-md text-center align-self-center">

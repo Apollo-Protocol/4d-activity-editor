@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Button, Form } from "react-bootstrap";
 import Dropdown from "react-bootstrap/Dropdown";
 
@@ -38,9 +38,12 @@ const DiagramPersistence = (props: Props) => {
     className = "",
     buttonVariant = "primary",
   } = props;
+  const isEmptyPersistence = className.split(/\s+/).includes("empty-persistence");
   const [uploadText, setUploadText] = useState("");
   const [refDataOnly, setRefDataOnly] = useState(false);
   const [examples, setExamples] = useState<Example[]>([]);
+  const [showMobileExampleMenu, setShowMobileExampleMenu] = useState(false);
+  const mobileExampleMenuRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
     fetch("examples/index.json")
@@ -54,6 +57,34 @@ const DiagramPersistence = (props: Props) => {
       .then(json => {
         setExamples(json);
       });
+  }, []);
+
+  useEffect(() => {
+    function handleOutsidePointer(event: MouseEvent | TouchEvent) {
+      const target = event.target as Node | null;
+      if (!mobileExampleMenuRef.current || !target) {
+        return;
+      }
+      if (!mobileExampleMenuRef.current.contains(target)) {
+        setShowMobileExampleMenu(false);
+      }
+    }
+
+    function handleEsc(event: KeyboardEvent) {
+      if (event.key === "Escape") {
+        setShowMobileExampleMenu(false);
+      }
+    }
+
+    document.addEventListener("mousedown", handleOutsidePointer);
+    document.addEventListener("touchstart", handleOutsidePointer);
+    document.addEventListener("keydown", handleEsc);
+
+    return () => {
+      document.removeEventListener("mousedown", handleOutsidePointer);
+      document.removeEventListener("touchstart", handleOutsidePointer);
+      document.removeEventListener("keydown", handleEsc);
+    };
   }, []);
 
   function downloadTtl() {
@@ -98,13 +129,23 @@ const DiagramPersistence = (props: Props) => {
     const ttl = await res.text();
     const model = load(ttl);
     setDataset(model);
+    setShowMobileExampleMenu(false);
   }
 
   return (
     <div className={`d-flex flex-wrap align-items-center justify-content-center gap-2 mobile-contents ${className}`.trim()}>
       {/* Load Example dropdown */}
-      <Dropdown className="toolbar-dropdown" align="start">
-        <Dropdown.Toggle id="load-example-toggle" variant={buttonVariant}>
+      <Dropdown
+        className={`toolbar-dropdown load-example-dropdown load-example-desktop-dropdown ${
+          isEmptyPersistence ? "" : "d-none d-lg-flex"
+        }`.trim()}
+        align="start"
+      >
+        <Dropdown.Toggle
+          id="load-example-toggle"
+          variant={buttonVariant}
+          className="toolbar-dropdown-toggle load-example-dropdown-toggle"
+        >
           Load example
         </Dropdown.Toggle>
         <Dropdown.Menu renderOnMount>
@@ -115,6 +156,43 @@ const DiagramPersistence = (props: Props) => {
           ))}
         </Dropdown.Menu>
       </Dropdown>
+
+      {!isEmptyPersistence ? (
+        <div
+          ref={mobileExampleMenuRef}
+          className="toolbar-dropdown load-example-dropdown load-example-mobile-dropdown d-flex d-lg-none"
+        >
+          <button
+            id="load-example-toggle-mobile"
+            type="button"
+            className={`btn btn-${buttonVariant} load-example-mobile-toggle`}
+            onClick={() => setShowMobileExampleMenu((open) => !open)}
+            aria-haspopup="menu"
+            aria-expanded={showMobileExampleMenu}
+          >
+            <span className="load-example-mobile-label">Load example</span>
+            <span className="load-example-mobile-caret" aria-hidden="true" />
+          </button>
+          <div
+            className={`dropdown-menu load-example-mobile-menu ${showMobileExampleMenu ? "show" : ""}`.trim()}
+            role="menu"
+            aria-labelledby="load-example-toggle-mobile"
+          >
+            {examples.map((e) => (
+              <button
+                key={e.path}
+                type="button"
+                className="dropdown-item"
+                onClick={() => {
+                  loadExample(e.path);
+                }}
+              >
+                {e.name}
+              </button>
+            ))}
+          </div>
+        </div>
+      ) : null}
 
       {/* TTL Load/Save buttons */}
       <Button variant={buttonVariant} onClick={uploadTtl}>
@@ -130,7 +208,7 @@ const DiagramPersistence = (props: Props) => {
       {showReferenceToggle ? (
         <button
           type="button"
-          className={`btn btn-${buttonVariant} d-inline-flex align-items-center`}
+          className={`btn btn-${buttonVariant} d-inline-flex align-items-center reference-toggle`}
           style={{
             lineHeight: 1.5,
             padding: "0.375rem 0.75rem",
@@ -142,15 +220,16 @@ const DiagramPersistence = (props: Props) => {
             id="refDataOnlyCheck"
             checked={refDataOnly}
             onChange={() => setRefDataOnly(!refDataOnly)}
+            className="reference-toggle__check"
             style={{
               margin: 0,
               marginRight: "0.35rem",
             }}
           />
           <span
+            className="reference-toggle__label"
             style={{
               fontWeight: 400,
-              whiteSpace: "nowrap",
             }}
           >
             Reference Types only

@@ -17,6 +17,7 @@ import {
   clickActivities,
   drawActivities,
   hoverActivities,
+  labelActivities,
 } from "./DrawActivities";
 import { clickParticipations, drawParticipations } from "./DrawParticipations";
 import * as d3 from "d3";
@@ -48,7 +49,8 @@ export function drawActivityDiagram(
   rightClickActivity: (a: Activity) => void,
   rightClickParticipation: (a: Activity, p: Participation) => void,
   hideNonParticipating: boolean = false,
-  collapsedSystems?: ReadonlySet<string>
+  collapsedSystems?: ReadonlySet<string>,
+  showActivityLabels: boolean = false
 ) {
   //Prepare Model data into arrays
   let individualsArray: Individual[] = [];
@@ -155,6 +157,7 @@ export function drawActivityDiagram(
     activities: activitiesArray,
     individuals: individualsArray,
     collapsedSystems,
+    showActivityLabels,
   };
 
   drawIndividuals(drawCtx);
@@ -166,6 +169,7 @@ export function drawActivityDiagram(
   hoverActivities(drawCtx);
   clickActivities(drawCtx, clickActivity, rightClickActivity);
   drawParticipations(drawCtx);
+  labelActivities(drawCtx);
   clickParticipations(drawCtx, clickParticipation, rightClickParticipation);
   drawAxisArrows(drawCtx, height);
   let plot: Plot = {

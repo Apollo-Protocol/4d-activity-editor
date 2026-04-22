@@ -3,6 +3,7 @@ import "@/styles/globals.css";
 import "@/styles/sortableList.css";
 import type { AppProps } from "next/app";
 import { useEffect, useState } from "react";
+import { useRouter } from "next/router";
 import Navbar from "@/components/NavBar";
 import Footer from "@/components/Footer";
 import Breadcrumbs from "@/components/Breadcrumbs";
@@ -16,6 +17,65 @@ function stripHash(url: string) {
 
 export default function App({ Component, pageProps }: AppProps) {
   const [showAppearanceModal, setShowAppearanceModal] = useState(false);
+  const [navHidden, setNavHidden] = useState(false);
+  const router = useRouter();
+
+  useEffect(() => {
+    const isEditor = router.pathname === "/editor";
+    if (!isEditor) {
+      setNavHidden(false);
+      return;
+    }
+
+    let lastY = typeof window !== "undefined" ? window.scrollY : 0;
+    let ignoreUntil = 0;
+    let isHidden = false;
+
+    const handleScroll = () => {
+      if (window.innerWidth > 1599.98) {
+        setNavHidden(false);
+        isHidden = false;
+        return;
+      }
+      const y = window.scrollY;
+      const now = Date.now();
+
+      if (now < ignoreUntil) {
+        lastY = y;
+        return;
+      }
+
+      if (y > lastY + 5 && y > 60) {
+        if (!isHidden) {
+          isHidden = true;
+          setNavHidden(true);
+          ignoreUntil = now + 400;
+        }
+      } else if (y < lastY - 5) {
+        if (isHidden) {
+          isHidden = false;
+          setNavHidden(false);
+          ignoreUntil = now + 400;
+        }
+      }
+      lastY = y;
+    };
+
+    const handleResize = () => {
+      if (window.innerWidth > 1599.98) {
+        setNavHidden(false);
+        isHidden = false;
+      }
+    };
+
+    window.addEventListener("scroll", handleScroll, { passive: true });
+    window.addEventListener("resize", handleResize, { passive: true });
+    return () => {
+      window.removeEventListener("scroll", handleScroll);
+      window.removeEventListener("resize", handleResize);
+      setNavHidden(false);
+    };
+  }, [router.pathname]);
 
   useEffect(() => {
     const stored = localStorage.getItem("app-accent-color");
@@ -66,7 +126,7 @@ export default function App({ Component, pageProps }: AppProps) {
   return (
     <ThemeProvider attribute="data-bs-theme">
       <div
-        className="app-shell"
+        className={`app-shell${navHidden ? " nav-scroll-hidden" : ""}`}
         style={{
           display: "flex",
           flexDirection: "column",
@@ -83,12 +143,14 @@ export default function App({ Component, pageProps }: AppProps) {
             display: "flex",
             flexDirection: "column",
             padding: "1.5rem",
-            paddingTop: "100px",
+            paddingTop: navHidden ? "0" : "100px",
+            transition: "padding-top 0.3s ease",
           }}
         >
           <Breadcrumbs />
           <Component {...pageProps} />
         </main>
+        <div id="app-overlay-root" />
         <AppearanceModal show={showAppearanceModal} setShow={setShowAppearanceModal} />
         <Footer />
       </div>

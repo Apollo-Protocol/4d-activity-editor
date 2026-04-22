@@ -8,6 +8,10 @@ import Tabs from "react-bootstrap/Tabs";
 import Tab from "react-bootstrap/Tab";
 import DraggableModalDialog, { shouldSuppressModalHide } from "@/modals/DraggableModalDialog";
 import { useModalAnimation } from "@/utils/useModalAnimation";
+import {
+  getPersistedDiagramConfig,
+  getResponsiveDiagramConfig,
+} from "@/utils/responsiveDiagramConfig";
 
 import { config, ConfigData } from "@/diagram/config";
 
@@ -330,13 +334,22 @@ const SetConfig = (props: Props) => {
     handleClose();
   };
   const handleShow = () => {
-    setInputs(resolveConfigDataForForm(normalizeConfigData(configData)));
+    const normalizedConfig = normalizeConfigData(configData);
+    const viewportWidth =
+      typeof window !== "undefined" ? window.innerWidth : Number.POSITIVE_INFINITY;
+    const effectiveConfig = getResponsiveDiagramConfig(normalizedConfig, viewportWidth);
+
+    setInputs(resolveConfigDataForForm(effectiveConfig));
     setSelectedColorPath(COLOR_FIELD_OPTIONS[0].path);
     setSelectedColorIndex(0);
   };
   const handleAdd = (event: any) => {
     event.preventDefault();
-    setConfigData(inputs);
+    const viewportWidth =
+      typeof window !== "undefined" ? window.innerWidth : Number.POSITIVE_INFINITY;
+    const persistedConfig = getPersistedDiagramConfig(inputs, configData, viewportWidth);
+
+    setConfigData(persistedConfig);
     handleClose();
   };
   const handleReset = () => {

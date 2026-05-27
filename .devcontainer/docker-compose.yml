@@ -1,0 +1,12 @@
+services:
+  react-dev:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    command: sleep infinity
+    volumes:
+      - ..:/workspace:cached
+      - /workspace/editor-app/node_modules
+      - /workspace/editor-app/.next
+    user: vscode
+    working_dir: /workspace
